@@ -1,0 +1,130 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 210 11% 98%; /* #F5F7FA */
+  --foreground: 210 14% 4%; /* #0F172A */
+  --muted: 210 14% 95%; /* #F1F5F9 */
+  --muted-foreground: 210 8% 45%; /* #64748B */
+  --popover: 0 0% 100%; /* #FFFFFF */
+  --popover-foreground: 210 14% 4%; /* #0F172A */
+  --card: 0 0% 100%; /* #FFFFFF */
+  --card-foreground: 210 14% 4%; /* #0F172A */
+  --border: 210 16% 90%; /* #E2E8F0 */
+  --input: 210 16% 90%; /* #E2E8F0 */
+  --primary: 217 91% 60%; /* #3B82F6 */
+  --primary-foreground: 210 100% 98%; /* #F8FAFC */
+  --secondary: 210 11% 96%; /* #F1F5F9 */
+  --secondary-foreground: 210 14% 11%; /* #1E293B */
+  --accent: 210 11% 96%; /* #F1F5F9 */
+  --accent-foreground: 210 14% 11%; /* #1E293B */
+  --destructive: 0 84% 60%; /* #EF4444 */
+  --destructive-foreground: 0 0% 98%; /* #FEFEFE */
+  --ring: 217 91% 60%; /* #3B82F6 */
+  --radius: 0.5rem;
+  --sidebar-background: 0 0% 100%; /* #FFFFFF */
+  --sidebar-foreground: 210 14% 4%; /* #0F172A */
+  --sidebar-primary: 217 91% 60%; /* #3B82F6 */
+  --sidebar-primary-foreground: 210 100% 98%; /* #F8FAFC */
+  --sidebar-accent: 210 11% 96%; /* #F1F5F9 */
+  --sidebar-accent-foreground: 210 14% 11%; /* #1E293B */
+  --sidebar-border: 210 16% 90%; /* #E2E8F0 */
+  --sidebar-ring: 217 91% 60%; /* #3B82F6 */
+}
+
+.dark {
+  --background: 220 14% 6%; /* #0F172A */
+  --foreground: 210 20% 98%; /* #F8FAFC */
+  --muted: 220 13% 14%; /* #1E293B */
+  --muted-foreground: 210 16% 60%; /* #94A3B8 */
+  --popover: 220 14% 6%; /* #0F172A */
+  --popover-foreground: 210 20% 98%; /* #F8FAFC */
+  --card: 220 14% 6%; /* #0F172A */
+  --card-foreground: 210 20% 98%; /* #F8FAFC */
+  --border: 220 13% 18%; /* #334155 */
+  --input: 220 13% 18%; /* #334155 */
+  --primary: 217 91% 60%; /* #3B82F6 */
+  --primary-foreground: 210 100% 98%; /* #F8FAFC */
+  --secondary: 220 13% 14%; /* #1E293B */
+  --secondary-foreground: 210 20% 98%; /* #F8FAFC */
+  --accent: 220 13% 14%; /* #1E293B */
+  --accent-foreground: 210 20% 98%; /* #F8FAFC */
+  --destructive: 0 62% 50%; /* #DC2626 */
+  --destructive-foreground: 210 20% 98%; /* #F8FAFC */
+  --ring: 217 91% 60%; /* #3B82F6 */
+  --sidebar-background: 220 14% 6%; /* #0F172A */
+  --sidebar-foreground: 210 20% 98%; /* #F8FAFC */
+  --sidebar-primary: 217 91% 60%; /* #3B82F6 */
+  --sidebar-primary-foreground: 210 100% 98%; /* #F8FAFC */
+  --sidebar-accent: 220 13% 14%; /* #1E293B */
+  --sidebar-accent-foreground: 210 20% 98%; /* #F8FAFC */
+  --sidebar-border: 220 13% 18%; /* #334155 */
+  --sidebar-ring: 217 91% 60%; /* #3B82F6 */
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+/* QR Code styling */
+.qr-code canvas {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Loading animations */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Fade animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Hover effects */
+.hover\:scale-105:hover {
+  transform: scale(1.05);
+}
+
+/* Custom scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
+}
