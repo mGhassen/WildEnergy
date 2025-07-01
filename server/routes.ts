@@ -71,49 +71,119 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Simple login endpoint
+  // Supabase login endpoint
   console.log('Registering route: POST /api/auth/login');
-  // Authentication endpoint
   app.post('/api/auth/login', async (req, res) => {
     try {
       const { email, password } = req.body;
 
-      // Check development credentials
-      if ((email === 'admin@wildenergy.gym' && password === 'admin123') ||
-        (email === 'member@wildenergy.gym' && password === 'member123')) {
+      // Sign in with Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-        const user = await storage.getUserByEmail(email);
-        if (user) {
-          (req.session as CustomSession).user = {
-            email: user.email,
-            id: user.id,
-            isAdmin: user.isAdmin,
-          };
-          console.log('Login successful for:', email);
-          return res.json({ success: true, user });
-        }
+      if (authError) {
+        console.error('Authentication error:', authError);
+        return res.status(401).json({ error: 'Invalid credentials' });
       }
 
-      return res.status(401).json({ error: 'Invalid credentials' });
+      // Get user profile from your users table
+      const { data: user, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('auth_user_id', authData.user.id)
+        .single();
+
+      if (userError || !user) {
+        console.error('User not found in database:', userError);
+        return res.status(401).json({ error: 'User not found' });
+      }
+
+      // Check if user is active
+      if (user.status !== 'active') {
+        return res.status(403).json({ 
+          error: 'Account not active',
+          status: user.status || 'inactive'
+        });
+      }
+
+      // Return the session tokens and user data
+      res.json({
+        access_token: authData.session.access_token,
+        refresh_token: authData.session.refresh_token,
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.first_name,
+          lastName: user.last_name,
+          isAdmin: user.is_admin,
+          // Add other user fields as needed
+        },
+      });
     } catch (error) {
       console.error('Login error:', error);
       res.status(500).json({ error: 'Login failed' });
     }
   });
 
-  // Get current user
-  console.log('Registering route: GET /api/auth/user');
-  app.get('/api/auth/user', async (req: any, res) => {
+  // Get current user session
+  app.get('/api/auth/session', async (req, res) => {
     try {
-      const user = (req.session as CustomSession).user;
-      if (user) {
-        console.log('Returning session user:', user.email);
-        return res.json(user);
+      // Get the auth token from the request headers
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: 'No authorization token' });
       }
-      return res.status(401).json({ error: 'Not authenticated' });
+
+      const token = authHeader.split(' ')[1];
+      if (!token) {
+        return res.status(401).json({ error: 'No token provided' });
+      }
+
+      // Verify the token with Supabase
+      const { data: { user: authUser }, error } = await supabase.auth.getUser(token);
+      
+      if (error || !authUser) {
+        return res.status(401).json({ error: 'Invalid or expired token' });
+      }
+
+      // Get user profile
+      const { data: user, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('auth_user_id', authUser.id)
+        .single();
+
+      if (userError || !user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      res.json({
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.first_name,
+          lastName: user.last_name,
+          isAdmin: user.is_admin,
+          // Add other user fields as needed
+        }
+      });
     } catch (error) {
-      console.error('Error retrieving user:', error);
-      res.status(500).json({ error: 'Failed to retrieve user' });
+      console.error('Session error:', error);
+      res.status(500).json({ error: 'Failed to verify session' });
+    }
+  });
+
+  // Logout endpoint
+  app.post('/api/auth/logout', async (req, res) => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Logout error:', error);
+      res.status(500).json({ error: 'Logout failed' });
     }
   });
 
