@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertPlanSchema } from "@shared/schema";
-import { apiRequest } from "@/lib/queryClient";
+// Removed broken apiRequest imports
 import { Plus, Search, Edit, Trash2, DollarSign, Clock, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
@@ -44,8 +44,16 @@ export default function AdminPlans() {
 
   const createPlanMutation = useMutation({
     mutationFn: async (data: PlanFormData) => {
-      const response = await apiRequest("POST", "/api/plans", data);
-      return response.json();
+      const response = await fetch("/api/plans", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/plans"] });
@@ -64,8 +72,16 @@ export default function AdminPlans() {
 
   const updatePlanMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Partial<PlanFormData> }) => {
-      const response = await apiRequest("PUT", `/api/plans/${id}`, data);
-      return response.json();
+      const response = await fetch(`/api/plans/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/plans"] });
@@ -85,7 +101,13 @@ export default function AdminPlans() {
 
   const deletePlanMutation = useMutation({
     mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/plans/${id}`);
+      const response = await fetch(`/api/plans/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/plans"] });

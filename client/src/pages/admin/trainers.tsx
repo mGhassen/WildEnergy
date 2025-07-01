@@ -18,9 +18,7 @@ import { getInitials, formatDate } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 
-const trainerFormSchema = insertTrainerSchema.extend({
-  specialties: z.array(z.string()).optional(),
-});
+const trainerFormSchema = insertTrainerSchema;
 
 type TrainerFormData = z.infer<typeof trainerFormSchema>;
 
@@ -50,7 +48,7 @@ export default function AdminTrainers() {
   const createTrainerMutation = useMutation({
     mutationFn: async (data: TrainerFormData) => {
       const response = await apiRequest("POST", "/api/trainers", data);
-      return response.json();
+      return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/trainers"] });
@@ -70,7 +68,7 @@ export default function AdminTrainers() {
   const updateTrainerMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Partial<TrainerFormData> }) => {
       const response = await apiRequest("PUT", `/api/trainers/${id}`, data);
-      return response.json();
+      return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/trainers"] });
@@ -90,13 +88,14 @@ export default function AdminTrainers() {
 
   const deleteTrainerMutation = useMutation({
     mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/trainers/${id}`);
+      const response = await apiRequest("DELETE", `/api/trainers/${id}`);
+      return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/trainers"] });
       toast({ title: "Trainer deleted successfully" });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast({ 
         title: "Error deleting trainer", 
         description: error.message,
@@ -105,11 +104,11 @@ export default function AdminTrainers() {
     },
   });
 
-  const filteredTrainers = trainers?.filter((trainer: any) =>
+  const filteredTrainers = Array.isArray(trainers) ? trainers.filter((trainer: any) =>
     `${trainer.firstName} ${trainer.lastName} ${trainer.email}`
       .toLowerCase()
       .includes(searchTerm.toLowerCase())
-  ) || [];
+  ) : [];
 
   const handleSubmit = (data: TrainerFormData) => {
     if (editingTrainer) {

@@ -107,32 +107,82 @@ export default function ScheduleCalendar({
     }
   };
 
+  const isScheduleVisibleOnDate = (schedule: any, targetDate: Date): boolean => {
+    // Handle "once" schedules - only show on exact date
+    if (schedule.repetitionType === 'once') {
+      if (schedule.scheduleDate) {
+        const scheduleDate = new Date(schedule.scheduleDate);
+        return scheduleDate.toDateString() === targetDate.toDateString();
+      }
+      return false;
+    }
+    
+    // Handle repeating schedules - these should have been created as individual instances
+    // So just check if the schedule date matches the target date
+    if (schedule.scheduleDate) {
+      const scheduleDate = new Date(schedule.scheduleDate);
+      return scheduleDate.toDateString() === targetDate.toDateString();
+    }
+    
+    return false;
+  };
+
   const getVisibleSchedules = () => {
+    if (!schedules || schedules.length === 0) {
+      console.log("No schedules available");
+      return [];
+    }
+
+    console.log("All schedules:", schedules);
+    console.log("Current date:", currentDate, "View mode:", viewMode);
+
     if (viewMode === "daily") {
-      const dateStr = currentDate.toISOString().split('T')[0];
-      return schedules.filter(schedule => {
-        const scheduleDate = new Date(schedule.scheduleDate).toISOString().split('T')[0];
-        return scheduleDate === dateStr;
-      });
-    } else if (viewMode === "weekly") {
+      // For daily view, show only schedules for the exact current date
+      const filtered = schedules.filter(schedule => 
+        isScheduleVisibleOnDate(schedule, currentDate)
+      );
+      console.log("Daily filtered schedules:", filtered);
+      return filtered;
+    }
+    
+    if (viewMode === "weekly") {
+      // For weekly view, show schedules for any day in the current week
       const startOfWeek = new Date(currentDate);
       startOfWeek.setDate(currentDate.getDate() - currentDate.getDay());
+      startOfWeek.setHours(0, 0, 0, 0);
+      
       const endOfWeek = new Date(startOfWeek);
       endOfWeek.setDate(startOfWeek.getDate() + 6);
+      endOfWeek.setHours(23, 59, 59, 999);
       
-      return schedules.filter(schedule => {
-        const scheduleDate = new Date(schedule.scheduleDate);
-        return scheduleDate >= startOfWeek && scheduleDate <= endOfWeek;
+      const filtered = schedules.filter(schedule => {
+        if (schedule.scheduleDate) {
+          const scheduleDate = new Date(schedule.scheduleDate);
+          return scheduleDate >= startOfWeek && scheduleDate <= endOfWeek;
+        }
+        return false;
       });
-    } else {
+      console.log("Weekly filtered schedules:", filtered);
+      return filtered;
+    }
+    
+    if (viewMode === "monthly") {
+      // For monthly view, show schedules for any day in the current month
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth();
       
-      return schedules.filter(schedule => {
-        const scheduleDate = new Date(schedule.scheduleDate);
-        return scheduleDate.getFullYear() === year && scheduleDate.getMonth() === month;
+      const filtered = schedules.filter(schedule => {
+        if (schedule.scheduleDate) {
+          const scheduleDate = new Date(schedule.scheduleDate);
+          return scheduleDate.getFullYear() === year && scheduleDate.getMonth() === month;
+        }
+        return false;
       });
+      console.log("Monthly filtered schedules:", filtered);
+      return filtered;
     }
+
+    return [];
   };
 
   const renderDailyView = () => {
@@ -205,21 +255,25 @@ export default function ScheduleCalendar({
         {weekDays.map((day, dayIndex) => {
           const dayStr = day.toISOString().split('T')[0];
           const daySchedules = schedules.filter(schedule => {
+            // For schedules without scheduleDate, use dayOfWeek
+            if (!schedule.scheduleDate) {
+              return schedule.dayOfWeek === day.getDay();
+            }
             const scheduleDate = new Date(schedule.scheduleDate).toISOString().split('T')[0];
             return scheduleDate === dayStr;
           });
           
-          const dayName = day.toLocaleDateString('en-US', { weekday: 'short' });
+          const dayName = day.toLocaleDateString('fr-FR', { weekday: 'short' });
           const dayNumber = day.getDate();
           
           return (
-            <Card key={dayIndex} className="min-h-48">
+            <Card key={dayIndex} className="h-96 flex flex-col">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium">
                   {dayName} {dayNumber}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-2 space-y-2">
+              <CardContent className="p-2 space-y-2 flex-1 overflow-y-auto">
                 {daySchedules.map((schedule) => {
                   const registeredMembers = getScheduleRegistrations(schedule.id);
                   const attendedMembers = getScheduleCheckins(schedule.id);
@@ -262,11 +316,10 @@ export default function ScheduleCalendar({
         const date = new Date(currentWeekDate);
         const dateStr = date.toISOString().split('T')[0];
         
-        // Filter schedules by actual scheduleDate instead of dayOfWeek
-        const daySchedules = schedules.filter(schedule => {
-          const scheduleDate = new Date(schedule.scheduleDate).toISOString().split('T')[0];
-          return scheduleDate === dateStr;
-        });
+        // Filter schedules for this specific day
+        const daySchedules = schedules.filter(schedule => 
+          isScheduleVisibleOnDate(schedule, date)
+        );
         
         const isCurrentMonth = date.getMonth() === month;
         
@@ -286,7 +339,7 @@ export default function ScheduleCalendar({
     return (
       <div className="space-y-2">
         <div className="grid grid-cols-7 gap-1 mb-2">
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+          {['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'].map(day => (
             <div key={day} className="p-2 text-center font-medium text-muted-foreground">
               {day}
             </div>

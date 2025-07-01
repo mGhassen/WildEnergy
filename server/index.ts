@@ -1,13 +1,36 @@
+import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
+// Validate required environment variables
+const requiredEnvVars = [
+  'SUPABASE_URL',
+  'SUPABASE_ANON_KEY',
+  'SUPABASE_SERVICE_ROLE_KEY'
+];
+
+for (const envVar of requiredEnvVars) {
+  if (!process.env[envVar]) {
+    console.error(`Error: Missing required environment variable: ${envVar}`);
+    process.exit(1);
+  }
+}
+
 const app = express();
+
+// Add logging to capture middleware execution details
+app.use((req, res, next) => {
+  console.log(`Incoming request: ${req.method} ${req.url}`);
+  next();
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 // Session middleware
+console.log('Setting up session middleware');
 app.use(session({
   secret: process.env.SESSION_SECRET || 'gym-management-secret-key',
   resave: false,
@@ -50,6 +73,7 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  console.log('Registering routes');
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -64,15 +88,17 @@ app.use((req, res, next) => {
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
   if (app.get("env") === "development") {
+    console.log('Setting up Vite');
     await setupVite(app, server);
   } else {
+    console.log('Serving static files');
     serveStatic(app);
   }
 
   // ALWAYS serve the app on port 5000
   // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = 5000;
+  // Using port 3000 as 5000 is in use
+  const port = 3000;
   server.listen({
     port,
     host: "0.0.0.0",

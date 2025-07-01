@@ -17,7 +17,11 @@ import { getInitials, formatDate } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 
-const subscriptionFormSchema = insertSubscriptionSchema;
+const subscriptionFormSchema = insertSubscriptionSchema.extend({
+  planId: z.string().transform((val) => parseInt(val)),
+}).omit({ userId: true }).extend({
+  memberId: z.string().min(1, "Member is required"),
+});
 type SubscriptionFormData = z.infer<typeof subscriptionFormSchema>;
 
 export default function AdminSubscriptions() {
@@ -38,22 +42,20 @@ export default function AdminSubscriptions() {
     queryKey: ["/api/plans"],
   });
 
-  const form = useForm<SubscriptionFormData>({
+  const form = useForm<any>({
     resolver: zodResolver(subscriptionFormSchema),
     defaultValues: {
-      memberId: 0,
-      planId: 0,
+      memberId: "",
+      planId: "",
       startDate: new Date(),
       endDate: new Date(),
       sessionsRemaining: 0,
-      isActive: true,
     },
   });
 
   const createSubscriptionMutation = useMutation({
-    mutationFn: async (data: SubscriptionFormData) => {
-      const response = await apiRequest("POST", "/api/subscriptions", data);
-      return response.json();
+    mutationFn: async (data: any) => {
+      return await apiRequest("POST", "/api/subscriptions", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/subscriptions"] });
@@ -76,17 +78,43 @@ export default function AdminSubscriptions() {
       .includes(searchTerm.toLowerCase())
   ) || [];
 
-  const handleSubmit = (data: SubscriptionFormData) => {
-    // Calculate end date based on plan duration
-    const selectedPlan = plans?.find((plan: any) => plan.id === data.planId);
-    if (selectedPlan) {
-      const endDate = new Date(data.startDate);
-      endDate.setDate(endDate.getDate() + selectedPlan.durationDays);
-      data.endDate = endDate;
-      data.sessionsRemaining = selectedPlan.sessionsIncluded;
+  const handleSubmit = (data: any) => {
+    // Validate required fields
+    if (!data.memberId || !data.planId) {
+      toast({
+        title: "Validation Error",
+        description: "Please select both member and plan",
+        variant: "destructive"
+      });
+      return;
     }
     
-    createSubscriptionMutation.mutate(data);
+    // Calculate end date based on plan duration
+    const selectedPlan = plans?.find((plan: any) => plan.id === parseInt(data.planId));
+    if (!selectedPlan) {
+      toast({
+        title: "Error",
+        description: "Selected plan not found",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    const endDate = new Date(data.startDate);
+    endDate.setDate(endDate.getDate() + selectedPlan.durationDays);
+    
+    // Convert to the correct format for the API
+    const submitData = {
+      userId: data.memberId,
+      planId: selectedPlan.id,
+      startDate: data.startDate instanceof Date ? data.startDate.toISOString() : data.startDate,
+      endDate: endDate.toISOString(),
+      sessionsRemaining: selectedPlan.sessionsIncluded,
+      status: 'active',
+      paymentStatus: 'pending'
+    };
+    
+    createSubscriptionMutation.mutate(submitData);
   };
 
   const openCreateModal = () => {
@@ -146,15 +174,15 @@ export default function AdminSubscriptions() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Member</FormLabel>
-                      <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
+                      <Select onValueChange={(value) => field.onChange(value)} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select member" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {members?.map((member: any) => (
-                            <SelectItem key={member.id} value={member.id.toString()}>
+                          {members?.filter((member: any) => member.status === 'active').map((member: any) => (
+                            <SelectItem key={member.id} value={member.id}>
                               {member.firstName} {member.lastName} ({member.email})
                             </SelectItem>
                           ))}
@@ -170,7 +198,7 @@ export default function AdminSubscriptions() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Plan</FormLabel>
-                      <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
+                      <Select onValueChange={(value) => field.onChange(value)} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select plan" />
@@ -207,8 +235,12 @@ export default function AdminSubscriptions() {
                   )}
                 />
                 <DialogFooter>
-                  <Button type="submit" disabled={createSubscriptionMutation.isPending}>
-                    Create Subscription
+                  <Button 
+                    type="submit" 
+                    disabled={createSubscriptionMutation.isPending}
+
+                  >
+                    {createSubscriptionMutation.isPending ? "Creating..." : "Create Subscription"}
                   </Button>
                 </DialogFooter>
               </form>

@@ -1,72 +1,203 @@
-import type { Express, Request, Response, NextFunction } from "express";
+import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import bcrypt from "bcrypt";
-import { insertMemberSchema, insertTrainerSchema, insertPlanSchema, insertClassSchema, insertScheduleSchema, insertSubscriptionSchema, insertClassRegistrationSchema } from "@shared/schema";
-import { z } from "zod";
+import { supabase } from "./supabase";
+import session from 'express-session';
 
-declare module 'express-session' {
-  interface Session {
-    userId?: number;
-    username?: string;
-    role?: string;
-  }
-}
-
-interface AuthenticatedRequest extends Request {
-  user?: { id: number; username: string; role: string };
-}
-
-// Session middleware
-function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  if (!req.session?.userId) {
-    return res.status(401).json({ error: "Authentication required" });
-  }
-  next();
-}
-
-function requireAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  if (!req.session?.userId || req.session.role !== 'admin') {
-    return res.status(403).json({ error: "Admin access required" });
-  }
-  next();
-}
-
-// Helper function to mark absent registrations
-async function markAbsentRegistrations(storage: any, registrations: any[]) {
-  const now = new Date();
-  
-  for (const registration of registrations) {
-    if (registration.status === 'registered') {
-      // Create class end time
-      const classDate = new Date(registration.schedule.scheduleDate);
-      const [hours, minutes] = registration.schedule.startTime.split(':');
-      classDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-      
-      // Add class duration to get end time
-      const classEndTime = new Date(classDate.getTime() + (registration.schedule.class.duration * 60 * 1000));
-      
-      // If class has ended and no check-in exists, mark as absent
-      if (now > classEndTime) {
-        const checkins = await storage.getMemberCheckins(registration.memberId);
-        const hasCheckedIn = checkins.some((checkin: any) => 
-          checkin.registrationId === registration.id
-        );
-        
-        if (!hasCheckedIn) {
-          // Mark as absent and don't refund session
-          await storage.updateClassRegistration(registration.id, { status: 'absent' });
-        }
-      }
-    }
-  }
+// Extend the session type to include user property
+interface CustomSession extends session.Session {
+  user?: {
+    email: string;
+    id: string;
+    isAdmin: boolean;
+  };
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // User management routes (Admin only)
-  app.get("/api/users", requireAdmin, async (req: AuthenticatedRequest, res) => {
+  // Health check endpoint
+  app.get('/api/health', async (req, res) => {
+    console.log('=== Health Check Started ===');
+    console.log('Request from IP:', req.ip);
+    console.log('Supabase URL:', process.env.SUPABASE_URL || 'Not Set');
+    
     try {
-      const users = await storage.getUsersWithMembers();
+      console.log('Testing Supabase connection...');
+      
+      // Test Supabase connection by making a simple request
+      const { data: authData, error: authError } = await supabase.auth.getSession();
+      
+      if (authError) {
+        console.error('Supabase auth test failed:', authError);
+        // If auth fails, try a direct REST API call to Supabase
+        const response = await fetch(`${process.env.SUPABASE_URL}/rest/v1/`, {
+          headers: {
+            'apikey': process.env.SUPABASE_ANON_KEY || '',
+            'Authorization': `Bearer ${process.env.SUPABASE_ANON_KEY}`
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Supabase API returned ${response.status}: ${response.statusText}`);
+        }
+      }
+      
+      console.log('Successfully connected to Supabase');
+      
+      res.json({ 
+        status: 'ok',
+        database: 'connected',
+        timestamp: new Date().toISOString(),
+        supabaseConnected: true
+      });
+    } catch (error: any) {
+      console.error('=== Health Check Failed ===');
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+        name: error.name,
+        stack: error.stack
+      });
+      
+      res.status(500).json({ 
+        status: 'error',
+        error: 'Database connection failed',
+        details: error.message,
+        code: error.code
+      });
+    } finally {
+      console.log('=== Health Check Completed ===\n');
+    }
+  });
+
+  // Simple login endpoint
+  console.log('Registering route: POST /api/auth/login');
+  // Authentication endpoint
+  app.post('/api/auth/login', async (req, res) => {
+    try {
+      const { email, password } = req.body;
+
+      // Check development credentials
+      if ((email === 'admin@wildenergy.gym' && password === 'admin123') ||
+        (email === 'member@wildenergy.gym' && password === 'member123')) {
+
+        const user = await storage.getUserByEmail(email);
+        if (user) {
+          (req.session as CustomSession).user = {
+            email: user.email,
+            id: user.id,
+            isAdmin: user.isAdmin,
+          };
+          console.log('Login successful for:', email);
+          return res.json({ success: true, user });
+        }
+      }
+
+      return res.status(401).json({ error: 'Invalid credentials' });
+    } catch (error) {
+      console.error('Login error:', error);
+      res.status(500).json({ error: 'Login failed' });
+    }
+  });
+
+  // Get current user
+  console.log('Registering route: GET /api/auth/user');
+  app.get('/api/auth/user', async (req: any, res) => {
+    try {
+      const user = (req.session as CustomSession).user;
+      if (user) {
+        console.log('Returning session user:', user.email);
+        return res.json(user);
+      }
+      return res.status(401).json({ error: 'Not authenticated' });
+    } catch (error) {
+      console.error('Error retrieving user:', error);
+      res.status(500).json({ error: 'Failed to retrieve user' });
+    }
+  });
+
+  // Logout
+  console.log('Registering route: POST /api/auth/logout');
+  app.post('/api/auth/logout', async (req: any, res) => {
+    try {
+      if (req.session) {
+        req.session.destroy((err: any) => {
+          if (err) {
+            return res.status(500).json({ error: 'Logout failed' });
+          }
+          res.clearCookie('connect.sid');
+          res.json({ success: true });
+        });
+      } else {
+        res.json({ success: true });
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+      res.status(500).json({ error: 'Logout failed' });
+    }
+  });
+
+  // Signup endpoint
+  console.log('Registering route: POST /api/auth/signup');
+  app.post('/api/auth/signup', async (req, res) => {
+    try {
+      const { email, password, firstName, lastName } = req.body;
+
+      // Create user in Supabase
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+
+      if (authError) {
+        return res.status(400).json({ error: authError.message });
+      }
+
+      if (!authData.user) {
+        return res.status(400).json({ error: 'Failed to create user' });
+      }
+
+      // Create user in database with on-hold status
+      const dbUser = await storage.createUser({
+        authUserId: authData.user.id,
+        email,
+        firstName,
+        lastName,
+        status: 'onhold',
+        isAdmin: false,
+        isMember: true,
+        subscriptionStatus: 'inactive', // Add default subscription status
+      });
+
+      res.json({ user: dbUser, message: 'Account created successfully. Please wait for admin approval.' });
+    } catch (error) {
+      console.error('Signup error:', error);
+      res.status(500).json({ error: 'Failed to create account' });
+    }
+  });
+
+  // Protected route middleware
+  const requireAuth = (req: any, res: any, next: any) => {
+    if (!(req.session as CustomSession).user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    next();
+  };
+
+  const requireAdmin = (req: any, res: any, next: any) => {
+    const user = (req.session as CustomSession).user;
+    if (!user || !user.isAdmin) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    next();
+  };
+
+  // Admin routes - User management
+  console.log('Registering route: GET /api/users');
+  app.get("/api/users", requireAuth, requireAdmin, async (req: any, res) => {
+    try {
+      const users = await storage.getUsers();
       res.json(users);
     } catch (error) {
       console.error("Error fetching users:", error);
@@ -74,135 +205,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/users", requireAdmin, async (req: AuthenticatedRequest, res) => {
+  // Member management routes
+  console.log('Registering route: GET /api/members');
+  app.get("/api/members", requireAuth, requireAdmin, async (req: any, res) => {
     try {
-      const { username, password, role, firstName, lastName, email, phone } = req.body;
-      
-      // Check if username already exists
-      const existingUser = await storage.getUserByUsername(username);
-      if (existingUser) {
-        return res.status(400).json({ error: "Username already exists" });
+      const members = await storage.getUsers(); // Get all users, filter members in frontend
+      res.json(members.filter((user: any) => user.isMember));
+    } catch (error) {
+      console.error("Error fetching members:", error);
+      res.status(500).json({ error: "Failed to fetch members" });
+    }
+  });
+
+  // Get detailed member information
+  console.log('Registering route: GET /api/members/:id/details');
+  app.get("/api/members/:id/details", requireAuth, requireAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+
+      // Get member info
+      const member = await storage.getUser(id);
+      if (!member) {
+        return res.status(404).json({ error: "Member not found" });
       }
 
-      // Check if email already exists for members
-      if (role === "member" && email) {
-        const members = await storage.getMembers();
-        const existingMember = members.find(m => m.email === email);
-        if (existingMember) {
-          return res.status(400).json({ error: "Email already exists" });
-        }
-      }
+      // Get member's subscriptions
+      const subscriptions = await storage.getSubscriptions();
+      const memberSubscriptions = subscriptions.filter((sub: any) => sub.userId === id);
 
-      // Create user account
-      const hashedPassword = await bcrypt.hash(password, 10);
-      const user = await storage.createUser({
-        username,
-        password: hashedPassword,
-        role,
+      // Get member's class registrations
+      const registrations = await storage.getClassRegistrations(id);
+
+      // Get member's check-ins
+      const checkins = await storage.getUserCheckins(id);
+
+      res.json({
+        member,
+        subscriptions: memberSubscriptions,
+        registrations,
+        checkins
       });
+    } catch (error) {
+      console.error("Error fetching member details:", error);
+      res.status(500).json({ error: "Failed to fetch member details" });
+    }
+  });
 
-      // If role is member, create member profile automatically
-      if (role === "member") {
-        // Check if email already exists in members table
-        if (email) {
-          const existingMembers = await storage.getMembers();
-          const emailExists = existingMembers.some(member => member.email === email);
-          if (emailExists) {
-            // Delete the created user since we can't create the member
-            await storage.deleteUser(user.id);
-            return res.status(400).json({ error: "Email already exists for another member" });
-          }
-        }
-
-        await storage.createMember({
-          userId: user.id,
-          firstName: firstName || "",
-          lastName: lastName || "",
-          email: email || "",
-          phone: phone || "",
-        });
-      }
-
-      res.json({ success: true, user: { id: user.id, username: user.username, role: user.role } });
+  console.log('Registering route: POST /api/users');
+  app.post("/api/users", requireAdmin, async (req: any, res) => {
+    try {
+      const userData = req.body;
+      const user = await storage.createUser(userData);
+      res.json(user);
     } catch (error) {
       console.error("Error creating user:", error);
-      if (error.code === '23505') {
-        if (error.constraint === 'members_email_unique') {
-          return res.status(400).json({ error: "Email already exists" });
-        }
-        return res.status(400).json({ error: "Duplicate entry detected" });
-      }
       res.status(500).json({ error: "Failed to create user" });
     }
   });
 
-  app.put("/api/users/:id", requireAdmin, async (req: AuthenticatedRequest, res) => {
+  console.log('Registering route: PUT /api/users/:id');
+  app.put("/api/users/:id", requireAdmin, async (req: any, res) => {
     try {
-      const userId = parseInt(req.params.id);
-      const { username, role, firstName, lastName, email, phone } = req.body;
-
-      // Check if email already exists for other members
-      if (role === "member" && email) {
-        const members = await storage.getMembers();
-        const existingMember = members.find(m => m.email === email && m.userId !== userId);
-        if (existingMember) {
-          return res.status(400).json({ error: "Email already exists" });
-        }
-      }
-
-      // Update user account
-      const user = await storage.updateUser(userId, { username, role });
-
-      // Update or create member profile if role is member
-      if (role === "member") {
-        const existingMember = await storage.getMemberByUserId(userId);
-        if (existingMember) {
-          await storage.updateMember(existingMember.id, {
-            firstName: firstName || "",
-            lastName: lastName || "",
-            email: email || "",
-            phone: phone || "",
-          });
-        } else if (firstName || lastName || email) {
-          await storage.createMember({
-            userId,
-            firstName: firstName || "",
-            lastName: lastName || "",
-            email: email || "",
-            phone: phone || "",
-          });
-        }
-      } else {
-        // If changing from member to admin, optionally remove member profile
-        const existingMember = await storage.getMemberByUserId(userId);
-        if (existingMember) {
-          // Keep member profile but note it's not linked to an active member role
-        }
-      }
-
-      res.json({ success: true, user });
+      const { id } = req.params;
+      const updates = req.body;
+      const user = await storage.updateUser(id, updates);
+      res.json(user);
     } catch (error) {
       console.error("Error updating user:", error);
-      if (error.code === '23505') {
-        if (error.constraint === 'members_email_unique') {
-          return res.status(400).json({ error: "Email already exists" });
-        }
-        return res.status(400).json({ error: "Duplicate entry detected" });
-      }
       res.status(500).json({ error: "Failed to update user" });
     }
   });
 
-  app.delete("/api/users/:id", requireAdmin, async (req: AuthenticatedRequest, res) => {
+  console.log('Registering route: DELETE /api/users/:id');
+  app.delete("/api/users/:id", requireAdmin, async (req: any, res) => {
     try {
-      const userId = parseInt(req.params.id);
-      
-      // Check if trying to delete own account
-      if (req.user?.id === userId) {
-        return res.status(400).json({ error: "Cannot delete your own account" });
-      }
-
-      await storage.deleteUser(userId);
+      const { id } = req.params;
+      await storage.deleteUser(id);
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting user:", error);
@@ -210,586 +288,412 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Authentication routes
-  app.post("/api/auth/login", async (req, res) => {
-    try {
-      const { username, password } = req.body;
-      
-      const user = await storage.getUserByUsername(username);
-      if (!user) {
-        return res.status(401).json({ error: "Invalid credentials" });
-      }
-
-      const isValid = await bcrypt.compare(password, user.password);
-      if (!isValid) {
-        return res.status(401).json({ error: "Invalid credentials" });
-      }
-
-      req.session.userId = user.id;
-      req.session.username = user.username;
-      req.session.role = user.role;
-
-      let profile = null;
-      if (user.role === 'member') {
-        profile = await storage.getMemberByUserId(user.id);
-      }
-
-      res.json({ 
-        user: { id: user.id, username: user.username, role: user.role },
-        profile
-      });
-    } catch (error) {
-      console.error("Login error:", error);
-      res.status(500).json({ error: "Login failed" });
-    }
-  });
-
-  app.post("/api/auth/logout", (req, res) => {
-    req.session.destroy((err) => {
-      if (err) {
-        return res.status(500).json({ error: "Logout failed" });
-      }
-      res.json({ success: true });
-    });
-  });
-
-  app.get("/api/auth/me", async (req: AuthenticatedRequest, res) => {
-    if (!req.session?.userId) {
-      return res.status(401).json({ error: "Not authenticated" });
-    }
-
-    try {
-      const user = await storage.getUser(req.session.userId);
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
-
-      let profile = null;
-      if (user.role === 'member') {
-        profile = await storage.getMemberByUserId(user.id);
-      }
-
-      res.json({ 
-        user: { id: user.id, username: user.username, role: user.role },
-        profile
-      });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to get user info" });
-    }
-  });
-
-  // Dashboard stats
-  app.get("/api/dashboard/stats", requireAdmin, async (req, res) => {
-    try {
-      const stats = await storage.getDashboardStats();
-      res.json(stats);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to get dashboard stats" });
-    }
-  });
-
-  // Members routes
-  app.get("/api/members", requireAdmin, async (req, res) => {
-    try {
-      const members = await storage.getMembers();
-      res.json(members);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to get members" });
-    }
-  });
-
-  app.get("/api/members/:id", requireAdmin, async (req, res) => {
-    try {
-      const member = await storage.getMember(parseInt(req.params.id));
-      if (!member) {
-        return res.status(404).json({ error: "Member not found" });
-      }
-      res.json(member);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to get member" });
-    }
-  });
-
-  app.post("/api/members", requireAdmin, async (req, res) => {
-    try {
-      const memberData = insertMemberSchema.parse(req.body);
-      const member = await storage.createMember(memberData);
-      res.json(member);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid member data", details: error.errors });
-      }
-      res.status(500).json({ error: "Failed to create member" });
-    }
-  });
-
-  app.put("/api/members/:id", requireAdmin, async (req, res) => {
-    try {
-      const memberData = insertMemberSchema.partial().parse(req.body);
-      const member = await storage.updateMember(parseInt(req.params.id), memberData);
-      res.json(member);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid member data", details: error.errors });
-      }
-      res.status(500).json({ error: "Failed to update member" });
-    }
-  });
-
-  app.delete("/api/members/:id", requireAdmin, async (req, res) => {
-    try {
-      await storage.deleteMember(parseInt(req.params.id));
-      res.json({ success: true });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to delete member" });
-    }
-  });
-
-  // Trainers routes
-  app.get("/api/trainers", requireAdmin, async (req, res) => {
+  // Trainers management
+  console.log('Registering route: GET /api/trainers');
+  app.get("/api/trainers", requireAuth, requireAdmin, async (req: any, res) => {
     try {
       const trainers = await storage.getTrainers();
       res.json(trainers);
     } catch (error) {
-      res.status(500).json({ error: "Failed to get trainers" });
+      console.error("Error fetching trainers:", error);
+      res.status(500).json({ error: "Failed to fetch trainers" });
     }
   });
 
-  app.post("/api/trainers", requireAdmin, async (req, res) => {
+  console.log('Registering route: POST /api/trainers');
+  app.post("/api/trainers", requireAuth, requireAdmin, async (req: any, res) => {
     try {
-      const trainerData = insertTrainerSchema.parse(req.body);
-      const trainer = await storage.createTrainer(trainerData);
-      res.json(trainer);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid trainer data", details: error.errors });
+      const { firstName, lastName, email, phone, bio, status } = req.body;
+
+      // Validate required fields
+      if (!firstName || !lastName || !email) {
+        return res.status(400).json({ error: "First name, last name, and email are required" });
       }
+
+      const trainerData = {
+        firstName,
+        lastName,
+        email,
+        phone: phone || undefined,
+        bio: bio || undefined,
+        status: status || 'active',
+        specialties: undefined, // Will be handled as empty array in the database
+      };
+
+      const trainer = await storage.createTrainer(trainerData);
+      res.json({ success: true, trainer });
+    } catch (error) {
+      console.error("Error creating trainer:", error);
       res.status(500).json({ error: "Failed to create trainer" });
     }
   });
 
-  app.put("/api/trainers/:id", requireAdmin, async (req, res) => {
+  console.log('Registering route: PUT /api/trainers/:id');
+  app.put("/api/trainers/:id", requireAuth, requireAdmin, async (req: any, res) => {
     try {
-      const trainerData = insertTrainerSchema.partial().parse(req.body);
-      const trainer = await storage.updateTrainer(parseInt(req.params.id), trainerData);
-      res.json(trainer);
+      const { id } = req.params;
+      const updates = req.body;
+
+      const trainer = await storage.updateTrainer(parseInt(id), updates);
+      res.json({ success: true, trainer });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid trainer data", details: error.errors });
-      }
+      console.error("Error updating trainer:", error);
       res.status(500).json({ error: "Failed to update trainer" });
     }
   });
 
-  app.delete("/api/trainers/:id", requireAdmin, async (req, res) => {
+  console.log('Registering route: DELETE /api/trainers/:id');
+  app.delete("/api/trainers/:id", requireAuth, requireAdmin, async (req: any, res) => {
     try {
-      await storage.deleteTrainer(parseInt(req.params.id));
+      const { id } = req.params;
+      await storage.deleteTrainer(parseInt(id));
       res.json({ success: true });
     } catch (error) {
+      console.error("Error deleting trainer:", error);
       res.status(500).json({ error: "Failed to delete trainer" });
     }
   });
 
-  // Plans routes
-  app.get("/api/plans", requireAuth, async (req, res) => {
+  // Categories routes
+  console.log('Registering route: GET /api/admin/categories');
+  app.get("/api/admin/categories", requireAuth, requireAdmin, async (req: any, res) => {
     try {
-      const plans = await storage.getPlans();
-      res.json(plans);
+      const categories = await storage.getCategories();
+      res.json(categories);
     } catch (error) {
-      res.status(500).json({ error: "Failed to get plans" });
+      console.error("Error fetching categories:", error);
+      res.status(500).json({ error: "Failed to fetch categories" });
     }
   });
 
-  app.post("/api/plans", requireAdmin, async (req, res) => {
+  console.log('Registering route: POST /api/admin/categories');
+  app.post("/api/admin/categories", requireAuth, requireAdmin, async (req: any, res) => {
     try {
-      const planData = insertPlanSchema.parse(req.body);
-      const plan = await storage.createPlan(planData);
-      res.json(plan);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid plan data", details: error.errors });
+      console.log("Received category creation request:", req.body);
+      const { name, description, color, isActive } = req.body;
+
+      if (!name || typeof name !== 'string') {
+        return res.status(400).json({ error: "Category name is required and must be a string" });
       }
-      res.status(500).json({ error: "Failed to create plan" });
-    }
-  });
 
-  app.put("/api/plans/:id", requireAdmin, async (req, res) => {
-    try {
-      const planData = insertPlanSchema.partial().parse(req.body);
-      const plan = await storage.updatePlan(parseInt(req.params.id), planData);
-      res.json(plan);
+      const categoryData = {
+        name: name.trim(),
+        description: description ? String(description).trim() : undefined,
+        color: color ? String(color).trim() : undefined,
+        isActive: isActive !== undefined ? Boolean(isActive) : true,
+      };
+
+      console.log("Creating category with:", categoryData);
+      const category = await storage.createCategory(categoryData);
+      console.log("Category created successfully:", category);
+      res.json(category);
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid plan data", details: error.errors });
-      }
-      res.status(500).json({ error: "Failed to update plan" });
+      console.error("Error creating category:", error);
+      res.status(500).json({ error: "Failed to create category", details: error instanceof Error ? error.message : String(error) });
     }
   });
 
-  app.delete("/api/plans/:id", requireAdmin, async (req, res) => {
+  console.log('Registering route: PATCH /api/admin/categories/:id');
+  app.patch("/api/admin/categories/:id", requireAuth, requireAdmin, async (req: any, res) => {
     try {
-      await storage.deletePlan(parseInt(req.params.id));
+      const id = parseInt(req.params.id);
+      const updates = req.body;
+
+      const category = await storage.updateCategory(id, updates);
+      res.json({ success: true, category });
+    } catch (error) {
+      console.error("Error updating category:", error);
+      res.status(500).json({ error: "Failed to update category" });
+    }
+  });
+
+  console.log('Registering route: DELETE /api/admin/categories/:id');
+  app.delete("/api/admin/categories/:id", requireAuth, requireAdmin, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteCategory(id);
       res.json({ success: true });
     } catch (error) {
-      res.status(500).json({ error: "Failed to delete plan" });
+      console.error("Error deleting category:", error);
+      res.status(500).json({ error: "Failed to delete category" });
     }
   });
 
-  // Classes routes
-  app.get("/api/classes", requireAuth, async (req, res) => {
+  // Classes management
+  console.log('Registering route: GET /api/admin/classes');
+  app.get("/api/admin/classes", requireAuth, requireAdmin, async (req: any, res) => {
     try {
       const classes = await storage.getClasses();
       res.json(classes);
     } catch (error) {
-      res.status(500).json({ error: "Failed to get classes" });
+      console.error("Error fetching classes:", error);
+      res.status(500).json({ error: "Failed to fetch classes" });
     }
   });
 
-  app.post("/api/classes", requireAdmin, async (req, res) => {
+  console.log('Registering route: POST /api/admin/classes');
+  app.post("/api/admin/classes", requireAuth, requireAdmin, async (req: any, res) => {
     try {
-      const classData = insertClassSchema.parse(req.body);
-      const classObj = await storage.createClass(classData);
-      res.json(classObj);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid class data", details: error.errors });
+      console.log("Received class creation request:", req.body);
+      const { name, description, categoryId, duration, maxCapacity, equipment, isActive } = req.body;
+
+      if (!name || typeof name !== 'string') {
+        return res.status(400).json({ error: "Class name is required and must be a string" });
       }
-      res.status(500).json({ error: "Failed to create class" });
+
+      if (!categoryId || isNaN(parseInt(categoryId))) {
+        return res.status(400).json({ error: "Category ID is required and must be a valid number" });
+      }
+
+      const classData = {
+        name: name.trim(),
+        description: description ? String(description).trim() : undefined,
+        categoryId: Number(categoryId),
+        difficulty: 'beginner' as const, // Default to beginner if not specified
+        durationMinutes: Number(duration),
+        isActive: isActive !== undefined ? Boolean(isActive) : true,
+      };
+
+      console.log("Creating class with:", classData);
+      const newClass = await storage.createClass(classData);
+      console.log("Class created successfully:", newClass);
+      res.json(newClass);
+    } catch (error) {
+      console.error("Error creating class:", error);
+      res.status(500).json({ error: "Failed to create class", details: error instanceof Error ? error.message : String(error) });
     }
   });
 
-  app.put("/api/classes/:id", requireAdmin, async (req, res) => {
+  console.log('Registering route: PATCH /api/admin/classes/:id');
+  app.patch("/api/admin/classes/:id", requireAuth, requireAdmin, async (req: any, res) => {
     try {
-      const classData = insertClassSchema.partial().parse(req.body);
-      const classObj = await storage.updateClass(parseInt(req.params.id), classData);
-      res.json(classObj);
+      const { id } = req.params;
+      const updates = req.body;
+      const updatedClass = await storage.updateClass(parseInt(id), updates);
+      res.json(updatedClass);
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid class data", details: error.errors });
-      }
+      console.error("Error updating class:", error);
       res.status(500).json({ error: "Failed to update class" });
     }
   });
 
-  app.delete("/api/classes/:id", requireAdmin, async (req, res) => {
+  console.log('Registering route: DELETE /api/admin/classes/:id');
+  app.delete("/api/admin/classes/:id", requireAuth, requireAdmin, async (req: any, res) => {
     try {
-      await storage.deleteClass(parseInt(req.params.id));
+      const { id } = req.params;
+      await storage.deleteClass(parseInt(id));
       res.json({ success: true });
     } catch (error) {
+      console.error("Error deleting class:", error);
       res.status(500).json({ error: "Failed to delete class" });
     }
   });
 
-  // Schedules routes
-  app.get("/api/schedules", requireAuth, async (req, res) => {
+  // Plans management
+  console.log('Registering route: GET /api/plans');
+  app.get("/api/plans", requireAuth, requireAdmin, async (req: any, res) => {
+    try {
+      const plans = await storage.getPlans();
+      res.json(plans);
+    } catch (error) {
+      console.error("Error fetching plans:", error);
+      res.status(500).json({ error: "Failed to fetch plans" });
+    }
+  });
+
+  console.log('Registering route: POST /api/plans');
+  app.post("/api/plans", requireAuth, requireAdmin, async (req: any, res) => {
+    try {
+      const planData = req.body;
+      const plan = await storage.createPlan(planData);
+      res.json({ success: true, plan });
+    } catch (error) {
+      console.error("Error creating plan:", error);
+      res.status(500).json({ error: "Failed to create plan" });
+    }
+  });
+
+  // Schedules management
+  console.log('Registering route: GET /api/schedules');
+  app.get("/api/schedules", requireAuth, async (req: any, res) => {
     try {
       const schedules = await storage.getSchedules();
       res.json(schedules);
     } catch (error) {
-      res.status(500).json({ error: "Failed to get schedules" });
+      console.error("Error fetching schedules:", error);
+      res.status(500).json({ error: "Failed to fetch schedules" });
     }
   });
 
-  app.post("/api/schedules", requireAdmin, async (req, res) => {
+  console.log('Registering route: POST /api/schedules');
+  app.post("/api/schedules", requireAuth, requireAdmin, async (req: any, res) => {
     try {
-      const schedule = await storage.createSchedule(req.body);
+      console.log("Received schedule creation request:", req.body);
+      const { classId, trainerId, dayOfWeek, startTime, endTime, repetitionType, scheduleDate, startDate, endDate, isActive } = req.body;
+
+      if (!classId || !trainerId || dayOfWeek === undefined || !startTime || !endTime || !repetitionType) {
+        return res.status(400).json({ error: "Missing required schedule fields" });
+      }
+
+      const scheduleData = {
+        classId: parseInt(classId),
+        trainerId: parseInt(trainerId),
+        dayOfWeek: parseInt(dayOfWeek),
+        startTime: String(startTime),
+        endTime: String(endTime),
+        repetitionType: String(repetitionType),
+        scheduleDate: scheduleDate ? new Date(scheduleDate) : null,
+        startDate: startDate ? new Date(startDate) : null,
+        endDate: endDate ? new Date(endDate) : null,
+        isActive: isActive !== undefined ? Boolean(isActive) : true,
+      };
+
+      console.log("Creating schedule with:", scheduleData);
+      const schedule = await storage.createSchedule(scheduleData);
+      console.log("Schedule created successfully:", schedule);
       res.json(schedule);
     } catch (error) {
-      res.status(500).json({ error: "Failed to create schedule" });
+      console.error("Error creating schedule:", error);
+      res.status(500).json({ error: "Failed to create schedule", details: error instanceof Error ? error.message : String(error) });
     }
   });
 
-  app.put("/api/schedules/:id", requireAdmin, async (req, res) => {
-    try {
-      const schedule = await storage.updateSchedule(parseInt(req.params.id), req.body);
-      res.json(schedule);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to update schedule" });
-    }
-  });
-
-  app.delete("/api/schedules/:id", requireAdmin, async (req, res) => {
-    try {
-      await storage.deleteSchedule(parseInt(req.params.id));
-      res.json({ success: true });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to delete schedule" });
-    }
-  });
-
-  // Subscriptions routes
-  app.get("/api/subscriptions", requireAuth, async (req: AuthenticatedRequest, res) => {
+  // Subscriptions management
+  console.log('Registering route: GET /api/subscriptions');
+  app.get("/api/subscriptions", requireAuth, requireAdmin, async (req: any, res) => {
     try {
       const subscriptions = await storage.getSubscriptions();
       res.json(subscriptions);
     } catch (error) {
-      res.status(500).json({ error: "Failed to get subscriptions" });
+      console.error("Error fetching subscriptions:", error);
+      res.status(500).json({ error: "Failed to fetch subscriptions" });
     }
   });
 
-  app.get("/api/member/subscription", requireAuth, async (req: AuthenticatedRequest, res) => {
+  console.log('Registering route: POST /api/subscriptions');
+  app.post("/api/subscriptions", requireAuth, requireAdmin, async (req: any, res) => {
     try {
-      if (req.session?.role !== 'member') {
-        return res.status(403).json({ error: "Member access required" });
-      }
-      
-      const member = await storage.getMemberByUserId(req.session.userId!);
-      if (!member) {
-        return res.status(404).json({ error: "Member not found" });
-      }
+      console.log("Creating subscription with data:", req.body);
+      const { userId, planId, startDate, endDate, sessionsRemaining, status, paymentStatus, notes } = req.body;
 
-      const subscription = await storage.getMemberActiveSubscription(member.id);
-      res.json(subscription);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to get member subscription" });
-    }
-  });
-
-  app.get("/api/member/checkins", requireAuth, async (req: AuthenticatedRequest, res) => {
-    try {
-      if (req.session?.role !== 'member') {
-        return res.status(403).json({ error: "Member access required" });
-      }
-      
-      const member = await storage.getMemberByUserId(req.session.userId!);
-      if (!member) {
-        return res.status(404).json({ error: "Member not found" });
+      // Validate required fields
+      if (!userId || !planId) {
+        return res.status(400).json({ error: "userId and planId are required" });
       }
 
-      const checkins = await storage.getMemberCheckins(member.id);
-      res.json(checkins);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to get member checkins" });
-    }
-  });
-
-  app.post("/api/subscriptions", requireAdmin, async (req, res) => {
-    try {
-      const subscriptionData = insertSubscriptionSchema.parse(req.body);
-      const subscription = await storage.createSubscription(subscriptionData);
-      res.json(subscription);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid subscription data", details: error.errors });
-      }
-      res.status(500).json({ error: "Failed to create subscription" });
-    }
-  });
-
-  // Class registrations routes
-  app.get("/api/registrations", requireAuth, async (req: AuthenticatedRequest, res) => {
-    try {
-      let memberId: number | undefined;
-      
-      // Get user from session
-      const user = await storage.getUser(req.session!.userId!);
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
-      
-      if (user.role === 'member') {
-        const member = await storage.getMemberByUserId(user.id);
-        if (!member) {
-          return res.status(404).json({ error: "Member not found" });
-        }
-        memberId = member.id;
-      }
-
-      const registrations = await storage.getClassRegistrations(memberId);
-      res.json(registrations);
-    } catch (error) {
-      console.error("Error fetching registrations:", error);
-      res.status(500).json({ error: "Failed to get registrations" });
-    }
-  });
-
-  app.post("/api/registrations", requireAuth, async (req: AuthenticatedRequest, res) => {
-    try {
-      if (req.session?.role !== 'member') {
-        return res.status(403).json({ error: "Member access required" });
-      }
-
-      const member = await storage.getMemberByUserId(req.session.userId!);
-      if (!member) {
-        return res.status(404).json({ error: "Member not found" });
-      }
-
-      // Check if member has active subscription with remaining sessions
-      const subscription = await storage.getMemberActiveSubscription(member.id);
-      if (!subscription || subscription.sessionsRemaining <= 0) {
-        return res.status(400).json({ 
-          error: "No sessions remaining", 
-          message: "You have no remaining sessions. Please renew your subscription to book classes."
-        });
-      }
-
-      const { scheduleId } = req.body;
-      
-      // Check if already registered for this schedule
-      const existingRegistrations = await storage.getClassRegistrations(member.id);
-      const alreadyRegistered = existingRegistrations.some((reg: any) => 
-        reg.scheduleId === parseInt(scheduleId) && reg.status === 'registered'
-      );
-      
-      if (alreadyRegistered) {
-        return res.status(400).json({ 
-          error: "Already registered", 
-          message: "You are already registered for this class."
-        });
-      }
-
-      const qrCode = `QR-${Date.now()}-${member.id}-${scheduleId}`;
-
-      const registrationData = {
-        memberId: member.id,
-        scheduleId: parseInt(scheduleId),
-        registrationDate: new Date(),
-        qrCode,
-        status: 'registered'
+      // Convert dates from ISO strings to Date objects
+      const subscriptionData = {
+        userId,
+        planId: parseInt(planId),
+        startDate: new Date(startDate).toISOString(),
+        endDate: new Date(endDate).toISOString(),
+        sessionsRemaining: parseInt(sessionsRemaining) || 0,
+        status: (status || 'active') as 'active' | 'expired' | 'cancelled',
+        paymentStatus: (paymentStatus || 'pending') as 'pending' | 'paid' | 'failed',
+        paymentMethod: undefined,
+        transactionId: undefined
       };
 
-      const registration = await storage.createClassRegistration(registrationData);
-      
-      // Deduct session from subscription
-      await storage.updateSubscription(subscription.id, {
-        sessionsRemaining: subscription.sessionsRemaining - 1
-      });
-
-      res.json(registration);
+      console.log("Processed subscription data:", subscriptionData);
+      const subscription = await storage.createSubscription(subscriptionData);
+      console.log("Subscription created successfully:", subscription);
+      res.json(subscription);
     } catch (error) {
-      console.error('Registration error:', error);
-      res.status(500).json({ error: "Failed to create registration" });
+      console.error("Error creating subscription:", error);
+      res.status(500).json({ error: "Failed to create subscription", details: error instanceof Error ? error.message : String(error) });
     }
   });
 
-  app.post("/api/registrations/:id/cancel", requireAuth, async (req: AuthenticatedRequest, res) => {
+  // Class registrations
+  console.log('Registering route: GET /api/registrations');
+  app.get("/api/registrations", requireAuth, async (req: any, res) => {
     try {
-      if (req.session?.role !== 'member') {
-        return res.status(403).json({ error: "Member access required" });
+      const userId = (req.session as CustomSession).user?.isAdmin ? undefined : (req.session as CustomSession).user?.id;
+      if (userId) {
+        const registrations = await storage.getClassRegistrations(userId);
+        res.json(registrations);
+      } else {
+        res.status(400).json({ error: 'User ID is undefined' });
       }
-
-      const member = await storage.getMemberByUserId(req.session.userId!);
-      if (!member) {
-        return res.status(404).json({ error: "Member not found" });
-      }
-
-      const registrationId = parseInt(req.params.id);
-      
-      // Get the registration directly by ID and verify it belongs to the member
-      const registrations = await storage.getClassRegistrations(member.id);
-      const registration = registrations.find((reg: any) => reg.id === registrationId);
-      
-      if (!registration) {
-        return res.status(404).json({ error: "Registration not found" });
-      }
-
-      // Check if class has already started
-      const classDate = new Date(registration.schedule.scheduleDate);
-      const [hours, minutes] = registration.schedule.startTime.split(':');
-      classDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-      
-      const now = new Date();
-      
-      if (now >= classDate) {
-        return res.status(400).json({ 
-          error: "Cannot cancel after class has started" 
-        });
-      }
-
-      // Check if within 24 hours for session refund policy
-      const cutoffTime = new Date(classDate.getTime() - (24 * 60 * 60 * 1000));
-      const within24Hours = now >= cutoffTime;
-
-      // Update registration status to cancelled
-      await storage.updateClassRegistration(registrationId, { status: 'cancelled' });
-      
-      // Refund session only if cancelled more than 24 hours before
-      if (!within24Hours) {
-        const subscription = await storage.getMemberActiveSubscription(member.id);
-        if (subscription) {
-          await storage.updateSubscription(subscription.id, {
-            sessionsRemaining: subscription.sessionsRemaining + 1
-          });
-        }
-      }
-
-      const message = within24Hours 
-        ? "Registration cancelled. Session forfeited due to 24-hour policy."
-        : "Registration cancelled and session refunded";
-      
-      res.json({ success: true, message });
     } catch (error) {
-      console.error('Cancellation error:', error);
-      res.status(500).json({ error: "Failed to cancel registration" });
+      console.error('Error retrieving registrations:', error);
+      res.status(500).json({ error: 'Failed to retrieve registrations' });
     }
   });
 
-  // Check-ins routes
-  app.get("/api/checkins", requireAdmin, async (req, res) => {
+  // Check-ins
+  console.log('Registering route: GET /api/checkins');
+  app.get("/api/checkins", requireAuth, async (req: any, res) => {
     try {
-      const date = req.query.date as string;
-      const checkins = await storage.getCheckins(date);
+      const { date } = req.query;
+      const checkins = await storage.getCheckins(date as string);
       res.json(checkins);
     } catch (error) {
-      res.status(500).json({ error: "Failed to get checkins" });
+      console.error("Error fetching checkins:", error);
+      res.status(500).json({ error: "Failed to fetch checkins" });
     }
   });
 
-  app.post("/api/checkins/qr", requireAdmin, async (req, res) => {
+  // Member specific routes
+  console.log('Registering route: GET /api/member/subscription');
+  app.get("/api/member/subscription", requireAuth, async (req: any, res) => {
     try {
-      const { qrCode } = req.body;
-      
-      const registration = await storage.getRegistrationByQRCode(qrCode);
-      if (!registration) {
-        return res.status(404).json({ 
-          error: "Registration not found", 
-          message: "This QR code is not valid or the registration may have been cancelled. Please check with the member or try scanning again.",
-          suggestion: "Verify the QR code is correct or create a manual check-in"
-        });
+      const userId = (req.session as CustomSession).user?.id;
+      if (userId) {
+        const subscription = await storage.getUserActiveSubscription(userId);
+        res.json(subscription);
+      } else {
+        res.status(400).json({ error: 'User ID is undefined' });
       }
-
-      if (registration.status === 'checked_in') {
-        return res.status(400).json({ 
-          error: "Already checked in", 
-          message: `${registration.member.firstName} ${registration.member.lastName} has already been checked in to this class.`,
-          member: registration.member
-        });
-      }
-
-      // Get member's active subscription
-      const subscription = await storage.getMemberActiveSubscription(registration.member.id);
-      if (!subscription || subscription.sessionsRemaining <= 0) {
-        return res.status(400).json({ 
-          error: "No sessions remaining", 
-          message: `${registration.member.firstName} ${registration.member.lastName} has no remaining sessions. Please renew their subscription.`,
-          member: registration.member,
-          sessionsRemaining: subscription?.sessionsRemaining || 0
-        });
-      }
-
-      // Create check-in
-      const checkin = await storage.createCheckin({
-        memberId: registration.member.id,
-        registrationId: registration.id,
-        sessionConsumed: true,
-      });
-
-      // Update subscription sessions
-      await storage.updateSubscription(subscription.id, {
-        sessionsRemaining: subscription.sessionsRemaining - 1,
-      });
-
-      res.json({
-        checkin,
-        member: registration.member,
-        class: registration.class,
-        sessionsRemaining: subscription.sessionsRemaining - 1,
-      });
     } catch (error) {
-      res.status(500).json({ error: "Failed to process check-in" });
+      console.error("Error fetching member subscription:", error);
+      res.status(500).json({ error: "Failed to fetch subscription" });
     }
   });
 
+  console.log('Registering route: GET /api/member/checkins');
+  app.get("/api/member/checkins", requireAuth, async (req: any, res) => {
+    try {
+      const userId = (req.session as CustomSession).user?.id;
+      if (userId) {
+        const checkins = await storage.getUserCheckins(userId);
+        res.json(checkins);
+      } else {
+        res.status(400).json({ error: 'User ID is undefined' });
+      }
+    } catch (error) {
+      console.error("Error fetching member checkins:", error);
+      res.status(500).json({ error: "Failed to fetch checkins" });
+    }
+  });
+
+  // Public classes endpoint for schedule creation
+  console.log('Registering route: GET /api/classes');
+  app.get("/api/classes", requireAuth, async (req: any, res) => {
+    try {
+      const classes = await storage.getClasses();
+      res.json(classes);
+    } catch (error) {
+      console.error("Error fetching classes:", error);
+      res.status(500).json({ error: "Failed to fetch classes" });
+    }
+  });
+
+  // Dashboard stats
+  console.log('Registering route: GET /api/dashboard/stats');
+  app.get("/api/dashboard/stats", requireAuth, requireAdmin, async (req: any, res) => {
+    try {
+      const stats = await storage.getDashboardStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching dashboard stats:", error);
+      res.status(500).json({ error: "Failed to fetch dashboard stats" });
+    }
+  });
+
+  // All other API routes can be added here following the same pattern
+
+  // Create HTTP server
   const httpServer = createServer(app);
   return httpServer;
 }

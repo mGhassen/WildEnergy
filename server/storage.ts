@@ -1,29 +1,23 @@
 import {
-  users, members, trainers, plans, classes, schedules, subscriptions, classRegistrations, checkins,
-  type User, type InsertUser, type Member, type InsertMember, type Trainer, type InsertTrainer,
-  type Plan, type InsertPlan, type Class, type InsertClass, type Schedule, type InsertSchedule,
-  type Subscription, type InsertSubscription, type ClassRegistration, type InsertClassRegistration,
+  users, trainers, categories, plans, classes, schedules, subscriptions, classRegistrations, checkins,
+  type User, type InsertUser, type Trainer, type InsertTrainer, type Category, type InsertCategory,
+  type Plan, type InsertPlan, type Class, type InsertClass, type Schedule, type InsertSchedule, 
+  type Subscription, type InsertSubscription, type ClassRegistration, type InsertClassRegistration, 
   type Checkin, type InsertCheckin
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql, desc, asc } from "drizzle-orm";
 
 export interface IStorage {
-  // Users
-  getUser(id: number): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
+  // Users - Updated for unified user management
+  getUser(id: string): Promise<User | undefined>;
+  getUserByAuthId(authUserId: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
-  updateUser(id: number, updates: Partial<InsertUser>): Promise<User>;
-  deleteUser(id: number): Promise<void>;
-  getUsersWithMembers(): Promise<any[]>;
-
-  // Members
-  getMembers(): Promise<Member[]>;
-  getMember(id: number): Promise<Member | undefined>;
-  getMemberByUserId(userId: number): Promise<Member | undefined>;
-  createMember(member: InsertMember): Promise<Member>;
-  updateMember(id: number, updates: Partial<InsertMember>): Promise<Member>;
-  deleteMember(id: number): Promise<void>;
+  updateUser(id: string, updates: Partial<InsertUser>): Promise<User>;
+  updateUserByEmail(email: string, updates: Partial<InsertUser>): Promise<User>;
+  deleteUser(id: string): Promise<void>;
+  getUsers(): Promise<User[]>;
 
   // Trainers
   getTrainers(): Promise<Trainer[]>;
@@ -31,6 +25,13 @@ export interface IStorage {
   createTrainer(trainer: InsertTrainer): Promise<Trainer>;
   updateTrainer(id: number, updates: Partial<InsertTrainer>): Promise<Trainer>;
   deleteTrainer(id: number): Promise<void>;
+
+  // Categories
+  getCategories(): Promise<Category[]>;
+  getCategory(id: number): Promise<Category | undefined>;
+  createCategory(category: InsertCategory): Promise<Category>;
+  updateCategory(id: number, updates: Partial<InsertCategory>): Promise<Category>;
+  deleteCategory(id: number): Promise<void>;
 
   // Plans
   getPlans(): Promise<Plan[]>;
@@ -56,19 +57,19 @@ export interface IStorage {
   // Subscriptions
   getSubscriptions(): Promise<any[]>;
   getSubscription(id: number): Promise<Subscription | undefined>;
-  getMemberActiveSubscription(memberId: number): Promise<any | undefined>;
+  getUserActiveSubscription(userId: string): Promise<any | undefined>;
   createSubscription(subscription: InsertSubscription): Promise<Subscription>;
   updateSubscription(id: number, updates: Partial<InsertSubscription>): Promise<Subscription>;
 
   // Class Registrations
-  getClassRegistrations(memberId?: number): Promise<any[]>;
+  getClassRegistrations(userId?: string): Promise<any[]>;
   createClassRegistration(registration: InsertClassRegistration): Promise<ClassRegistration>;
   updateClassRegistration(id: number, updates: Partial<InsertClassRegistration>): Promise<ClassRegistration>;
   getRegistrationByQRCode(qrCode: string): Promise<any | undefined>;
 
   // Check-ins
   getCheckins(date?: string): Promise<any[]>;
-  getMemberCheckins(memberId: number): Promise<any[]>;
+  getUserCheckins(userId: string): Promise<any[]>;
   createCheckin(checkin: InsertCheckin): Promise<Checkin>;
 
   // Dashboard stats
@@ -79,90 +80,66 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  // Users
-  async getUser(id: number): Promise<User | undefined> {
+  async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user || undefined;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.username, username));
+  async getUserByAuthId(authUserId: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.authUserId, authUserId));
     return user || undefined;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db.insert(users).values(insertUser).returning();
+    const [user] = await db
+      .insert(users)
+      .values({
+        ...insertUser,
+        updatedAt: new Date(),
+      })
+      .returning();
     return user;
   }
 
-  async updateUser(id: number, updates: Partial<InsertUser>): Promise<User> {
-    const [user] = await db.update(users).set(updates).where(eq(users.id, id)).returning();
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
     return user;
   }
 
-  async deleteUser(id: number): Promise<void> {
-    // Delete associated member first if exists
-    const member = await this.getMemberByUserId(id);
-    if (member) {
-      await this.deleteMember(member.id);
-    }
-    
-    // Delete user
+  async updateUser(id: string, updates: Partial<InsertUser>): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({
+        ...updates,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, id))
+      .returning();
+    return user;
+  }
+
+  async updateUserByEmail(email: string, updates: Partial<InsertUser>): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({
+        ...updates,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.email, email))
+      .returning();
+    return user;
+  }
+
+  async deleteUser(id: string): Promise<void> {
     await db.delete(users).where(eq(users.id, id));
   }
 
-  async getUsersWithMembers(): Promise<any[]> {
-    return await db
-      .select({
-        id: users.id,
-        username: users.username,
-        role: users.role,
-        createdAt: users.createdAt,
-        member: {
-          id: members.id,
-          firstName: members.firstName,
-          lastName: members.lastName,
-          email: members.email,
-          phone: members.phone,
-        },
-      })
-      .from(users)
-      .leftJoin(members, eq(users.id, members.userId))
-      .orderBy(desc(users.createdAt));
+  async getUsers(): Promise<User[]> {
+    return await db.select().from(users).orderBy(users.createdAt);
   }
 
-  // Members
-  async getMembers(): Promise<Member[]> {
-    return await db.select().from(members).orderBy(asc(members.lastName));
-  }
-
-  async getMember(id: number): Promise<Member | undefined> {
-    const [member] = await db.select().from(members).where(eq(members.id, id));
-    return member || undefined;
-  }
-
-  async getMemberByUserId(userId: number): Promise<Member | undefined> {
-    const [member] = await db.select().from(members).where(eq(members.userId, userId));
-    return member || undefined;
-  }
-
-  async createMember(insertMember: InsertMember): Promise<Member> {
-    const [member] = await db.insert(members).values(insertMember).returning();
-    return member;
-  }
-
-  async updateMember(id: number, updates: Partial<InsertMember>): Promise<Member> {
-    const [member] = await db.update(members).set(updates).where(eq(members.id, id)).returning();
-    return member;
-  }
-
-  async deleteMember(id: number): Promise<void> {
-    await db.delete(members).where(eq(members.id, id));
-  }
-
-  // Trainers
   async getTrainers(): Promise<Trainer[]> {
-    return await db.select().from(trainers).orderBy(asc(trainers.lastName));
+    return await db.select().from(trainers).orderBy(trainers.firstName);
   }
 
   async getTrainer(id: number): Promise<Trainer | undefined> {
@@ -171,12 +148,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTrainer(insertTrainer: InsertTrainer): Promise<Trainer> {
-    const [trainer] = await db.insert(trainers).values(insertTrainer).returning();
+    const [trainer] = await db
+      .insert(trainers)
+      .values(insertTrainer)
+      .returning();
     return trainer;
   }
 
   async updateTrainer(id: number, updates: Partial<InsertTrainer>): Promise<Trainer> {
-    const [trainer] = await db.update(trainers).set(updates).where(eq(trainers.id, id)).returning();
+    const [trainer] = await db
+      .update(trainers)
+      .set(updates)
+      .where(eq(trainers.id, id))
+      .returning();
     return trainer;
   }
 
@@ -184,9 +168,58 @@ export class DatabaseStorage implements IStorage {
     await db.delete(trainers).where(eq(trainers.id, id));
   }
 
-  // Plans
+  async getCategories(): Promise<Category[]> {
+    const result = await db.select({
+      id: categories.id,
+      name: categories.name,
+      description: categories.description,
+      color: categories.color,
+      isActive: categories.isActive,
+      createdAt: categories.createdAt,
+      updatedAt: categories.updatedAt,
+    }).from(categories).orderBy(categories.name);
+    return result;
+  }
+
+  async getCategory(id: number): Promise<Category | undefined> {
+    const [category] = await db.select().from(categories).where(eq(categories.id, id));
+    return category || undefined;
+  }
+
+  async createCategory(insertCategory: InsertCategory): Promise<Category> {
+    console.log("Creating category with data:", insertCategory);
+    const [category] = await db
+      .insert(categories)
+      .values({
+        name: insertCategory.name,
+        description: insertCategory.description || null,
+        color: insertCategory.color || null,
+        isActive: insertCategory.isActive ?? true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+    return category;
+  }
+
+  async updateCategory(id: number, updates: Partial<InsertCategory>): Promise<Category> {
+    const [category] = await db
+      .update(categories)
+      .set({
+        ...updates,
+        updatedAt: new Date(),
+      })
+      .where(eq(categories.id, id))
+      .returning();
+    return category;
+  }
+
+  async deleteCategory(id: number): Promise<void> {
+    await db.delete(categories).where(eq(categories.id, id));
+  }
+
   async getPlans(): Promise<Plan[]> {
-    return await db.select().from(plans).where(eq(plans.isActive, true)).orderBy(asc(plans.price));
+    return await db.select().from(plans).orderBy(plans.name);
   }
 
   async getPlan(id: number): Promise<Plan | undefined> {
@@ -195,22 +228,48 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createPlan(insertPlan: InsertPlan): Promise<Plan> {
-    const [plan] = await db.insert(plans).values(insertPlan).returning();
+    const [plan] = await db
+      .insert(plans)
+      .values(insertPlan)
+      .returning();
     return plan;
   }
 
   async updatePlan(id: number, updates: Partial<InsertPlan>): Promise<Plan> {
-    const [plan] = await db.update(plans).set(updates).where(eq(plans.id, id)).returning();
+    const [plan] = await db
+      .update(plans)
+      .set(updates)
+      .where(eq(plans.id, id))
+      .returning();
     return plan;
   }
 
   async deletePlan(id: number): Promise<void> {
-    await db.update(plans).set({ isActive: false }).where(eq(plans.id, id));
+    await db.delete(plans).where(eq(plans.id, id));
   }
 
-  // Classes
-  async getClasses(): Promise<Class[]> {
-    return await db.select().from(classes).where(eq(classes.isActive, true)).orderBy(asc(classes.name));
+  async getClasses(): Promise<any[]> {
+    return await db
+      .select({
+        id: classes.id,
+        name: classes.name,
+        description: classes.description,
+        categoryId: classes.categoryId,
+        duration: classes.duration,
+        maxCapacity: classes.maxCapacity,
+        equipment: classes.equipment,
+        isActive: classes.isActive,
+        createdAt: classes.createdAt,
+        category: {
+          id: categories.id,
+          name: categories.name,
+          description: categories.description,
+          color: categories.color,
+        },
+      })
+      .from(classes)
+      .leftJoin(categories, eq(classes.categoryId, categories.id))
+      .orderBy(classes.name);
   }
 
   async getClass(id: number): Promise<Class | undefined> {
@@ -219,27 +278,42 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createClass(insertClass: InsertClass): Promise<Class> {
-    const [classData] = await db.insert(classes).values(insertClass).returning();
+    console.log("Creating class with data:", insertClass);
+    const [classData] = await db
+      .insert(classes)
+      .values({
+        name: insertClass.name,
+        description: insertClass.description || null,
+        categoryId: insertClass.categoryId,
+        duration: insertClass.duration,
+        maxCapacity: insertClass.maxCapacity,
+        equipment: insertClass.equipment || null,
+        isActive: insertClass.isActive ?? true,
+        createdAt: new Date(),
+      })
+      .returning();
     return classData;
   }
 
   async updateClass(id: number, updates: Partial<InsertClass>): Promise<Class> {
-    const [classData] = await db.update(classes).set(updates).where(eq(classes.id, id)).returning();
+    const [classData] = await db
+      .update(classes)
+      .set(updates)
+      .where(eq(classes.id, id))
+      .returning();
     return classData;
   }
 
   async deleteClass(id: number): Promise<void> {
-    await db.update(classes).set({ isActive: false }).where(eq(classes.id, id));
+    await db.delete(classes).where(eq(classes.id, id));
   }
 
-  // Schedules
   async getSchedules(): Promise<any[]> {
-    const now = new Date();
-    const today = now.toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
-    
-    return await db
+    const results = await db
       .select({
         id: schedules.id,
+        classId: schedules.classId,
+        trainerId: schedules.trainerId,
         dayOfWeek: schedules.dayOfWeek,
         startTime: schedules.startTime,
         endTime: schedules.endTime,
@@ -247,29 +321,53 @@ export class DatabaseStorage implements IStorage {
         repetitionType: schedules.repetitionType,
         parentScheduleId: schedules.parentScheduleId,
         isActive: schedules.isActive,
-        class: {
-          id: classes.id,
-          name: classes.name,
-          category: classes.category,
-          duration: classes.duration,
-          maxCapacity: classes.maxCapacity,
-        },
-        trainer: {
-          id: trainers.id,
-          firstName: trainers.firstName,
-          lastName: trainers.lastName,
-        },
+
+        className: classes.name,
+        classDescription: classes.description,
+        classDuration: classes.duration,
+        classMaxCapacity: classes.maxCapacity,
+        categoryId: classes.categoryId,
+        categoryName: categories.name,
+        trainerFirstName: trainers.firstName,
+        trainerLastName: trainers.lastName,
+        trainerEmail: trainers.email,
       })
       .from(schedules)
-      .leftJoin(classes, eq(schedules.classId, classes.id))
-      .leftJoin(trainers, eq(schedules.trainerId, trainers.id))
-      .where(
-        and(
-          eq(schedules.isActive, true),
-          sql`${schedules.scheduleDate} >= ${today}` // Only future classes
-        )
-      )
-      .orderBy(asc(schedules.scheduleDate), asc(schedules.startTime));
+      .innerJoin(classes, eq(schedules.classId, classes.id))
+      .innerJoin(trainers, eq(schedules.trainerId, trainers.id))
+      .leftJoin(categories, eq(classes.categoryId, categories.id))
+      .where(eq(schedules.isActive, true))
+      .orderBy(schedules.scheduleDate, schedules.startTime);
+
+    // Transform the flat results into nested objects
+    return results.map(row => ({
+      id: row.id,
+      classId: row.classId,
+      trainerId: row.trainerId,
+      dayOfWeek: row.dayOfWeek,
+      startTime: row.startTime,
+      endTime: row.endTime,
+      scheduleDate: row.scheduleDate,
+      repetitionType: row.repetitionType,
+      parentScheduleId: row.parentScheduleId,
+      isActive: row.isActive,
+
+      class: {
+        id: row.classId,
+        name: row.className || 'Unknown Class',
+        description: row.classDescription,
+        duration: row.classDuration || 60,
+        maxCapacity: row.classMaxCapacity || 10,
+        categoryId: row.categoryId,
+        category: row.categoryName || 'Unknown Category',
+      },
+      trainer: {
+        id: row.trainerId,
+        firstName: row.trainerFirstName || 'Unknown',
+        lastName: row.trainerLastName || 'Trainer',
+        email: row.trainerEmail,
+      },
+    }));
   }
 
   async getSchedule(id: number): Promise<Schedule | undefined> {
@@ -278,133 +376,122 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createSchedule(scheduleData: any): Promise<Schedule> {
-    const scheduleInstances = this.generateScheduleInstances(scheduleData);
+    console.log("Creating schedule with:", scheduleData);
     
-    if (scheduleInstances.length === 0) {
-      throw new Error("No valid schedule instances could be generated");
-    }
-    
-    const createdSchedules = await db.insert(schedules).values(scheduleInstances).returning();
-    return createdSchedules[0]; // Return the first instance as the main schedule
-  }
-
-  private generateScheduleInstances(scheduleData: any): any[] {
-    const instances = [];
-    const { repetitionType = 'once' } = scheduleData;
-    
-    switch (repetitionType) {
-      case 'once': {
-        // For 'once', use scheduleDate directly
-        const scheduleDate = scheduleData.scheduleDate ? new Date(scheduleData.scheduleDate) : new Date();
-        instances.push({
+    if (scheduleData.repetitionType === 'once') {
+      // Single schedule - create one entry with the specific date
+      const [schedule] = await db
+        .insert(schedules)
+        .values({
           classId: scheduleData.classId,
           trainerId: scheduleData.trainerId,
-          dayOfWeek: scheduleDate.getDay(),
+          dayOfWeek: scheduleData.dayOfWeek,
           startTime: scheduleData.startTime,
           endTime: scheduleData.endTime,
-          scheduleDate: scheduleDate,
-          repetitionType: 'once',
+          scheduleDate: scheduleData.scheduleDate ? new Date(scheduleData.scheduleDate) : null,
+          repetitionType: scheduleData.repetitionType,
           parentScheduleId: null,
-          isActive: scheduleData.isActive !== false,
-        });
-        break;
-      }
-        
-      case 'daily': {
-        // For daily, create instances from startDate to endDate
-        const startDate = new Date(scheduleData.startDate);
-        const endDate = new Date(scheduleData.endDate);
-        let currentDate = new Date(startDate);
-        
-        while (currentDate <= endDate) {
-          instances.push({
-            classId: scheduleData.classId,
-            trainerId: scheduleData.trainerId,
-            dayOfWeek: currentDate.getDay(),
-            startTime: scheduleData.startTime,
-            endTime: scheduleData.endTime,
-            scheduleDate: new Date(currentDate),
-            repetitionType: 'daily',
-            parentScheduleId: null,
-            isActive: scheduleData.isActive !== false,
-          });
-          currentDate.setDate(currentDate.getDate() + 1);
-          
-          // Prevent infinite loops
-          if (instances.length > 365) break;
-        }
-        break;
-      }
-        
-      case 'weekly': {
-        // For weekly, create instances on the specified dayOfWeek from startDate to endDate
-        const startDate = new Date(scheduleData.startDate);
-        const endDate = new Date(scheduleData.endDate);
-        const targetDay = scheduleData.dayOfWeek;
-        
-        // Find the first occurrence of the target day
-        let currentDate = new Date(startDate);
-        const daysUntilTarget = (targetDay - currentDate.getDay() + 7) % 7;
-        currentDate.setDate(currentDate.getDate() + daysUntilTarget);
-        
-        while (currentDate <= endDate) {
-          instances.push({
-            classId: scheduleData.classId,
-            trainerId: scheduleData.trainerId,
-            dayOfWeek: targetDay,
-            startTime: scheduleData.startTime,
-            endTime: scheduleData.endTime,
-            scheduleDate: new Date(currentDate),
-            repetitionType: 'weekly',
-            parentScheduleId: null,
-            isActive: scheduleData.isActive !== false,
-          });
-          currentDate.setDate(currentDate.getDate() + 7);
-          
-          // Prevent infinite loops
-          if (instances.length > 100) break;
-        }
-        break;
-      }
-        
+          isActive: scheduleData.isActive ?? true,
+        })
+        .returning();
+      
+      console.log("Created single schedule:", schedule);
+      return schedule;
+    }
+    
+    // For repeating schedules, create multiple instances
+    const instances = this.generateRepeatingSchedules(scheduleData);
+    
+    if (instances.length === 0) {
+      throw new Error("No schedule instances generated");
+    }
+    
+    // Create parent schedule
+    const [parentSchedule] = await db
+      .insert(schedules)
+      .values({
+        classId: scheduleData.classId,
+        trainerId: scheduleData.trainerId,
+        dayOfWeek: scheduleData.dayOfWeek,
+        startTime: scheduleData.startTime,
+        endTime: scheduleData.endTime,
+        scheduleDate: instances[0].scheduleDate,
+        repetitionType: scheduleData.repetitionType,
+        parentScheduleId: null,
+        isActive: scheduleData.isActive ?? true,
+      })
+      .returning();
+    
+    // Create child instances
+    if (instances.length > 1) {
+      const childInstances = instances.slice(1).map(instance => ({
+        classId: scheduleData.classId,
+        trainerId: scheduleData.trainerId,
+        dayOfWeek: scheduleData.dayOfWeek,
+        startTime: scheduleData.startTime,
+        endTime: scheduleData.endTime,
+        scheduleDate: instance.scheduleDate,
+        repetitionType: scheduleData.repetitionType,
+        parentScheduleId: parentSchedule.id,
+        isActive: scheduleData.isActive ?? true,
+      }));
+      
+      await db.insert(schedules).values(childInstances);
+    }
+    
+    console.log("Created repeating schedule with", instances.length, "instances");
+    return parentSchedule;
+  }
 
+  private generateRepeatingSchedules(scheduleData: any): any[] {
+    const instances = [];
+    const startDate = new Date(scheduleData.startDate);
+    const endDate = new Date(scheduleData.endDate);
+    
+    if (scheduleData.repetitionType === 'weekly') {
+      // Find first occurrence of the specified day of week on or after start date
+      const targetDayOfWeek = scheduleData.dayOfWeek;
+      const current = new Date(startDate);
+      
+      // Adjust to the target day of week
+      const daysToAdd = (targetDayOfWeek - current.getDay() + 7) % 7;
+      current.setDate(current.getDate() + daysToAdd);
+      
+      // Generate weekly instances until end date
+      while (current <= endDate) {
+        instances.push({
+          scheduleDate: new Date(current)
+        });
+        current.setDate(current.getDate() + 7); // Add 7 days for next week
+      }
+    } else if (scheduleData.repetitionType === 'daily') {
+      // Generate daily instances from start to end date
+      const current = new Date(startDate);
+      
+      while (current <= endDate) {
+        instances.push({
+          scheduleDate: new Date(current)
+        });
+        current.setDate(current.getDate() + 1); // Add 1 day
+      }
     }
     
     return instances;
   }
 
   async updateSchedule(id: number, updates: Partial<InsertSchedule>): Promise<Schedule> {
-    // For updates, only update the specific schedule instance, don't create new ones
-    const updateData: any = {
-      classId: updates.classId,
-      trainerId: updates.trainerId,
-      startTime: updates.startTime,
-      endTime: updates.endTime,
-      isActive: updates.isActive,
-    };
-
-    // Update schedule date if provided
-    if (updates.scheduleDate) {
-      updateData.scheduleDate = new Date(updates.scheduleDate);
-      updateData.dayOfWeek = new Date(updates.scheduleDate).getDay();
-    }
-
-    // Remove undefined values
-    Object.keys(updateData).forEach(key => {
-      if (updateData[key] === undefined) {
-        delete updateData[key];
-      }
-    });
-    
-    const [schedule] = await db.update(schedules).set(updateData).where(eq(schedules.id, id)).returning();
+    const [schedule] = await db
+      .update(schedules)
+      .set(updates)
+      .where(eq(schedules.id, id))
+      .returning();
     return schedule;
   }
 
   async deleteSchedule(id: number): Promise<void> {
-    await db.update(schedules).set({ isActive: false }).where(eq(schedules.id, id));
+    await db.delete(schedules).where(eq(schedules.id, id));
   }
 
-  // Subscriptions
   async getSubscriptions(): Promise<any[]> {
     return await db
       .select({
@@ -412,25 +499,28 @@ export class DatabaseStorage implements IStorage {
         startDate: subscriptions.startDate,
         endDate: subscriptions.endDate,
         sessionsRemaining: subscriptions.sessionsRemaining,
-        isActive: subscriptions.isActive,
-        createdAt: subscriptions.createdAt,
-        member: {
-          id: members.id,
-          firstName: members.firstName,
-          lastName: members.lastName,
-          email: members.email,
+        status: subscriptions.status,
+        paymentStatus: subscriptions.paymentStatus,
+        notes: subscriptions.notes,
+        user: {
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          email: users.email,
         },
         plan: {
           id: plans.id,
           name: plans.name,
+          description: plans.description,
           price: plans.price,
           sessionsIncluded: plans.sessionsIncluded,
+          durationDays: plans.durationDays,
         },
       })
       .from(subscriptions)
-      .leftJoin(members, eq(subscriptions.memberId, members.id))
-      .leftJoin(plans, eq(subscriptions.planId, plans.id))
-      .orderBy(desc(subscriptions.createdAt));
+      .innerJoin(users, eq(subscriptions.userId, users.id))
+      .innerJoin(plans, eq(subscriptions.planId, plans.id))
+      .orderBy(desc(subscriptions.startDate));
   }
 
   async getSubscription(id: number): Promise<Subscription | undefined> {
@@ -438,100 +528,112 @@ export class DatabaseStorage implements IStorage {
     return subscription || undefined;
   }
 
-  async getMemberActiveSubscription(memberId: number): Promise<any | undefined> {
+  async getUserActiveSubscription(userId: string): Promise<any | undefined> {
     const [subscription] = await db
       .select({
         id: subscriptions.id,
         startDate: subscriptions.startDate,
         endDate: subscriptions.endDate,
         sessionsRemaining: subscriptions.sessionsRemaining,
-        isActive: subscriptions.isActive,
-        status: sql<string>`CASE 
-          WHEN ${subscriptions.isActive} = true AND ${subscriptions.endDate} > NOW() THEN 'active'
-          WHEN ${subscriptions.endDate} <= NOW() THEN 'expired'
-          ELSE 'inactive'
-        END`.as('status'),
+        status: subscriptions.status,
+        paymentStatus: subscriptions.paymentStatus,
         plan: {
           id: plans.id,
           name: plans.name,
+          description: plans.description,
           price: plans.price,
           sessionsIncluded: plans.sessionsIncluded,
+          durationDays: plans.durationDays,
         },
       })
       .from(subscriptions)
-      .leftJoin(plans, eq(subscriptions.planId, plans.id))
-      .where(and(
-        eq(subscriptions.memberId, memberId),
-        eq(subscriptions.isActive, true)
-      ))
-      .orderBy(desc(subscriptions.endDate))
+      .innerJoin(plans, eq(subscriptions.planId, plans.id))
+      .where(
+        and(
+          eq(subscriptions.userId, userId),
+          eq(subscriptions.status, "active")
+        )
+      )
+      .orderBy(desc(subscriptions.startDate))
       .limit(1);
-    
+
     return subscription || undefined;
   }
 
   async createSubscription(insertSubscription: InsertSubscription): Promise<Subscription> {
-    const [subscription] = await db.insert(subscriptions).values(insertSubscription).returning();
+    const [subscription] = await db
+      .insert(subscriptions)
+      .values(insertSubscription)
+      .returning();
     return subscription;
   }
 
   async updateSubscription(id: number, updates: Partial<InsertSubscription>): Promise<Subscription> {
-    const [subscription] = await db.update(subscriptions).set(updates).where(eq(subscriptions.id, id)).returning();
+    const [subscription] = await db
+      .update(subscriptions)
+      .set(updates)
+      .where(eq(subscriptions.id, id))
+      .returning();
     return subscription;
   }
 
-  // Class Registrations
-  async getClassRegistrations(memberId?: number): Promise<any[]> {
-    let query = db
-      .select({
-        id: classRegistrations.id,
-        registrationDate: classRegistrations.registrationDate,
-        qrCode: classRegistrations.qrCode,
-        status: classRegistrations.status,
-        member: {
-          id: members.id,
-          firstName: members.firstName,
-          lastName: members.lastName,
-          email: members.email,
-        },
-        schedule: {
-          id: schedules.id,
-          dayOfWeek: schedules.dayOfWeek,
-          startTime: schedules.startTime,
-          endTime: schedules.endTime,
-          scheduleDate: schedules.scheduleDate,
-          repetitionType: schedules.repetitionType,
-          parentScheduleId: schedules.parentScheduleId,
-          isActive: schedules.isActive,
-          class: {
-            id: classes.id,
-            name: classes.name,
-            category: classes.category,
-            duration: classes.duration,
-            maxCapacity: classes.maxCapacity,
-          },
-          trainer: {
-            id: trainers.id,
-            firstName: trainers.firstName,
-            lastName: trainers.lastName,
-          },
-        },
-      })
+  async getClassRegistrations(userId?: string): Promise<any[]> {
+    const baseQuery = db
+      .select()
       .from(classRegistrations)
-      .leftJoin(members, eq(classRegistrations.memberId, members.id))
-      .leftJoin(schedules, eq(classRegistrations.scheduleId, schedules.id))
-      .leftJoin(classes, eq(schedules.classId, classes.id))
-      .leftJoin(trainers, eq(schedules.trainerId, trainers.id));
+      .innerJoin(users, eq(classRegistrations.userId, users.id))
+      .innerJoin(schedules, eq(classRegistrations.scheduleId, schedules.id))
+      .innerJoin(classes, eq(schedules.classId, classes.id))
+      .innerJoin(trainers, eq(schedules.trainerId, trainers.id));
 
-    if (memberId) {
-      query = query.where(eq(classRegistrations.memberId, memberId));
-    }
+    const query = userId 
+      ? baseQuery.where(eq(classRegistrations.userId, userId))
+      : baseQuery;
 
-    return await query.orderBy(desc(classRegistrations.registrationDate));
+    const results = await query.orderBy(desc(classRegistrations.registrationDate));
+    
+    return results.map((row: any) => ({
+      id: row.class_registrations.id,
+      registrationDate: row.class_registrations.registrationDate,
+      qrCode: row.class_registrations.qrCode,
+      status: row.class_registrations.status,
+      notes: row.class_registrations.notes,
+      user: {
+        id: row.users.id,
+        firstName: row.users.firstName,
+        lastName: row.users.lastName,
+        email: row.users.email,
+      },
+      schedule: {
+        id: row.schedules.id,
+        dayOfWeek: row.schedules.dayOfWeek,
+        startTime: row.schedules.startTime,
+        endTime: row.schedules.endTime,
+        scheduleDate: row.schedules.scheduleDate,
+        class: {
+          id: row.classes.id,
+          name: row.classes.name,
+          category: row.classes.category,
+          duration: row.classes.duration,
+          maxCapacity: row.classes.maxCapacity,
+        },
+        trainer: {
+          id: row.trainers.id,
+          firstName: row.trainers.firstName,
+          lastName: row.trainers.lastName,
+        },
+      },
+    }));
   }
 
   async createClassRegistration(insertRegistration: InsertClassRegistration): Promise<ClassRegistration> {
-    const [registration] = await db.insert(classRegistrations).values(insertRegistration).returning();
+    const [registration] = await db
+      .insert(classRegistrations)
+      .values({
+        ...insertRegistration,
+        registrationDate: new Date(),
+      })
+      .returning();
     return registration;
   }
 
@@ -545,172 +647,211 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getRegistrationByQRCode(qrCode: string): Promise<any | undefined> {
-    const [registration] = await db
-      .select({
-        id: classRegistrations.id,
-        status: classRegistrations.status,
-        member: {
-          id: members.id,
-          firstName: members.firstName,
-          lastName: members.lastName,
-        },
-        schedule: {
-          id: schedules.id,
-          dayOfWeek: schedules.dayOfWeek,
-          startTime: schedules.startTime,
-          endTime: schedules.endTime,
-          scheduleDate: schedules.scheduleDate,
-        },
-        class: {
-          id: classes.id,
-          name: classes.name,
-        },
-      })
+    const results = await db
+      .select()
       .from(classRegistrations)
-      .leftJoin(members, eq(classRegistrations.memberId, members.id))
-      .leftJoin(schedules, eq(classRegistrations.scheduleId, schedules.id))
-      .leftJoin(classes, eq(schedules.classId, classes.id))
-      .where(eq(classRegistrations.qrCode, qrCode));
+      .innerJoin(users, eq(classRegistrations.userId, users.id))
+      .innerJoin(schedules, eq(classRegistrations.scheduleId, schedules.id))
+      .innerJoin(classes, eq(schedules.classId, classes.id))
+      .innerJoin(trainers, eq(schedules.trainerId, trainers.id))
+      .where(eq(classRegistrations.qrCode, qrCode))
+      .limit(1);
 
-    return registration || undefined;
-  }
+    if (results.length === 0) return undefined;
 
-  // Check-ins
-  async getCheckins(date?: string): Promise<any[]> {
-    let query = db
-      .select({
-        id: checkins.id,
-        checkinTime: checkins.checkinTime,
-        sessionConsumed: checkins.sessionConsumed,
-        member: {
-          id: members.id,
-          firstName: members.firstName,
-          lastName: members.lastName,
-        },
+    const row = results[0];
+    return {
+      id: row.class_registrations.id,
+      registrationDate: row.class_registrations.registrationDate,
+      qrCode: row.class_registrations.qrCode,
+      status: row.class_registrations.status,
+      notes: row.class_registrations.notes,
+      user: {
+        id: row.users.id,
+        firstName: row.users.firstName,
+        lastName: row.users.lastName,
+        email: row.users.email,
+      },
+      schedule: {
+        id: row.schedules.id,
+        dayOfWeek: row.schedules.dayOfWeek,
+        startTime: row.schedules.startTime,
+        endTime: row.schedules.endTime,
+        scheduleDate: row.schedules.scheduleDate,
         class: {
-          id: classes.id,
-          name: classes.name,
+          id: row.classes.id,
+          name: row.classes.name,
+          category: row.classes.category,
+          duration: row.classes.duration,
+          maxCapacity: row.classes.maxCapacity,
         },
-      })
-      .from(checkins)
-      .leftJoin(classRegistrations, eq(checkins.registrationId, classRegistrations.id))
-      .leftJoin(members, eq(checkins.memberId, members.id))
-      .leftJoin(schedules, eq(classRegistrations.scheduleId, schedules.id))
-      .leftJoin(classes, eq(schedules.classId, classes.id));
-
-    if (date) {
-      query = query.where(sql`DATE(${checkins.checkinTime}) = ${date}`);
-    }
-
-    return await query.orderBy(desc(checkins.checkinTime));
+        trainer: {
+          id: row.trainers.id,
+          firstName: row.trainers.firstName,
+          lastName: row.trainers.lastName,
+        },
+      },
+    };
   }
 
-  async getMemberCheckins(memberId: number): Promise<any[]> {
-    const memberCheckins = await db
-      .select({
-        id: checkins.id,
-        checkinTime: checkins.checkinTime,
-        sessionConsumed: checkins.sessionConsumed,
-        registration: {
-          id: classRegistrations.id,
-          registrationDate: classRegistrations.registrationDate,
-          qrCode: classRegistrations.qrCode,
-          status: classRegistrations.status,
-          schedule: {
-            id: schedules.id,
-            dayOfWeek: schedules.dayOfWeek,
-            startTime: schedules.startTime,
-            endTime: schedules.endTime,
-            scheduleDate: schedules.scheduleDate,
-            class: {
-              id: classes.id,
-              name: classes.name,
-              category: classes.category,
-              duration: classes.duration,
-            },
-            trainer: {
-              id: trainers.id,
-              firstName: trainers.firstName,
-              lastName: trainers.lastName,
-            },
+  async getCheckins(date?: string): Promise<any[]> {
+    const baseQuery = db
+      .select()
+      .from(checkins)
+      .innerJoin(users, eq(checkins.userId, users.id))
+      .innerJoin(classRegistrations, eq(checkins.registrationId, classRegistrations.id))
+      .innerJoin(schedules, eq(classRegistrations.scheduleId, schedules.id))
+      .innerJoin(classes, eq(schedules.classId, classes.id))
+      .innerJoin(trainers, eq(schedules.trainerId, trainers.id));
+
+    const query = date 
+      ? baseQuery.where(sql`DATE(${checkins.checkinTime}) = ${date}`)
+      : baseQuery;
+
+    const results = await query.orderBy(desc(checkins.checkinTime));
+    
+    return results.map((row: any) => ({
+      id: row.checkins.id,
+      checkinTime: row.checkins.checkinTime,
+      sessionConsumed: row.checkins.sessionConsumed,
+      notes: row.checkins.notes,
+      user: {
+        id: row.users.id,
+        firstName: row.users.firstName,
+        lastName: row.users.lastName,
+      },
+      registration: {
+        id: row.class_registrations.id,
+        qrCode: row.class_registrations.qrCode,
+        status: row.class_registrations.status,
+        schedule: {
+          id: row.schedules.id,
+          scheduleDate: row.schedules.scheduleDate,
+          startTime: row.schedules.startTime,
+          endTime: row.schedules.endTime,
+          class: {
+            id: row.classes.id,
+            name: row.classes.name,
+            category: row.classes.category,
+          },
+          trainer: {
+            id: row.trainers.id,
+            firstName: row.trainers.firstName,
+            lastName: row.trainers.lastName,
           },
         },
-      })
+      },
+    }));
+  }
+
+  async getUserCheckins(userId: string): Promise<any[]> {
+    const results = await db
+      .select()
       .from(checkins)
-      .leftJoin(classRegistrations, eq(checkins.registrationId, classRegistrations.id))
-      .leftJoin(schedules, eq(classRegistrations.scheduleId, schedules.id))
-      .leftJoin(classes, eq(schedules.classId, classes.id))
-      .leftJoin(trainers, eq(schedules.trainerId, trainers.id))
-      .leftJoin(members, eq(classRegistrations.memberId, members.id))
-      .where(eq(members.id, memberId))
+      .innerJoin(users, eq(checkins.userId, users.id))
+      .innerJoin(classRegistrations, eq(checkins.registrationId, classRegistrations.id))
+      .innerJoin(schedules, eq(classRegistrations.scheduleId, schedules.id))
+      .innerJoin(classes, eq(schedules.classId, classes.id))
+      .innerJoin(trainers, eq(schedules.trainerId, trainers.id))
+      .where(eq(checkins.userId, userId))
       .orderBy(desc(checkins.checkinTime));
 
-    return memberCheckins;
+    return results.map((row: any) => ({
+      id: row.checkins.id,
+      checkinTime: row.checkins.checkinTime,
+      sessionConsumed: row.checkins.sessionConsumed,
+      notes: row.checkins.notes,
+      user: {
+        id: row.users.id,
+        firstName: row.users.firstName,
+        lastName: row.users.lastName,
+      },
+      registration: {
+        id: row.class_registrations.id,
+        qrCode: row.class_registrations.qrCode,
+        status: row.class_registrations.status,
+        schedule: {
+          id: row.schedules.id,
+          scheduleDate: row.schedules.scheduleDate,
+          startTime: row.schedules.startTime,
+          endTime: row.schedules.endTime,
+          class: {
+            id: row.classes.id,
+            name: row.classes.name,
+            category: row.classes.category,
+          },
+          trainer: {
+            id: row.trainers.id,
+            firstName: row.trainers.firstName,
+            lastName: row.trainers.lastName,
+          },
+        },
+      },
+    }));
   }
 
   async createCheckin(insertCheckin: InsertCheckin): Promise<Checkin> {
-    const [checkin] = await db.insert(checkins).values(insertCheckin).returning();
+    const [checkin] = await db
+      .insert(checkins)
+      .values({
+        ...insertCheckin,
+        checkinTime: new Date(),
+      })
+      .returning();
     return checkin;
   }
 
-  // Dashboard stats
   async getDashboardStats(): Promise<any> {
-    const [totalMembers] = await db.select({ count: sql<number>`count(*)` }).from(members);
-    const [activeTrainers] = await db.select({ count: sql<number>`count(*)` }).from(trainers).where(eq(trainers.status, 'active'));
-    const [activeSubscriptions] = await db.select({ count: sql<number>`count(*)` }).from(subscriptions).where(eq(subscriptions.isActive, true));
-    
-    const today = new Date().toISOString().split('T')[0];
-    const [todayCheckins] = await db.select({ count: sql<number>`count(*)` }).from(checkins).where(sql`DATE(${checkins.checkinTime}) = ${today}`);
+    const totalUsers = await db.select({ count: sql<number>`count(*)` }).from(users);
+    const activeUsers = await db.select({ count: sql<number>`count(*)` }).from(users).where(eq(users.status, "active"));
+    const totalClasses = await db.select({ count: sql<number>`count(*)` }).from(classes);
+    const totalTrainers = await db.select({ count: sql<number>`count(*)` }).from(trainers);
 
     return {
-      totalMembers: totalMembers.count,
-      activeTrainers: activeTrainers.count,
-      activeSubscriptions: activeSubscriptions.count,
-      todayCheckins: todayCheckins.count,
+      totalUsers: totalUsers[0]?.count || 0,
+      activeUsers: activeUsers[0]?.count || 0,
+      totalClasses: totalClasses[0]?.count || 0,
+      totalTrainers: totalTrainers[0]?.count || 0,
     };
   }
 
   async markAbsentClasses(): Promise<void> {
     const now = new Date();
-    
-    // Find all registered classes that have passed without a check-in
-    const registrationsWithSchedules = await db
+    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+
+    // Find registrations for classes that ended more than 1 hour ago and haven't been checked in
+    const absentRegistrations = await db
       .select({
-        registrationId: classRegistrations.id,
-        memberId: classRegistrations.memberId,
-        scheduleDate: schedules.scheduleDate,
-        startTime: schedules.startTime,
+        id: classRegistrations.id,
+        userId: classRegistrations.userId,
       })
       .from(classRegistrations)
-      .leftJoin(schedules, eq(classRegistrations.scheduleId, schedules.id))
+      .innerJoin(schedules, eq(classRegistrations.scheduleId, schedules.id))
       .leftJoin(checkins, eq(checkins.registrationId, classRegistrations.id))
       .where(
         and(
-          eq(classRegistrations.status, 'registered'),
-          sql`${checkins.id} IS NULL` // No check-in exists
+          sql`${schedules.scheduleDate} + INTERVAL '1 hour' * ${schedules.endTime}::time < ${oneHourAgo}`,
+          eq(classRegistrations.status, "registered"),
+          sql`${checkins.id} IS NULL`
         )
       );
 
-    for (const reg of registrationsWithSchedules) {
-      if (!reg.scheduleDate || !reg.startTime) continue;
-      
-      // Calculate class end time
-      const classDate = new Date(reg.scheduleDate);
-      const [hours, minutes] = reg.startTime.split(':');
-      classDate.setHours(parseInt(hours), parseInt(minutes));
-      
-      // If class ended, mark as absent
-      if (now > classDate) {
-        // Mark registration as absent
-        await this.updateClassRegistration(reg.registrationId, { status: 'absent' });
-        
-        // Deduct session from member's active subscription
-        const subscription = await this.getMemberActiveSubscription(reg.memberId);
-        if (subscription && subscription.sessionsRemaining > 0) {
-          await this.updateSubscription(subscription.id, {
-            sessionsRemaining: subscription.sessionsRemaining - 1
-          });
-        }
+    // Mark registrations as absent
+    for (const registration of absentRegistrations) {
+      await db
+        .update(classRegistrations)
+        .set({ status: "absent" })
+        .where(eq(classRegistrations.id, registration.id));
+
+      // Deduct session from user's active subscription
+      const activeSubscription = await this.getUserActiveSubscription(registration.userId);
+      if (activeSubscription && activeSubscription.sessionsRemaining > 0) {
+        await db
+          .update(subscriptions)
+          .set({ 
+            sessionsRemaining: activeSubscription.sessionsRemaining - 1 
+          })
+          .where(eq(subscriptions.id, activeSubscription.id));
       }
     }
   }

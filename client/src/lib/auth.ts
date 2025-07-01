@@ -13,33 +13,33 @@ export function formatPhoneNumber(phone: string): string {
 
 export function formatDate(date: string | Date): string {
   const d = new Date(date);
-  return d.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
+  return d.toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
   });
 }
 
 export function formatDateTime(date: string | Date): string {
   const d = new Date(date);
-  return d.toLocaleString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
+  const dateStr = d.toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
   });
+  const timeStr = d.toLocaleTimeString('fr-FR', {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+  return `${dateStr} ${timeStr}`;
 }
 
 export function getDayName(dayOfWeek: number): string {
-  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const days = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
   return days[dayOfWeek] || '';
 }
 
 export function formatTime(time: string): string {
   const [hours, minutes] = time.split(':');
-  const hour12 = parseInt(hours) % 12 || 12;
-  const ampm = parseInt(hours) >= 12 ? 'PM' : 'AM';
-  return `${hour12}:${minutes} ${ampm}`;
+  return `${hours}:${minutes}`;
 }

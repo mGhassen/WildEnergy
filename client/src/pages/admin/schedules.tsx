@@ -33,7 +33,7 @@ export default function AdminSchedules() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [calendarView, setCalendarView] = useState<"daily" | "weekly" | "monthly">("weekly");
+  const [calendarView, setCalendarView] = useState<"daily" | "weekly" | "monthly">("monthly");
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -41,13 +41,17 @@ export default function AdminSchedules() {
     queryKey: ["/api/schedules"],
   });
 
-  const { data: registrations } = useQuery({
+  const { data: registrations = [] } = useQuery({
     queryKey: ["/api/registrations"],
   });
 
-  const { data: checkins } = useQuery({
+  const { data: checkins = [] } = useQuery({
     queryKey: ["/api/checkins"],
   });
+
+  // Debug logging
+  console.log("Schedules data:", schedules);
+  console.log("Is loading:", isLoading);
 
   const { data: classes } = useQuery({
     queryKey: ["/api/classes"],
