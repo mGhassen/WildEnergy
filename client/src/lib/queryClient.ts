@@ -2,8 +2,30 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
+    let message = `${res.status}: ${res.statusText}`;
+    
+    try {
+      const text = await res.text();
+      
+      // Check if response is JSON
+      if (text.startsWith('{') || text.startsWith('[')) {
+        try {
+          const errorData = JSON.parse(text);
+          message = errorData.error || errorData.message || message;
+        } catch {
+          // JSON parsing failed, use original message
+        }
+      } else if (text.includes('<!DOCTYPE')) {
+        // HTML error page returned
+        message = `Server error: ${res.status} ${res.statusText}`;
+      } else if (text.length > 0 && text.length < 200) {
+        message = text;
+      }
+    } catch {
+      // If text parsing fails, use the status message
+    }
+
+    throw new Error(message);
   }
 }
 
@@ -11,7 +33,7 @@ export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
-): Promise<Response> {
+): Promise<any> {
   const res = await fetch(url, {
     method,
     headers: data ? { "Content-Type": "application/json" } : {},
@@ -20,6 +42,13 @@ export async function apiRequest(
   });
 
   await throwIfResNotOk(res);
+  
+  // Parse JSON response
+  const contentType = res.headers.get("content-type");
+  if (contentType && contentType.includes("application/json")) {
+    return await res.json();
+  }
+  
   return res;
 }
 

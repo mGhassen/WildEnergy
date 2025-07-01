@@ -27,8 +27,12 @@ export default function AdminClasses() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: classes, isLoading } = useQuery({
-    queryKey: ["/api/classes"],
+  const { data: classes = [], isLoading } = useQuery({
+    queryKey: ["/api/admin/classes"],
+  });
+
+  const { data: categories = [], isLoading: categoriesLoading } = useQuery({
+    queryKey: ["/api/admin/categories"],
   });
 
   const form = useForm<ClassFormData>({
@@ -36,20 +40,21 @@ export default function AdminClasses() {
     defaultValues: {
       name: "",
       description: "",
-      category: "",
+      categoryId: 0,
       duration: 60,
       maxCapacity: 20,
+      equipment: "",
       isActive: true,
     },
   });
 
   const createClassMutation = useMutation({
     mutationFn: async (data: ClassFormData) => {
-      const response = await apiRequest("POST", "/api/classes", data);
-      return response.json();
+      const response = await apiRequest("POST", "/api/admin/classes", data);
+      return response;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/classes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/classes"] });
       setIsModalOpen(false);
       form.reset();
       toast({ title: "Class created successfully" });
@@ -65,11 +70,11 @@ export default function AdminClasses() {
 
   const updateClassMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Partial<ClassFormData> }) => {
-      const response = await apiRequest("PUT", `/api/classes/${id}`, data);
-      return response.json();
+      const response = await apiRequest("PATCH", `/api/admin/classes/${id}`, data);
+      return response;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/classes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/classes"] });
       setIsModalOpen(false);
       setEditingClass(null);
       form.reset();
@@ -86,10 +91,10 @@ export default function AdminClasses() {
 
   const deleteClassMutation = useMutation({
     mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/classes/${id}`);
+      await apiRequest("DELETE", `/api/admin/classes/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/classes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/classes"] });
       toast({ title: "Class deleted successfully" });
     },
     onError: (error) => {
@@ -101,11 +106,16 @@ export default function AdminClasses() {
     },
   });
 
-  const filteredClasses = classes?.filter((classItem: any) =>
-    `${classItem.name} ${classItem.category} ${classItem.description}`
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase())
-  ) || [];
+  const categoriesOptions = (Array.isArray(categories) ? categories : []).map((cat: any) => ({
+    value: cat.id,
+    label: cat.name,
+  }));
+
+  const filteredClasses = (Array.isArray(classes) ? classes : []).filter((classItem: any) => {
+    if (!classItem) return false;
+    const searchText = `${classItem.name || ""} ${classItem.description || ""}`;
+    return searchText.toLowerCase().includes((searchTerm || "").toLowerCase());
+  });
 
   const handleSubmit = (data: ClassFormData) => {
     if (editingClass) {
@@ -120,7 +130,7 @@ export default function AdminClasses() {
     form.reset({
       name: classItem.name,
       description: classItem.description,
-      category: classItem.category,
+      categoryId: classItem.categoryId || 0,
       duration: classItem.duration,
       maxCapacity: classItem.maxCapacity,
       isActive: classItem.isActive,
@@ -190,23 +200,25 @@ export default function AdminClasses() {
                 />
                 <FormField
                   control={form.control}
-                  name="category"
+                  name="categoryId"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Category</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select 
+                        onValueChange={(value) => field.onChange(parseInt(value))} 
+                        defaultValue={field.value?.toString()}
+                      >
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select category" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="yoga">Yoga</SelectItem>
-                          <SelectItem value="hiit">HIIT</SelectItem>
-                          <SelectItem value="strength">Strength Training</SelectItem>
-                          <SelectItem value="cardio">Cardio</SelectItem>
-                          <SelectItem value="pilates">Pilates</SelectItem>
-                          <SelectItem value="boxing">Boxing</SelectItem>
+                          {categoriesOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value.toString()}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -220,7 +232,7 @@ export default function AdminClasses() {
                     <FormItem>
                       <FormLabel>Description</FormLabel>
                       <FormControl>
-                        <Textarea {...field} placeholder="Brief description of the class..." />
+                        <Textarea {...field} value={field.value || ""} placeholder="Brief description of the class..." />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -293,11 +305,11 @@ export default function AdminClasses() {
         <CardHeader>
           <CardTitle>All Classes</CardTitle>
           <CardDescription>
-            {filteredClasses.length} of {classes?.length || 0} classes
+            {filteredClasses.length} of {Array.isArray(classes) ? classes.length : 0} classes
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {(isLoading || categoriesLoading) ? (
             <div className="space-y-4">
               {[...Array(5)].map((_, i) => (
                 <div key={i} className="animate-pulse flex items-center space-x-4 p-4">
@@ -328,30 +340,30 @@ export default function AdminClasses() {
                       <div className="flex items-center space-x-3">
                         <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center">
                           <span className="text-white text-xs font-medium">
-                            {classItem.category?.charAt(0).toUpperCase()}
+                            {(Array.isArray(categories) ? categories : []).find((cat: any) => cat && cat.id === classItem.categoryId)?.name?.charAt(0)?.toUpperCase() || 'C'}
                           </span>
                         </div>
                         <div>
-                          <p className="font-medium text-foreground">{classItem.name}</p>
+                          <p className="font-medium text-foreground">{classItem.name || 'Unnamed Class'}</p>
                           <p className="text-sm text-muted-foreground line-clamp-1">
-                            {classItem.description}
+                            {classItem.description || 'No description'}
                           </p>
                         </div>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge className={getCategoryColor(classItem.category)}>
-                        {classItem.category}
+                      <Badge className="bg-blue-100 text-blue-800">
+                        {(Array.isArray(categories) ? categories : []).find((cat: any) => cat && cat.id === classItem.categoryId)?.name || 'Unknown'}
                       </Badge>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center">
                         <Clock className="w-4 h-4 mr-1 text-muted-foreground" />
-                        {classItem.duration} min
+                        {classItem.duration || 0} min
                       </div>
                     </TableCell>
                     <TableCell>
-                      <span className="font-medium">{classItem.maxCapacity}</span> people
+                      <span className="font-medium">{classItem.maxCapacity || 0}</span> people
                     </TableCell>
                     <TableCell>
                       <Badge variant={classItem.isActive ? 'default' : 'secondary'}>

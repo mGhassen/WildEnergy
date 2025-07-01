@@ -10,7 +10,19 @@ interface MemberLayoutProps {
 
 export default function MemberLayout({ children }: MemberLayoutProps) {
   const [location] = useLocation();
-  const { logout, profile } = useAuth();
+  const { user } = useAuth();
+  
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
 
   const navigation = [
     { name: "Dashboard", href: "/member" },
@@ -43,17 +55,17 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
               <div className="flex items-center space-x-3">
                 <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
                   <span className="text-sm font-medium text-primary">
-                    {profile ? getInitials(profile.firstName, profile.lastName) : "M"}
+                    {user ? getInitials(user.firstName || "M", user.lastName || "") : "M"}
                   </span>
                 </div>
                 <div>
                   <p className="text-sm font-medium text-foreground">
-                    {profile ? `${profile.firstName} ${profile.lastName}` : "Member"}
+                    {user ? `${user.firstName} ${user.lastName}` : "Member"}
                   </p>
                   <p className="text-xs text-muted-foreground">Premium Member</p>
                 </div>
               </div>
-              <Button variant="ghost" size="icon" onClick={() => logout()}>
+              <Button variant="ghost" size="icon" onClick={handleLogout}>
                 <LogOut className="w-5 h-5" />
               </Button>
             </div>

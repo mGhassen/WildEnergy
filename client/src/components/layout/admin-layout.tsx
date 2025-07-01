@@ -6,6 +6,7 @@ import {
   LayoutDashboard, 
   Users, 
   UserCheck, 
+  Tags,
   Calendar, 
   Clock, 
   Package, 
@@ -21,13 +22,25 @@ interface AdminLayoutProps {
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const [location] = useLocation();
-  const { logout } = useAuth();
+  
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
 
   const navigation = [
     { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
     { name: "Users", href: "/admin/users", icon: Users },
     { name: "Members", href: "/admin/members", icon: UserCheck },
     { name: "Trainers", href: "/admin/trainers", icon: UserCheck },
+    { name: "Categories", href: "/admin/categories", icon: Tags },
     { name: "Classes", href: "/admin/classes", icon: Calendar },
     { name: "Schedules", href: "/admin/schedules", icon: Clock },
     { name: "Plans", href: "/admin/plans", icon: Package },
@@ -82,7 +95,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           <Button
             variant="ghost"
             className="w-full justify-start"
-            onClick={() => logout()}
+            onClick={handleLogout}
           >
             <LogOut className="w-4 h-4 mr-3" />
             Logout
