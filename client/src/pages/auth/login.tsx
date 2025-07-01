@@ -11,14 +11,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
-import { supabase } from "@/lib/supabase";
 import { useLocation } from "wouter";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { authApi } from "@/lib/api";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function Login() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -30,53 +32,66 @@ export default function Login() {
     setError("");
 
     try {
-      // Try backend authentication first
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ email, password }),
+      // 1. Authenticate with the server
+      const { access_token, user } = await authApi.login({ email, password });
+      
+      if (!access_token) {
+        throw new Error('No access token received');
+      }
+
+      console.log("Login successful, user:", user);
+
+      // 2. Fetch user session data
+      const userData = await authApi.getSession();
+      
+      if (!userData) {
+        throw new Error('Failed to load user session');
+      }
+
+      // 3. Update React Query cache
+      queryClient.setQueryData(['auth', 'user'], userData);
+
+      // 4. Show success message
+      toast({
+        title: "Welcome back!",
+        description: `Welcome, ${userData.firstName || userData.email || 'User'}!`,
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        console.log("Login response:", data);
-        toast({
-          title: "Welcome back!",
-          description: "You have successfully signed in.",
-        });
-        // Slight delay then reload
-        setTimeout(() => {
-          window.location.href = "/";
-        }, 500);
-        return;
-      }
-
-      // If backend auth fails, try Supabase (if env vars are available)
-      if (
-        import.meta.env.VITE_SUPABASE_URL &&
-        import.meta.env.VITE_SUPABASE_ANON_KEY
-      ) {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-        if (error) {
-          setError(error.message);
-        } else if (data.user) {
-          toast({
-            title: "Welcome back!",
-            description: "You have successfully signed in.",
-          });
-          setLocation("/");
-        }
+      // 5. Handle redirection
+      const searchParams = new URLSearchParams(window.location.search);
+      const returnTo = searchParams.get('returnTo');
+      
+      if (returnTo) {
+        // Redirect to the originally requested page
+        window.location.href = returnTo;
       } else {
-        const errorData = await response.json();
-        setError(errorData.error || "Login failed");
+        // Default redirect based on user role
+        const redirectPath = userData.isAdmin ? '/admin' : '/member';
+        setLocation(redirectPath);
       }
+
     } catch (err: any) {
-      setError(err.message || "An error occurred during login");
+      console.error('Login error:', err);
+      
+      // Handle specific error cases
+      let errorMessage = 'An error occurred during login';
+      
+      if (err.message.includes('Invalid login credentials')) {
+        errorMessage = 'Invalid email or password';
+      } else if (err.message.includes('Email not confirmed')) {
+        errorMessage = 'Please verify your email before logging in';
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
+
+      // Show error toast
+      toast({
+        title: "Login failed",
+        description: errorMessage,
+        variant: "destructive"
+      });
     } finally {
       setIsLoading(false);
     }
@@ -87,19 +102,14 @@ export default function Login() {
     setError("");
 
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${window.location.origin}/`,
-        },
+      // Show info message since Google OAuth is not yet implemented
+      toast({
+        title: "Google Login",
+        description: "Google login is not yet available. Please use email and password.",
       });
-
-      if (error) {
-        setError(error.message);
-        setIsLoading(false);
-      }
     } catch (err: any) {
       setError(err.message || "Failed to sign in with Google");
+    } finally {
       setIsLoading(false);
     }
   };
@@ -192,38 +202,40 @@ export default function Login() {
             </Button>
           </form>
 
-          <div className="mt-6 space-y-4">
-            <Separator />
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground text-center">
-                Quick Login (Development)
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setEmail("admin@wildenergy.gym");
-                    setPassword("admin123");
-                  }}
-                  className="text-xs"
-                >
-                  Admin Login
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setEmail("member@wildenergy.gym");
-                    setPassword("member123");
-                  }}
-                  className="text-xs"
-                >
-                  Member Login
-                </Button>
+          {import.meta.env.DEV && (
+            <div className="mt-6 space-y-4">
+              <Separator />
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground text-center">
+                  Quick Login (Development)
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setEmail("admin@wildenergy.gym");
+                      setPassword("admin");
+                    }}
+                    className="text-xs"
+                  >
+                    Admin Login
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setEmail("member@wildenergy.gym");
+                      setPassword("member");
+                    }}
+                    className="text-xs"
+                  >
+                    Member Login
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           <div className="text-center mt-4">
             <p className="text-sm text-muted-foreground">
