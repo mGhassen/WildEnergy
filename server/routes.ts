@@ -176,10 +176,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Logout endpoint
-  app.post('/api/auth/logout', async (req, res) => {
+  app.post('/api/auth/logout', async (_, res) => {
     try {
       const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      if (error) {
+        console.error('Logout error:', error);
+        return res.status(500).json({ error: 'Logout failed' });
+      }
       res.json({ success: true });
     } catch (error) {
       console.error('Logout error:', error);
@@ -187,63 +190,172 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Logout
-  console.log('Registering route: POST /api/auth/logout');
-  app.post('/api/auth/logout', async (req: any, res) => {
+  // User Management Endpoints
+  
+  // Get all users
+  app.get('/api/users', async (_, res) => {
     try {
-      if (req.session) {
-        req.session.destroy((err: any) => {
-          if (err) {
-            return res.status(500).json({ error: 'Logout failed' });
-          }
-          res.clearCookie('connect.sid');
-          res.json({ success: true });
-        });
-      } else {
-        res.json({ success: true });
+      // Get all users
+      const { data: users, error: usersError } = await supabase
+        .from('users')
+        .select('*')
+        .order('created_at', { ascending: false });
+        
+      if (usersError) {
+        console.error('Error fetching users:', usersError);
+        return res.status(500).json({ error: 'Failed to fetch users' });
       }
+      
+      res.json(users);
     } catch (error) {
-      console.error('Logout error:', error);
-      res.status(500).json({ error: 'Logout failed' });
+      console.error('Error in users endpoint:', error);
+      res.status(500).json({ error: 'Internal server error' });
     }
   });
-
-  // Signup endpoint
-  console.log('Registering route: POST /api/auth/signup');
-  app.post('/api/auth/signup', async (req, res) => {
+  
+  // Create a new user (admin only)
+  app.post('/api/users', async (req, res) => {
     try {
-      const { email, password, firstName, lastName } = req.body;
-
-      // Create user in Supabase
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      const { email, password, firstName, lastName, role } = req.body;
+      
+      // Verify admin access (same as above)
+      const token = req.headers.authorization?.split(' ')[1];
+      if (!token) {
+        return res.status(401).json({ error: 'No token provided' });
+      }
+      
+      const { data: { user: adminUser }, error: authError } = await supabase.auth.getUser(token);
+      if (authError || !adminUser) {
+        return res.status(401).json({ error: 'Invalid or expired token' });
+      }
+      
+      // Check if user is admin
+      const { data: adminCheck } = await supabase
+        .from('users')
+        .select('is_admin')
+        .eq('auth_user_id', adminUser.id)
+        .single();
+        
+      if (!adminCheck?.is_admin) {
+        return res.status(403).json({ error: 'Admin access required' });
+      }
+      
+      // Create auth user
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
       });
-
-      if (authError) {
-        return res.status(400).json({ error: authError.message });
-      }
-
-      if (!authData.user) {
-        return res.status(400).json({ error: 'Failed to create user' });
-      }
-
-      // Create user in database with on-hold status
-      const dbUser = await storage.createUser({
-        authUserId: authData.user.id,
-        email,
-        firstName,
-        lastName,
-        status: 'onhold',
-        isAdmin: false,
-        isMember: true,
-        subscriptionStatus: 'inactive', // Add default subscription status
-      });
-
-      res.json({ user: dbUser, message: 'Account created successfully. Please wait for admin approval.' });
+      
+      if (signUpError) throw signUpError;
+      
+      // Create user profile
+      const { data: user, error: userError } = await supabase
+        .from('users')
+        .insert([{
+          auth_user_id: authData.user?.id,
+          email,
+          first_name: firstName,
+          last_name: lastName,
+          is_admin: role === 'admin',
+          status: 'active',
+        }])
+        .select()
+        .single();
+        
+      if (userError) throw userError;
+      
+      res.status(201).json(user);
     } catch (error) {
-      console.error('Signup error:', error);
-      res.status(500).json({ error: 'Failed to create account' });
+      console.error('Error creating user:', error);
+      res.status(500).json({ error: 'Failed to create user' });
+    }
+  });
+  
+  // Update user (admin only)
+  app.put('/api/users/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { firstName, lastName, role, status } = req.body;
+      
+      // Verify admin access (same as above)
+      const token = req.headers.authorization?.split(' ')[1];
+      if (!token) {
+        return res.status(401).json({ error: 'No token provided' });
+      }
+      
+      const { data: { user: adminUser }, error: authError } = await supabase.auth.getUser(token);
+      if (authError || !adminUser) {
+        return res.status(401).json({ error: 'Invalid or expired token' });
+      }
+      
+      // Update user profile
+      const { data: user, error: updateError } = await supabase
+        .from('users')
+        .update({
+          first_name: firstName,
+          last_name: lastName,
+          is_admin: role === 'admin',
+          status: status || 'active',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .select()
+        .single();
+        
+      if (updateError) throw updateError;
+      
+      res.json(user);
+    } catch (error) {
+      console.error('Error updating user:', error);
+      res.status(500).json({ error: 'Failed to update user' });
+    }
+  });
+  
+  // Delete user (admin only)
+  app.delete('/api/users/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Verify admin access (same as above)
+      const token = req.headers.authorization?.split(' ')[1];
+      if (!token) {
+        return res.status(401).json({ error: 'No token provided' });
+      }
+      
+      const { data: { user: adminUser }, error: authError } = await supabase.auth.getUser(token);
+      if (authError || !adminUser) {
+        return res.status(401).json({ error: 'Invalid or expired token' });
+      }
+      
+      // Get user to delete
+      const { data: userToDelete, error: userError } = await supabase
+        .from('users')
+        .select('auth_user_id')
+        .eq('id', id)
+        .single();
+        
+      if (userError) throw userError;
+      
+      // First delete from auth
+      if (userToDelete?.auth_user_id) {
+        const { error: deleteAuthError } = await supabase.auth.admin.deleteUser(
+          userToDelete.auth_user_id
+        );
+        if (deleteAuthError) throw deleteAuthError;
+      }
+      
+      // Then delete from users table
+      const { error: deleteError } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', id);
+        
+      if (deleteError) throw deleteError;
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      return res.status(500).json({ error: 'Failed to delete user' });
     }
   });
 
