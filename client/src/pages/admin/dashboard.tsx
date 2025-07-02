@@ -2,28 +2,79 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Users, UserCheck, DollarSign, QrCode, TrendingUp, Calendar, Clock, ChevronLeft, ChevronRight } from "lucide-react";
+import { Users, UserCheck, TrendingUp, Calendar, Clock, ChevronLeft, ChevronRight } from "lucide-react";
 import { formatDateTime, formatTime, formatDate } from "@/lib/auth";
 import { useState } from "react";
+
+interface DashboardStats {
+  totalUsers: number;
+  activeUsers: number;
+  totalClasses: number;
+  totalTrainers: number;
+}
+
+interface Checkin {
+  id: string;
+  member: {
+    firstName: string;
+    lastName: string;
+  };
+  checkinTime: string;
+  schedule: {
+    class: {
+      name: string;
+    };
+  };
+}
+
+interface Schedule {
+  id: string;
+  scheduleDate: string;
+  startTime: string;
+  endTime: string;
+  class: {
+    name: string;
+  };
+  trainer: {
+    firstName: string;
+    lastName: string;
+  };
+  maxParticipants: number;
+}
+
+interface Registration {
+  id: string;
+  scheduleId: string;
+  status: string;
+  schedule: {
+    id: string;
+  };
+}
 
 export default function AdminDashboard() {
   const [scheduleViewDate, setScheduleViewDate] = useState(0); // 0 = today, 1 = tomorrow
   
-  const { data: stats, isLoading: statsLoading } = useQuery({
+  const { data: stats, isLoading: statsLoading } = useQuery<DashboardStats>({
     queryKey: ["/api/dashboard/stats"],
   });
 
-  const { data: recentCheckins, isLoading: checkinsLoading } = useQuery({
+  const { data: recentCheckins = [], isLoading: checkinsLoading } = useQuery<Checkin[]>({
     queryKey: ["/api/checkins"],
   });
 
-  const { data: schedules, isLoading: schedulesLoading } = useQuery({
+  const { data: schedules = [], isLoading: schedulesLoading } = useQuery<Schedule[]>({
     queryKey: ["/api/schedules"],
   });
 
-  const { data: registrations = [] } = useQuery({
+  const { data: registrations = [] } = useQuery<Registration[]>({
     queryKey: ["/api/registrations"],
   });
+
+  const getScheduleRegistrations = (scheduleId: string) => {
+    return registrations.filter(reg => 
+      reg.schedule?.id === scheduleId && reg.status !== "cancelled"
+    );
+  };
 
   if (statsLoading) {
     return (
@@ -44,36 +95,45 @@ export default function AdminDashboard() {
     );
   }
 
-  const statCards = [
+  interface StatCard {
+    title: string;
+    value: number;
+    icon: any;
+    description: string;
+    color: string;
+    bgColor: string;
+  }
+
+  const statCards: StatCard[] = [
     {
       title: "Total Members",
-      value: stats?.totalMembers || 0,
+      value: stats?.totalUsers || 0,
       icon: Users,
       description: "Registered members",
       color: "text-blue-600",
       bgColor: "bg-blue-100",
     },
     {
-      title: "Active Trainers",
-      value: stats?.activeTrainers || 0,
+      title: "Active Members",
+      value: stats?.activeUsers || 0,
       icon: UserCheck,
-      description: "Available trainers",
+      description: "Active members",
       color: "text-green-600",
       bgColor: "bg-green-100",
     },
     {
-      title: "Active Subscriptions",
-      value: stats?.activeSubscriptions || 0,
-      icon: DollarSign,
-      description: "Current subscriptions",
+      title: "Total Trainers",
+      value: stats?.totalTrainers || 0,
+      icon: UserCheck,
+      description: "Available trainers",
       color: "text-yellow-600",
       bgColor: "bg-yellow-100",
     },
     {
-      title: "Today's Check-ins",
-      value: stats?.todayCheckins || 0,
-      icon: QrCode,
-      description: "Members checked in today",
+      title: "Total Classes",
+      value: stats?.totalClasses || 0,
+      icon: Calendar,
+      description: "Available classes",
       color: "text-purple-600",
       bgColor: "bg-purple-100",
     },
