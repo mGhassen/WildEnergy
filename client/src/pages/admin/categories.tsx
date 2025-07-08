@@ -61,9 +61,15 @@ export default function AdminCategories() {
   const [editingCategory, setEditingCategory] = useState<any>(null);
   const { toast } = useToast();
 
-  const { data: categories = [], isLoading } = useQuery({
+  const { data: rawCategories = [], isLoading } = useQuery({
     queryKey: ["/api/admin/categories"],
   });
+
+  // Map is_active (from API) to isActive (for UI)
+  const categories = (rawCategories || []).map((cat: any) => ({
+    ...cat,
+    isActive: cat.is_active,
+  }));
 
   const form = useForm<CategoryFormData>({
     resolver: zodResolver(categoryFormSchema),

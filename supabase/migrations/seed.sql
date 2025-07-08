@@ -1,8 +1,6 @@
 -- Admin user
 INSERT INTO users (
-  id,
-  auth_user_id,
-  email,
+  id, auth_user_id, email,
   first_name,
   last_name,
   phone,
@@ -67,3 +65,11 @@ INSERT INTO users (
   '2025-06-29T14:48:25.277Z',
   '2025-06-29T14:48:25.277Z'
 );
+
+-- Categories
+INSERT INTO categories (name, description, color, is_active)
+VALUES
+  ('Yoga', 'Yoga classes for all levels', '#FFD700', true),
+  ('Cardio', 'Cardio and HIIT classes', '#FF6347', true),
+  ('Strength', 'Strength and conditioning', '#4682B4', true),
+  ('Pilates', 'Pilates and flexibility', '#8A2BE2', true);

@@ -458,10 +458,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         authUserId = inviteData.user.id;
       } else {
         // Create auth user with password
-        const { data: authData, error: signUpError } = await supabase.auth.signUp({
-          email,
-          password,
-        });
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+      });
         if (signUpError || !authData.user) {
           return res.status(400).json({ error: signUpError?.message || 'Failed to create user' });
         }
@@ -584,8 +584,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const token = req.headers.authorization?.split(' ')[1];
       if (!token) {
-        return res.status(401).json({ error: 'Authentication required' });
-      }
+      return res.status(401).json({ error: 'Authentication required' });
+    }
 
       // Verify the token with Supabase
       const { data: { user }, error: userError } = await supabase.auth.getUser(token);
@@ -615,7 +615,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: userProfile.status
       };
 
-      next();
+    next();
     } catch (error) {
       console.error('Auth middleware error:', error);
       return res.status(401).json({ error: 'Authentication failed' });
@@ -648,8 +648,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (!userProfile.is_admin) {
-        return res.status(403).json({ error: 'Admin access required' });
-      }
+      return res.status(403).json({ error: 'Admin access required' });
+    }
 
       // Attach user to request
       req.user = {
@@ -661,7 +661,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: userProfile.status
       };
 
-      next();
+    next();
     } catch (error) {
       console.error('Admin auth middleware error:', error);
       return res.status(401).json({ error: 'Authentication failed' });
@@ -860,7 +860,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         name: name.trim(),
         description: description ? String(description).trim() : undefined,
         color: color ? String(color).trim() : undefined,
-        isActive: isActive !== undefined ? Boolean(isActive) : true,
+        is_active: isActive !== undefined ? Boolean(isActive) : true,
       };
 
       console.log("Creating category with:", categoryData);
@@ -877,8 +877,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/admin/categories/:id", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
-      const updates = req.body;
-
+      let updates = { ...req.body };
+      if (typeof updates.isActive !== "undefined") {
+        updates.is_active = updates.isActive;
+        delete updates.isActive;
+      }
       const category = await storage.updateCategory(id, updates);
       res.json({ success: true, category });
     } catch (error) {
@@ -1130,7 +1133,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Member specific routes
   console.log('Registering route: GET /api/member/subscription');
   app.get("/api/member/subscription", asyncHandler(requireAuth), async (req: any, res) => {
-          try {
+    try {
         const userId = req.user?.id;
       if (userId) {
         const subscription = await storage.getUserActiveSubscription(userId);
