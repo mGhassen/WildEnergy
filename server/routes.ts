@@ -689,8 +689,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   console.log('Registering route: GET /api/members');
   app.get("/api/members", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
     try {
-      const members = await storage.getUsers(); // Get all users, filter members in frontend
-      res.json(members.filter((user: any) => user.isMember));
+      const members = await storage.getUsers();
+      res.json(members.filter((user: any) => user.is_member));
     } catch (error) {
       console.error("Error fetching members:", error);
       res.status(500).json({ error: "Failed to fetch members" });

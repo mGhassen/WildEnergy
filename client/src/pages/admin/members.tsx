@@ -76,6 +76,7 @@ export default function MembersPage() {
   // Fetch members with related data
   const { data: members = [], isLoading } = useQuery({
     queryKey: ["/api/members"],
+    queryFn: () => apiRequest("GET", "/api/members"),
   });
 
   // Fetch member details when selected
