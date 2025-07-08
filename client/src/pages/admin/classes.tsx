@@ -27,9 +27,20 @@ export default function AdminClasses() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: classes = [], isLoading } = useQuery({
+  const { data: rawClasses = [], isLoading } = useQuery({
     queryKey: ["/api/admin/classes"],
   });
+
+  // Map snake_case fields to camelCase for UI
+  const classes = (rawClasses || []).map((cls: any) => ({
+    ...cls,
+    categoryId: cls.category_id,
+    duration: cls.duration,
+    maxCapacity: cls.max_capacity,
+    isActive: cls.is_active,
+    createdAt: cls.created_at,
+    updatedAt: cls.updated_at,
+  }));
 
   const { data: categories = [], isLoading: categoriesLoading } = useQuery({
     queryKey: ["/api/admin/categories"],

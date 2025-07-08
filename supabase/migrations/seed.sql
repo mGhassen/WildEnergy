@@ -73,3 +73,17 @@ VALUES
   ('Cardio', 'Cardio and HIIT classes', '#FF6347', true),
   ('Strength', 'Strength and conditioning', '#4682B4', true),
   ('Pilates', 'Pilates and flexibility', '#8A2BE2', true);
+
+INSERT INTO classes (name, description, category_id, duration, max_capacity, equipment, is_active, created_at, updated_at)
+VALUES
+  ('Pole Dance Beginner', 'Introductory pole dance class for beginners.', 1, 60, 12, 'Pole', true, NOW(), NOW()),
+  ('Pole Dance Intermediate', 'Intermediate pole dance tricks and combos.', 1, 75, 10, 'Pole', true, NOW(), NOW()),
+  ('Pole Dance Advanced', 'Advanced pole dance techniques and routines.', 1, 90, 8, 'Pole', true, NOW(), NOW()),
+  ('Stretching Basics', 'Full body stretching for flexibility.', 2, 45, 20, NULL, true, NOW(), NOW()),
+  ('Deep Stretch', 'Intensive stretching for splits and backbends.', 2, 60, 15, NULL, true, NOW(), NOW()),
+  ('Yoga Flow', 'Vinyasa yoga for all levels.', 3, 60, 18, 'Yoga mat', true, NOW(), NOW()),
+  ('Cardio Blast', 'High-intensity interval training.', 4, 45, 25, NULL, true, NOW(), NOW()),
+  ('Strength Circuit', 'Strength and conditioning circuit.', 5, 60, 16, 'Dumbbells', true, NOW(), NOW()),
+  ('Pilates Core', 'Pilates class focused on core strength.', 6, 50, 14, 'Mat', true, NOW(), NOW());
+
+  
