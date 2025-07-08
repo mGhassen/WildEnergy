@@ -89,7 +89,7 @@ export default function AdminTrainers() {
       return response;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/trainers"] });
+      queryClient.invalidateQueries({ queryKey: ["trainers"] });
       setIsModalOpen(false);
       form.reset();
       toast({ 
@@ -113,7 +113,7 @@ export default function AdminTrainers() {
       return response;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/trainers"] });
+      queryClient.invalidateQueries({ queryKey: ["trainers"] });
       setIsModalOpen(false);
       setEditingTrainer(null);
       form.reset();
@@ -134,7 +134,7 @@ export default function AdminTrainers() {
       return response;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/trainers"] });
+      queryClient.invalidateQueries({ queryKey: ["trainers"] });
       toast({ title: "Trainer deleted successfully" });
     },
     onError: (error: any) => {

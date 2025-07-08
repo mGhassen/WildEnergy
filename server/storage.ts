@@ -239,6 +239,7 @@ export class DatabaseStorage implements IStorage {
     return (trainers || []).map(trainer => ({
       ...trainer,
       userId: trainer.user_id,
+      status: trainer.status,
       user: trainer.user ? {
         id: trainer.user.id,
         firstName: trainer.user.first_name,
@@ -268,6 +269,7 @@ export class DatabaseStorage implements IStorage {
     return {
       ...trainer,
       userId: trainer.user_id,
+      status: trainer.status,
       user: trainer.user ? {
         id: trainer.user.id,
         firstName: trainer.user.first_name,
@@ -330,6 +332,7 @@ export class DatabaseStorage implements IStorage {
       bio: insertTrainer.bio || '',
       experience_years: 0, // Default value, can be updated later
       certification: null, // Default value, can be updated later
+      status: insertTrainer.status || 'active',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
