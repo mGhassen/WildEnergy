@@ -71,6 +71,17 @@ export default function AdminCategories() {
     isActive: cat.is_active,
   }));
 
+  const { data: rawClasses = [] } = useQuery({
+    queryKey: ["/api/admin/classes"],
+  });
+  const classes = (rawClasses || []).map((cls: any) => ({
+    ...cls,
+    categoryId: cls.category_id,
+  }));
+
+  const getClassCount = (categoryId: number) =>
+    classes.filter((cls) => cls.categoryId === categoryId).length;
+
   const form = useForm<CategoryFormData>({
     resolver: zodResolver(categoryFormSchema),
     defaultValues: {
@@ -357,7 +368,7 @@ export default function AdminCategories() {
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline">
-                      {category.classes?.length || 0} classes
+                      {getClassCount(category.id)} classes
                     </Badge>
                   </TableCell>
                   <TableCell>
