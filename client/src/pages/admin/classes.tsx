@@ -20,6 +20,20 @@ import { z } from "zod";
 const classFormSchema = insertClassSchema;
 type ClassFormData = z.infer<typeof classFormSchema>;
 
+// Helper to map camelCase to snake_case for API
+function mapClassToApi(data: any) {
+  return {
+    name: data.name,
+    description: data.description,
+    category_id: Number(data.categoryId),
+    difficulty: data.difficulty,
+    duration: data.durationMinutes,
+    max_capacity: data.maxCapacity,
+    equipment: data.equipment,
+    is_active: data.isActive,
+  };
+}
+
 export default function AdminClasses() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClass, setEditingClass] = useState<any>(null);
@@ -35,7 +49,7 @@ export default function AdminClasses() {
   const classes = (rawClasses || []).map((cls: any) => ({
     ...cls,
     categoryId: cls.category_id,
-    duration: cls.duration,
+    durationMinutes: cls.duration, // ensure durationMinutes is set for the form
     maxCapacity: cls.max_capacity,
     isActive: cls.is_active,
     createdAt: cls.created_at,
@@ -52,7 +66,8 @@ export default function AdminClasses() {
       name: "",
       description: "",
       categoryId: 0,
-      duration: 60,
+      difficulty: "beginner",
+      durationMinutes: 60,
       maxCapacity: 20,
       equipment: "",
       isActive: true,
@@ -61,7 +76,7 @@ export default function AdminClasses() {
 
   const createClassMutation = useMutation({
     mutationFn: async (data: ClassFormData) => {
-      const response = await apiRequest("POST", "/api/admin/classes", data);
+      const response = await apiRequest("POST", "/api/admin/classes", mapClassToApi(data));
       return response;
     },
     onSuccess: () => {
@@ -81,7 +96,7 @@ export default function AdminClasses() {
 
   const updateClassMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Partial<ClassFormData> }) => {
-      const response = await apiRequest("PATCH", `/api/admin/classes/${id}`, data);
+      const response = await apiRequest("PATCH", `/api/admin/classes/${id}`, mapClassToApi(data));
       return response;
     },
     onSuccess: () => {
@@ -142,8 +157,10 @@ export default function AdminClasses() {
       name: classItem.name,
       description: classItem.description,
       categoryId: classItem.categoryId || 0,
-      duration: classItem.duration,
+      difficulty: classItem.difficulty || "beginner",
+      durationMinutes: classItem.durationMinutes,
       maxCapacity: classItem.maxCapacity,
+      equipment: classItem.equipment || "",
       isActive: classItem.isActive,
     });
     setIsModalOpen(true);
@@ -157,7 +174,21 @@ export default function AdminClasses() {
 
   const openCreateModal = () => {
     setEditingClass(null);
-    form.reset();
+    // If there are no categories, do not open the modal and show a toast
+    if (!categoriesOptions.length) {
+      toast({ title: "No categories available. Please create a category first.", variant: "destructive" });
+      return;
+    }
+    form.reset({
+      name: "",
+      description: "",
+      categoryId: categoriesOptions[0].value,
+      difficulty: "beginner",
+      durationMinutes: 60,
+      maxCapacity: 20,
+      equipment: "",
+      isActive: true,
+    });
     setIsModalOpen(true);
   };
 
@@ -216,8 +247,8 @@ export default function AdminClasses() {
                     <FormItem>
                       <FormLabel>Category</FormLabel>
                       <Select 
-                        onValueChange={(value) => field.onChange(parseInt(value))} 
-                        defaultValue={field.value?.toString()}
+                        onValueChange={(value) => field.onChange(Number(value))} 
+                        value={field.value?.toString() || categoriesOptions[0]?.value?.toString() || ""}
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -252,7 +283,32 @@ export default function AdminClasses() {
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
-                    name="duration"
+                    name="difficulty"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Difficulty</FormLabel>
+                        <Select 
+                          onValueChange={field.onChange} 
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select difficulty" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="beginner">Beginner</SelectItem>
+                            <SelectItem value="intermediate">Intermediate</SelectItem>
+                            <SelectItem value="advanced">Advanced</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="durationMinutes"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Duration (minutes)</FormLabel>
@@ -279,6 +335,19 @@ export default function AdminClasses() {
                             {...field} 
                             onChange={(e) => field.onChange(parseInt(e.target.value))}
                           />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="equipment"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Equipment</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="e.g., Dumbbells, Treadmill" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -370,7 +439,7 @@ export default function AdminClasses() {
                     <TableCell>
                       <div className="flex items-center">
                         <Clock className="w-4 h-4 mr-1 text-muted-foreground" />
-                        {classItem.duration || 0} min
+                        {classItem.durationMinutes || 0} min
                       </div>
                     </TableCell>
                     <TableCell>

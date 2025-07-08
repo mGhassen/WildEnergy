@@ -259,9 +259,9 @@ export const insertClassSchema = z.object({
   categoryId: z.number().min(1, 'Category is required'),
   difficulty: z.enum(['beginner', 'intermediate', 'advanced']).default('beginner'),
   durationMinutes: z.number().min(1, 'Duration must be at least 1 minute'),
+  maxCapacity: z.number().min(1, 'Max capacity is required'),
+  equipment: z.string().optional(),
   isActive: z.boolean().default(true),
-}).extend({
-  categoryId: z.number().min(1, "Category is required"),
 });
 
 export const insertScheduleSchema = z.object({
