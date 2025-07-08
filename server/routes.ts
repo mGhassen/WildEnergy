@@ -583,13 +583,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const requireAuth = async (req: any, res: any, next: any) => {
     try {
       const token = req.headers.authorization?.split(' ')[1];
+      console.log('Auth token:', token);
       if (!token) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
+        return res.status(401).json({ error: 'Authentication required' });
+      }
 
       // Verify the token with Supabase
       const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-      
+      console.log('Supabase user:', user, 'Error:', userError);
       if (userError || !user) {
         return res.status(401).json({ error: 'Invalid or expired authentication token' });
       }
@@ -600,7 +601,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .select('*')
         .eq('auth_user_id', user.id)
         .single();
-
+      console.log('User profile:', userProfile, 'Error:', profileError);
       if (profileError || !userProfile) {
         return res.status(401).json({ error: 'User profile not found' });
       }
@@ -615,7 +616,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: userProfile.status
       };
 
-    next();
+      next();
     } catch (error) {
       console.error('Auth middleware error:', error);
       return res.status(401).json({ error: 'Authentication failed' });
@@ -625,13 +626,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const requireAdmin = async (req: any, res: any, next: any) => {
     try {
       const token = req.headers.authorization?.split(' ')[1];
+      console.log('Auth token:', token);
       if (!token) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
       // Verify the token with Supabase
       const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-      
+      console.log('Supabase user:', user, 'Error:', userError);
       if (userError || !user) {
         return res.status(401).json({ error: 'Invalid or expired authentication token' });
       }
@@ -642,14 +644,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .select('*')
         .eq('auth_user_id', user.id)
         .single();
-
+      console.log('User profile:', userProfile, 'Error:', profileError);
       if (profileError || !userProfile) {
         return res.status(401).json({ error: 'User profile not found' });
       }
 
       if (!userProfile.is_admin) {
-      return res.status(403).json({ error: 'Admin access required' });
-    }
+        return res.status(403).json({ error: 'Admin access required' });
+      }
 
       // Attach user to request
       req.user = {
@@ -661,7 +663,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: userProfile.status
       };
 
-    next();
+      next();
     } catch (error) {
       console.error('Admin auth middleware error:', error);
       return res.status(401).json({ error: 'Authentication failed' });
@@ -1014,37 +1016,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/schedules", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
     try {
       console.log("Received schedule creation request:", req.body);
-      const { 
-        classId, 
-        trainerId, 
-        dayOfWeek, 
-        startTime, 
-        endTime, 
-        repetitionType, 
-        scheduleDate, 
-        startDate, 
-        endDate, 
-        isActive, 
-        maxParticipants = 10 // Default to 10 if not provided
+      const {
+        classId, class_id,
+        trainerId, trainer_id,
+        dayOfWeek, day_of_week,
+        startTime, start_time,
+        endTime, end_time,
+        repetitionType, repetition_type,
+        scheduleDate, schedule_date,
+        startDate, start_date,
+        endDate, end_date,
+        isActive, is_active,
+        maxParticipants, max_participants
       } = req.body;
 
-      if (!classId || !trainerId || dayOfWeek === undefined || !startTime || !endTime || !repetitionType || !maxParticipants) {
+      const resolvedClassId = Number(class_id ?? classId);
+      const resolvedTrainerId = Number(trainer_id ?? trainerId);
+      const resolvedDayOfWeek = Number(day_of_week ?? dayOfWeek);
+      const resolvedStartTime = start_time ?? startTime;
+      const resolvedEndTime = end_time ?? endTime;
+      const resolvedRepetitionType = repetition_type ?? repetitionType;
+      const resolvedScheduleDate = schedule_date ?? scheduleDate;
+      const resolvedStartDate = start_date ?? startDate;
+      const resolvedEndDate = end_date ?? endDate;
+      const resolvedIsActive = is_active !== undefined ? is_active : isActive;
+      const resolvedMaxParticipants = Number(max_participants ?? maxParticipants ?? 10);
+
+      if (
+        !resolvedClassId ||
+        !resolvedTrainerId ||
+        resolvedDayOfWeek === undefined ||
+        !resolvedStartTime ||
+        !resolvedEndTime ||
+        !resolvedRepetitionType ||
+        !resolvedMaxParticipants
+      ) {
         return res.status(400).json({ error: "Missing required schedule fields" });
       }
 
-      const scheduleData = {
-        classId: parseInt(classId),
-        trainerId: parseInt(trainerId),
-        dayOfWeek: parseInt(dayOfWeek),
-        startTime: String(startTime),
-        endTime: String(endTime),
-        maxParticipants: parseInt(maxParticipants),
-        repetitionType: String(repetitionType),
-        scheduleDate: scheduleDate ? new Date(scheduleDate) : null,
-        startDate: startDate ? new Date(startDate) : null,
-        endDate: endDate ? new Date(endDate) : null,
-        isActive: isActive !== undefined ? Boolean(isActive) : true,
+      // Only include day_of_week if repetition_type is not 'once'
+      let scheduleData: any = {
+        class_id: resolvedClassId,
+        trainer_id: resolvedTrainerId,
+        start_time: resolvedStartTime,
+        end_time: resolvedEndTime,
+        max_participants: resolvedMaxParticipants,
+        repetition_type: resolvedRepetitionType,
+        schedule_date: resolvedScheduleDate ? new Date(resolvedScheduleDate) : null,
+        is_active: resolvedIsActive !== undefined ? Boolean(resolvedIsActive) : true,
       };
+      if (resolvedRepetitionType !== 'once') {
+        scheduleData.day_of_week = resolvedDayOfWeek;
+      }
+      // For 'once', require schedule_date
+      if (resolvedRepetitionType === 'once' && !resolvedScheduleDate) {
+        return res.status(400).json({ error: "schedule_date is required for one-time schedules" });
+      }
 
       console.log("Creating schedule with:", scheduleData);
       const schedule = await storage.createSchedule(scheduleData);
