@@ -29,6 +29,21 @@ interface ScheduleFormData {
   isActive?: boolean;
 }
 
+// Helper to map camelCase to snake_case for API
+function mapScheduleToApi(data: any) {
+  return {
+    class_id: Number(data.classId),
+    trainer_id: Number(data.trainerId),
+    day_of_week: data.dayOfWeek,
+    start_time: data.startTime,
+    end_time: data.endTime,
+    repetition_type: data.repetitionType,
+    schedule_date: data.scheduleDate,
+    is_active: data.isActive,
+    // add other fields as needed
+  };
+}
+
 export default function AdminSchedules() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<any>(null);
@@ -37,9 +52,32 @@ export default function AdminSchedules() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: schedules, isLoading } = useQuery({
+  const { data: rawSchedules = [], isLoading } = useQuery({
     queryKey: ["/api/schedules"],
   });
+
+  // Map snake_case fields to camelCase for UI
+  const schedules = (rawSchedules || []).map((sch: any) => ({
+    ...sch,
+    startTime: sch.start_time,
+    endTime: sch.end_time,
+    scheduleDate: sch.schedule_date,
+    dayOfWeek: sch.day_of_week,
+    repetitionType: sch.repetition_type,
+    isActive: sch.is_active,
+    class: sch.class || {
+      id: sch.class_id,
+      name: "(Unknown class)",
+      category: "",
+      duration: 0,
+      maxCapacity: 0,
+    },
+    trainer: sch.trainer || {
+      id: sch.trainer_id,
+      firstName: "",
+      lastName: "",
+    },
+  }));
 
   const { data: registrations = [] } = useQuery({
     queryKey: ["/api/registrations"],
@@ -61,6 +99,13 @@ export default function AdminSchedules() {
     queryKey: ["/api/trainers"],
   });
 
+  // Flatten trainers to expose firstName and lastName at the top level
+  const trainersList = (trainers || []).map((trainer: any) => ({
+    ...trainer,
+    firstName: trainer.user?.firstName || "",
+    lastName: trainer.user?.lastName || "",
+  }));
+
   const form = useForm<ScheduleFormData>({
     defaultValues: {
       classId: 0,
@@ -78,7 +123,7 @@ export default function AdminSchedules() {
 
   const createScheduleMutation = useMutation({
     mutationFn: async (data: ScheduleFormData) => {
-      return await apiRequest("POST", "/api/schedules", data);
+      return await apiRequest("POST", "/api/schedules", mapScheduleToApi(data));
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/schedules"] });
@@ -97,7 +142,7 @@ export default function AdminSchedules() {
 
   const updateScheduleMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: ScheduleFormData }) => {
-      return await apiRequest("PUT", `/api/schedules/${id}`, data);
+      return await apiRequest("PUT", `/api/schedules/${id}`, mapScheduleToApi(data));
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/schedules"] });
@@ -254,7 +299,7 @@ export default function AdminSchedules() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {trainers?.map((trainer: any) => (
+                          {trainersList.map((trainer: any) => (
                             <SelectItem key={trainer.id} value={trainer.id.toString()}>
                               {trainer.firstName} {trainer.lastName}
                             </SelectItem>
