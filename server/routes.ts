@@ -956,6 +956,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const updates = req.body;
+      if (typeof updates.className !== "undefined") {
+        delete updates.className;
+      }
+      if (typeof updates.class_name !== "undefined") {
+        delete updates.class_name;
+      }
       const updatedClass = await storage.updateClass(parseInt(id), updates);
       res.json(updatedClass);
     } catch (error) {
@@ -1014,6 +1020,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   console.log('Registering route: POST /api/schedules');
   app.post("/api/schedules", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
+    let createdSchedule: any = null;
+    
     try {
       console.log("Received schedule creation request:", req.body);
       const {
@@ -1074,12 +1082,370 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log("Creating schedule with:", scheduleData);
-      const schedule = await storage.createSchedule(scheduleData);
-      console.log("Schedule created successfully:", schedule);
-      res.json(schedule);
+      createdSchedule = await storage.createSchedule(scheduleData);
+      console.log("Schedule created successfully:", createdSchedule);
+
+      // Automatically generate courses for the next 4 weeks
+      const today = new Date();
+      const fourWeeksFromNow = new Date(today);
+      fourWeeksFromNow.setDate(today.getDate() + 28); // 4 weeks
+
+      const startDateStr = today.toISOString().split('T')[0];
+      const endDateStr = fourWeeksFromNow.toISOString().split('T')[0];
+
+      console.log(`Generating courses for schedule ${createdSchedule.id} from ${startDateStr} to ${endDateStr}`);
+      const generatedCourses = await storage.generateCoursesFromSchedule(createdSchedule.id, startDateStr, endDateStr);
+      console.log(`Generated ${generatedCourses.length} courses successfully`);
+
+      res.json({
+        ...createdSchedule,
+        generatedCourses: generatedCourses.length,
+        courseGenerationRange: { startDate: startDateStr, endDate: endDateStr }
+      });
     } catch (error) {
       console.error("Error creating schedule:", error);
-      res.status(500).json({ error: "Failed to create schedule", details: error instanceof Error ? error.message : String(error) });
+      
+      // Rollback: Delete the created schedule if course generation failed
+      if (createdSchedule) {
+        try {
+          console.log(`Rolling back: Deleting schedule ${createdSchedule.id} due to course generation failure`);
+          await storage.deleteSchedule(createdSchedule.id);
+          console.log("Schedule rollback completed");
+        } catch (rollbackError) {
+          console.error("Error during rollback:", rollbackError);
+        }
+      }
+      
+      res.status(500).json({ 
+        error: "Failed to create schedule", 
+        details: error instanceof Error ? error.message : String(error),
+        rollback: createdSchedule ? "Schedule was created but deleted due to course generation failure" : "No rollback needed"
+      });
+    }
+  });
+
+  console.log('Registering route: PUT /api/schedules/:id');
+  app.put("/api/schedules/:id", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
+    let originalSchedule: any = null;
+    let updatedSchedule: any = null;
+    
+    try {
+      const { id } = req.params;
+      console.log("Received schedule update request for ID:", id, "with data:", req.body);
+      
+      // First, get the original schedule for potential rollback
+      originalSchedule = await storage.getSchedule(parseInt(id));
+      if (!originalSchedule) {
+        return res.status(404).json({ error: "Schedule not found" });
+      }
+      
+      const {
+        classId, class_id,
+        trainerId, trainer_id,
+        dayOfWeek, day_of_week,
+        startTime, start_time,
+        endTime, end_time,
+        repetitionType, repetition_type,
+        scheduleDate, schedule_date,
+        startDate, start_date,
+        endDate, end_date,
+        isActive, is_active,
+        maxParticipants, max_participants
+      } = req.body;
+
+      const resolvedClassId = Number(class_id ?? classId);
+      const resolvedTrainerId = Number(trainer_id ?? trainerId);
+      const resolvedDayOfWeek = Number(day_of_week ?? dayOfWeek);
+      const resolvedStartTime = start_time ?? startTime;
+      const resolvedEndTime = end_time ?? endTime;
+      const resolvedRepetitionType = repetition_type ?? repetitionType;
+      const resolvedScheduleDate = schedule_date ?? scheduleDate;
+      const resolvedStartDate = start_date ?? startDate;
+      const resolvedEndDate = end_date ?? endDate;
+      const resolvedIsActive = is_active !== undefined ? is_active : isActive;
+      const resolvedMaxParticipants = Number(max_participants ?? maxParticipants ?? 10);
+
+      if (
+        !resolvedClassId ||
+        !resolvedTrainerId ||
+        resolvedDayOfWeek === undefined ||
+        !resolvedStartTime ||
+        !resolvedEndTime ||
+        !resolvedRepetitionType ||
+        !resolvedMaxParticipants
+      ) {
+        return res.status(400).json({ error: "Missing required schedule fields" });
+      }
+
+      // Only include day_of_week if repetition_type is not 'once'
+      let scheduleData: any = {
+        class_id: resolvedClassId,
+        trainer_id: resolvedTrainerId,
+        start_time: resolvedStartTime,
+        end_time: resolvedEndTime,
+        max_participants: resolvedMaxParticipants,
+        repetition_type: resolvedRepetitionType,
+        schedule_date: resolvedScheduleDate ? new Date(resolvedScheduleDate) : null,
+        is_active: resolvedIsActive !== undefined ? Boolean(resolvedIsActive) : true,
+      };
+      if (resolvedRepetitionType !== 'once') {
+        scheduleData.day_of_week = resolvedDayOfWeek;
+      }
+      // For 'once', require schedule_date
+      if (resolvedRepetitionType === 'once' && !resolvedScheduleDate) {
+        return res.status(400).json({ error: "schedule_date is required for one-time schedules" });
+      }
+
+      console.log("Updating schedule with:", scheduleData);
+      updatedSchedule = await storage.updateSchedule(parseInt(id), scheduleData);
+      console.log("Schedule updated successfully:", updatedSchedule);
+
+      // Delete existing courses for this schedule and regenerate them
+      const today = new Date();
+      const fourWeeksFromNow = new Date(today);
+      fourWeeksFromNow.setDate(today.getDate() + 28); // 4 weeks
+
+      const startDateStr = today.toISOString().split('T')[0];
+      const endDateStr = fourWeeksFromNow.toISOString().split('T')[0];
+
+      // Delete existing courses for this schedule
+      const { error: deleteError } = await supabase
+        .from('courses')
+        .delete()
+        .eq('schedule_id', parseInt(id));
+
+      if (deleteError) {
+        console.error("Error deleting existing courses:", deleteError);
+        throw new Error("Failed to delete existing courses");
+      } else {
+        console.log("Deleted existing courses for schedule");
+      }
+
+      // Regenerate courses
+      console.log(`Regenerating courses for schedule ${id} from ${startDateStr} to ${endDateStr}`);
+      const generatedCourses = await storage.generateCoursesFromSchedule(parseInt(id), startDateStr, endDateStr);
+      console.log(`Generated ${generatedCourses.length} courses successfully`);
+
+      res.json({
+        ...updatedSchedule,
+        generatedCourses: generatedCourses.length,
+        courseGenerationRange: { startDate: startDateStr, endDate: endDateStr }
+      });
+    } catch (error) {
+      console.error("Error updating schedule:", error);
+      
+      // Rollback: Restore original schedule if course regeneration failed
+      if (originalSchedule && updatedSchedule) {
+        try {
+          console.log(`Rolling back: Restoring original schedule data for schedule ${originalSchedule.id}`);
+          await storage.updateSchedule(parseInt(originalSchedule.id), {
+            class_id: originalSchedule.class_id,
+            trainer_id: originalSchedule.trainer_id,
+            start_time: originalSchedule.start_time,
+            end_time: originalSchedule.end_time,
+            max_participants: originalSchedule.max_participants,
+            repetition_type: originalSchedule.repetition_type,
+            schedule_date: originalSchedule.schedule_date,
+            day_of_week: originalSchedule.day_of_week,
+            is_active: originalSchedule.is_active,
+          });
+          console.log("Schedule rollback completed");
+        } catch (rollbackError) {
+          console.error("Error during rollback:", rollbackError);
+        }
+      }
+      
+      res.status(500).json({ 
+        error: "Failed to update schedule", 
+        details: error instanceof Error ? error.message : String(error),
+        rollback: originalSchedule ? "Schedule was updated but restored due to course generation failure" : "No rollback needed"
+      });
+    }
+  });
+
+  console.log('Registering route: DELETE /api/schedules/:id');
+  app.delete("/api/schedules/:id", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteSchedule(parseInt(id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting schedule:", error);
+      res.status(500).json({ error: "Failed to delete schedule" });
+    }
+  });
+
+  // Courses management (Individual class instances)
+  console.log('Registering route: GET /api/courses');
+  app.get("/api/courses", asyncHandler(requireAuth), async (req: any, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      const dateRange = startDate && endDate ? { startDate, endDate } : undefined;
+      const courses = await storage.getCourses(dateRange);
+      res.json(courses);
+    } catch (error) {
+      console.error("Error fetching courses:", error);
+      res.status(500).json({ error: "Failed to fetch courses" });
+    }
+  });
+
+  console.log('Registering route: POST /api/courses');
+  app.post("/api/courses", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
+    try {
+      console.log("Received course creation request:", req.body);
+      const {
+        scheduleId, schedule_id,
+        classId, class_id,
+        trainerId, trainer_id,
+        courseDate, course_date,
+        startTime, start_time,
+        endTime, end_time,
+        maxParticipants, max_participants,
+        currentParticipants, current_participants,
+        status,
+        isActive, is_active
+      } = req.body;
+
+      const resolvedScheduleId = Number(schedule_id ?? scheduleId);
+      const resolvedClassId = Number(class_id ?? classId);
+      const resolvedTrainerId = Number(trainer_id ?? trainerId);
+      const resolvedCourseDate = course_date ?? courseDate;
+      const resolvedStartTime = start_time ?? startTime;
+      const resolvedEndTime = end_time ?? endTime;
+      const resolvedMaxParticipants = Number(max_participants ?? maxParticipants ?? 10);
+      const resolvedCurrentParticipants = Number(current_participants ?? currentParticipants ?? 0);
+      const resolvedStatus = status || 'scheduled';
+      const resolvedIsActive = is_active !== undefined ? is_active : isActive;
+
+      if (
+        !resolvedScheduleId ||
+        !resolvedClassId ||
+        !resolvedTrainerId ||
+        !resolvedCourseDate ||
+        !resolvedStartTime ||
+        !resolvedEndTime ||
+        !resolvedMaxParticipants
+      ) {
+        return res.status(400).json({ error: "Missing required course fields" });
+      }
+
+      const courseData = {
+        scheduleId: resolvedScheduleId,
+        classId: resolvedClassId,
+        trainerId: resolvedTrainerId,
+        courseDate: resolvedCourseDate,
+        startTime: resolvedStartTime,
+        endTime: resolvedEndTime,
+        maxParticipants: resolvedMaxParticipants,
+        currentParticipants: resolvedCurrentParticipants,
+        status: resolvedStatus,
+        isActive: resolvedIsActive !== undefined ? Boolean(resolvedIsActive) : true,
+      };
+
+      console.log("Creating course with:", courseData);
+      const course = await storage.createCourse(courseData);
+      console.log("Course created successfully:", course);
+      res.json(course);
+    } catch (error) {
+      console.error("Error creating course:", error);
+      res.status(500).json({ error: "Failed to create course", details: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  console.log('Registering route: PUT /api/courses/:id');
+  app.put("/api/courses/:id", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      console.log("Received course update request for ID:", id, "with data:", req.body);
+      
+      const {
+        scheduleId, schedule_id,
+        classId, class_id,
+        trainerId, trainer_id,
+        courseDate, course_date,
+        startTime, start_time,
+        endTime, end_time,
+        maxParticipants, max_participants,
+        currentParticipants, current_participants,
+        status,
+        isActive, is_active
+      } = req.body;
+
+      const resolvedScheduleId = Number(schedule_id ?? scheduleId);
+      const resolvedClassId = Number(class_id ?? classId);
+      const resolvedTrainerId = Number(trainer_id ?? trainerId);
+      const resolvedCourseDate = course_date ?? courseDate;
+      const resolvedStartTime = start_time ?? startTime;
+      const resolvedEndTime = end_time ?? endTime;
+      const resolvedMaxParticipants = Number(max_participants ?? maxParticipants ?? 10);
+      const resolvedCurrentParticipants = Number(current_participants ?? currentParticipants ?? 0);
+      const resolvedStatus = status || 'scheduled';
+      const resolvedIsActive = is_active !== undefined ? is_active : isActive;
+
+      if (
+        !resolvedScheduleId ||
+        !resolvedClassId ||
+        !resolvedTrainerId ||
+        !resolvedCourseDate ||
+        !resolvedStartTime ||
+        !resolvedEndTime ||
+        !resolvedMaxParticipants
+      ) {
+        return res.status(400).json({ error: "Missing required course fields" });
+      }
+
+      const courseData = {
+        scheduleId: resolvedScheduleId,
+        classId: resolvedClassId,
+        trainerId: resolvedTrainerId,
+        courseDate: resolvedCourseDate,
+        startTime: resolvedStartTime,
+        endTime: resolvedEndTime,
+        maxParticipants: resolvedMaxParticipants,
+        currentParticipants: resolvedCurrentParticipants,
+        status: resolvedStatus,
+        isActive: resolvedIsActive !== undefined ? Boolean(resolvedIsActive) : true,
+      };
+
+      console.log("Updating course with:", courseData);
+      const updatedCourse = await storage.updateCourse(parseInt(id), courseData);
+      console.log("Course updated successfully:", updatedCourse);
+      res.json(updatedCourse);
+    } catch (error) {
+      console.error("Error updating course:", error);
+      res.status(500).json({ error: "Failed to update course", details: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  console.log('Registering route: DELETE /api/courses/:id');
+  app.delete("/api/courses/:id", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteCourse(parseInt(id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting course:", error);
+      res.status(500).json({ error: "Failed to delete course" });
+    }
+  });
+
+  console.log('Registering route: POST /api/schedules/:id/generate-courses');
+  app.post("/api/schedules/:id/generate-courses", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { startDate, endDate } = req.body;
+
+      if (!startDate || !endDate) {
+        return res.status(400).json({ error: "startDate and endDate are required" });
+      }
+
+      console.log(`Generating courses for schedule ${id} from ${startDate} to ${endDate}`);
+      const courses = await storage.generateCoursesFromSchedule(parseInt(id), startDate, endDate);
+      console.log(`Generated ${courses.length} courses successfully`);
+      res.json({ success: true, courses, count: courses.length });
+    } catch (error) {
+      console.error("Error generating courses:", error);
+      res.status(500).json({ error: "Failed to generate courses", details: error instanceof Error ? error.message : String(error) });
     }
   });
 

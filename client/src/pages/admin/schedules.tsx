@@ -65,13 +65,8 @@ export default function AdminSchedules() {
     dayOfWeek: sch.day_of_week,
     repetitionType: sch.repetition_type,
     isActive: sch.is_active,
-    class: sch.class || {
-      id: sch.class_id,
-      name: "(Unknown class)",
-      category: "",
-      duration: 0,
-      maxCapacity: 0,
-    },
+    // The backend now always provides the class object, so we don't need fallbacks
+    class: sch.class,
     trainer: sch.trainer || {
       id: sch.trainer_id,
       firstName: "",
