@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Calendar, Clock, Users, CreditCard, CheckCircle, AlertCircle } from "lucide-react";
-import { formatDate } from "@/lib/auth";
+import { formatDate } from "@/lib/date";
 
 export default function MemberSubscriptionsEnhanced() {
   const { data: subscription, isLoading } = useQuery({

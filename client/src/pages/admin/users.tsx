@@ -6,24 +6,30 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { apiRequest } from "@/lib/queryClient";
-import { Search, Plus, Edit, Trash2, User, Shield, MoreHorizontal, Key, Archive, CheckCircle, XCircle, Mail } from "lucide-react";
+import { Search, Plus, Edit, Trash2, User, Shield, MoreHorizontal, Key, Archive, CheckCircle, XCircle, Mail, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { formatDate } from "@/lib/date";
 
 // Form schemas
 const createUserSchema = z.object({
     email: z.string().email("Please enter a valid email"),
     firstName: z.string().min(1, "First name is required"),
     lastName: z.string().min(1, "Last name is required"),
+    password: z.string()
+      .min(8, "Password must be at least 8 characters")
+      .optional()
+      .or(z.literal('')),
     isAdmin: z.boolean().default(false),
     isMember: z.boolean().default(true),
+    isTrainer: z.boolean().default(false),
 });
 
 const editUserSchema = z.object({
@@ -42,10 +48,6 @@ type EditUserForm = z.infer<typeof editUserSchema>;
 // Helper functions
 const getInitials = (firstName: string, lastName: string): string => {
     return `${firstName?.charAt(0) || ''}${lastName?.charAt(0) || ''}`.toUpperCase();
-};
-
-const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleDateString();
 };
 
 const getStatusColor = (status: string) => {
@@ -78,8 +80,10 @@ export default function UsersPage() {
             email: "",
             firstName: "",
             lastName: "",
+            password: "",
             isAdmin: false,
             isMember: true,
+            isTrainer: false,
         },
     });
 
@@ -100,7 +104,12 @@ export default function UsersPage() {
     // Create user mutation
     const createUserMutation = useMutation({
         mutationFn: async (data: CreateUserForm) => {
-            return await apiRequest("POST", "/api/users", data);
+            // Remove password if empty or falsy
+            const payload = { ...data };
+            if (!payload.password) {
+                delete payload.password;
+            }
+            return await apiRequest("POST", "/api/users", payload);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["/api/users"] });
@@ -239,6 +248,14 @@ export default function UsersPage() {
         user.lastName?.toLowerCase().includes(searchTerm.toLowerCase())
     ) : [];
 
+    // Map fields to camelCase for role rendering
+    const usersMapped = filteredUsers.map((user: any) => ({
+        ...user,
+        isAdmin: user.is_admin,
+        isMember: user.is_member,
+        isTrainer: user.is_trainer,
+    }));
+
     if (isLoading) {
         return (
             <div className="space-y-6">
@@ -282,9 +299,31 @@ export default function UsersPage() {
                                         <FormItem>
                                             <FormLabel>Email</FormLabel>
                                             <FormControl>
-                                                <Input placeholder="user@example.com" {...field} />
+                                                <Input placeholder="user@example.com" type="email" {...field} />
                                             </FormControl>
                                             <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={createForm.control}
+                                    name="password"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Password (Optional)</FormLabel>
+                                            <FormControl>
+                                                <Input 
+                                                    type="password" 
+                                                    placeholder="Leave empty to send an invitation email" 
+                                                    autoComplete="new-password"
+                                                    {...field} 
+                                                    value={field.value || ''}
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                            <FormDescription className="text-xs text-muted-foreground">
+                                                Leave empty to send an invitation email with a password reset link
+                                            </FormDescription>
                                         </FormItem>
                                     )}
                                 />
@@ -349,6 +388,23 @@ export default function UsersPage() {
                                             </FormItem>
                                         )}
                                     />
+                                    <FormField
+                                        control={createForm.control}
+                                        name="isTrainer"
+                                        render={({ field }) => (
+                                            <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                                                <FormControl>
+                                                    <Checkbox
+                                                        checked={field.value}
+                                                        onCheckedChange={field.onChange}
+                                                    />
+                                                </FormControl>
+                                                <div className="space-y-1 leading-none">
+                                                    <FormLabel>Trainer User</FormLabel>
+                                                </div>
+                                            </FormItem>
+                                        )}
+                                    />
                                 </div>
                                 <DialogFooter>
                                     <Button type="button" variant="outline" onClick={() => setShowCreateDialog(false)}>
@@ -409,12 +465,12 @@ export default function UsersPage() {
                                 <TableHead>User</TableHead>
                                 <TableHead>Role</TableHead>
                                 <TableHead>Status</TableHead>
-                                <TableHead>Created</TableHead>
+                                <TableHead>Created At</TableHead>
                                 <TableHead>Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {filteredUsers.map((user: any) => (
+                            {usersMapped.map((user: any) => (
                                 <TableRow key={user.id}>
                                     <TableCell className="font-medium">
                                         <div className="flex items-center space-x-3">
@@ -445,6 +501,12 @@ export default function UsersPage() {
                                                     Member
                                                 </Badge>
                                             )}
+                                            {user.isTrainer && (
+                                                <Badge variant="outline">
+                                                    <Star className="w-3 h-3 mr-1" />
+                                                    Trainer
+                                                </Badge>
+                                            )}
                                         </div>
                                     </TableCell>
                                     <TableCell>
@@ -457,7 +519,7 @@ export default function UsersPage() {
                                     </TableCell>
                                     <TableCell>
                                         <p className="text-sm text-muted-foreground">
-                                            {formatDate(user.createdAt)}
+                                            {formatDate(user.created_at)}
                                         </p>
                                     </TableCell>
                                     <TableCell>

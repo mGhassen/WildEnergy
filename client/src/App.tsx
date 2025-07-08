@@ -3,7 +3,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth, AuthProvider } from "@/hooks/use-auth";
 import LoginPage from "@/pages/auth/login";
 import RegisterPage from "@/pages/auth/register";
 import OnHoldPage from "@/pages/auth/onhold";
@@ -43,14 +43,14 @@ function ProtectedRoute({ children, requiredRole }: { children: React.ReactNode;
     return <Redirect to="/member" />;
   }
 
-  if (requiredRole === 'member' && !user?.isMember) {
+  if (requiredRole === 'member' && user?.isAdmin) {
     return <Redirect to="/admin" />;
   }
 
   return <>{children}</>;
 }
 
-function Router() {
+function AppRouter() {
   const { user, isLoading, isAuthenticated } = useAuth();
 
   if (isLoading) {
@@ -62,15 +62,16 @@ function Router() {
   }
 
   // Check user status and redirect accordingly
-  if (user?.status === 'onhold') {
+  // Only show onhold page if user status is explicitly 'onhold'
+  if (user && user.status === 'onhold') {
     return <OnHoldPage />;
   }
 
   return (
     <Switch>
       {/* Public routes */}
-      <Route path="/login" component={!isAuthenticated ? LoginPage : () => <Redirect to={user?.isAdmin ? '/admin' : '/member'} />} />
-      <Route path="/register" component={!isAuthenticated ? RegisterPage : () => <Redirect to={user?.isAdmin ? '/admin' : '/member'} />} />
+      <Route path="/login" component={!user ? LoginPage : () => <Redirect to={user?.isAdmin ? '/admin' : '/member'} />} />
+      <Route path="/register" component={!user ? RegisterPage : () => <Redirect to={user?.isAdmin ? '/admin' : '/member'} />} />
       <Route path="/auth/onhold" component={OnHoldPage} />
 
       {/* Admin routes */}
@@ -189,7 +190,7 @@ function Router() {
 
       {/* Root route - redirect based on auth status */}
       <Route path="/">
-        {isAuthenticated ? (
+        {user ? (
           <Redirect to={user?.isAdmin ? '/admin' : '/member'} />
         ) : (
           <Redirect to="/login" />
@@ -197,11 +198,14 @@ function Router() {
       </Route>
 
       {/* 404 - Not Found */}
-      <Route>
+      <Route path="*">
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-center">
-            <h1 className="text-4xl font-bold mb-4">404</h1>
-            <p className="text-xl">Page not found</p>
+            <h1 className="text-4xl font-bold text-gray-900 mb-4">404</h1>
+            <p className="text-gray-600 mb-8">Page not found</p>
+            <a href="/" className="text-primary hover:underline">
+              Go back home
+            </a>
           </div>
         </div>
       </Route>
@@ -213,10 +217,10 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <div className="min-h-screen bg-background">
+        <AuthProvider>
+          <AppRouter />
           <Toaster />
-          <Router />
-        </div>
+        </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );

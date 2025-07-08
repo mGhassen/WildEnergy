@@ -7,16 +7,18 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dumbbell, AlertCircle } from "lucide-react";
+import { Link } from "wouter";
 
 export default function Login() {
   const [, setLocation] = useLocation();
   const { user, login, isLoggingIn, loginError } = useAuth();
-  const [credentials, setCredentials] = useState({ username: "", password: "" });
+  const [credentials, setCredentials] = useState({ email: "", password: "" });
 
   // Redirect if already logged in - use useEffect to avoid state update during render
   useEffect(() => {
     if (user) {
-      setLocation(user.role === 'admin' ? '/admin' : '/member');
+      const redirectPath = user.role === 'admin' ? '/admin' : '/member';
+      setLocation(redirectPath);
     }
   }, [user, setLocation]);
 
@@ -24,18 +26,26 @@ export default function Login() {
     return null;
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    login(credentials);
+    try {
+      await login(credentials.email, credentials.password);
+    } catch (error) {
+      console.error('Login failed:', error);
+    }
   };
 
-  const handleDemoLogin = (role: 'admin' | 'member') => {
+  const handleDemoLogin = async (role: 'admin' | 'member') => {
     const demoCredentials = {
-      admin: { username: "admin", password: "admin123" },
-      member: { username: "member", password: "member123" }
+      admin: { email: "admin@wildenergy.gym", password: "admin" },
+      member: { email: "member@wildenergy.gym", password: "member" }
     };
-    setCredentials(demoCredentials[role]);
-    login(demoCredentials[role]);
+    
+    try {
+      await login(demoCredentials[role].email, demoCredentials[role].password);
+    } catch (error) {
+      console.error('Demo login failed:', error);
+    }
   };
 
   return (
@@ -60,13 +70,13 @@ export default function Login() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="email">Email</Label>
               <Input
-                id="username"
-                type="text"
-                value={credentials.username}
-                onChange={(e) => setCredentials(prev => ({ ...prev, username: e.target.value }))}
-                placeholder="Enter your username"
+                id="email"
+                type="email"
+                value={credentials.email}
+                onChange={(e) => setCredentials(prev => ({ ...prev, email: e.target.value }))}
+                placeholder="Enter your email"
                 required
               />
             </div>
@@ -96,16 +106,16 @@ export default function Login() {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => handleDemoLogin('admin')}
               disabled={isLoggingIn}
               className="text-sm"
             >
               Admin Demo
             </Button>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => handleDemoLogin('member')}
               disabled={isLoggingIn}
               className="text-sm"
@@ -114,10 +124,17 @@ export default function Login() {
             </Button>
           </div>
 
+          <div className="text-center text-sm">
+            Don't have an account?{' '}
+            <Link href="/register" className="text-primary hover:underline">
+              Create one
+            </Link>
+          </div>
+
           <div className="text-center text-sm text-muted-foreground">
             <p>Demo credentials:</p>
-            <p className="font-mono text-xs">Admin: admin / admin123</p>
-            <p className="font-mono text-xs">Member: member / member123</p>
+            <p className="font-mono text-xs">Admin: admin@wildenergy.gym / admin</p>
+            <p className="font-mono text-xs">Member: member@wildenergy.gym / member</p>
           </div>
         </CardContent>
       </Card>

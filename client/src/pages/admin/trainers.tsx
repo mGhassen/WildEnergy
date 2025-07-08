@@ -29,8 +29,46 @@ export default function AdminTrainers() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: trainers, isLoading } = useQuery({
-    queryKey: ["/api/trainers"],
+  const { data: trainersData = [], isLoading } = useQuery({
+    queryKey: ["trainers"],
+    queryFn: async () => {
+      try {
+        const data = await apiRequest("GET", "/api/trainers");
+        
+        // Transform the data to match the expected structure
+        return data.map((trainer: any) => ({
+          ...trainer,
+          // If user data is nested, flatten it
+          ...(trainer.user ? {
+            firstName: trainer.user.firstName || trainer.user.first_name,
+            lastName: trainer.user.lastName || trainer.user.last_name,
+            email: trainer.user.email,
+            phone: trainer.user.phone
+          } : {})
+        }));
+      } catch (err) {
+        console.error('Error fetching trainers:', err);
+        toast({
+          title: "Error",
+          description: "Failed to load trainers. Please try again.",
+          variant: "destructive"
+        });
+        return [];
+      }
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+  
+  // Filter trainers based on search term
+  const filteredTrainers = trainersData.filter((trainer: any) => {
+    if (!searchTerm) return true;
+    const search = searchTerm.toLowerCase();
+    return (
+      (trainer.firstName?.toLowerCase().includes(search) ||
+      trainer.lastName?.toLowerCase().includes(search) ||
+      trainer.email?.toLowerCase().includes(search) ||
+      trainer.phone?.includes(search))
+    );
   });
 
   const form = useForm<TrainerFormData>({
@@ -50,11 +88,15 @@ export default function AdminTrainers() {
       const response = await apiRequest("POST", "/api/trainers", data);
       return response;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/trainers"] });
       setIsModalOpen(false);
       form.reset();
-      toast({ title: "Trainer created successfully" });
+      toast({ 
+        title: "Trainer created successfully",
+        description: `${data.trainer.firstName} ${data.trainer.lastName} has been added.`
+      });
+      // The page will automatically refresh the trainers list due to the query invalidation
     },
     onError: (error) => {
       toast({ 
@@ -104,11 +146,7 @@ export default function AdminTrainers() {
     },
   });
 
-  const filteredTrainers = Array.isArray(trainers) ? trainers.filter((trainer: any) =>
-    `${trainer.firstName} ${trainer.lastName} ${trainer.email}`
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase())
-  ) : [];
+  // Filtering is now handled above with the transformed data
 
   const handleSubmit = (data: TrainerFormData) => {
     if (editingTrainer) {
@@ -285,7 +323,7 @@ export default function AdminTrainers() {
         <CardHeader>
           <CardTitle>All Trainers</CardTitle>
           <CardDescription>
-            {filteredTrainers.length} of {trainers?.length || 0} trainers
+            {filteredTrainers.length} of {trainersData.length} trainers
           </CardDescription>
         </CardHeader>
         <CardContent>

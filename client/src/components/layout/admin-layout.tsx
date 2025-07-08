@@ -22,14 +22,11 @@ interface AdminLayoutProps {
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const [location] = useLocation();
+  const { logout } = useAuth();
   
   const handleLogout = async () => {
     try {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-      });
-      window.location.href = '/login';
+      await logout();
     } catch (error) {
       console.error('Logout error:', error);
     }
