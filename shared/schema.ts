@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp, boolean, decimal, uuid, numeric } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, boolean, decimal, uuid, numeric, time, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
@@ -76,15 +76,34 @@ export const classes = pgTable("classes", {
 // Schedules table
 export const schedules = pgTable("schedules", {
   id: serial("id").primaryKey(),
-  classId: integer("class_id").references(() => classes.id).notNull(),
-  trainerId: integer("trainer_id").references(() => trainers.id).notNull(),
-  dayOfWeek: integer("day_of_week").notNull(), // 0-6 (Sunday-Saturday)
-  startTime: text("start_time").notNull(), // HH:MM format
-  endTime: text("end_time").notNull(),
-  scheduleDate: timestamp("schedule_date").notNull(), // Specific date for this schedule instance
-  repetitionType: text("repetition_type").notNull().default("weekly"), // 'once', 'daily', 'weekly', 'monthly'
-  parentScheduleId: integer("parent_schedule_id"), // Reference to the original schedule for series
+  classId: integer("class_id").notNull().references(() => classes.id),
+  trainerId: integer("trainer_id").notNull().references(() => trainers.id),
+  dayOfWeek: integer("day_of_week"), // 0-6 (Sunday-Saturday), null for one-time
+  startTime: time("start_time").notNull(),
+  endTime: time("end_time").notNull(),
+  maxParticipants: integer("max_participants").notNull().default(10),
+  repetitionType: text("repetition_type").notNull(), // 'weekly', 'biweekly', 'monthly', 'once'
+  scheduleDate: date("schedule_date"), // For one-time schedules
   isActive: boolean("is_active").notNull().default(true),
+  parentScheduleId: integer("parent_schedule_id").references(() => schedules.id), // For recurring schedules
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const courses = pgTable("courses", {
+  id: serial("id").primaryKey(),
+  scheduleId: integer("schedule_id").notNull().references(() => schedules.id, { onDelete: "cascade" }),
+  classId: integer("class_id").notNull().references(() => classes.id),
+  trainerId: integer("trainer_id").notNull().references(() => trainers.id),
+  courseDate: date("course_date").notNull(),
+  startTime: time("start_time").notNull(),
+  endTime: time("end_time").notNull(),
+  maxParticipants: integer("max_participants").notNull().default(10),
+  currentParticipants: integer("current_participants").notNull().default(0),
+  status: text("status").notNull().default("scheduled").$type<"scheduled" | "in_progress" | "completed" | "cancelled">(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Subscriptions table
@@ -265,12 +284,29 @@ export const insertClassSchema = z.object({
 });
 
 export const insertScheduleSchema = z.object({
-  classId: z.number().min(1, "Class is required"),
-  trainerId: z.number().min(1, "Trainer is required"),
-  startTime: z.string().datetime(),
-  endTime: z.string().datetime(),
-  maxParticipants: z.number().min(1, "Must allow at least 1 participant"),
-  isActive: z.boolean().default(true)
+  classId: z.number().min(1, 'Class is required'),
+  trainerId: z.number().min(1, 'Trainer is required'),
+  dayOfWeek: z.number().min(0).max(6).optional(),
+  startTime: z.string().min(1, 'Start time is required'),
+  endTime: z.string().min(1, 'End time is required'),
+  maxParticipants: z.number().min(1, 'Max participants must be at least 1'),
+  repetitionType: z.enum(['weekly', 'biweekly', 'monthly', 'once']),
+  scheduleDate: z.string().optional(),
+  isActive: z.boolean().default(true),
+  parentScheduleId: z.number().optional(),
+});
+
+export const insertCourseSchema = z.object({
+  scheduleId: z.number().min(1, 'Schedule is required'),
+  classId: z.number().min(1, 'Class is required'),
+  trainerId: z.number().min(1, 'Trainer is required'),
+  courseDate: z.string().min(1, 'Course date is required'),
+  startTime: z.string().min(1, 'Start time is required'),
+  endTime: z.string().min(1, 'End time is required'),
+  maxParticipants: z.number().min(1, 'Max participants must be at least 1'),
+  currentParticipants: z.number().min(0).default(0),
+  status: z.enum(['scheduled', 'in_progress', 'completed', 'cancelled']).default('scheduled'),
+  isActive: z.boolean().default(true),
 });
 
 export const insertClassRegistrationSchema = z.object({
@@ -315,6 +351,9 @@ export type InsertClass = z.infer<typeof insertClassSchema>;
 
 export type Schedule = typeof schedules.$inferSelect;
 export type InsertSchedule = z.infer<typeof insertScheduleSchema>;
+
+export type Course = typeof courses.$inferSelect;
+export type InsertCourse = z.infer<typeof insertCourseSchema>;
 
 export type Subscription = typeof subscriptions.$inferSelect;
 export type InsertSubscription = z.infer<typeof insertSubscriptionSchema>;

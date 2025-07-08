@@ -1,7 +1,7 @@
 import type {
   User, InsertUser, Trainer, InsertTrainer, Category, InsertCategory,
   Plan, InsertPlan, Class, InsertClass, Schedule, InsertSchedule, 
-  Subscription, InsertSubscription, ClassRegistration, InsertClassRegistration, 
+  Course, InsertCourse, Subscription, InsertSubscription, ClassRegistration, InsertClassRegistration, 
   Checkin, InsertCheckin
 } from "@shared/schema";
 import { supabase } from "./supabase";
@@ -55,6 +55,14 @@ export interface IStorage {
   createSchedule(schedule: InsertSchedule): Promise<Schedule>;
   updateSchedule(id: number, updates: Partial<InsertSchedule>): Promise<Schedule>;
   deleteSchedule(id: number): Promise<void>;
+
+  // Courses (Individual class instances)
+  getCourses(dateRange?: { startDate: string; endDate: string }): Promise<Course[]>;
+  getCourse(id: number): Promise<Course | undefined>;
+  createCourse(course: InsertCourse): Promise<Course>;
+  updateCourse(id: number, updates: Partial<InsertCourse>): Promise<Course>;
+  deleteCourse(id: number): Promise<void>;
+  generateCoursesFromSchedule(scheduleId: number, startDate: string, endDate: string): Promise<Course[]>;
 
   // Subscriptions
   getSubscriptions(): Promise<Subscription[]>;
@@ -698,7 +706,7 @@ export class DatabaseStorage implements IStorage {
   async getSchedules(): Promise<Schedule[]> {
     const { data: schedules, error } = await supabase
       .from('schedules')
-      .select('*')
+      .select('*, class:class_id (id, name), trainer:trainer_id (id)')
       .order('start_time', { ascending: true });
 
     if (error) {
@@ -772,6 +780,235 @@ export class DatabaseStorage implements IStorage {
       console.error('Error deleting schedule:', error);
       throw new Error(error.message || 'Failed to delete schedule');
     }
+  }
+
+  async getCourses(dateRange?: { startDate: string; endDate: string }): Promise<Course[]> {
+    let query = supabase
+      .from('courses')
+      .select('*, class:class_id (id, name), trainer:trainer_id (id)')
+      .order('course_date', { ascending: true })
+      .order('start_time', { ascending: true });
+
+    if (dateRange) {
+      const start = new Date(dateRange.startDate);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(dateRange.endDate);
+      end.setHours(23, 59, 59, 999);
+
+      query = query
+        .gte('course_date', start.toISOString().split('T')[0])
+        .lte('course_date', end.toISOString().split('T')[0]);
+    }
+
+    const { data: courses, error } = await query;
+
+    if (error) {
+      console.error('Error fetching courses:', error);
+      throw new Error(error.message || 'Failed to fetch courses');
+    }
+
+    return courses || [];
+  }
+
+  async getCourse(id: number): Promise<Course | undefined> {
+    const { data: course, error } = await supabase
+      .from('courses')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching course:', error);
+      return undefined;
+    }
+
+    return course as Course | undefined;
+  }
+
+  async createCourse(course: InsertCourse): Promise<Course> {
+    const { data: newCourse, error } = await supabase
+      .from('courses')
+      .insert({
+        ...course,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating course:', error);
+      throw new Error(error.message || 'Failed to create course');
+    }
+
+    return newCourse as Course;
+  }
+
+  async updateCourse(id: number, updates: Partial<InsertCourse>): Promise<Course> {
+    const { data: updatedCourse, error } = await supabase
+      .from('courses')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating course:', error);
+      throw new Error(error.message || 'Failed to update course');
+    }
+
+    return updatedCourse as Course;
+  }
+
+  async deleteCourse(id: number): Promise<void> {
+    const { error } = await supabase
+      .from('courses')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting course:', error);
+      throw new Error(error.message || 'Failed to delete course');
+    }
+  }
+
+  async generateCoursesFromSchedule(scheduleId: number, startDate: string, endDate: string): Promise<Course[]> {
+    // First, check if courses table exists
+    const { error: tableCheckError } = await supabase
+      .from('courses')
+      .select('id')
+      .limit(1);
+
+    if (tableCheckError) {
+      console.error('Courses table does not exist or is not accessible:', tableCheckError);
+      throw new Error('Courses table is not available. Please run the migration first.');
+    }
+
+    const { data: schedule, error: fetchError } = await supabase
+      .from('schedules')
+      .select('*')
+      .eq('id', scheduleId)
+      .single();
+
+    if (fetchError || !schedule) {
+      console.error('Error fetching schedule for course generation:', fetchError);
+      throw new Error(fetchError?.message || 'Failed to fetch schedule for course generation');
+    }
+
+    console.log('Generating courses for schedule:', schedule);
+
+    const start = new Date(startDate);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+
+    // Check for existing courses in the date range
+    const { data: existingCourses, error: courseError } = await supabase
+      .from('courses')
+      .select('course_date')
+      .eq('schedule_id', scheduleId)
+      .gte('course_date', start.toISOString().split('T')[0])
+      .lte('course_date', end.toISOString().split('T')[0]);
+
+    if (courseError) {
+      console.error('Error fetching existing courses:', courseError);
+      throw new Error(courseError.message || 'Failed to fetch existing courses');
+    }
+
+    const existingDates = new Set(existingCourses?.map(c => c.course_date) || []);
+    const newCourses: InsertCourse[] = [];
+    const currentDate = new Date(start);
+
+    while (currentDate <= end) {
+      const dateString = currentDate.toISOString().split('T')[0];
+      
+      // Skip if course already exists for this date
+      if (existingDates.has(dateString)) {
+        currentDate.setDate(currentDate.getDate() + 1);
+        continue;
+      }
+
+      let shouldCreateCourse = false;
+
+      if (schedule.repetition_type === 'once') {
+        // For one-time schedules, only create if it's the specific schedule date
+        if (schedule.schedule_date) {
+          const scheduleDateString = new Date(schedule.schedule_date).toISOString().split('T')[0];
+          console.log(`Comparing ${dateString} with schedule date ${scheduleDateString}`);
+          if (dateString === scheduleDateString) {
+            shouldCreateCourse = true;
+            console.log('Should create course for one-time schedule');
+          }
+        }
+      } else if (schedule.repetition_type === 'weekly') {
+        // For weekly schedules, create on the specified day of week
+        if (schedule.day_of_week !== null && currentDate.getDay() === schedule.day_of_week) {
+          shouldCreateCourse = true;
+        }
+      } else if (schedule.repetition_type === 'biweekly') {
+        // For biweekly schedules, create every other week on the specified day
+        if (schedule.day_of_week !== null && currentDate.getDay() === schedule.day_of_week) {
+          const weeksSinceStart = Math.floor((currentDate.getTime() - start.getTime()) / (7 * 24 * 60 * 60 * 1000));
+          if (weeksSinceStart % 2 === 0) {
+            shouldCreateCourse = true;
+          }
+        }
+      } else if (schedule.repetition_type === 'monthly') {
+        // For monthly schedules, create on the same day of month (or last day if month is shorter)
+        if (schedule.day_of_week !== null && currentDate.getDay() === schedule.day_of_week) {
+          const startDay = start.getDate();
+          const currentDay = currentDate.getDate();
+          const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+          
+          // Create on the same day of month, or last day if month is shorter
+          const targetDay = Math.min(startDay, daysInMonth);
+          if (currentDay === targetDay) {
+            shouldCreateCourse = true;
+          }
+        }
+      }
+
+      if (shouldCreateCourse) {
+        console.log(`Creating course for date: ${dateString}`);
+        newCourses.push({
+          schedule_id: scheduleId,
+          class_id: schedule.class_id,
+          trainer_id: schedule.trainer_id,
+          course_date: dateString,
+          start_time: schedule.start_time,
+          end_time: schedule.end_time,
+          max_participants: schedule.max_participants,
+          current_participants: 0,
+          status: 'scheduled',
+          is_active: schedule.is_active,
+        });
+      }
+
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    if (newCourses.length === 0) {
+      console.log('No courses to generate');
+      return [];
+    }
+
+    console.log(`Inserting ${newCourses.length} courses:`, newCourses);
+
+    const { data: insertedCourses, error: insertError } = await supabase
+      .from('courses')
+      .insert(newCourses)
+      .select();
+
+    if (insertError) {
+      console.error('Error inserting generated courses:', insertError);
+      throw new Error(insertError.message || 'Failed to insert generated courses');
+    }
+
+    console.log(`Successfully inserted ${insertedCourses.length} courses`);
+    return insertedCourses as Course[];
   }
 
   async getSubscriptions(): Promise<Subscription[]> {
