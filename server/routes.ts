@@ -918,23 +918,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/classes", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
     try {
       console.log("Received class creation request:", req.body);
-      const { name, description, categoryId, duration, maxCapacity, equipment, isActive } = req.body;
+      const { name, description, categoryId, category_id, duration, durationMinutes, maxCapacity, max_capacity, equipment, isActive, is_active, difficulty } = req.body;
 
-      if (!name || typeof name !== 'string') {
-        return res.status(400).json({ error: "Class name is required and must be a string" });
-      }
-
-      if (!categoryId || isNaN(parseInt(categoryId))) {
+      const resolvedCategoryId = Number(category_id ?? categoryId);
+      if (!resolvedCategoryId || isNaN(resolvedCategoryId)) {
         return res.status(400).json({ error: "Category ID is required and must be a valid number" });
       }
+
+      const resolvedDuration = Number(duration ?? durationMinutes);
+      const resolvedMaxCapacity = Number(max_capacity ?? maxCapacity);
 
       const classData = {
         name: name.trim(),
         description: description ? String(description).trim() : undefined,
-        categoryId: Number(categoryId),
-        difficulty: 'beginner' as const, // Default to beginner if not specified
-        durationMinutes: Number(duration),
-        isActive: isActive !== undefined ? Boolean(isActive) : true,
+        category_id: resolvedCategoryId,
+        difficulty: difficulty || 'beginner',
+        duration: resolvedDuration,
+        max_capacity: resolvedMaxCapacity,
+        equipment: equipment || null,
+        is_active: is_active !== undefined ? Boolean(is_active) : (isActive !== undefined ? Boolean(isActive) : true),
       };
 
       console.log("Creating class with:", classData);
