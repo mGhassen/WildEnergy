@@ -346,7 +346,6 @@ export default function AdminTrainers() {
                   <TableHead>Trainer</TableHead>
                   <TableHead>Contact</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Hire Date</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -382,9 +381,6 @@ export default function AdminTrainers() {
                       >
                         {trainer.status}
                       </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {trainer.hireDate ? formatDate(trainer.hireDate) : "N/A"}
                     </TableCell>
                     <TableCell>
                       <div className="flex space-x-2">
