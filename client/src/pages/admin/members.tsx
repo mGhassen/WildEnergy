@@ -31,14 +31,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { formatDate } from "@/lib/date";
 
 // Helper functions
 const getInitials = (firstName: string, lastName: string): string => {
   return `${firstName?.charAt(0) || ''}${lastName?.charAt(0) || ''}`.toUpperCase();
-};
-
-const formatDate = (dateString: string): string => {
-  return new Date(dateString).toLocaleDateString();
 };
 
 const formatDateTime = (dateString: string): string => {

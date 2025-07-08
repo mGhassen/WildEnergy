@@ -72,9 +72,6 @@ logs
 # Yarn Integrity file
 .yarn-integrity
 
-# dotenv environment variables file
-.env
-
 # Next.js
 .next/
 out/

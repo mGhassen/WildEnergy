@@ -14,13 +14,12 @@ import { Separator } from "@/components/ui/separator";
 import { useLocation } from "wouter";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { authApi } from "@/lib/api";
-import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function Login() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -32,43 +31,16 @@ export default function Login() {
     setError("");
 
     try {
-      // 1. Authenticate with the server
-      const { access_token, user } = await authApi.login({ email, password });
+      // Use the useAuth hook's login method which handles everything
+      await login(email, password);
       
-      if (!access_token) {
-        throw new Error('No access token received');
-      }
-
-      console.log("Login successful, user:", user);
-
-      // 2. Fetch user session data
-      const userData = await authApi.getSession();
-      
-      if (!userData) {
-        throw new Error('Failed to load user session');
-      }
-
-      // 3. Update React Query cache
-      queryClient.setQueryData(['auth', 'user'], userData);
-
-      // 4. Show success message
+      // Show success message
       toast({
-        title: "Welcome back!",
-        description: `Welcome, ${userData.firstName || userData.email || 'User'}!`,
+        title: "Login successful!",
+        description: "Redirecting you to your dashboard...",
       });
-
-      // 5. Handle redirection
-      const searchParams = new URLSearchParams(window.location.search);
-      const returnTo = searchParams.get('returnTo');
       
-      if (returnTo) {
-        // Redirect to the originally requested page
-        window.location.href = returnTo;
-      } else {
-        // Default redirect based on user role
-        const redirectPath = userData.isAdmin ? '/admin' : '/member';
-        setLocation(redirectPath);
-      }
+      // Note: The actual redirection is handled in the useAuth hook after successful login
 
     } catch (err: any) {
       console.error('Login error:', err);

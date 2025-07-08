@@ -1,4 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { getAuthToken } from "./api";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -34,9 +35,20 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<any> {
+  // Get token using the shared utility
+  const token = getAuthToken();
+
+  const headers: Record<string, string> = data
+    ? { "Content-Type": "application/json" }
+    : {};
+
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
   const res = await fetch(url, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
+    headers,
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });

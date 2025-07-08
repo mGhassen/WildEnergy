@@ -19,13 +19,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log('=== Health Check Started ===');
     console.log('Request from IP:', req.ip);
     console.log('Supabase URL:', process.env.SUPABASE_URL || 'Not Set');
-    
+
     try {
       console.log('Testing Supabase connection...');
-      
+
       // Test Supabase connection by making a simple request
       const { data: authData, error: authError } = await supabase.auth.getSession();
-      
+
       if (authError) {
         console.error('Supabase auth test failed:', authError);
         // If auth fails, try a direct REST API call to Supabase
@@ -35,15 +35,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
             'Authorization': `Bearer ${process.env.SUPABASE_ANON_KEY}`
           }
         });
-        
+
         if (!response.ok) {
           throw new Error(`Supabase API returned ${response.status}: ${response.statusText}`);
         }
       }
-      
+
       console.log('Successfully connected to Supabase');
-      
-      res.json({ 
+
+      res.json({
         status: 'ok',
         database: 'connected',
         timestamp: new Date().toISOString(),
@@ -59,8 +59,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         name: error.name,
         stack: error.stack
       });
-      
-      res.status(500).json({ 
+
+      res.status(500).json({
         status: 'error',
         error: 'Database connection failed',
         details: error.message,
@@ -71,104 +71,232 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // User registration endpoint
+  console.log('Registering route: POST /api/auth/register');
+  app.post('/api/auth/register', async (req, res) => {
+    try {
+      const { email, password, firstName, lastName } = req.body;
+
+      if (!email || !password || !firstName) {
+        return res.status(400).json({ 
+          success: false,
+          error: 'Email, password, and first name are required' 
+        });
+      }
+
+      // 1. Create auth user
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+
+      if (authError || !authData.user) {
+        console.error('Auth creation error:', authError);
+        return res.status(400).json({ 
+          success: false,
+          error: authError?.message || 'Failed to create user'
+        });
+      }
+
+      // 2. Create user profile
+      const { data: userProfile, error: profileError } = await supabase
+        .from('users')
+        .insert([
+          {
+            id: authData.user.id,
+            email,
+            first_name: firstName,
+            last_name: lastName || '',
+            is_admin: false,
+            status: 'active',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }
+        ])
+        .select()
+        .single();
+
+      if (profileError) {
+        console.error('Profile creation error:', profileError);
+        // Clean up auth user if profile creation fails
+        await supabase.auth.admin.deleteUser(authData.user.id);
+        
+        return res.status(500).json({ 
+          success: false,
+          error: 'Failed to create user profile',
+          details: profileError.message
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'User registered successfully',
+        userId: authData.user.id
+      });
+
+    } catch (error) {
+      console.error('Registration error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'An unexpected error occurred during registration',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   // Supabase login endpoint
   console.log('Registering route: POST /api/auth/login');
   app.post('/api/auth/login', async (req, res) => {
     try {
       const { email, password } = req.body;
 
-      // Sign in with Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      if (!email || !password) {
+        return res.status(400).json({ 
+          success: false,
+          error: 'Email and password are required' 
+        });
+      }
+
+      // Sign in with Supabase
+      const { data: { session, user }, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (authError) {
-        console.error('Authentication error:', authError);
-        return res.status(401).json({ error: 'Invalid credentials' });
-      }
-
-      // Get user profile from your users table
-      const { data: user, error: userError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('auth_user_id', authData.user.id)
-        .single();
-
-      if (userError || !user) {
-        console.error('User not found in database:', userError);
-        return res.status(401).json({ error: 'User not found' });
-      }
-
-      // Check if user is active
-      if (user.status !== 'active') {
-        return res.status(403).json({ 
-          error: 'Account not active',
-          status: user.status || 'inactive'
+      if (error || !session || !user) {
+        console.error('Login error:', error);
+        return res.status(401).json({ 
+          success: false,
+          error: 'Invalid email or password',
+          details: error?.message
         });
       }
 
-      // Return the session tokens and user data
+      // Get user profile
+      const { data: userProfile, error: profileError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (profileError || !userProfile) {
+        console.error('User not found:', profileError);
+        return res.status(401).json({ 
+          success: false,
+          error: 'User account not found. Please sign up first.'
+        });
+      }
+
+      const userData = userProfile;
+
+      // Set secure HTTP-only cookies
+      res.cookie('sb-access-token', session.access_token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+      });
+
+      res.cookie('sb-refresh-token', session.refresh_token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/api/auth/refresh',
+      });
+
+      // Return user data and tokens
       res.json({
-        access_token: authData.session.access_token,
-        refresh_token: authData.session.refresh_token,
+        success: true,
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
         user: {
           id: user.id,
-          email: user.email,
-          firstName: user.first_name,
-          lastName: user.last_name,
-          isAdmin: user.is_admin,
-          // Add other user fields as needed
+          email: user.email || '',
+          isAdmin: userData?.is_admin || false,
+          firstName: userData?.first_name || user.email?.split('@')[0] || 'User',
+          lastName: userData?.last_name || '',
         },
       });
+      
     } catch (error) {
       console.error('Login error:', error);
-      res.status(500).json({ error: 'Login failed' });
+      res.status(500).json({
+        success: false,
+        error: 'An unexpected error occurred during login',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 
   // Get current user session
   app.get('/api/auth/session', async (req, res) => {
     try {
-      // Get the auth token from the request headers
-      const authHeader = req.headers.authorization;
-      if (!authHeader) {
-        return res.status(401).json({ error: 'No authorization token' });
-      }
-
-      const token = authHeader.split(' ')[1];
+      const token = req.headers.authorization?.split(' ')[1];
       if (!token) {
-        return res.status(401).json({ error: 'No token provided' });
+        return res.status(401).json({ 
+          success: false,
+          error: 'No authentication token provided' 
+        });
       }
 
-      // Verify the token with Supabase
-      const { data: { user: authUser }, error } = await supabase.auth.getUser(token);
+      console.log('Verifying token with Supabase...');
       
-      if (error || !authUser) {
-        return res.status(401).json({ error: 'Invalid or expired token' });
-      }
-
-      // Get user profile
-      const { data: user, error: userError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('auth_user_id', authUser.id)
-        .single();
-
+      // Verify the token with Supabase
+      const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+      
       if (userError || !user) {
-        return res.status(404).json({ error: 'User not found' });
+        console.error('Token verification failed:', userError);
+        return res.status(401).json({ 
+          success: false,
+          error: 'Invalid or expired authentication token',
+          details: userError?.message
+        });
       }
 
-      res.json({
-        user: {
-          id: user.id,
-          email: user.email,
-          firstName: user.first_name,
-          lastName: user.last_name,
-          isAdmin: user.is_admin,
-          // Add other user fields as needed
+      console.log('Token verified, fetching user data for ID:', user.id);
+      
+      try {
+        // Get additional user data from your database
+        const { data: userData, error: dbError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('auth_user_id', user.id)
+          .single();
+
+        if (dbError || !userData) {
+          console.error('Database error:', dbError);
+          return res.status(404).json({ 
+            success: false,
+            error: 'User profile not found',
+            userId: user.id
+          });
         }
-      });
+
+        // Return consistent user object structure
+        const userResponse = {
+          id: userData.id,
+          email: user.email || '',
+          isAdmin: Boolean(userData.is_admin),
+          firstName: userData.first_name || user.email?.split('@')[0] || 'User',
+          lastName: userData.last_name || '',
+          status: userData.status || 'active'
+        };
+
+        console.log('Returning user data for:', userResponse.email);
+        
+        return res.json({ 
+          success: true,
+          user: userResponse
+        });
+        
+      } catch (dbError) {
+        console.error('Error fetching user data:', dbError);
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to fetch user data',
+          details: dbError instanceof Error ? dbError.message : 'Unknown error'
+        });
+      }
     } catch (error) {
       console.error('Session error:', error);
       res.status(500).json({ error: 'Failed to verify session' });
@@ -176,22 +304,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Logout endpoint
-  app.post('/api/auth/logout', async (_, res) => {
+  app.post('/api/auth/logout', async (req, res) => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.error('Logout error:', error);
-        return res.status(500).json({ error: 'Logout failed' });
+      // Clear the auth token from the client
+      res.clearCookie('sb-access-token');
+      res.clearCookie('sb-refresh-token');
+      
+      // Sign out from Supabase
+      const token = req.headers.authorization?.split(' ')[1];
+      if (token) {
+        // Sign out the current session
+        const { error } = await supabase.auth.admin.signOut(token);
+        if (error) {
+          console.error('Supabase sign out error:', error);
+        }
       }
-      res.json({ success: true });
-    } catch (error) {
+      
+      // Clear any session data
+      if (req.session) {
+        req.session.destroy((err: Error) => {
+          if (err) {
+            console.error('Session destroy error:', err);
+          }
+        });
+      }
+      
+      res.status(200).json({ success: true });
+    } catch (error: unknown) {
       console.error('Logout error:', error);
-      res.status(500).json({ error: 'Logout failed' });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      res.status(500).json({ 
+        error: 'Logout failed', 
+        details: errorMessage 
+      });
+    }
+  });
+
+  // Refresh token endpoint
+  app.post('/api/auth/refresh', async (req, res) => {
+    try {
+      const { refresh_token } = req.body;
+      
+      if (!refresh_token) {
+        return res.status(400).json({ error: 'Refresh token is required' });
+      }
+
+      // Use the refresh token to get a new access token
+      const { data, error } = await supabase.auth.refreshSession({
+        refresh_token
+      });
+
+      if (error || !data.session) {
+        console.error('Token refresh failed:', error);
+        return res.status(401).json({ 
+          error: error?.message || 'Failed to refresh session' 
+        });
+      }
+
+      // Check if user exists in the session data
+      if (!data.user) {
+        console.error('No user in session data after token refresh');
+        return res.status(401).json({ error: 'Invalid session data' });
+      }
+
+      // Get the user's profile from the database
+      const { data: userProfile, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('auth_user_id', data.user.id)
+        .single();
+
+      if (userError || !userProfile) {
+        console.error('User not found after token refresh:', userError);
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Return the new tokens and user data
+      res.json({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+        user: {
+          id: userProfile.id,
+          email: userProfile.email,
+          firstName: userProfile.first_name,
+          lastName: userProfile.last_name,
+          isAdmin: userProfile.is_admin,
+          status: userProfile.status
+        }
+      });
+    } catch (error) {
+      console.error('Error in refresh token endpoint:', error);
+      res.status(500).json({ error: 'Internal server error during token refresh' });
     }
   });
 
   // User Management Endpoints
-  
+
   // Get all users
   app.get('/api/users', async (_, res) => {
     try {
@@ -200,59 +408,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .from('users')
         .select('*')
         .order('created_at', { ascending: false });
-        
+
       if (usersError) {
         console.error('Error fetching users:', usersError);
         return res.status(500).json({ error: 'Failed to fetch users' });
       }
-      
+
       res.json(users);
     } catch (error) {
       console.error('Error in users endpoint:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   });
-  
+
   // Create a new user (admin only)
   app.post('/api/users', async (req, res) => {
     try {
       const { email, password, firstName, lastName, role } = req.body;
-      
+
       // Verify admin access (same as above)
       const token = req.headers.authorization?.split(' ')[1];
       if (!token) {
         return res.status(401).json({ error: 'No token provided' });
       }
-      
+
       const { data: { user: adminUser }, error: authError } = await supabase.auth.getUser(token);
       if (authError || !adminUser) {
         return res.status(401).json({ error: 'Invalid or expired token' });
       }
-      
+
       // Check if user is admin
       const { data: adminCheck } = await supabase
         .from('users')
         .select('is_admin')
         .eq('auth_user_id', adminUser.id)
         .single();
-        
+
       if (!adminCheck?.is_admin) {
         return res.status(403).json({ error: 'Admin access required' });
       }
-      
-      // Create auth user
-      const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-      });
-      
-      if (signUpError) throw signUpError;
-      
+
+      let authUserId;
+      if (!password) {
+        // Use Supabase invite flow
+        const { data: inviteData, error: inviteError } = await supabase.auth.admin.inviteUserByEmail(email);
+        if (inviteError || !inviteData?.user) {
+          return res.status(400).json({ error: inviteError?.message || 'Failed to invite user' });
+        }
+        authUserId = inviteData.user.id;
+      } else {
+        // Create auth user with password
+        const { data: authData, error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+        });
+        if (signUpError || !authData.user) {
+          return res.status(400).json({ error: signUpError?.message || 'Failed to create user' });
+        }
+        authUserId = authData.user.id;
+      }
+
       // Create user profile
       const { data: user, error: userError } = await supabase
         .from('users')
         .insert([{
-          auth_user_id: authData.user?.id,
+          auth_user_id: authUserId,
           email,
           first_name: firstName,
           last_name: lastName,
@@ -261,33 +481,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }])
         .select()
         .single();
-        
-      if (userError) throw userError;
-      
+
+      if (userError) return res.status(500).json({ error: userError.message || 'Failed to create user profile' });
+
       res.status(201).json(user);
     } catch (error) {
       console.error('Error creating user:', error);
       res.status(500).json({ error: 'Failed to create user' });
     }
   });
-  
+
   // Update user (admin only)
   app.put('/api/users/:id', async (req, res) => {
     try {
       const { id } = req.params;
       const { firstName, lastName, role, status } = req.body;
-      
+
       // Verify admin access (same as above)
       const token = req.headers.authorization?.split(' ')[1];
       if (!token) {
         return res.status(401).json({ error: 'No token provided' });
       }
-      
+
       const { data: { user: adminUser }, error: authError } = await supabase.auth.getUser(token);
       if (authError || !adminUser) {
         return res.status(401).json({ error: 'Invalid or expired token' });
       }
-      
+
       // Update user profile
       const { data: user, error: updateError } = await supabase
         .from('users')
@@ -301,41 +521,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .eq('id', id)
         .select()
         .single();
-        
+
       if (updateError) throw updateError;
-      
+
       res.json(user);
     } catch (error) {
       console.error('Error updating user:', error);
       res.status(500).json({ error: 'Failed to update user' });
     }
   });
-  
+
   // Delete user (admin only)
   app.delete('/api/users/:id', async (req, res) => {
     try {
       const { id } = req.params;
-      
+
       // Verify admin access (same as above)
       const token = req.headers.authorization?.split(' ')[1];
       if (!token) {
         return res.status(401).json({ error: 'No token provided' });
       }
-      
+
       const { data: { user: adminUser }, error: authError } = await supabase.auth.getUser(token);
       if (authError || !adminUser) {
         return res.status(401).json({ error: 'Invalid or expired token' });
       }
-      
+
       // Get user to delete
       const { data: userToDelete, error: userError } = await supabase
         .from('users')
         .select('auth_user_id')
         .eq('id', id)
         .single();
-        
+
       if (userError) throw userError;
-      
+
       // First delete from auth
       if (userToDelete?.auth_user_id) {
         const { error: deleteAuthError } = await supabase.auth.admin.deleteUser(
@@ -343,15 +563,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
         if (deleteAuthError) throw deleteAuthError;
       }
-      
+
       // Then delete from users table
       const { error: deleteError } = await supabase
         .from('users')
         .delete()
         .eq('id', id);
-        
+
       if (deleteError) throw deleteError;
-      
+
       res.json({ success: true });
     } catch (error) {
       console.error('Error deleting user:', error);
@@ -360,24 +580,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Protected route middleware
-  const requireAuth = (req: any, res: any, next: any) => {
-    if (!(req.session as CustomSession).user) {
-      return res.status(401).json({ error: 'Authentication required' });
+  const requireAuth = async (req: any, res: any, next: any) => {
+    try {
+      const token = req.headers.authorization?.split(' ')[1];
+      if (!token) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      // Verify the token with Supabase
+      const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+      
+      if (userError || !user) {
+        return res.status(401).json({ error: 'Invalid or expired authentication token' });
+      }
+
+      // Get user profile from database
+      const { data: userProfile, error: profileError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (profileError || !userProfile) {
+        return res.status(401).json({ error: 'User profile not found' });
+      }
+
+      // Attach user to request
+      req.user = {
+        id: userProfile.id,
+        email: userProfile.email,
+        isAdmin: userProfile.is_admin,
+        firstName: userProfile.first_name,
+        lastName: userProfile.last_name,
+        status: userProfile.status
+      };
+
+      next();
+    } catch (error) {
+      console.error('Auth middleware error:', error);
+      return res.status(401).json({ error: 'Authentication failed' });
     }
-    next();
   };
 
-  const requireAdmin = (req: any, res: any, next: any) => {
-    const user = (req.session as CustomSession).user;
-    if (!user || !user.isAdmin) {
-      return res.status(403).json({ error: 'Admin access required' });
+  const requireAdmin = async (req: any, res: any, next: any) => {
+    try {
+      const token = req.headers.authorization?.split(' ')[1];
+      if (!token) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      // Verify the token with Supabase
+      const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+      
+      if (userError || !user) {
+        return res.status(401).json({ error: 'Invalid or expired authentication token' });
+      }
+
+      // Get user profile from database
+      const { data: userProfile, error: profileError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (profileError || !userProfile) {
+        return res.status(401).json({ error: 'User profile not found' });
+      }
+
+      if (!userProfile.is_admin) {
+        return res.status(403).json({ error: 'Admin access required' });
+      }
+
+      // Attach user to request
+      req.user = {
+        id: userProfile.id,
+        email: userProfile.email,
+        isAdmin: userProfile.is_admin,
+        firstName: userProfile.first_name,
+        lastName: userProfile.last_name,
+        status: userProfile.status
+      };
+
+      next();
+    } catch (error) {
+      console.error('Admin auth middleware error:', error);
+      return res.status(401).json({ error: 'Authentication failed' });
     }
-    next();
+  };
+
+  // Helper function to handle async middleware
+  const asyncHandler = (fn: Function) => (req: any, res: any, next: any) => {
+    Promise.resolve(fn(req, res, next)).catch(next);
   };
 
   // Admin routes - User management
   console.log('Registering route: GET /api/users');
-  app.get("/api/users", requireAuth, requireAdmin, async (req: any, res) => {
+  app.get("/api/users", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
     try {
       const users = await storage.getUsers();
       res.json(users);
@@ -389,7 +687,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Member management routes
   console.log('Registering route: GET /api/members');
-  app.get("/api/members", requireAuth, requireAdmin, async (req: any, res) => {
+  app.get("/api/members", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
     try {
       const members = await storage.getUsers(); // Get all users, filter members in frontend
       res.json(members.filter((user: any) => user.isMember));
@@ -401,7 +699,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Get detailed member information
   console.log('Registering route: GET /api/members/:id/details');
-  app.get("/api/members/:id/details", requireAuth, requireAdmin, async (req: any, res) => {
+  app.get("/api/members/:id/details", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
     try {
       const { id } = req.params;
 
@@ -472,7 +770,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Trainers management
   console.log('Registering route: GET /api/trainers');
-  app.get("/api/trainers", requireAuth, requireAdmin, async (req: any, res) => {
+  app.get("/api/trainers", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
     try {
       const trainers = await storage.getTrainers();
       res.json(trainers);
@@ -483,7 +781,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   console.log('Registering route: POST /api/trainers');
-  app.post("/api/trainers", requireAuth, requireAdmin, async (req: any, res) => {
+  app.post("/api/trainers", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
     try {
       const { firstName, lastName, email, phone, bio, status } = req.body;
 
@@ -511,7 +809,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   console.log('Registering route: PUT /api/trainers/:id');
-  app.put("/api/trainers/:id", requireAuth, requireAdmin, async (req: any, res) => {
+  app.put("/api/trainers/:id", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
     try {
       const { id } = req.params;
       const updates = req.body;
@@ -525,7 +823,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   console.log('Registering route: DELETE /api/trainers/:id');
-  app.delete("/api/trainers/:id", requireAuth, requireAdmin, async (req: any, res) => {
+  app.delete("/api/trainers/:id", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
     try {
       const { id } = req.params;
       await storage.deleteTrainer(parseInt(id));
@@ -538,7 +836,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Categories routes
   console.log('Registering route: GET /api/admin/categories');
-  app.get("/api/admin/categories", requireAuth, requireAdmin, async (req: any, res) => {
+  app.get("/api/admin/categories", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
     try {
       const categories = await storage.getCategories();
       res.json(categories);
@@ -549,7 +847,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   console.log('Registering route: POST /api/admin/categories');
-  app.post("/api/admin/categories", requireAuth, requireAdmin, async (req: any, res) => {
+  app.post("/api/admin/categories", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
     try {
       console.log("Received category creation request:", req.body);
       const { name, description, color, isActive } = req.body;
@@ -576,7 +874,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   console.log('Registering route: PATCH /api/admin/categories/:id');
-  app.patch("/api/admin/categories/:id", requireAuth, requireAdmin, async (req: any, res) => {
+  app.patch("/api/admin/categories/:id", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
       const updates = req.body;
@@ -590,7 +888,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   console.log('Registering route: DELETE /api/admin/categories/:id');
-  app.delete("/api/admin/categories/:id", requireAuth, requireAdmin, async (req: any, res) => {
+  app.delete("/api/admin/categories/:id", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
       await storage.deleteCategory(id);
@@ -603,7 +901,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Classes management
   console.log('Registering route: GET /api/admin/classes');
-  app.get("/api/admin/classes", requireAuth, requireAdmin, async (req: any, res) => {
+  app.get("/api/admin/classes", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
     try {
       const classes = await storage.getClasses();
       res.json(classes);
@@ -614,7 +912,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   console.log('Registering route: POST /api/admin/classes');
-  app.post("/api/admin/classes", requireAuth, requireAdmin, async (req: any, res) => {
+  app.post("/api/admin/classes", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
     try {
       console.log("Received class creation request:", req.body);
       const { name, description, categoryId, duration, maxCapacity, equipment, isActive } = req.body;
@@ -647,7 +945,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   console.log('Registering route: PATCH /api/admin/classes/:id');
-  app.patch("/api/admin/classes/:id", requireAuth, requireAdmin, async (req: any, res) => {
+  app.patch("/api/admin/classes/:id", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
     try {
       const { id } = req.params;
       const updates = req.body;
@@ -660,7 +958,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   console.log('Registering route: DELETE /api/admin/classes/:id');
-  app.delete("/api/admin/classes/:id", requireAuth, requireAdmin, async (req: any, res) => {
+  app.delete("/api/admin/classes/:id", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
     try {
       const { id } = req.params;
       await storage.deleteClass(parseInt(id));
@@ -673,7 +971,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Plans management
   console.log('Registering route: GET /api/plans');
-  app.get("/api/plans", requireAuth, requireAdmin, async (req: any, res) => {
+  app.get("/api/plans", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
     try {
       const plans = await storage.getPlans();
       res.json(plans);
@@ -684,7 +982,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   console.log('Registering route: POST /api/plans');
-  app.post("/api/plans", requireAuth, requireAdmin, async (req: any, res) => {
+  app.post("/api/plans", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
     try {
       const planData = req.body;
       const plan = await storage.createPlan(planData);
@@ -697,7 +995,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Schedules management
   console.log('Registering route: GET /api/schedules');
-  app.get("/api/schedules", requireAuth, async (req: any, res) => {
+  app.get("/api/schedules", asyncHandler(requireAuth), async (req: any, res) => {
     try {
       const schedules = await storage.getSchedules();
       res.json(schedules);
@@ -708,12 +1006,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   console.log('Registering route: POST /api/schedules');
-  app.post("/api/schedules", requireAuth, requireAdmin, async (req: any, res) => {
+  app.post("/api/schedules", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
     try {
       console.log("Received schedule creation request:", req.body);
-      const { classId, trainerId, dayOfWeek, startTime, endTime, repetitionType, scheduleDate, startDate, endDate, isActive } = req.body;
+      const { 
+        classId, 
+        trainerId, 
+        dayOfWeek, 
+        startTime, 
+        endTime, 
+        repetitionType, 
+        scheduleDate, 
+        startDate, 
+        endDate, 
+        isActive, 
+        maxParticipants = 10 // Default to 10 if not provided
+      } = req.body;
 
-      if (!classId || !trainerId || dayOfWeek === undefined || !startTime || !endTime || !repetitionType) {
+      if (!classId || !trainerId || dayOfWeek === undefined || !startTime || !endTime || !repetitionType || !maxParticipants) {
         return res.status(400).json({ error: "Missing required schedule fields" });
       }
 
@@ -723,6 +1033,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         dayOfWeek: parseInt(dayOfWeek),
         startTime: String(startTime),
         endTime: String(endTime),
+        maxParticipants: parseInt(maxParticipants),
         repetitionType: String(repetitionType),
         scheduleDate: scheduleDate ? new Date(scheduleDate) : null,
         startDate: startDate ? new Date(startDate) : null,
@@ -742,7 +1053,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Subscriptions management
   console.log('Registering route: GET /api/subscriptions');
-  app.get("/api/subscriptions", requireAuth, requireAdmin, async (req: any, res) => {
+  app.get("/api/subscriptions", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
     try {
       const subscriptions = await storage.getSubscriptions();
       res.json(subscriptions);
@@ -753,7 +1064,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   console.log('Registering route: POST /api/subscriptions');
-  app.post("/api/subscriptions", requireAuth, requireAdmin, async (req: any, res) => {
+  app.post("/api/subscriptions", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
     try {
       console.log("Creating subscription with data:", req.body);
       const { userId, planId, startDate, endDate, sessionsRemaining, status, paymentStatus, notes } = req.body;
@@ -788,9 +1099,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Class registrations
   console.log('Registering route: GET /api/registrations');
-  app.get("/api/registrations", requireAuth, async (req: any, res) => {
+  app.get("/api/registrations", asyncHandler(requireAuth), async (req: any, res) => {
     try {
-      const userId = (req.session as CustomSession).user?.isAdmin ? undefined : (req.session as CustomSession).user?.id;
+              const userId = req.user?.isAdmin ? undefined : req.user?.id;
       if (userId) {
         const registrations = await storage.getClassRegistrations(userId);
         res.json(registrations);
@@ -805,7 +1116,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Check-ins
   console.log('Registering route: GET /api/checkins');
-  app.get("/api/checkins", requireAuth, async (req: any, res) => {
+  app.get("/api/checkins", asyncHandler(requireAuth), async (req: any, res) => {
     try {
       const { date } = req.query;
       const checkins = await storage.getCheckins(date as string);
@@ -818,9 +1129,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Member specific routes
   console.log('Registering route: GET /api/member/subscription');
-  app.get("/api/member/subscription", requireAuth, async (req: any, res) => {
-    try {
-      const userId = (req.session as CustomSession).user?.id;
+  app.get("/api/member/subscription", asyncHandler(requireAuth), async (req: any, res) => {
+          try {
+        const userId = req.user?.id;
       if (userId) {
         const subscription = await storage.getUserActiveSubscription(userId);
         res.json(subscription);
@@ -834,9 +1145,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   console.log('Registering route: GET /api/member/checkins');
-  app.get("/api/member/checkins", requireAuth, async (req: any, res) => {
+  app.get("/api/member/checkins", asyncHandler(requireAuth), async (req: any, res) => {
     try {
-      const userId = (req.session as CustomSession).user?.id;
+      const userId = req.user?.id;
       if (userId) {
         const checkins = await storage.getUserCheckins(userId);
         res.json(checkins);
@@ -851,7 +1162,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Public classes endpoint for schedule creation
   console.log('Registering route: GET /api/classes');
-  app.get("/api/classes", requireAuth, async (req: any, res) => {
+  app.get("/api/classes", asyncHandler(requireAuth), async (req: any, res) => {
     try {
       const classes = await storage.getClasses();
       res.json(classes);
@@ -863,7 +1174,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Dashboard stats
   console.log('Registering route: GET /api/dashboard/stats');
-  app.get("/api/dashboard/stats", requireAuth, requireAdmin, async (req: any, res) => {
+  app.get("/api/dashboard/stats", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
     try {
       const stats = await storage.getDashboardStats();
       res.json(stats);

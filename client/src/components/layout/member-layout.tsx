@@ -10,15 +10,11 @@ interface MemberLayoutProps {
 
 export default function MemberLayout({ children }: MemberLayoutProps) {
   const [location] = useLocation();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   
   const handleLogout = async () => {
     try {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-      });
-      window.location.href = '/login';
+      await logout();
     } catch (error) {
       console.error('Logout error:', error);
     }

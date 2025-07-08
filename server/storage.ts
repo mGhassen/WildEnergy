@@ -1,12 +1,10 @@
-import {
-  users, trainers, categories, plans, classes, schedules, subscriptions, classRegistrations, checkins,
-  type User, type InsertUser, type Trainer, type InsertTrainer, type Category, type InsertCategory,
-  type Plan, type InsertPlan, type Class, type InsertClass, type Schedule, type InsertSchedule, 
-  type Subscription, type InsertSubscription, type ClassRegistration, type InsertClassRegistration, 
-  type Checkin, type InsertCheckin
+import type {
+  User, InsertUser, Trainer, InsertTrainer, Category, InsertCategory,
+  Plan, InsertPlan, Class, InsertClass, Schedule, InsertSchedule, 
+  Subscription, InsertSubscription, ClassRegistration, InsertClassRegistration, 
+  Checkin, InsertCheckin
 } from "@shared/schema";
-import { db } from "./db";
-import { eq, and, sql, desc, asc } from "drizzle-orm";
+import { supabase } from "./supabase";
 
 export interface IStorage {
   // Users - Updated for unified user management
@@ -23,7 +21,11 @@ export interface IStorage {
   getTrainers(): Promise<Trainer[]>;
   getTrainer(id: number): Promise<Trainer | undefined>;
   createTrainer(trainer: InsertTrainer): Promise<Trainer>;
-  updateTrainer(id: number, updates: Partial<InsertTrainer>): Promise<Trainer>;
+  updateTrainer(id: number, updates: Partial<InsertTrainer & {
+    experience_years?: number;
+    certification?: string;
+    specialties?: string | string[];
+  }>): Promise<Trainer>;
   deleteTrainer(id: number): Promise<void>;
 
   // Categories
@@ -48,28 +50,28 @@ export interface IStorage {
   deleteClass(id: number): Promise<void>;
 
   // Schedules
-  getSchedules(): Promise<any[]>;
+  getSchedules(): Promise<Schedule[]>;
   getSchedule(id: number): Promise<Schedule | undefined>;
-  createSchedule(schedule: any): Promise<Schedule>;
-  updateSchedule(id: number, updates: any): Promise<Schedule>;
+  createSchedule(schedule: InsertSchedule): Promise<Schedule>;
+  updateSchedule(id: number, updates: Partial<InsertSchedule>): Promise<Schedule>;
   deleteSchedule(id: number): Promise<void>;
 
   // Subscriptions
-  getSubscriptions(): Promise<any[]>;
+  getSubscriptions(): Promise<Subscription[]>;
   getSubscription(id: number): Promise<Subscription | undefined>;
-  getUserActiveSubscription(userId: string): Promise<any | undefined>;
+  getUserActiveSubscription(userId: string): Promise<Subscription | undefined>;
   createSubscription(subscription: InsertSubscription): Promise<Subscription>;
   updateSubscription(id: number, updates: Partial<InsertSubscription>): Promise<Subscription>;
 
   // Class Registrations
-  getClassRegistrations(userId?: string): Promise<any[]>;
+  getClassRegistrations(userId?: string): Promise<ClassRegistration[]>;
   createClassRegistration(registration: InsertClassRegistration): Promise<ClassRegistration>;
   updateClassRegistration(id: number, updates: Partial<InsertClassRegistration>): Promise<ClassRegistration>;
-  getRegistrationByQRCode(qrCode: string): Promise<any | undefined>;
+  getRegistrationByQRCode(qrCode: string): Promise<ClassRegistration | undefined>;
 
   // Check-ins
-  getCheckins(date?: string): Promise<any[]>;
-  getUserCheckins(userId: string): Promise<any[]>;
+  getCheckins(date?: string): Promise<Checkin[]>;
+  getUserCheckins(userId: string): Promise<Checkin[]>;
   createCheckin(checkin: InsertCheckin): Promise<Checkin>;
 
   // Dashboard stats
@@ -81,778 +83,1017 @@ export interface IStorage {
 
 export class DatabaseStorage implements IStorage {
   async getUser(id: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user || undefined;
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', id)
+      .single();
+      
+    if (error) {
+      console.error('Error fetching user:', error);
+      return undefined;
+    }
+    
+    return user as User;
   }
 
   async getUserByAuthId(authUserId: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.authUserId, authUserId));
-    return user || undefined;
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('auth_user_id', authUserId)
+      .single();
+      
+    if (error) {
+      console.error('Error fetching user by auth ID:', error);
+      return undefined;
+    }
+    
+    return user as User;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db
-      .insert(users)
-      .values({
-        ...insertUser,
-        updatedAt: new Date(),
-      })
-      .returning();
-    return user;
+    // Map the insert data to match the actual database column names
+    const userData = {
+      auth_user_id: insertUser.authUserId,
+      email: insertUser.email,
+      first_name: insertUser.firstName,
+      last_name: insertUser.lastName,
+      is_admin: insertUser.isAdmin,
+      is_member: insertUser.isMember,
+      is_trainer: insertUser.isTrainer || false,
+      status: insertUser.status || 'active',
+      subscription_status: insertUser.subscriptionStatus || 'inactive',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    const { data: user, error } = await supabase
+      .from('users')
+      .insert(userData)
+      .select()
+      .single();
+      
+    if (error) {
+      console.error('Error creating user:', error);
+      throw new Error(error.message || 'Failed to create user');
+    }
+    
+    return user as User;
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.email, email));
-    return user;
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .maybeSingle();
+      
+    if (error) {
+      console.error('Error fetching user by email:', error);
+      return undefined;
+    }
+    
+    return user as User | undefined;
   }
 
   async updateUser(id: string, updates: Partial<InsertUser>): Promise<User> {
-    const [user] = await db
-      .update(users)
-      .set({
+    const { data: user, error } = await supabase
+      .from('users')
+      .update({
         ...updates,
-        updatedAt: new Date(),
+        updated_at: new Date().toISOString()
       })
-      .where(eq(users.id, id))
-      .returning();
-    return user;
+      .eq('id', id)
+      .select()
+      .single();
+      
+    if (error) {
+      console.error('Error updating user:', error);
+      throw new Error(error.message || 'Failed to update user');
+    }
+    
+    return user as User;
   }
 
   async updateUserByEmail(email: string, updates: Partial<InsertUser>): Promise<User> {
-    const [user] = await db
-      .update(users)
-      .set({
+    const { data: user, error } = await supabase
+      .from('users')
+      .update({
         ...updates,
-        updatedAt: new Date(),
+        updated_at: new Date().toISOString()
       })
-      .where(eq(users.email, email))
-      .returning();
-    return user;
+      .eq('email', email)
+      .select()
+      .single();
+      
+    if (error) {
+      console.error('Error updating user by email:', error);
+      throw new Error(error.message || 'Failed to update user by email');
+    }
+    
+    return user as User;
   }
 
   async deleteUser(id: string): Promise<void> {
-    await db.delete(users).where(eq(users.id, id));
+    const { error } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', id);
+      
+    if (error) {
+      console.error('Error deleting user:', error);
+      throw new Error(error.message || 'Failed to delete user');
+    }
   }
 
   async getUsers(): Promise<User[]> {
-    return await db.select().from(users).orderBy(users.createdAt);
+    const { data: users, error } = await supabase
+      .from('users')
+      .select('*')
+      .order('created_at', { ascending: false });
+      
+    if (error) {
+      console.error('Error fetching users:', error);
+      return [];
+    }
+    
+    return users as User[];
   }
 
   async getTrainers(): Promise<Trainer[]> {
-    return await db.select().from(trainers).orderBy(trainers.firstName);
+    const { data: trainers, error } = await supabase
+      .from('trainers')
+      .select(`
+        *,
+        user:user_id (id, first_name, last_name, email, phone)
+      `)
+      .order('created_at', { ascending: true });
+      
+    if (error) {
+      console.error('Error fetching trainers:', error);
+      throw new Error(error.message || 'Failed to fetch trainers');
+    }
+    
+    // Map the response to match the Trainer type
+    return (trainers || []).map(trainer => ({
+      ...trainer,
+      userId: trainer.user_id,
+      user: trainer.user ? {
+        id: trainer.user.id,
+        firstName: trainer.user.first_name,
+        lastName: trainer.user.last_name,
+        email: trainer.user.email,
+        phone: trainer.user.phone
+      } : null
+    })) as Trainer[];
   }
 
   async getTrainer(id: number): Promise<Trainer | undefined> {
-    const [trainer] = await db.select().from(trainers).where(eq(trainers.id, id));
-    return trainer || undefined;
+    const { data: trainer, error } = await supabase
+      .from('trainers')
+      .select(`
+        *,
+        user:user_id (id, first_name, last_name, email, phone)
+      `)
+      .eq('id', id)
+      .maybeSingle();
+      
+    if (error || !trainer) {
+      console.error('Error fetching trainer:', error);
+      return undefined;
+    }
+    
+    // Map the response to match the Trainer type
+    return {
+      ...trainer,
+      userId: trainer.user_id,
+      user: trainer.user ? {
+        id: trainer.user.id,
+        firstName: trainer.user.first_name,
+        lastName: trainer.user.last_name,
+        email: trainer.user.email,
+        phone: trainer.user.phone
+      } : null
+    } as Trainer;
   }
 
   async createTrainer(insertTrainer: InsertTrainer): Promise<Trainer> {
-    const [trainer] = await db
-      .insert(trainers)
-      .values(insertTrainer)
-      .returning();
-    return trainer;
+    // First create the auth user
+    const password = Math.random().toString(36).slice(2) + Math.random().toString(36).toUpperCase().slice(2);
+    const { data: authUser, error: userError } = await supabase.auth.admin.createUser({
+      email: insertTrainer.email,
+      password: password,
+      user_metadata: {
+        first_name: insertTrainer.firstName,
+        last_name: insertTrainer.lastName,
+        phone: insertTrainer.phone,
+        is_trainer: true
+      },
+      email_confirm: true
+    });
+
+    if (userError || !authUser.user) {
+      console.error('Error creating trainer user:', userError);
+      throw new Error(userError?.message || 'Failed to create trainer user');
+    }
+
+    // Create a user record in the users table
+    const { data: user, error: userCreateError } = await supabase
+      .from('users')
+      .insert({
+        auth_user_id: authUser.user.id,
+        email: insertTrainer.email,
+        first_name: insertTrainer.firstName,
+        last_name: insertTrainer.lastName,
+        phone: insertTrainer.phone,
+        is_member: false,
+        is_trainer: true,
+        status: 'active',
+        subscription_status: 'inactive'
+      })
+      .select('*')
+      .single();
+
+    if (userCreateError || !user) {
+      await supabase.auth.admin.deleteUser(authUser.user.id).catch(console.error);
+      console.error('Error creating user record:', userCreateError);
+      throw new Error(userCreateError?.message || 'Failed to create user record');
+    }
+
+    // Then create the trainer profile
+    const trainerData = {
+      user_id: user.id, // Link to the users table record
+      specialization: Array.isArray(insertTrainer.specialties) 
+        ? insertTrainer.specialties.join(', ')
+        : insertTrainer.specialties,
+      bio: insertTrainer.bio || '',
+      experience_years: 0, // Default value, can be updated later
+      certification: null, // Default value, can be updated later
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    const { data: trainer, error } = await supabase
+      .from('trainers')
+      .insert(trainerData)
+      .select('*')
+      .single();
+      
+    if (error) {
+      // Clean up the auth user and user record if trainer creation fails
+      const { error: deleteAuthError } = await supabase.auth.admin.deleteUser(authUser.user.id);
+      if (deleteAuthError) {
+        console.error('Error cleaning up auth user:', deleteAuthError);
+      }
+      
+      const { error: deleteUserError } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', user.id);
+        
+      if (deleteUserError) {
+        console.error('Error cleaning up user:', deleteUserError);
+      }
+      
+      console.error('Error creating trainer profile:', error);
+      throw new Error(error.message || 'Failed to create trainer profile');
+    }
+    
+    // Return the created trainer with user data
+    return {
+      ...trainer,
+      id: trainer.id,
+      firstName: insertTrainer.firstName,
+      lastName: insertTrainer.lastName,
+      email: insertTrainer.email,
+      phone: insertTrainer.phone,
+      specialties: insertTrainer.specialties || [],
+      bio: trainer.bio,
+      createdAt: trainer.created_at,
+      updatedAt: trainer.updated_at
+    } as Trainer;
   }
 
-  async updateTrainer(id: number, updates: Partial<InsertTrainer>): Promise<Trainer> {
-    const [trainer] = await db
-      .update(trainers)
-      .set(updates)
-      .where(eq(trainers.id, id))
-      .returning();
-    return trainer;
+  async updateTrainer(id: number, updates: Partial<InsertTrainer & {
+    experience_years?: number;
+    certification?: string;
+    specialties?: string | string[];
+  }>): Promise<Trainer> {
+    // First get the current trainer to get the user ID
+    const { data: currentTrainer, error: fetchError } = await supabase
+      .from('trainers')
+      .select('user_id')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !currentTrainer) {
+      console.error('Error finding trainer:', fetchError);
+      throw new Error(fetchError?.message || 'Trainer not found');
+    }
+
+    // Update user data if needed
+    const userUpdates: any = {};
+    if (updates.firstName) userUpdates.first_name = updates.firstName;
+    if (updates.lastName) userUpdates.last_name = updates.lastName;
+    if (updates.email) userUpdates.email = updates.email;
+    if (updates.phone) userUpdates.phone = updates.phone;
+
+    if (Object.keys(userUpdates).length > 0) {
+      const { error: userError } = await supabase.auth.admin.updateUserById(
+        currentTrainer.user_id,
+        { user_metadata: userUpdates }
+      );
+
+      if (userError) {
+        console.error('Error updating trainer user:', userError);
+        throw new Error(userError.message || 'Failed to update trainer user');
+      }
+    }
+
+    // Update trainer profile
+    const trainerData: any = {
+      specialization: Array.isArray(updates.specialties) 
+        ? updates.specialties.join(', ') 
+        : updates.specialties,
+      experience_years: updates.experience_years,
+      bio: updates.bio,
+      certification: updates.certification,
+      updated_at: new Date().toISOString()
+    };
+
+    // Remove undefined values
+    Object.keys(trainerData).forEach(key => 
+      trainerData[key] === undefined && delete trainerData[key]
+    );
+
+    if (Object.keys(trainerData).length > 0) {
+      const { error } = await supabase
+        .from('trainers')
+        .update(trainerData)
+        .eq('id', id);
+        
+      if (error) {
+        console.error('Error updating trainer profile:', error);
+        throw new Error(error.message || 'Failed to update trainer profile');
+      }
+    }
+    
+    // Return the updated trainer
+    return this.getTrainer(id) as Promise<Trainer>;
   }
 
   async deleteTrainer(id: number): Promise<void> {
-    await db.delete(trainers).where(eq(trainers.id, id));
+    const { error } = await supabase
+      .from('trainers')
+      .delete()
+      .eq('id', id);
+      
+    if (error) {
+      console.error('Error deleting trainer:', error);
+      throw new Error(error.message || 'Failed to delete trainer');
+    }
   }
 
   async getCategories(): Promise<Category[]> {
-    const result = await db.select({
-      id: categories.id,
-      name: categories.name,
-      description: categories.description,
-      color: categories.color,
-      isActive: categories.isActive,
-      createdAt: categories.createdAt,
-      updatedAt: categories.updatedAt,
-    }).from(categories).orderBy(categories.name);
-    return result;
+    const { data: categories, error } = await supabase
+      .from('categories')
+      .select('*')
+      .order('name', { ascending: true });
+      
+    if (error) {
+      console.error('Error fetching categories:', error);
+      throw new Error(error.message || 'Failed to fetch categories');
+    }
+    
+    return categories as Category[];
   }
 
   async getCategory(id: number): Promise<Category | undefined> {
-    const [category] = await db.select().from(categories).where(eq(categories.id, id));
-    return category || undefined;
+    const { data: category, error } = await supabase
+      .from('categories')
+      .select('*')
+      .eq('id', id)
+      .single();
+      
+    if (error) {
+      console.error('Error fetching category:', error);
+      return undefined;
+    }
+    
+    return category as Category;
   }
 
   async createCategory(insertCategory: InsertCategory): Promise<Category> {
-    console.log("Creating category with data:", insertCategory);
-    const [category] = await db
-      .insert(categories)
-      .values({
-        name: insertCategory.name,
-        description: insertCategory.description || null,
-        color: insertCategory.color || null,
-        isActive: insertCategory.isActive ?? true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+    const { data: category, error } = await supabase
+      .from('categories')
+      .insert({
+        ...insertCategory,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       })
-      .returning();
-    return category;
+      .select()
+      .single();
+      
+    if (error) {
+      console.error('Error creating category:', error);
+      throw new Error(error.message || 'Failed to create category');
+    }
+    
+    return category as Category;
   }
 
   async updateCategory(id: number, updates: Partial<InsertCategory>): Promise<Category> {
-    const [category] = await db
-      .update(categories)
-      .set({
+    const { data: category, error } = await supabase
+      .from('categories')
+      .update({
         ...updates,
-        updatedAt: new Date(),
+        updated_at: new Date().toISOString()
       })
-      .where(eq(categories.id, id))
-      .returning();
-    return category;
+      .eq('id', id)
+      .select()
+      .single();
+      
+    if (error) {
+      console.error('Error updating category:', error);
+      throw new Error(error.message || 'Failed to update category');
+    }
+    
+    return category as Category;
   }
 
   async deleteCategory(id: number): Promise<void> {
-    await db.delete(categories).where(eq(categories.id, id));
+    const { error } = await supabase
+      .from('categories')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting category:', error);
+      throw new Error(error.message || 'Failed to delete category');
+    }
   }
 
   async getPlans(): Promise<Plan[]> {
-    return await db.select().from(plans).orderBy(plans.name);
+    const { data: plans, error } = await supabase
+      .from('plans')
+      .select('*')
+      .order('name', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching plans:', error);
+      throw new Error(error.message || 'Failed to fetch plans');
+    }
+
+    return plans || [];
   }
 
   async getPlan(id: number): Promise<Plan | undefined> {
-    const [plan] = await db.select().from(plans).where(eq(plans.id, id));
-    return plan || undefined;
+    const { data: plan, error } = await supabase
+      .from('plans')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching plan:', error);
+      return undefined;
+    }
+
+    return plan as Plan | undefined;
   }
 
   async createPlan(insertPlan: InsertPlan): Promise<Plan> {
-    const [plan] = await db
-      .insert(plans)
-      .values(insertPlan)
-      .returning();
-    return plan;
+    const { data: plan, error } = await supabase
+      .from('plans')
+      .insert({
+        ...insertPlan,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating plan:', error);
+      throw new Error(error.message || 'Failed to create plan');
+    }
+
+    return plan as Plan;
   }
 
   async updatePlan(id: number, updates: Partial<InsertPlan>): Promise<Plan> {
-    const [plan] = await db
-      .update(plans)
-      .set(updates)
-      .where(eq(plans.id, id))
-      .returning();
-    return plan;
+    const { data: plan, error } = await supabase
+      .from('plans')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating plan:', error);
+      throw new Error(error.message || 'Failed to update plan');
+    }
+
+    return plan as Plan;
   }
 
   async deletePlan(id: number): Promise<void> {
-    await db.delete(plans).where(eq(plans.id, id));
+    const { error } = await supabase
+      .from('plans')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting plan:', error);
+      throw new Error(error.message || 'Failed to delete plan');
+    }
   }
 
-  async getClasses(): Promise<any[]> {
-    return await db
-      .select({
-        id: classes.id,
-        name: classes.name,
-        description: classes.description,
-        categoryId: classes.categoryId,
-        duration: classes.duration,
-        maxCapacity: classes.maxCapacity,
-        equipment: classes.equipment,
-        isActive: classes.isActive,
-        createdAt: classes.createdAt,
-        category: {
-          id: categories.id,
-          name: categories.name,
-          description: categories.description,
-          color: categories.color,
-        },
-      })
-      .from(classes)
-      .leftJoin(categories, eq(classes.categoryId, categories.id))
-      .orderBy(classes.name);
+  async getClasses(): Promise<Class[]> {
+    const { data: classes, error } = await supabase
+      .from('classes')
+      .select('*')
+      .order('name', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching classes:', error);
+      throw new Error(error.message || 'Failed to fetch classes');
+    }
+
+    return classes || [];
   }
 
   async getClass(id: number): Promise<Class | undefined> {
-    const [classData] = await db.select().from(classes).where(eq(classes.id, id));
-    return classData || undefined;
+    const { data: classItem, error } = await supabase
+      .from('classes')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching class:', error);
+      return undefined;
+    }
+
+    return classItem as Class | undefined;
   }
 
-  async createClass(insertClass: InsertClass): Promise<Class> {
-    console.log("Creating class with data:", insertClass);
-    const [classData] = await db
-      .insert(classes)
-      .values({
-        name: insertClass.name,
-        description: insertClass.description || null,
-        categoryId: insertClass.categoryId,
-        duration: insertClass.duration,
-        maxCapacity: insertClass.maxCapacity,
-        equipment: insertClass.equipment || null,
-        isActive: insertClass.isActive ?? true,
-        createdAt: new Date(),
+  async createClass(classData: InsertClass): Promise<Class> {
+    const { data: newClass, error } = await supabase
+      .from('classes')
+      .insert({
+        ...classData,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       })
-      .returning();
-    return classData;
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating class:', error);
+      throw new Error(error.message || 'Failed to create class');
+    }
+
+    return newClass as Class;
   }
 
   async updateClass(id: number, updates: Partial<InsertClass>): Promise<Class> {
-    const [classData] = await db
-      .update(classes)
-      .set(updates)
-      .where(eq(classes.id, id))
-      .returning();
-    return classData;
+    const { data: updatedClass, error } = await supabase
+      .from('classes')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating class:', error);
+      throw new Error(error.message || 'Failed to update class');
+    }
+
+    return updatedClass as Class;
   }
 
   async deleteClass(id: number): Promise<void> {
-    await db.delete(classes).where(eq(classes.id, id));
+    const { error } = await supabase
+      .from('classes')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting class:', error);
+      throw new Error(error.message || 'Failed to delete class');
+    }
   }
 
-  async getSchedules(): Promise<any[]> {
-    const results = await db
-      .select({
-        id: schedules.id,
-        classId: schedules.classId,
-        trainerId: schedules.trainerId,
-        dayOfWeek: schedules.dayOfWeek,
-        startTime: schedules.startTime,
-        endTime: schedules.endTime,
-        scheduleDate: schedules.scheduleDate,
-        repetitionType: schedules.repetitionType,
-        parentScheduleId: schedules.parentScheduleId,
-        isActive: schedules.isActive,
+  async getSchedules(): Promise<Schedule[]> {
+    const { data: schedules, error } = await supabase
+      .from('schedules')
+      .select('*')
+      .order('start_time', { ascending: true });
 
-        className: classes.name,
-        classDescription: classes.description,
-        classDuration: classes.duration,
-        classMaxCapacity: classes.maxCapacity,
-        categoryId: classes.categoryId,
-        categoryName: categories.name,
-        trainerFirstName: trainers.firstName,
-        trainerLastName: trainers.lastName,
-        trainerEmail: trainers.email,
-      })
-      .from(schedules)
-      .innerJoin(classes, eq(schedules.classId, classes.id))
-      .innerJoin(trainers, eq(schedules.trainerId, trainers.id))
-      .leftJoin(categories, eq(classes.categoryId, categories.id))
-      .where(eq(schedules.isActive, true))
-      .orderBy(schedules.scheduleDate, schedules.startTime);
+    if (error) {
+      console.error('Error fetching schedules:', error);
+      throw new Error(error.message || 'Failed to fetch schedules');
+    }
 
-    // Transform the flat results into nested objects
-    return results.map(row => ({
-      id: row.id,
-      classId: row.classId,
-      trainerId: row.trainerId,
-      dayOfWeek: row.dayOfWeek,
-      startTime: row.startTime,
-      endTime: row.endTime,
-      scheduleDate: row.scheduleDate,
-      repetitionType: row.repetitionType,
-      parentScheduleId: row.parentScheduleId,
-      isActive: row.isActive,
-
-      class: {
-        id: row.classId,
-        name: row.className || 'Unknown Class',
-        description: row.classDescription,
-        duration: row.classDuration || 60,
-        maxCapacity: row.classMaxCapacity || 10,
-        categoryId: row.categoryId,
-        category: row.categoryName || 'Unknown Category',
-      },
-      trainer: {
-        id: row.trainerId,
-        firstName: row.trainerFirstName || 'Unknown',
-        lastName: row.trainerLastName || 'Trainer',
-        email: row.trainerEmail,
-      },
-    }));
+    return schedules || [];
   }
 
   async getSchedule(id: number): Promise<Schedule | undefined> {
-    const [schedule] = await db.select().from(schedules).where(eq(schedules.id, id));
-    return schedule || undefined;
+    const { data: schedule, error } = await supabase
+      .from('schedules')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching schedule:', error);
+      return undefined;
+    }
+
+    return schedule as Schedule | undefined;
   }
 
-  async createSchedule(scheduleData: any): Promise<Schedule> {
-    console.log("Creating schedule with:", scheduleData);
-    
-    if (scheduleData.repetitionType === 'once') {
-      // Single schedule - create one entry with the specific date
-      const [schedule] = await db
-        .insert(schedules)
-        .values({
-          classId: scheduleData.classId,
-          trainerId: scheduleData.trainerId,
-          dayOfWeek: scheduleData.dayOfWeek,
-          startTime: scheduleData.startTime,
-          endTime: scheduleData.endTime,
-          scheduleDate: scheduleData.scheduleDate ? new Date(scheduleData.scheduleDate) : null,
-          repetitionType: scheduleData.repetitionType,
-          parentScheduleId: null,
-          isActive: scheduleData.isActive ?? true,
-        })
-        .returning();
-      
-      console.log("Created single schedule:", schedule);
-      return schedule;
-    }
-    
-    // For repeating schedules, create multiple instances
-    const instances = this.generateRepeatingSchedules(scheduleData);
-    
-    if (instances.length === 0) {
-      throw new Error("No schedule instances generated");
-    }
-    
-    // Create parent schedule
-    const [parentSchedule] = await db
-      .insert(schedules)
-      .values({
-        classId: scheduleData.classId,
-        trainerId: scheduleData.trainerId,
-        dayOfWeek: scheduleData.dayOfWeek,
-        startTime: scheduleData.startTime,
-        endTime: scheduleData.endTime,
-        scheduleDate: instances[0].scheduleDate,
-        repetitionType: scheduleData.repetitionType,
-        parentScheduleId: null,
-        isActive: scheduleData.isActive ?? true,
+  async createSchedule(scheduleData: InsertSchedule): Promise<Schedule> {
+    const { data: schedule, error } = await supabase
+      .from('schedules')
+      .insert({
+        ...scheduleData,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       })
-      .returning();
-    
-    // Create child instances
-    if (instances.length > 1) {
-      const childInstances = instances.slice(1).map(instance => ({
-        classId: scheduleData.classId,
-        trainerId: scheduleData.trainerId,
-        dayOfWeek: scheduleData.dayOfWeek,
-        startTime: scheduleData.startTime,
-        endTime: scheduleData.endTime,
-        scheduleDate: instance.scheduleDate,
-        repetitionType: scheduleData.repetitionType,
-        parentScheduleId: parentSchedule.id,
-        isActive: scheduleData.isActive ?? true,
-      }));
-      
-      await db.insert(schedules).values(childInstances);
-    }
-    
-    console.log("Created repeating schedule with", instances.length, "instances");
-    return parentSchedule;
-  }
+      .select()
+      .single();
 
-  private generateRepeatingSchedules(scheduleData: any): any[] {
-    const instances = [];
-    const startDate = new Date(scheduleData.startDate);
-    const endDate = new Date(scheduleData.endDate);
-    
-    if (scheduleData.repetitionType === 'weekly') {
-      // Find first occurrence of the specified day of week on or after start date
-      const targetDayOfWeek = scheduleData.dayOfWeek;
-      const current = new Date(startDate);
-      
-      // Adjust to the target day of week
-      const daysToAdd = (targetDayOfWeek - current.getDay() + 7) % 7;
-      current.setDate(current.getDate() + daysToAdd);
-      
-      // Generate weekly instances until end date
-      while (current <= endDate) {
-        instances.push({
-          scheduleDate: new Date(current)
-        });
-        current.setDate(current.getDate() + 7); // Add 7 days for next week
-      }
-    } else if (scheduleData.repetitionType === 'daily') {
-      // Generate daily instances from start to end date
-      const current = new Date(startDate);
-      
-      while (current <= endDate) {
-        instances.push({
-          scheduleDate: new Date(current)
-        });
-        current.setDate(current.getDate() + 1); // Add 1 day
-      }
+    if (error) {
+      console.error('Error creating schedule:', error);
+      throw new Error(error.message || 'Failed to create schedule');
     }
-    
-    return instances;
+
+    return schedule as Schedule;
   }
 
   async updateSchedule(id: number, updates: Partial<InsertSchedule>): Promise<Schedule> {
-    const [schedule] = await db
-      .update(schedules)
-      .set(updates)
-      .where(eq(schedules.id, id))
-      .returning();
-    return schedule;
+    const { data: schedule, error } = await supabase
+      .from('schedules')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating schedule:', error);
+      throw new Error(error.message || 'Failed to update schedule');
+    }
+
+    return schedule as Schedule;
   }
 
   async deleteSchedule(id: number): Promise<void> {
-    await db.delete(schedules).where(eq(schedules.id, id));
+    const { error } = await supabase
+      .from('schedules')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting schedule:', error);
+      throw new Error(error.message || 'Failed to delete schedule');
+    }
   }
 
-  async getSubscriptions(): Promise<any[]> {
-    return await db
-      .select({
-        id: subscriptions.id,
-        startDate: subscriptions.startDate,
-        endDate: subscriptions.endDate,
-        sessionsRemaining: subscriptions.sessionsRemaining,
-        status: subscriptions.status,
-        paymentStatus: subscriptions.paymentStatus,
-        notes: subscriptions.notes,
-        user: {
-          id: users.id,
-          firstName: users.firstName,
-          lastName: users.lastName,
-          email: users.email,
-        },
-        plan: {
-          id: plans.id,
-          name: plans.name,
-          description: plans.description,
-          price: plans.price,
-          sessionsIncluded: plans.sessionsIncluded,
-          durationDays: plans.durationDays,
-        },
-      })
-      .from(subscriptions)
-      .innerJoin(users, eq(subscriptions.userId, users.id))
-      .innerJoin(plans, eq(subscriptions.planId, plans.id))
-      .orderBy(desc(subscriptions.startDate));
+  async getSubscriptions(): Promise<Subscription[]> {
+    const { data: subscriptions, error } = await supabase
+      .from('subscriptions')
+      .select('*')
+      .order('start_date', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching subscriptions:', error);
+      throw new Error(error.message || 'Failed to fetch subscriptions');
+    }
+
+    return subscriptions || [];
   }
 
   async getSubscription(id: number): Promise<Subscription | undefined> {
-    const [subscription] = await db.select().from(subscriptions).where(eq(subscriptions.id, id));
-    return subscription || undefined;
+    const { data: subscription, error } = await supabase
+      .from('subscriptions')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching subscription:', error);
+      return undefined;
+    }
+
+    return subscription as Subscription | undefined;
   }
 
-  async getUserActiveSubscription(userId: string): Promise<any | undefined> {
-    const [subscription] = await db
-      .select({
-        id: subscriptions.id,
-        startDate: subscriptions.startDate,
-        endDate: subscriptions.endDate,
-        sessionsRemaining: subscriptions.sessionsRemaining,
-        status: subscriptions.status,
-        paymentStatus: subscriptions.paymentStatus,
-        plan: {
-          id: plans.id,
-          name: plans.name,
-          description: plans.description,
-          price: plans.price,
-          sessionsIncluded: plans.sessionsIncluded,
-          durationDays: plans.durationDays,
-        },
+  async getUserActiveSubscription(userId: string): Promise<Subscription | undefined> {
+    const { data: subscription, error } = await supabase
+      .from('subscriptions')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .order('end_date', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching user active subscription:', error);
+      return undefined;
+    }
+
+    return subscription as Subscription | undefined;
+  }
+
+  async createSubscription(subscription: InsertSubscription): Promise<Subscription> {
+    const { data: newSubscription, error } = await supabase
+      .from('subscriptions')
+      .insert({
+        ...subscription,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       })
-      .from(subscriptions)
-      .innerJoin(plans, eq(subscriptions.planId, plans.id))
-      .where(
-        and(
-          eq(subscriptions.userId, userId),
-          eq(subscriptions.status, "active")
-        )
-      )
-      .orderBy(desc(subscriptions.startDate))
-      .limit(1);
+      .select()
+      .single();
 
-    return subscription || undefined;
-  }
+    if (error) {
+      console.error('Error creating subscription:', error);
+      throw new Error(error.message || 'Failed to create subscription');
+    }
 
-  async createSubscription(insertSubscription: InsertSubscription): Promise<Subscription> {
-    const [subscription] = await db
-      .insert(subscriptions)
-      .values(insertSubscription)
-      .returning();
-    return subscription;
+    return newSubscription as Subscription;
   }
 
   async updateSubscription(id: number, updates: Partial<InsertSubscription>): Promise<Subscription> {
-    const [subscription] = await db
-      .update(subscriptions)
-      .set(updates)
-      .where(eq(subscriptions.id, id))
-      .returning();
-    return subscription;
-  }
-
-  async getClassRegistrations(userId?: string): Promise<any[]> {
-    const baseQuery = db
-      .select()
-      .from(classRegistrations)
-      .innerJoin(users, eq(classRegistrations.userId, users.id))
-      .innerJoin(schedules, eq(classRegistrations.scheduleId, schedules.id))
-      .innerJoin(classes, eq(schedules.classId, classes.id))
-      .innerJoin(trainers, eq(schedules.trainerId, trainers.id));
-
-    const query = userId 
-      ? baseQuery.where(eq(classRegistrations.userId, userId))
-      : baseQuery;
-
-    const results = await query.orderBy(desc(classRegistrations.registrationDate));
-    
-    return results.map((row: any) => ({
-      id: row.class_registrations.id,
-      registrationDate: row.class_registrations.registrationDate,
-      qrCode: row.class_registrations.qrCode,
-      status: row.class_registrations.status,
-      notes: row.class_registrations.notes,
-      user: {
-        id: row.users.id,
-        firstName: row.users.firstName,
-        lastName: row.users.lastName,
-        email: row.users.email,
-      },
-      schedule: {
-        id: row.schedules.id,
-        dayOfWeek: row.schedules.dayOfWeek,
-        startTime: row.schedules.startTime,
-        endTime: row.schedules.endTime,
-        scheduleDate: row.schedules.scheduleDate,
-        class: {
-          id: row.classes.id,
-          name: row.classes.name,
-          category: row.classes.category,
-          duration: row.classes.duration,
-          maxCapacity: row.classes.maxCapacity,
-        },
-        trainer: {
-          id: row.trainers.id,
-          firstName: row.trainers.firstName,
-          lastName: row.trainers.lastName,
-        },
-      },
-    }));
-  }
-
-  async createClassRegistration(insertRegistration: InsertClassRegistration): Promise<ClassRegistration> {
-    const [registration] = await db
-      .insert(classRegistrations)
-      .values({
-        ...insertRegistration,
-        registrationDate: new Date(),
+    const { data: subscription, error } = await supabase
+      .from('subscriptions')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
       })
-      .returning();
-    return registration;
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating subscription:', error);
+      throw new Error(error.message || 'Failed to update subscription');
+    }
+
+    return subscription as Subscription;
+  }
+
+  async getClassRegistrations(userId?: string): Promise<ClassRegistration[]> {
+    let query = supabase
+      .from('class_registrations')
+      .select('*');
+
+    if (userId) {
+      query = query.eq('user_id', userId);
+    }
+
+    const { data: registrations, error } = await query;
+
+    if (error) {
+      console.error('Error fetching class registrations:', error);
+      throw new Error(error.message || 'Failed to fetch class registrations');
+    }
+
+    return registrations || [];
+  }
+
+  async createClassRegistration(registration: InsertClassRegistration): Promise<ClassRegistration> {
+    const { data: newRegistration, error } = await supabase
+      .from('class_registrations')
+      .insert({
+        ...registration,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating class registration:', error);
+      throw new Error(error.message || 'Failed to create class registration');
+    }
+
+    return newRegistration as ClassRegistration;
   }
 
   async updateClassRegistration(id: number, updates: Partial<InsertClassRegistration>): Promise<ClassRegistration> {
-    const [registration] = await db
-      .update(classRegistrations)
-      .set(updates)
-      .where(eq(classRegistrations.id, id))
-      .returning();
-    return registration;
-  }
-
-  async getRegistrationByQRCode(qrCode: string): Promise<any | undefined> {
-    const results = await db
-      .select()
-      .from(classRegistrations)
-      .innerJoin(users, eq(classRegistrations.userId, users.id))
-      .innerJoin(schedules, eq(classRegistrations.scheduleId, schedules.id))
-      .innerJoin(classes, eq(schedules.classId, classes.id))
-      .innerJoin(trainers, eq(schedules.trainerId, trainers.id))
-      .where(eq(classRegistrations.qrCode, qrCode))
-      .limit(1);
-
-    if (results.length === 0) return undefined;
-
-    const row = results[0];
-    return {
-      id: row.class_registrations.id,
-      registrationDate: row.class_registrations.registrationDate,
-      qrCode: row.class_registrations.qrCode,
-      status: row.class_registrations.status,
-      notes: row.class_registrations.notes,
-      user: {
-        id: row.users.id,
-        firstName: row.users.firstName,
-        lastName: row.users.lastName,
-        email: row.users.email,
-      },
-      schedule: {
-        id: row.schedules.id,
-        dayOfWeek: row.schedules.dayOfWeek,
-        startTime: row.schedules.startTime,
-        endTime: row.schedules.endTime,
-        scheduleDate: row.schedules.scheduleDate,
-        class: {
-          id: row.classes.id,
-          name: row.classes.name,
-          category: row.classes.category,
-          duration: row.classes.duration,
-          maxCapacity: row.classes.maxCapacity,
-        },
-        trainer: {
-          id: row.trainers.id,
-          firstName: row.trainers.firstName,
-          lastName: row.trainers.lastName,
-        },
-      },
-    };
-  }
-
-  async getCheckins(date?: string): Promise<any[]> {
-    const baseQuery = db
-      .select()
-      .from(checkins)
-      .innerJoin(users, eq(checkins.userId, users.id))
-      .innerJoin(classRegistrations, eq(checkins.registrationId, classRegistrations.id))
-      .innerJoin(schedules, eq(classRegistrations.scheduleId, schedules.id))
-      .innerJoin(classes, eq(schedules.classId, classes.id))
-      .innerJoin(trainers, eq(schedules.trainerId, trainers.id));
-
-    const query = date 
-      ? baseQuery.where(sql`DATE(${checkins.checkinTime}) = ${date}`)
-      : baseQuery;
-
-    const results = await query.orderBy(desc(checkins.checkinTime));
-    
-    return results.map((row: any) => ({
-      id: row.checkins.id,
-      checkinTime: row.checkins.checkinTime,
-      sessionConsumed: row.checkins.sessionConsumed,
-      notes: row.checkins.notes,
-      user: {
-        id: row.users.id,
-        firstName: row.users.firstName,
-        lastName: row.users.lastName,
-      },
-      registration: {
-        id: row.class_registrations.id,
-        qrCode: row.class_registrations.qrCode,
-        status: row.class_registrations.status,
-        schedule: {
-          id: row.schedules.id,
-          scheduleDate: row.schedules.scheduleDate,
-          startTime: row.schedules.startTime,
-          endTime: row.schedules.endTime,
-          class: {
-            id: row.classes.id,
-            name: row.classes.name,
-            category: row.classes.category,
-          },
-          trainer: {
-            id: row.trainers.id,
-            firstName: row.trainers.firstName,
-            lastName: row.trainers.lastName,
-          },
-        },
-      },
-    }));
-  }
-
-  async getUserCheckins(userId: string): Promise<any[]> {
-    const results = await db
-      .select()
-      .from(checkins)
-      .innerJoin(users, eq(checkins.userId, users.id))
-      .innerJoin(classRegistrations, eq(checkins.registrationId, classRegistrations.id))
-      .innerJoin(schedules, eq(classRegistrations.scheduleId, schedules.id))
-      .innerJoin(classes, eq(schedules.classId, classes.id))
-      .innerJoin(trainers, eq(schedules.trainerId, trainers.id))
-      .where(eq(checkins.userId, userId))
-      .orderBy(desc(checkins.checkinTime));
-
-    return results.map((row: any) => ({
-      id: row.checkins.id,
-      checkinTime: row.checkins.checkinTime,
-      sessionConsumed: row.checkins.sessionConsumed,
-      notes: row.checkins.notes,
-      user: {
-        id: row.users.id,
-        firstName: row.users.firstName,
-        lastName: row.users.lastName,
-      },
-      registration: {
-        id: row.class_registrations.id,
-        qrCode: row.class_registrations.qrCode,
-        status: row.class_registrations.status,
-        schedule: {
-          id: row.schedules.id,
-          scheduleDate: row.schedules.scheduleDate,
-          startTime: row.schedules.startTime,
-          endTime: row.schedules.endTime,
-          class: {
-            id: row.classes.id,
-            name: row.classes.name,
-            category: row.classes.category,
-          },
-          trainer: {
-            id: row.trainers.id,
-            firstName: row.trainers.firstName,
-            lastName: row.trainers.lastName,
-          },
-        },
-      },
-    }));
-  }
-
-  async createCheckin(insertCheckin: InsertCheckin): Promise<Checkin> {
-    const [checkin] = await db
-      .insert(checkins)
-      .values({
-        ...insertCheckin,
-        checkinTime: new Date(),
+    const { data: registration, error } = await supabase
+      .from('class_registrations')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
       })
-      .returning();
-    return checkin;
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating class registration:', error);
+      throw new Error(error.message || 'Failed to update class registration');
+    }
+
+    return registration as ClassRegistration;
   }
 
-  async getDashboardStats(): Promise<any> {
-    const totalUsers = await db.select({ count: sql<number>`count(*)` }).from(users);
-    const activeUsers = await db.select({ count: sql<number>`count(*)` }).from(users).where(eq(users.status, "active"));
-    const totalClasses = await db.select({ count: sql<number>`count(*)` }).from(classes);
-    const totalTrainers = await db.select({ count: sql<number>`count(*)` }).from(trainers);
+  async getRegistrationByQRCode(qrCode: string): Promise<ClassRegistration | undefined> {
+    const { data: registration, error } = await supabase
+      .from('class_registrations')
+      .select('*')
+      .eq('qr_code', qrCode)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching registration by QR code:', error);
+      return undefined;
+    }
+
+    return registration as ClassRegistration | undefined;
+  }
+
+  async getCheckins(date?: string): Promise<Checkin[]> {
+    let query = supabase
+      .from('checkins')
+      .select('*')
+      .order('checkin_time', { ascending: false });
+
+    if (date) {
+      const startOfDay = new Date(date);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(date);
+      endOfDay.setHours(23, 59, 59, 999);
+
+      query = query
+        .gte('checkin_time', startOfDay.toISOString())
+        .lte('checkin_time', endOfDay.toISOString());
+    }
+
+    const { data: checkins, error } = await query;
+
+    if (error) {
+      console.error('Error fetching checkins:', error);
+      throw new Error(error.message || 'Failed to fetch checkins');
+    }
+
+    return checkins || [];
+  }
+
+  async getUserCheckins(userId: string): Promise<Checkin[]> {
+    const { data: checkins, error } = await supabase
+      .from('checkins')
+      .select('*')
+      .eq('user_id', userId)
+      .order('checkin_time', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching user checkins:', error);
+      throw new Error(error.message || 'Failed to fetch user checkins');
+    }
+
+    return checkins || [];
+  }
+
+  async createCheckin(checkin: InsertCheckin): Promise<Checkin> {
+    const { data: newCheckin, error } = await supabase
+      .from('checkins')
+      .insert({
+        ...checkin,
+        checkin_time: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating checkin:', error);
+      throw new Error(error.message || 'Failed to create checkin');
+    }
+
+    return newCheckin as Checkin;
+  }
+
+  async getDashboardStats(): Promise<{
+    totalUsers: number;
+    activeSubscriptions: number;
+    upcomingClasses: number;
+    recentCheckins: any[];
+  }> {
+    // Get total users
+    const { count: totalUsers } = await supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true });
+
+    // Get active subscriptions
+    const { count: activeSubscriptions } = await supabase
+      .from('subscriptions')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'active')
+      .gte('end_date', new Date().toISOString());
+
+    // Get upcoming classes (next 7 days)
+    const today = new Date();
+    const nextWeek = new Date();
+    nextWeek.setDate(today.getDate() + 7);
+
+    const { count: upcomingClasses } = await supabase
+      .from('schedules')
+      .select('*', { count: 'exact', head: true })
+      .gte('start_time', today.toISOString())
+      .lte('start_time', nextWeek.toISOString());
+
+    // Get recent checkins
+    const { data: recentCheckins } = await supabase
+      .from('checkins')
+      .select('*, users(*)')
+      .order('checkin_time', { ascending: false })
+      .limit(5);
 
     return {
-      totalUsers: totalUsers[0]?.count || 0,
-      activeUsers: activeUsers[0]?.count || 0,
-      totalClasses: totalClasses[0]?.count || 0,
-      totalTrainers: totalTrainers[0]?.count || 0,
+      totalUsers: totalUsers || 0,
+      activeSubscriptions: activeSubscriptions || 0,
+      upcomingClasses: upcomingClasses || 0,
+      recentCheckins: recentCheckins || []
     };
   }
 
   async markAbsentClasses(): Promise<void> {
-    const now = new Date();
-    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+    try {
+      // Get current time and time one hour ago
+      const now = new Date();
+      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
 
-    // Find registrations for classes that ended more than 1 hour ago and haven't been checked in
-    const absentRegistrations = await db
-      .select({
-        id: classRegistrations.id,
-        userId: classRegistrations.userId,
-      })
-      .from(classRegistrations)
-      .innerJoin(schedules, eq(classRegistrations.scheduleId, schedules.id))
-      .leftJoin(checkins, eq(checkins.registrationId, classRegistrations.id))
-      .where(
-        and(
-          sql`${schedules.scheduleDate} + INTERVAL '1 hour' * ${schedules.endTime}::time < ${oneHourAgo}`,
-          eq(classRegistrations.status, "registered"),
-          sql`${checkins.id} IS NULL`
-        )
-      );
+      // Find registrations for classes that ended more than 1 hour ago and haven't been checked in
+      const { data: absentRegistrations, error: findError } = await supabase
+        .from('class_registrations')
+        .select(`
+          id,
+          user_id,
+          schedule:schedule_id (id, start_time, end_time)
+        `)
+        .eq('status', 'registered')
+        .lt('schedule.end_time', oneHourAgo.toISOString())
+        .is('checkin_id', null);
 
-    // Mark registrations as absent
-    for (const registration of absentRegistrations) {
-      await db
-        .update(classRegistrations)
-        .set({ status: "absent" })
-        .where(eq(classRegistrations.id, registration.id));
-
-      // Deduct session from user's active subscription
-      const activeSubscription = await this.getUserActiveSubscription(registration.userId);
-      if (activeSubscription && activeSubscription.sessionsRemaining > 0) {
-        await db
-          .update(subscriptions)
-          .set({ 
-            sessionsRemaining: activeSubscription.sessionsRemaining - 1 
-          })
-          .where(eq(subscriptions.id, activeSubscription.id));
+      if (findError) {
+        console.error('Error finding absent registrations:', findError);
+        return;
       }
+
+      if (!absentRegistrations || absentRegistrations.length === 0) {
+        return;
+      }
+
+      // Process each absent registration
+      for (const registration of absentRegistrations) {
+        // Mark registration as absent
+        const { error: updateError } = await supabase
+          .from('class_registrations')
+          .update({ 
+            status: 'absent',
+            updated_at: now.toISOString() 
+          })
+          .eq('id', registration.id);
+
+        if (updateError) {
+          console.error(`Error updating registration ${registration.id}:`, updateError);
+          continue;
+        }
+
+        // Deduct session from user's active subscription
+        const activeSubscription = await this.getUserActiveSubscription(registration.user_id);
+        if (activeSubscription && activeSubscription.sessionsRemaining > 0) {
+          const { error: subscriptionError } = await supabase
+            .from('subscriptions')
+            .update({ 
+              sessionsRemaining: activeSubscription.sessionsRemaining - 1,
+              updated_at: now.toISOString()
+            })
+            .eq('id', activeSubscription.id);
+
+          if (subscriptionError) {
+            console.error(`Error updating subscription for user ${registration.user_id}:`, subscriptionError);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error in markAbsentClasses:', error);
+      throw error;
     }
   }
 }

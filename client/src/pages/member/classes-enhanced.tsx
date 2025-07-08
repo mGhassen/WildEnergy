@@ -10,9 +10,10 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { apiRequest } from "@/lib/queryClient";
 import { Search, Clock, Users, Calendar, Star, AlertTriangle, CheckCircle, CalendarDays, List } from "lucide-react";
-import { formatTime, getDayName, formatDate } from "@/lib/auth";
+import { formatTime, getDayName } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import CalendarView from "@/components/calendar-view";
+import { formatDate } from "@/lib/date";
 
 export default function MemberClassesEnhanced() {
   const [searchTerm, setSearchTerm] = useState("");
