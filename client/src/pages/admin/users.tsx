@@ -17,6 +17,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { formatDate } from "@/lib/date";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 // Form schemas
 const createUserSchema = z.object({
@@ -37,8 +39,11 @@ const editUserSchema = z.object({
     lastName: z.string().min(1, "Last name is required"),
     email: z.string().email("Please enter a valid email"),
     phone: z.string().optional(),
+    dateOfBirth: z.string().optional(),
+    memberNotes: z.string().optional(),
     isAdmin: z.boolean(),
     isMember: z.boolean(),
+    isTrainer: z.boolean(),
     status: z.enum(["active", "onhold", "inactive", "suspended"]),
 });
 
@@ -74,6 +79,18 @@ export default function UsersPage() {
         queryFn: () => apiRequest("GET", "/api/users"),
     });
 
+    // Helper function to format date for HTML date input
+    const formatDateForInput = (dateString: string | null | undefined): string => {
+        if (!dateString) return '';
+        try {
+            const date = new Date(dateString);
+            if (isNaN(date.getTime())) return '';
+            return date.toISOString().split('T')[0]; // YYYY-MM-DD format
+        } catch {
+            return '';
+        }
+    };
+
     // Map users from snake_case to camelCase for UI
     const mappedUsers = Array.isArray(users)
         ? users.map((u: any) => ({
@@ -81,6 +98,9 @@ export default function UsersPage() {
             firstName: u.firstName || u.first_name || '',
             lastName: u.lastName || u.last_name || '',
             email: u.email,
+            phone: u.phone || '',
+            dateOfBirth: formatDateForInput(u.dateOfBirth || u.date_of_birth),
+            memberNotes: u.memberNotes || u.member_notes || '',
             status: u.status,
             isAdmin: u.isAdmin || u.is_admin || false,
             isMember: u.isMember || u.is_member || false,
@@ -126,8 +146,11 @@ export default function UsersPage() {
             lastName: "",
             email: "",
             phone: "",
+            dateOfBirth: "",
+            memberNotes: "",
             isAdmin: false,
             isMember: true,
+            isTrainer: false,
             status: "active",
         },
     });
@@ -266,8 +289,11 @@ export default function UsersPage() {
             lastName: user.lastName || "",
             email: user.email || "",
             phone: user.phone || "",
+            dateOfBirth: user.dateOfBirth || user.date_of_birth || "",
+            memberNotes: user.memberNotes || user.member_notes || "",
             isAdmin: user.isAdmin || false,
             isMember: user.isMember || false,
+            isTrainer: user.isTrainer || false,
             status: user.status || "active",
         });
     };
@@ -672,6 +698,59 @@ export default function UsersPage() {
                                     </FormItem>
                                 )}
                             />
+                            <FormField
+                                control={editForm.control}
+                                name="dateOfBirth"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Date of Birth</FormLabel>
+                                        <FormControl>
+                                            <Input type="date" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={editForm.control}
+                                name="memberNotes"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Member Notes</FormLabel>
+                                        <FormControl>
+                                            <Textarea 
+                                                placeholder="Add any notes about this member..."
+                                                className="min-h-[80px]"
+                                                {...field} 
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={editForm.control}
+                                name="status"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Status</FormLabel>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select status" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                <SelectItem value="active">✅ Active</SelectItem>
+                                                <SelectItem value="onhold">⏳ Pending</SelectItem>
+                                                <SelectItem value="inactive">📦 Archived</SelectItem>
+                                                <SelectItem value="suspended">🚫 Suspended</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
                             <div className="space-y-3">
                                 <FormField
                                     control={editForm.control}
@@ -703,6 +782,23 @@ export default function UsersPage() {
                                             </FormControl>
                                             <div className="space-y-1 leading-none">
                                                 <FormLabel>Member User</FormLabel>
+                                            </div>
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={editForm.control}
+                                    name="isTrainer"
+                                    render={({ field }) => (
+                                        <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                                            <FormControl>
+                                                <Checkbox
+                                                    checked={field.value}
+                                                    onCheckedChange={field.onChange}
+                                                />
+                                            </FormControl>
+                                            <div className="space-y-1 leading-none">
+                                                <FormLabel>Trainer User</FormLabel>
                                             </div>
                                         </FormItem>
                                     )}
