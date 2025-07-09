@@ -513,16 +513,37 @@ export default function AdminSubscriptions() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => openDetailsModal(subscription)}>
+                          <DropdownMenuItem 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openDetailsModal(subscription);
+                            }}
+                          >
                             <Eye className="w-4 h-4 mr-2" /> View
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => openEditModal(subscription)}>
+                          <DropdownMenuItem 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEditModal(subscription);
+                            }}
+                          >
                             <Edit className="w-4 h-4 mr-2" /> Edit
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => openPaymentModal(subscription)}>
+                          <DropdownMenuItem 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openPaymentModal(subscription);
+                            }}
+                          >
                             <CreditCard className="w-4 h-4 mr-2" /> Add Payment
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleDeleteSubscription(subscription.id)} className="text-destructive">
+                          <DropdownMenuItem 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteSubscription(subscription.id);
+                            }} 
+                            className="text-destructive"
+                          >
                             <Trash2 className="w-4 h-4 mr-2" /> Delete
                           </DropdownMenuItem>
                         </DropdownMenuContent>
