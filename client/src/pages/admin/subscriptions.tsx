@@ -89,6 +89,17 @@ export default function AdminSubscriptions() {
     queryKey: ["/api/plans"],
   });
 
+  // Map members from snake_case to camelCase for UI
+  const mappedMembers = Array.isArray(members)
+    ? members.map((m: any) => ({
+        ...m,
+        firstName: m.firstName || m.first_name || '',
+        lastName: m.lastName || m.last_name || '',
+        email: m.email,
+        status: m.status,
+      }))
+    : [];
+
   // Map snake_case fields to camelCase for UI
   const mappedPlans = Array.isArray(plans)
     ? plans.map((plan: any) => ({
@@ -139,11 +150,11 @@ export default function AdminSubscriptions() {
     },
   });
 
-  // After fetching subscriptions, members, and plans:
-  const mappedSubscriptions = Array.isArray(subscriptions) && Array.isArray(members) && Array.isArray(plans)
+  // After fetching subscriptions, mappedMembers, and plans:
+  const mappedSubscriptions = Array.isArray(subscriptions) && Array.isArray(mappedMembers) && Array.isArray(plans)
     ? subscriptions.map((sub: any) => ({
         ...sub,
-        member: members.find((m: any) => m.id === sub.user_id || m.id === sub.userId) || null,
+        member: mappedMembers.find((m: any) => m.id === sub.user_id || m.id === sub.userId) || null,
         plan: plans.find((p: any) => p.id === sub.plan_id || p.id === sub.planId) || null,
       }))
     : [];
@@ -310,7 +321,7 @@ export default function AdminSubscriptions() {
   };
 
   // Add loading and empty state guards before rendering the table
-  const isLoadingAny = isLoading || !members.length || !plans.length;
+  const isLoadingAny = isLoading || !mappedMembers.length || !plans.length;
 
   if (isLoadingAny) {
     return (
@@ -375,7 +386,7 @@ export default function AdminSubscriptions() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {members.filter((member) => member.status === 'active').map((member) => (
+                              {mappedMembers.filter((member) => member.status === 'active').map((member) => (
                                 <SelectItem key={member.id} value={member.id}>
                                   {member.firstName} {member.lastName} ({member.email})
                                 </SelectItem>
@@ -814,7 +825,7 @@ export default function AdminSubscriptions() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {members.filter((member) => member.status === 'active').map((member) => (
+                            {mappedMembers.filter((member) => member.status === 'active').map((member) => (
                               <SelectItem key={member.id} value={member.id}>
                                 {member.firstName} {member.lastName} ({member.email})
                               </SelectItem>
