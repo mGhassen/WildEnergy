@@ -15,6 +15,7 @@ import { insertPlanSchema } from "@shared/schema";
 import { Plus, Search, Edit, Trash2, DollarSign, Clock, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
+import { apiFetch } from "@/lib/api";
 
 const planFormSchema = insertPlanSchema;
 type PlanFormData = z.infer<typeof planFormSchema>;
@@ -35,25 +36,19 @@ export default function AdminPlans() {
     defaultValues: {
       name: "",
       description: "",
-      price: "0",
-      sessionsIncluded: 0,
+      price: 0,
       durationDays: 30,
+      maxSessions: 1,
       isActive: true,
     },
   });
 
   const createPlanMutation = useMutation({
     mutationFn: async (data: PlanFormData) => {
-      const response = await fetch("/api/plans", {
+      return await apiFetch("/api/plans", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
-        credentials: "include",
       });
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/plans"] });
@@ -72,16 +67,10 @@ export default function AdminPlans() {
 
   const updatePlanMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Partial<PlanFormData> }) => {
-      const response = await fetch(`/api/plans/${id}`, {
+      return await apiFetch(`/api/plans/${id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
-        credentials: "include",
       });
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/plans"] });
@@ -101,13 +90,9 @@ export default function AdminPlans() {
 
   const deletePlanMutation = useMutation({
     mutationFn: async (id: number) => {
-      const response = await fetch(`/api/plans/${id}`, {
+      await apiFetch(`/api/plans/${id}`, {
         method: "DELETE",
-        credentials: "include",
       });
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/plans"] });
@@ -122,17 +107,26 @@ export default function AdminPlans() {
     },
   });
 
-  const filteredPlans = plans?.filter((plan: any) =>
+  const filteredPlans = Array.isArray(plans) ? plans.filter((plan: any) =>
     `${plan.name} ${plan.description}`
       .toLowerCase()
       .includes(searchTerm.toLowerCase())
-  ) || [];
+  ) : [];
+
+  // Map snake_case fields to camelCase for rendering
+  const mappedPlans = filteredPlans.map((plan: any) => ({
+    ...plan,
+    durationDays: plan.duration_days ?? plan.durationDays,
+    maxSessions: plan.max_sessions ?? plan.maxSessions,
+    isActive: plan.is_active ?? plan.isActive,
+  }));
 
   const handleSubmit = (data: PlanFormData) => {
+    const submitData = { ...data, price: Number(data.price) };
     if (editingPlan) {
-      updatePlanMutation.mutate({ id: editingPlan.id, data });
+      updatePlanMutation.mutate({ id: editingPlan.id, data: submitData });
     } else {
-      createPlanMutation.mutate(data);
+      createPlanMutation.mutate(submitData);
     }
   };
 
@@ -142,8 +136,8 @@ export default function AdminPlans() {
       name: plan.name,
       description: plan.description,
       price: plan.price,
-      sessionsIncluded: plan.sessionsIncluded,
       durationDays: plan.durationDays,
+      maxSessions: plan.maxSessions,
       isActive: plan.isActive,
     });
     setIsModalOpen(true);
@@ -168,7 +162,8 @@ export default function AdminPlans() {
   const getDurationText = (days: number) => {
     if (days === 30) return "Monthly";
     if (days === 365) return "Yearly";
-    if (days === 7) return "Weekly";
+    if (days === 90) return "Quarterly";
+    if (days === 180) return "Semi-Annual";
     return `${days} days`;
   };
 
@@ -229,10 +224,11 @@ export default function AdminPlans() {
                       <FormItem>
                         <FormLabel>Price (TND)</FormLabel>
                         <FormControl>
-                          <Input 
-                            type="number" 
+                          <Input
+                            type="number"
                             step="0.01"
-                            {...field} 
+                            {...field}
+                            onChange={e => field.onChange(Number(e.target.value))}
                             placeholder="49.99"
                           />
                         </FormControl>
@@ -242,15 +238,15 @@ export default function AdminPlans() {
                   />
                   <FormField
                     control={form.control}
-                    name="sessionsIncluded"
+                    name="maxSessions"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Sessions Included</FormLabel>
+                        <FormLabel>Max Sessions</FormLabel>
                         <FormControl>
-                          <Input 
-                            type="number" 
-                            {...field} 
-                            onChange={(e) => field.onChange(parseInt(e.target.value))}
+                          <Input
+                            type="number"
+                            {...field}
+                            onChange={e => field.onChange(Number(e.target.value))}
                             placeholder="12"
                           />
                         </FormControl>
@@ -266,49 +262,18 @@ export default function AdminPlans() {
                     <FormItem>
                       <FormLabel>Duration (Days)</FormLabel>
                       <div className="space-y-2">
-                        <div className="flex gap-2 flex-wrap">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => field.onChange(30)}
-                          >
-                            <Calendar className="w-3 h-3 mr-1" />
-                            1 Month
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => field.onChange(90)}
-                          >
-                            <Calendar className="w-3 h-3 mr-1" />
-                            3 Months
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => field.onChange(180)}
-                          >
-                            <Calendar className="w-3 h-3 mr-1" />
-                            6 Months
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => field.onChange(365)}
-                          >
-                            <Calendar className="w-3 h-3 mr-1" />
-                            1 Year
-                          </Button>
+                        <div className="flex gap-2 flex-wrap mb-2">
+                          <Button type="button" variant="outline" size="sm" onClick={() => field.onChange(30)}>1 Month</Button>
+                          <Button type="button" variant="outline" size="sm" onClick={() => field.onChange(90)}>3 Months</Button>
+                          <Button type="button" variant="outline" size="sm" onClick={() => field.onChange(180)}>6 Months</Button>
+                          <Button type="button" variant="outline" size="sm" onClick={() => field.onChange(365)}>1 Year</Button>
                         </div>
                         <FormControl>
-                          <Input 
-                            type="number" 
-                            {...field} 
-                            onChange={(e) => field.onChange(parseInt(e.target.value))}
+                          <Input
+                            type="number"
+                            min={1}
+                            {...field}
+                            onChange={e => field.onChange(Number(e.target.value))}
                             placeholder="30"
                           />
                         </FormControl>
@@ -359,7 +324,7 @@ export default function AdminPlans() {
             </Card>
           ))
         ) : (
-          filteredPlans.map((plan: any) => (
+          mappedPlans.map((plan: any) => (
             <Card key={plan.id} className="relative">
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -387,8 +352,8 @@ export default function AdminPlans() {
                   
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Sessions included:</span>
-                      <span className="font-medium">{plan.sessionsIncluded}</span>
+                      <span className="text-sm text-muted-foreground">Max Sessions:</span>
+                      <span className="font-medium">{plan.maxSessions}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-muted-foreground">Duration:</span>

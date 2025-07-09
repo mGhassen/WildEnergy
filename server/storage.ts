@@ -578,7 +578,12 @@ export class DatabaseStorage implements IStorage {
     const { data: plan, error } = await supabase
       .from('plans')
       .insert({
-        ...insertPlan,
+        name: insertPlan.name,
+        description: insertPlan.description,
+        price: insertPlan.price,
+        duration_days: insertPlan.durationDays,
+        max_sessions: insertPlan.maxSessions,
+        is_active: insertPlan.isActive,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
@@ -597,7 +602,12 @@ export class DatabaseStorage implements IStorage {
     const { data: plan, error } = await supabase
       .from('plans')
       .update({
-        ...updates,
+        name: updates.name,
+        description: updates.description,
+        price: updates.price,
+        duration_days: updates.durationDays,
+        max_sessions: updates.maxSessions,
+        is_active: updates.isActive,
         updated_at: new Date().toISOString()
       })
       .eq('id', id)

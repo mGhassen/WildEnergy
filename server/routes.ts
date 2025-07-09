@@ -1006,6 +1006,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  console.log('Registering route: PUT /api/plans/:id');
+  app.put("/api/plans/:id", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      const updatedPlan = await storage.updatePlan(parseInt(id), updates);
+      res.json({ success: true, plan: updatedPlan });
+    } catch (error) {
+      console.error("Error updating plan:", error);
+      res.status(500).json({ error: "Failed to update plan" });
+    }
+  });
+
   // Schedules management
   console.log('Registering route: GET /api/schedules');
   app.get("/api/schedules", asyncHandler(requireAuth), async (req: any, res) => {
