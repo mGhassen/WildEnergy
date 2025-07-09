@@ -47,7 +47,7 @@ CREATE TABLE plans (
     name TEXT NOT NULL,
     description TEXT,
     price DECIMAL(10,2) NOT NULL,
-    duration INTEGER NOT NULL, -- in months
+    duration_days INTEGER NOT NULL, -- in days
     max_sessions INTEGER,
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
