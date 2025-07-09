@@ -11,18 +11,18 @@ import { apiRequest } from "@/lib/queryClient";
 
 type Payment = {
   id: number;
-  subscriptionId: number;
-  userId: string;
+  subscription_id: number;
+  user_id: string;
   amount: number;
-  paymentType: string;
-  paymentStatus: string;
-  transactionId?: string;
-  paymentDate?: string;
-  dueDate?: string;
+  payment_type: string;
+  payment_status: string;
+  transaction_id?: string;
+  payment_date?: string;
+  due_date?: string;
   discount?: number;
   notes?: string;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
   member?: {
     firstName: string;
     lastName: string;
@@ -82,9 +82,9 @@ export default function AdminPayments() {
   // Map payments to include member and subscription/plan data
   const mappedPayments = Array.isArray(payments) && Array.isArray(mappedMembers) && Array.isArray(subscriptions) && Array.isArray(mappedPlans)
     ? payments.map((payment: any) => {
-        const member = mappedMembers.find((m: any) => m.id === payment.userId) || null;
-        const subscription = subscriptions.find((s: any) => s.id === payment.subscriptionId) || null;
-        const plan = subscription ? mappedPlans.find((p: any) => p.id === subscription.plan_id || p.id === subscription.planId) || null : null;
+        const member = mappedMembers.find((m: any) => m.id === payment.user_id) || null;
+        const subscription = subscriptions.find((s: any) => s.id === payment.subscription_id) || null;
+        const plan = subscription ? mappedPlans.find((p: any) => p.id === subscription.plan_id) || null : null;
         
         return {
           ...payment,
@@ -215,11 +215,11 @@ export default function AdminPayments() {
                       <span className="font-medium">{formatPrice(payment.amount)}</span>
                     </div>
                   </TableCell>
-                  <TableCell>{payment.paymentType || '-'}</TableCell>
-                  <TableCell>{payment.paymentDate ? formatDate(payment.paymentDate) : '-'}</TableCell>
+                  <TableCell>{payment.payment_type || '-'}</TableCell>
+                  <TableCell>{payment.payment_date ? formatDate(payment.payment_date) : '-'}</TableCell>
                   <TableCell>
-                    <Badge className={getPaymentStatusColor(payment.paymentStatus)}>
-                      {getPaymentStatusText(payment.paymentStatus)}
+                    <Badge className={getPaymentStatusColor(payment.payment_status)}>
+                      {getPaymentStatusText(payment.payment_status)}
                     </Badge>
                   </TableCell>
                 </TableRow>

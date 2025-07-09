@@ -18,6 +18,7 @@ import AdminSchedules from "@/pages/admin/schedules";
 import AdminCourses from "@/pages/admin/courses";
 import AdminPlans from "@/pages/admin/plans";
 import AdminSubscriptions from "@/pages/admin/subscriptions";
+import AdminPayments from "@/pages/admin/payments";
 import AdminCheckins from "@/pages/admin/checkins";
 import MemberDashboard from "@/pages/member/dashboard";
 import MemberClasses from "@/pages/member/classes";
@@ -153,6 +154,14 @@ function AppRouter() {
         <ProtectedRoute requiredRole="admin">
           <AdminLayout>
             <AdminSubscriptions />
+          </AdminLayout>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/admin/payments">
+        <ProtectedRoute requiredRole="admin">
+          <AdminLayout>
+            <AdminPayments />
           </AdminLayout>
         </ProtectedRoute>
       </Route>
