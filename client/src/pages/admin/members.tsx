@@ -79,6 +79,21 @@ export default function MembersPage() {
     queryFn: () => apiRequest("GET", "/api/members"),
   });
 
+  // Map members from snake_case to camelCase for UI
+  const mappedMembers = Array.isArray(members)
+    ? members.map((m: any) => ({
+        ...m,
+        firstName: m.firstName || m.first_name || '',
+        lastName: m.lastName || m.last_name || '',
+        email: m.email,
+        status: m.status,
+        subscriptionStatus: m.subscriptionStatus || m.subscription_status || 'inactive',
+        phone: m.phone,
+        dateOfBirth: m.dateOfBirth || m.date_of_birth,
+        createdAt: m.createdAt || m.created_at,
+      }))
+    : [];
+
   // Fetch member details when selected
   const { data: memberDetails, isLoading: isLoadingDetails } = useQuery({
     queryKey: ["/api/members", selectedMember?.id, "details"],
@@ -86,7 +101,7 @@ export default function MembersPage() {
   });
 
   // Filter members
-  const filteredMembers = Array.isArray(members) ? members.filter((member: any) =>
+  const filteredMembers = Array.isArray(mappedMembers) ? mappedMembers.filter((member: any) =>
     member.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     member.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     member.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
