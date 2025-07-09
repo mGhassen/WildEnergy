@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { apiRequest } from "@/lib/queryClient";
-import { Search, Plus, Edit, Trash2, User, Shield, MoreHorizontal, Key, Archive, CheckCircle, XCircle, Mail, Star } from "lucide-react";
+import { Search, Plus, Edit, Trash2, User, Shield, MoreHorizontal, Key, Archive, CheckCircle, XCircle, Mail, Star, X, Phone, Calendar, Clock, Activity, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -69,6 +69,7 @@ export default function UsersPage() {
     const [searchTerm, setSearchTerm] = useState("");
     const [showCreateDialog, setShowCreateDialog] = useState(false);
     const [editingUser, setEditingUser] = useState<any>(null);
+    const [viewingUser, setViewingUser] = useState<any>(null);
     const [deletingUser, setDeletingUser] = useState<any>(null);
     const queryClient = useQueryClient();
     const { toast } = useToast();
@@ -298,6 +299,21 @@ export default function UsersPage() {
         });
     };
 
+    // Open view dialog
+    const openViewDialog = (user: any) => {
+        setViewingUser(user);
+    };
+
+    // Handle row click (but not on menu)
+    const handleRowClick = (event: React.MouseEvent, user: any) => {
+        // Don't trigger if clicking on dropdown menu or buttons
+        const target = event.target as HTMLElement;
+        if (target.closest('[role="menuitem"]') || target.closest('button')) {
+            return;
+        }
+        openViewDialog(user);
+    };
+
     if (isLoading) {
         return (
             <div className="space-y-6">
@@ -513,7 +529,11 @@ export default function UsersPage() {
                         </TableHeader>
                         <TableBody>
                             {usersMapped.map((user: any) => (
-                                <TableRow key={user.id}>
+                                <TableRow 
+                                    key={user.id} 
+                                    className="cursor-pointer hover:bg-muted/50"
+                                    onClick={(e) => handleRowClick(e, user)}
+                                >
                                     <TableCell className="font-medium">
                                         <div className="flex items-center space-x-3">
                                             <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
@@ -814,6 +834,233 @@ export default function UsersPage() {
                             </DialogFooter>
                         </form>
                     </Form>
+                </DialogContent>
+            </Dialog>
+
+            {/* View User Dialog */}
+            <Dialog open={!!viewingUser} onOpenChange={() => setViewingUser(null)}>
+                <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <User className="w-5 h-5" />
+                            User Profile
+                        </DialogTitle>
+                        <DialogDescription>
+                            Complete user information and account details
+                        </DialogDescription>
+                    </DialogHeader>
+                    {viewingUser && (
+                        <div className="space-y-6">
+                            {/* Header Section with Avatar and Quick Actions */}
+                            <div className="flex items-start justify-between">
+                                <div className="flex items-center space-x-4">
+                                    <div className="w-20 h-20 bg-gradient-to-br from-primary/20 to-primary/10 rounded-full flex items-center justify-center border-2 border-primary/20">
+                                        <span className="text-2xl font-bold text-primary">
+                                            {getInitials(viewingUser.firstName || "", viewingUser.lastName || "")}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <h3 className="text-2xl font-bold text-foreground">
+                                            {viewingUser.firstName} {viewingUser.lastName}
+                                        </h3>
+                                        <p className="text-muted-foreground text-lg">{viewingUser.email}</p>
+                                        <div className="flex items-center space-x-2 mt-2">
+                                            <Badge className={getStatusColor(viewingUser.status)}>
+                                                {viewingUser.status === 'onhold' && '⏳ Pending'}
+                                                {viewingUser.status === 'active' && '✅ Active'}
+                                                {viewingUser.status === 'inactive' && '📦 Archived'}
+                                                {viewingUser.status === 'suspended' && '🚫 Suspended'}
+                                            </Badge>
+                                            <span className="text-xs text-muted-foreground">•</span>
+                                            <span className="text-xs text-muted-foreground">
+                                                Member since {formatDate(viewingUser.createdAt)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex space-x-2">
+                                    <Button 
+                                        variant="outline" 
+                                        size="sm"
+                                        onClick={() => {
+                                            setViewingUser(null);
+                                            openEditDialog(viewingUser);
+                                        }}
+                                    >
+                                        <Edit className="w-4 h-4 mr-2" />
+                                        Edit
+                                    </Button>
+                                    <Button 
+                                        variant="outline" 
+                                        size="sm"
+                                        onClick={() => setViewingUser(null)}
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </Button>
+                                </div>
+                            </div>
+
+                            {/* Roles Section */}
+                            <div className="bg-muted/30 rounded-lg p-4">
+                                <h4 className="font-semibold text-sm text-muted-foreground mb-3">ACCOUNT ROLES</h4>
+                                <div className="flex items-center space-x-3">
+                                    {viewingUser.isAdmin && (
+                                        <Badge variant="default" className="px-3 py-1">
+                                            <Shield className="w-4 h-4 mr-2" />
+                                            Administrator
+                                        </Badge>
+                                    )}
+                                    {viewingUser.isMember && (
+                                        <Badge variant="secondary" className="px-3 py-1">
+                                            <User className="w-4 h-4 mr-2" />
+                                            Member
+                                        </Badge>
+                                    )}
+                                    {viewingUser.isTrainer && (
+                                        <Badge variant="outline" className="px-3 py-1">
+                                            <Star className="w-4 h-4 mr-2" />
+                                            Trainer
+                                        </Badge>
+                                    )}
+                                    {!viewingUser.isAdmin && !viewingUser.isMember && !viewingUser.isTrainer && (
+                                        <span className="text-sm text-muted-foreground">No roles assigned</span>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Personal Information */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-4">
+                                    <h4 className="font-semibold text-sm text-muted-foreground">PERSONAL INFORMATION</h4>
+                                    
+                                    <div className="space-y-3">
+                                        <div className="flex items-center space-x-3">
+                                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                                <User className="w-4 h-4 text-blue-600" />
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-muted-foreground">Full Name</p>
+                                                <p className="font-medium">{viewingUser.firstName} {viewingUser.lastName}</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center space-x-3">
+                                            <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                                                <Mail className="w-4 h-4 text-green-600" />
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-muted-foreground">Email Address</p>
+                                                <p className="font-medium">{viewingUser.email}</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center space-x-3">
+                                            <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                                                <Phone className="w-4 h-4 text-purple-600" />
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-muted-foreground">Phone Number</p>
+                                                <p className="font-medium">{viewingUser.phone || "Not provided"}</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center space-x-3">
+                                            <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+                                                <Calendar className="w-4 h-4 text-orange-600" />
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-muted-foreground">Date of Birth</p>
+                                                <p className="font-medium">{viewingUser.dateOfBirth || "Not provided"}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <h4 className="font-semibold text-sm text-muted-foreground">ACCOUNT DETAILS</h4>
+                                    
+                                    <div className="space-y-3">
+                                        <div className="flex items-center space-x-3">
+                                            <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
+                                                <Clock className="w-4 h-4 text-indigo-600" />
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-muted-foreground">Account Created</p>
+                                                <p className="font-medium">{formatDate(viewingUser.createdAt)}</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center space-x-3">
+                                            <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                                                <Activity className="w-4 h-4 text-red-600" />
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-muted-foreground">Account Status</p>
+                                                <div className="mt-1">
+                                                    <Badge className={getStatusColor(viewingUser.status)}>
+                                                        {viewingUser.status === 'onhold' && '⏳ Pending'}
+                                                        {viewingUser.status === 'active' && '✅ Active'}
+                                                        {viewingUser.status === 'inactive' && '📦 Archived'}
+                                                        {viewingUser.status === 'suspended' && '🚫 Suspended'}
+                                                    </Badge>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Member Notes Section */}
+                            {viewingUser.memberNotes && (
+                                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                                    <h4 className="font-semibold text-sm text-amber-800 mb-2 flex items-center">
+                                        <FileText className="w-4 h-4 mr-2" />
+                                        MEMBER NOTES
+                                    </h4>
+                                    <p className="text-sm text-amber-700 leading-relaxed">
+                                        {viewingUser.memberNotes}
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Quick Actions */}
+                            <div className="border-t pt-4">
+                                <h4 className="font-semibold text-sm text-muted-foreground mb-3">QUICK ACTIONS</h4>
+                                <div className="flex flex-wrap gap-2">
+                                    <Button 
+                                        variant="outline" 
+                                        size="sm"
+                                        onClick={() => quickActionMutation.mutate({ id: viewingUser.id, action: 'reset-password' })}
+                                        disabled={quickActionMutation.isPending}
+                                    >
+                                        <Key className="w-4 h-4 mr-2" />
+                                        Reset Password
+                                    </Button>
+                                    <Button 
+                                        variant="outline" 
+                                        size="sm"
+                                        onClick={() => quickActionMutation.mutate({ id: viewingUser.id, action: 'resend-invitation' })}
+                                        disabled={quickActionMutation.isPending}
+                                    >
+                                        <Mail className="w-4 h-4 mr-2" />
+                                        Resend Invitation
+                                    </Button>
+                                    {viewingUser.status === 'onhold' && (
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="text-green-600 border-green-300 hover:bg-green-50"
+                                            onClick={() => quickActionMutation.mutate({ id: viewingUser.id, action: 'approve' })}
+                                            disabled={quickActionMutation.isPending}
+                                        >
+                                            <CheckCircle className="w-4 h-4 mr-2" />
+                                            Approve User
+                                        </Button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </DialogContent>
             </Dialog>
 
