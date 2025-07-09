@@ -1,25 +1,62 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, DollarSign } from "lucide-react";
 import { getInitials, formatDate } from "@/lib/auth";
-import { Subscription, Member, Plan } from "@/types";
+import { apiRequest } from "@/lib/queryClient";
+
+type Payment = {
+  id: number;
+  subscriptionId: number;
+  userId: string;
+  amount: number;
+  paymentType: string;
+  paymentStatus: string;
+  transactionId?: string;
+  paymentDate?: string;
+  dueDate?: string;
+  discount?: number;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  member?: {
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+  subscription?: {
+    plan?: {
+      name: string;
+      price: number;
+    };
+  };
+};
 
 export default function AdminPayments() {
   const [searchTerm, setSearchTerm] = useState("");
-  const { data: subscriptions = [], isLoading } = useQuery<Subscription[]>({
-    queryKey: ["/api/subscriptions"],
+
+  const { data: payments = [], isLoading } = useQuery<Payment[]>({
+    queryKey: ["/api/payments"],
+    queryFn: () => apiRequest("GET", "/api/payments"),
   });
 
-  const { data: members = [] } = useQuery<Member[]>({
+  const { data: members = [] } = useQuery({
     queryKey: ["/api/members"],
+    queryFn: () => apiRequest("GET", "/api/members"),
   });
 
-  const { data: plans = [] } = useQuery<Plan[]>({
+  const { data: subscriptions = [] } = useQuery({
+    queryKey: ["/api/subscriptions"],
+    queryFn: () => apiRequest("GET", "/api/subscriptions"),
+  });
+
+  const { data: plans = [] } = useQuery({
     queryKey: ["/api/plans"],
+    queryFn: () => apiRequest("GET", "/api/plans"),
   });
 
   // Map members from snake_case to camelCase for UI
@@ -42,18 +79,24 @@ export default function AdminPayments() {
       }))
     : [];
 
-  // After fetching subscriptions, mappedMembers, and mappedPlans:
-  const mappedSubscriptions = Array.isArray(subscriptions) && Array.isArray(mappedMembers) && Array.isArray(mappedPlans)
-    ? subscriptions.map((sub: any) => ({
-        ...sub,
-        member: mappedMembers.find((m: any) => m.id === sub.user_id || m.id === sub.userId) || null,
-        plan: mappedPlans.find((p: any) => p.id === sub.plan_id || p.id === sub.planId) || null,
-      }))
+  // Map payments to include member and subscription/plan data
+  const mappedPayments = Array.isArray(payments) && Array.isArray(mappedMembers) && Array.isArray(subscriptions) && Array.isArray(mappedPlans)
+    ? payments.map((payment: any) => {
+        const member = mappedMembers.find((m: any) => m.id === payment.userId) || null;
+        const subscription = subscriptions.find((s: any) => s.id === payment.subscriptionId) || null;
+        const plan = subscription ? mappedPlans.find((p: any) => p.id === subscription.plan_id || p.id === subscription.planId) || null : null;
+        
+        return {
+          ...payment,
+          member,
+          subscription: subscription ? { ...subscription, plan } : null,
+        };
+      })
     : [];
 
-  // Replace filteredSubscriptions with mappedSubscriptions
-  const filteredPayments = mappedSubscriptions.filter((subscription) =>
-    `${subscription.member?.firstName || ''} ${subscription.member?.lastName || ''} ${subscription.plan?.name || ''}`
+  // Filter payments
+  const filteredPayments = mappedPayments.filter((payment) =>
+    `${payment.member?.firstName || ''} ${payment.member?.lastName || ''} ${payment.subscription?.plan?.name || ''}`
       .toLowerCase()
       .includes(searchTerm.toLowerCase())
   );
@@ -65,84 +108,124 @@ export default function AdminPayments() {
     }).format(Number(price));
   };
 
+  const getPaymentStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return 'bg-green-500';
+      case 'pending':
+        return 'bg-yellow-500';
+      case 'failed':
+        return 'bg-red-500';
+      case 'refunded':
+        return 'bg-blue-500';
+      case 'cancelled':
+        return 'bg-gray-500';
+      default:
+        return 'bg-gray-500';
+    }
+  };
+
+  const getPaymentStatusText = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return '✅ Paid';
+      case 'pending':
+        return '⏳ Pending';
+      case 'failed':
+        return '❌ Failed';
+      case 'refunded':
+        return '↩️ Refunded';
+      case 'cancelled':
+        return '🚫 Cancelled';
+      default:
+        return status;
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mb-4"></div>
+        <p className="text-muted-foreground">Loading payments...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-foreground mb-2">Payments</h1>
-          <p className="text-muted-foreground">Manage and review all subscription payments</p>
+          <p className="text-muted-foreground">Manage all payment transactions</p>
         </div>
       </div>
+
       <Card>
-        <CardContent className="p-6">
-          <div className="relative mb-4">
-            <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+        <CardHeader>
+          <CardTitle>All Payments</CardTitle>
+          <CardDescription>
+            {filteredPayments.length} of {mappedPayments.length} payments
+          </CardDescription>
+          <div className="flex items-center space-x-2">
+            <Search className="w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="Search payments..."
+              placeholder="Search by member name or plan..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+              className="max-w-sm"
             />
           </div>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Member</TableHead>
-                  <TableHead>Plan</TableHead>
-                  <TableHead>Amount Paid</TableHead>
-                  <TableHead>Payment Type</TableHead>
-                  <TableHead>Payment Date</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Notes</TableHead>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Member</TableHead>
+                <TableHead>Plan</TableHead>
+                <TableHead>Amount</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredPayments.map((payment) => (
+                <TableRow key={payment.id}>
+                  <TableCell>
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                        <span className="text-sm font-medium text-primary">
+                          {payment.member ? getInitials(payment.member.firstName, payment.member.lastName) : "?"}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="font-medium text-foreground">
+                          {payment.member?.firstName} {payment.member?.lastName}
+                        </p>
+                        <p className="text-sm text-muted-foreground">{payment.member?.email}</p>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <p className="font-medium text-foreground">{payment.subscription?.plan?.name || 'N/A'}</p>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center">
+                      <DollarSign className="w-4 h-4 mr-1 text-muted-foreground" />
+                      <span className="font-medium">{formatPrice(payment.amount)}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>{payment.paymentType || '-'}</TableCell>
+                  <TableCell>{payment.paymentDate ? formatDate(payment.paymentDate) : '-'}</TableCell>
+                  <TableCell>
+                    <Badge className={getPaymentStatusColor(payment.paymentStatus)}>
+                      {getPaymentStatusText(payment.paymentStatus)}
+                    </Badge>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredPayments.map((sub) => (
-                  <TableRow key={sub.id}>
-                    <TableCell>
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                          <span className="text-sm font-medium text-primary">
-                            {sub.member ? getInitials(sub.member.firstName, sub.member.lastName) : "?"}
-                          </span>
-                        </div>
-                        <div>
-                          <p className="font-medium text-foreground">
-                            {sub.member?.firstName} {sub.member?.lastName}
-                          </p>
-                          <p className="text-sm text-muted-foreground">{sub.member?.email}</p>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <p className="font-medium text-foreground">{sub.plan?.name}</p>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center">
-                        <DollarSign className="w-4 h-4 mr-1 text-muted-foreground" />
-                        <span className="font-medium">{formatPrice(sub.amountPaid || sub.plan?.price || 0)}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>{sub.paymentType || '-'}</TableCell>
-                    <TableCell>{sub.paymentDate ? formatDate(sub.paymentDate) : '-'}</TableCell>
-                    <TableCell>
-                      {(() => {
-                        const status = sub.paymentStatus || 'pending';
-                        const variant = status === 'paid' ? 'default' : status === 'pending' ? 'secondary' : 'destructive';
-                        return (
-                          <Badge variant={variant}>
-                            {status.charAt(0).toUpperCase() + status.slice(1)}
-                          </Badge>
-                        );
-                      })()}
-                    </TableCell>
-                    <TableCell>{sub.paymentNotes || '-'}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+              ))}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
     </div>

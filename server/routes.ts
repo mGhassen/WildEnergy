@@ -585,8 +585,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const token = req.headers.authorization?.split(' ')[1];
       console.log('Auth token:', token);
       if (!token) {
-        return res.status(401).json({ error: 'Authentication required' });
-      }
+      return res.status(401).json({ error: 'Authentication required' });
+    }
 
       // Verify the token with Supabase
       const { data: { user }, error: userError } = await supabase.auth.getUser(token);
@@ -616,7 +616,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: userProfile.status
       };
 
-      next();
+    next();
     } catch (error) {
       console.error('Auth middleware error:', error);
       return res.status(401).json({ error: 'Authentication failed' });
@@ -650,8 +650,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (!userProfile.is_admin) {
-        return res.status(403).json({ error: 'Admin access required' });
-      }
+      return res.status(403).json({ error: 'Admin access required' });
+    }
 
       // Attach user to request
       req.user = {
@@ -663,7 +663,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: userProfile.status
       };
 
-      next();
+    next();
     } catch (error) {
       console.error('Admin auth middleware error:', error);
       return res.status(401).json({ error: 'Authentication failed' });
@@ -1037,7 +1037,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     try {
       console.log("Received schedule creation request:", req.body);
-      const {
+      const { 
         classId, class_id,
         trainerId, trainer_id,
         dayOfWeek, day_of_week,
@@ -1478,7 +1478,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/subscriptions", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
     try {
       console.log("Creating subscription with data:", req.body);
-      const { userId, planId, startDate, endDate, sessionsRemaining, status, paymentStatus, notes } = req.body;
+      const { userId, planId, startDate, endDate, sessionsRemaining, status, notes } = req.body;
 
       // Validate required fields
       if (!userId || !planId) {
@@ -1493,7 +1493,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         end_date: new Date(endDate),
         sessions_remaining: parseInt(sessionsRemaining) || 0,
         status: (status || 'active'),
-        payment_status: (paymentStatus || 'pending'),
         notes: notes || null,
         created_at: new Date(),
         updated_at: new Date()
@@ -1506,6 +1505,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating subscription:", error);
       res.status(500).json({ error: "Failed to create subscription", details: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  console.log('Registering route: PUT /api/subscriptions/:id');
+  app.put("/api/subscriptions/:id", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { userId, planId, startDate, endDate, sessionsRemaining, status, notes } = req.body;
+
+      // Validate required fields
+      if (!userId || !planId) {
+        return res.status(400).json({ error: "userId and planId are required" });
+      }
+
+      const updates = {
+        user_id: userId,
+        plan_id: parseInt(planId),
+        start_date: new Date(startDate),
+        end_date: new Date(endDate),
+        sessions_remaining: parseInt(sessionsRemaining) || 0,
+        status: status,
+        notes: notes || null,
+        updated_at: new Date()
+      };
+
+      const subscription = await storage.updateSubscription(parseInt(id), updates);
+      res.json(subscription);
+    } catch (error) {
+      console.error("Error updating subscription:", error);
+      res.status(500).json({ error: "Failed to update subscription" });
+    }
+  });
+
+  console.log('Registering route: DELETE /api/subscriptions/:id');
+  app.delete("/api/subscriptions/:id", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteSubscription(parseInt(id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting subscription:", error);
+      res.status(500).json({ error: "Failed to delete subscription" });
     }
   });
 
@@ -1593,6 +1634,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching dashboard stats:", error);
       res.status(500).json({ error: "Failed to fetch dashboard stats" });
+    }
+  });
+
+  // Payments routes
+  console.log('Registering route: GET /api/payments');
+  app.get("/api/payments", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
+    try {
+      const payments = await storage.getPayments();
+      res.json(payments);
+    } catch (error) {
+      console.error("Error fetching payments:", error);
+      res.status(500).json({ error: "Failed to fetch payments" });
+    }
+  });
+
+  console.log('Registering route: GET /api/payments/subscription/:id');
+  app.get("/api/payments/subscription/:id", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const payments = await storage.getPaymentsBySubscription(parseInt(id));
+      res.json(payments);
+    } catch (error) {
+      console.error("Error fetching payments by subscription:", error);
+      res.status(500).json({ error: "Failed to fetch payments by subscription" });
+    }
+  });
+
+  console.log('Registering route: POST /api/payments');
+  app.post("/api/payments", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
+    try {
+      const paymentData = req.body;
+      const payment = await storage.createPayment(paymentData);
+      res.json(payment);
+    } catch (error) {
+      console.error("Error creating payment:", error);
+      res.status(500).json({ error: "Failed to create payment" });
+    }
+  });
+
+  console.log('Registering route: PUT /api/payments/:id');
+  app.put("/api/payments/:id", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      const payment = await storage.updatePayment(parseInt(id), updates);
+      res.json(payment);
+    } catch (error) {
+      console.error("Error updating payment:", error);
+      res.status(500).json({ error: "Failed to update payment" });
+    }
+  });
+
+  console.log('Registering route: DELETE /api/payments/:id');
+  app.delete("/api/payments/:id", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deletePayment(parseInt(id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting payment:", error);
+      res.status(500).json({ error: "Failed to delete payment" });
     }
   });
 

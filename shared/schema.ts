@@ -106,7 +106,24 @@ export const courses = pgTable("courses", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Subscriptions table
+// Payments table - separate from subscriptions to allow multiple payments
+export const payments = pgTable("payments", {
+  id: serial("id").primaryKey(),
+  subscriptionId: integer("subscription_id").references(() => subscriptions.id, { onDelete: "cascade" }).notNull(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  paymentType: text("payment_type").notNull().default("cash"),
+  paymentStatus: text("payment_status").notNull().default("pending"),
+  transactionId: text("transaction_id"),
+  paymentDate: date("payment_date"),
+  dueDate: date("due_date"),
+  discount: decimal("discount", { precision: 10, scale: 2 }).default("0"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Subscriptions table - updated to remove payment fields
 export const subscriptions = pgTable("subscriptions", {
   id: serial("id").primaryKey(),
   userId: uuid("user_id").references(() => users.id).notNull(), // Direct reference to users table
@@ -115,15 +132,9 @@ export const subscriptions = pgTable("subscriptions", {
   endDate: timestamp("end_date").notNull(),
   sessionsRemaining: integer("sessions_remaining").notNull(),
   status: text("status").notNull().default("active"), // 'active', 'expired', 'cancelled'
-  paymentStatus: text("payment_status").notNull().default("pending"), // 'pending', 'paid', 'failed'
   notes: text("notes"),
-  paymentType: text("payment_type"),
-  transactionId: text("transaction_id"),
-  amountPaid: decimal("amount_paid", { precision: 10, scale: 2 }),
-  paymentDate: date("payment_date"),
-  dueDate: date("due_date"),
-  discount: decimal("discount", { precision: 10, scale: 2 }),
-  paymentNotes: text("payment_notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Class registrations table
@@ -186,7 +197,7 @@ export const schedulesRelations = relations(schedules, ({ one, many }) => ({
   registrations: many(classRegistrations),
 }));
 
-export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({
+export const subscriptionsRelations = relations(subscriptions, ({ one, many }) => ({
   user: one(users, {
     fields: [subscriptions.userId],
     references: [users.id],
@@ -194,6 +205,18 @@ export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({
   plan: one(plans, {
     fields: [subscriptions.planId],
     references: [plans.id],
+  }),
+  payments: many(payments),
+}));
+
+export const paymentsRelations = relations(payments, ({ one }) => ({
+  subscription: one(subscriptions, {
+    fields: [payments.subscriptionId],
+    references: [subscriptions.id],
+  }),
+  user: one(users, {
+    fields: [payments.userId],
+    references: [users.id],
   }),
 }));
 
@@ -335,16 +358,6 @@ export const insertSubscriptionSchema = z.object({
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD'),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD'),
   status: z.enum(['active', 'expired', 'cancelled']).default('active'),
-  paymentStatus: z.enum(['pending', 'paid', 'failed']).default('pending'),
-  paymentType: z.string().min(1, 'Payment type is required'),
-  transactionId: z.string().optional(),
-  amountPaid: z.preprocess((v) => v === '' ? undefined : v, z.string().optional()),
-  paymentDate: z.string().optional(),
-  dueDate: z.string().optional(),
-  discount: z.preprocess((v) => v === '' ? undefined : v, z.string().optional()),
-  paymentNotes: z.string().optional(),
-  paymentMethod: z.string().optional(),
-  transactionId: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -378,3 +391,12 @@ export type InsertClassRegistration = z.infer<typeof insertClassRegistrationSche
 
 export type Checkin = typeof checkins.$inferSelect;
 export type InsertCheckin = z.infer<typeof insertCheckinSchema>;
+
+// Payment schemas
+export const insertPaymentSchema = createInsertSchema(payments, {
+  paymentType: z.enum(['cash', 'card', 'bank_transfer', 'check', 'other']),
+  paymentStatus: z.enum(['pending', 'completed', 'failed', 'refunded', 'cancelled']),
+});
+
+export type Payment = typeof payments.$inferSelect;
+export type InsertPayment = z.infer<typeof insertPaymentSchema>;
