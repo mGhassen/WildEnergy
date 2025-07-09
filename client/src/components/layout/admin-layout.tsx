@@ -44,6 +44,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     { name: "Courses", href: "/admin/courses", icon: BookOpen },
     { name: "Plans", href: "/admin/plans", icon: Package },
     { name: "Subscriptions", href: "/admin/subscriptions", icon: CreditCard },
+    { name: "Payments", href: "/admin/payments", icon: CreditCard },
     { name: "Check-ins", href: "/admin/checkins", icon: QrCode },
   ];
 
