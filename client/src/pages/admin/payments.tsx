@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Search, DollarSign } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Search, DollarSign, Filter, Calendar, TrendingUp, Users, CreditCard } from "lucide-react";
 import { getInitials, formatDate } from "@/lib/auth";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -36,8 +37,26 @@ type Payment = {
   };
 };
 
+type FilterState = {
+  searchTerm: string;
+  selectedMember: string;
+  selectedPlan: string;
+  selectedPaymentType: string;
+  selectedStatus: string;
+  dateFrom: string;
+  dateTo: string;
+};
+
 export default function AdminPayments() {
-  const [searchTerm, setSearchTerm] = useState("");
+  const [filters, setFilters] = useState<FilterState>({
+    searchTerm: "",
+    selectedMember: "all",
+    selectedPlan: "all",
+    selectedPaymentType: "all",
+    selectedStatus: "all",
+    dateFrom: "",
+    dateTo: "",
+  });
 
   const { data: payments = [], isLoading } = useQuery<Payment[]>({
     queryKey: ["/api/payments"],
@@ -94,12 +113,69 @@ export default function AdminPayments() {
       })
     : [];
 
-  // Filter payments
-  const filteredPayments = mappedPayments.filter((payment) =>
-    `${payment.member?.firstName || ''} ${payment.member?.lastName || ''} ${payment.subscription?.plan?.name || ''}`
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase())
-  );
+  // Filter payments based on all criteria
+  const filteredPayments = useMemo(() => {
+    return mappedPayments.filter((payment) => {
+      // Search term filter
+      const searchMatch = !filters.searchTerm || 
+        `${payment.member?.firstName || ''} ${payment.member?.lastName || ''} ${payment.subscription?.plan?.name || ''} ${payment.payment_type || ''}`
+          .toLowerCase()
+          .includes(filters.searchTerm.toLowerCase());
+
+      // Member filter
+      const memberMatch = filters.selectedMember === "all" || payment.user_id === filters.selectedMember;
+
+      // Plan filter
+      const planMatch = filters.selectedPlan === "all" || payment.subscription?.plan?.id === parseInt(filters.selectedPlan);
+
+      // Payment type filter
+      const paymentTypeMatch = filters.selectedPaymentType === "all" || payment.payment_type === filters.selectedPaymentType;
+
+      // Status filter
+      const statusMatch = filters.selectedStatus === "all" || payment.payment_status === filters.selectedStatus;
+
+      // Date range filter
+      let dateMatch = true;
+      if (filters.dateFrom && payment.payment_date) {
+        dateMatch = dateMatch && payment.payment_date >= filters.dateFrom;
+      }
+      if (filters.dateTo && payment.payment_date) {
+        dateMatch = dateMatch && payment.payment_date <= filters.dateTo;
+      }
+
+      return searchMatch && memberMatch && planMatch && paymentTypeMatch && statusMatch && dateMatch;
+    });
+  }, [mappedPayments, filters]);
+
+  // Calculate statistics
+  const stats = useMemo(() => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekStart = new Date(today.getTime() - (today.getDay() * 24 * 60 * 60 * 1000));
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const todayPayments = filteredPayments.filter(p => 
+      p.payment_date && new Date(p.payment_date) >= today
+    );
+    const weekPayments = filteredPayments.filter(p => 
+      p.payment_date && new Date(p.payment_date) >= weekStart
+    );
+    const monthPayments = filteredPayments.filter(p => 
+      p.payment_date && new Date(p.payment_date) >= monthStart
+    );
+
+    const completedPayments = filteredPayments.filter(p => p.payment_status === 'completed');
+
+    return {
+      total: completedPayments.reduce((sum, p) => sum + Number(p.amount), 0),
+      today: todayPayments.filter(p => p.payment_status === 'completed').reduce((sum, p) => sum + Number(p.amount), 0),
+      thisWeek: weekPayments.filter(p => p.payment_status === 'completed').reduce((sum, p) => sum + Number(p.amount), 0),
+      thisMonth: monthPayments.filter(p => p.payment_status === 'completed').reduce((sum, p) => sum + Number(p.amount), 0),
+      totalPayments: filteredPayments.length,
+      completedPayments: completedPayments.length,
+      uniqueMembers: new Set(filteredPayments.map(p => p.user_id)).size,
+    };
+  }, [filteredPayments]);
 
   const formatPrice = (price: string | number) => {
     return new Intl.NumberFormat('en-US', {
@@ -142,6 +218,18 @@ export default function AdminPayments() {
     }
   };
 
+  const clearFilters = () => {
+    setFilters({
+      searchTerm: "",
+      selectedMember: "all",
+      selectedPlan: "all",
+      selectedPaymentType: "all",
+      selectedStatus: "all",
+      dateFrom: "",
+      dateTo: "",
+    });
+  };
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-24">
@@ -160,21 +248,196 @@ export default function AdminPayments() {
         </div>
       </div>
 
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatPrice(stats.total)}</div>
+            <p className="text-xs text-muted-foreground">
+              {stats.completedPayments} completed payments
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">This Month</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatPrice(stats.thisMonth)}</div>
+            <p className="text-xs text-muted-foreground">
+              Monthly revenue
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">This Week</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatPrice(stats.thisWeek)}</div>
+            <p className="text-xs text-muted-foreground">
+              Weekly revenue
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Today</CardTitle>
+            <CreditCard className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatPrice(stats.today)}</div>
+            <p className="text-xs text-muted-foreground">
+              Daily revenue
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filters Card */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Filter className="h-5 w-5" />
+                Filters
+              </CardTitle>
+              <CardDescription>
+                Filter payments by various criteria
+              </CardDescription>
+            </div>
+            <Button variant="outline" onClick={clearFilters} size="sm">
+              Clear Filters
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+            {/* Search */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Search</label>
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search payments..."
+                  value={filters.searchTerm}
+                  onChange={(e) => setFilters(prev => ({ ...prev, searchTerm: e.target.value }))}
+                  className="pl-8"
+                />
+              </div>
+            </div>
+
+            {/* Member Filter */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Member</label>
+              <Select value={filters.selectedMember} onValueChange={(value) => setFilters(prev => ({ ...prev, selectedMember: value }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All members" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All members</SelectItem>
+                  {mappedMembers.map((member) => (
+                    <SelectItem key={member.id} value={member.id}>
+                      {member.firstName} {member.lastName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Plan Filter */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Plan</label>
+              <Select value={filters.selectedPlan} onValueChange={(value) => setFilters(prev => ({ ...prev, selectedPlan: value }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All plans" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All plans</SelectItem>
+                  {mappedPlans.map((plan) => (
+                    <SelectItem key={plan.id} value={plan.id.toString()}>
+                      {plan.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Payment Type Filter */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Payment Type</label>
+              <Select value={filters.selectedPaymentType} onValueChange={(value) => setFilters(prev => ({ ...prev, selectedPaymentType: value }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All types</SelectItem>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="card">Card</SelectItem>
+                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                  <SelectItem value="check">Check</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Status Filter */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Status</label>
+              <Select value={filters.selectedStatus} onValueChange={(value) => setFilters(prev => ({ ...prev, selectedStatus: value }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All statuses</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="failed">Failed</SelectItem>
+                  <SelectItem value="refunded">Refunded</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Date Range */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Date Range</label>
+              <div className="space-y-1">
+                <Input
+                  type="date"
+                  placeholder="From"
+                  value={filters.dateFrom}
+                  onChange={(e) => setFilters(prev => ({ ...prev, dateFrom: e.target.value }))}
+                />
+                <Input
+                  type="date"
+                  placeholder="To"
+                  value={filters.dateTo}
+                  onChange={(e) => setFilters(prev => ({ ...prev, dateTo: e.target.value }))}
+                />
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Payments Table */}
       <Card>
         <CardHeader>
           <CardTitle>All Payments</CardTitle>
           <CardDescription>
             {filteredPayments.length} of {mappedPayments.length} payments
           </CardDescription>
-          <div className="flex items-center space-x-2">
-            <Search className="w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by member name or plan..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="max-w-sm"
-            />
-          </div>
         </CardHeader>
         <CardContent>
           <Table>

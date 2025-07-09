@@ -76,8 +76,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             const Icon = item.icon;
             return (
               <Link key={item.name} href={item.href}>
-                <a
-                  className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                <div
+                  className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
                     isActive(item.href)
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:text-foreground hover:bg-accent"
@@ -85,7 +85,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                 >
                   <Icon className="w-5 h-5" />
                   <span>{item.name}</span>
-                </a>
+                </div>
               </Link>
             );
           })}
