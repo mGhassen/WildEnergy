@@ -928,100 +928,59 @@ export default function UsersPage() {
                                 </div>
                             </div>
 
-                            {/* Personal Information */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-4">
-                                    <h4 className="font-semibold text-sm text-muted-foreground">PERSONAL INFORMATION</h4>
-                                    
-                                    <div className="space-y-3">
-                                        <div className="flex items-center space-x-3">
-                                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                                                <User className="w-4 h-4 text-blue-600" />
-                                            </div>
-                                            <div>
-                                                <p className="text-xs text-muted-foreground">Full Name</p>
-                                                <p className="font-medium">{viewingUser.firstName} {viewingUser.lastName}</p>
-                                            </div>
+                            {/* Personal Information (single column) */}
+                            <div className="space-y-4">
+                                <h4 className="font-semibold text-sm text-muted-foreground">PERSONAL INFORMATION</h4>
+                                <div className="space-y-3">
+                                    <div className="flex items-center space-x-3">
+                                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                            <User className="w-4 h-4 text-blue-600" />
                                         </div>
-
-                                        <div className="flex items-center space-x-3">
-                                            <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                                                <Mail className="w-4 h-4 text-green-600" />
-                                            </div>
-                                            <div>
-                                                <p className="text-xs text-muted-foreground">Email Address</p>
-                                                <p className="font-medium">{viewingUser.email}</p>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex items-center space-x-3">
-                                            <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-                                                <Phone className="w-4 h-4 text-purple-600" />
-                                            </div>
-                                            <div>
-                                                <p className="text-xs text-muted-foreground">Phone Number</p>
-                                                <p className="font-medium">{viewingUser.phone || "Not provided"}</p>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex items-center space-x-3">
-                                            <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
-                                                <Calendar className="w-4 h-4 text-orange-600" />
-                                            </div>
-                                            <div>
-                                                <p className="text-xs text-muted-foreground">Date of Birth</p>
-                                                <p className="font-medium">{viewingUser.dateOfBirth || "Not provided"}</p>
-                                            </div>
+                                        <div>
+                                            <p className="text-xs text-muted-foreground">Full Name</p>
+                                            <p className="font-medium">{viewingUser.firstName} {viewingUser.lastName}</p>
                                         </div>
                                     </div>
-                                </div>
-
-                                <div className="space-y-4">
-                                    <h4 className="font-semibold text-sm text-muted-foreground">ACCOUNT DETAILS</h4>
-                                    
-                                    <div className="space-y-3">
-                                        <div className="flex items-center space-x-3">
-                                            <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
-                                                <Clock className="w-4 h-4 text-indigo-600" />
-                                            </div>
-                                            <div>
-                                                <p className="text-xs text-muted-foreground">Account Created</p>
-                                                <p className="font-medium">{formatDate(viewingUser.createdAt)}</p>
-                                            </div>
+                                    <div className="flex items-center space-x-3">
+                                        <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                                            <Mail className="w-4 h-4 text-green-600" />
                                         </div>
-
-                                        <div className="flex items-center space-x-3">
-                                            <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
-                                                <Activity className="w-4 h-4 text-red-600" />
-                                            </div>
-                                            <div>
-                                                <p className="text-xs text-muted-foreground">Account Status</p>
-                                                <div className="mt-1">
-                                                    <Badge className={getStatusColor(viewingUser.status)}>
-                                                        {viewingUser.status === 'onhold' && '⏳ Pending'}
-                                                        {viewingUser.status === 'active' && '✅ Active'}
-                                                        {viewingUser.status === 'inactive' && '📦 Archived'}
-                                                        {viewingUser.status === 'suspended' && '🚫 Suspended'}
-                                                    </Badge>
-                                                </div>
-                                            </div>
+                                        <div>
+                                            <p className="text-xs text-muted-foreground">Email Address</p>
+                                            <p className="font-medium">{viewingUser.email}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center space-x-3">
+                                        <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                                            <Phone className="w-4 h-4 text-purple-600" />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-muted-foreground">Phone Number</p>
+                                            <p className="font-medium">{viewingUser.phone || "Not provided"}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center space-x-3">
+                                        <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+                                            <Calendar className="w-4 h-4 text-orange-600" />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-muted-foreground">Date of Birth</p>
+                                            <p className="font-medium">{viewingUser.dateOfBirth || "Not provided"}</p>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Member Notes Section */}
-                            {viewingUser.memberNotes && (
-                                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                                    <h4 className="font-semibold text-sm text-amber-800 mb-2 flex items-center">
-                                        <FileText className="w-4 h-4 mr-2" />
-                                        MEMBER NOTES
-                                    </h4>
-                                    <p className="text-sm text-amber-700 leading-relaxed">
-                                        {viewingUser.memberNotes}
-                                    </p>
-                                </div>
-                            )}
+                            {/* Member Notes Section (always shown) */}
+                            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                                <h4 className="font-semibold text-sm text-amber-800 mb-2 flex items-center">
+                                    <FileText className="w-4 h-4 mr-2" />
+                                    MEMBER NOTES
+                                </h4>
+                                <p className="text-sm text-amber-700 leading-relaxed min-h-[32px]">
+                                    {viewingUser.memberNotes?.trim() ? viewingUser.memberNotes : <span className="italic text-amber-400">No notes for this user.</span>}
+                                </p>
+                            </div>
 
                             {/* Quick Actions */}
                             <div className="border-t pt-4">
