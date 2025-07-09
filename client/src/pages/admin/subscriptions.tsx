@@ -450,7 +450,7 @@ export default function AdminSubscriptions() {
                 <TableHead>Plan</TableHead>
                 <TableHead>Start Date</TableHead>
                 <TableHead>End Date</TableHead>
-                <TableHead>Sessions</TableHead>
+                <TableHead>Sessions Remaining</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -493,9 +493,9 @@ export default function AdminSubscriptions() {
                   <TableCell>{formatDate(subscription.end_date)}</TableCell>
                   <TableCell>
                     <div className="text-center">
-                      <div className="font-medium">{subscription.sessions_remaining}</div>
+                      <div className="font-medium text-lg">{subscription.sessions_remaining}</div>
                       <div className="text-sm text-muted-foreground">
-                        of {subscription.plan?.sessionsIncluded || 0}
+                        remaining
                       </div>
                     </div>
                   </TableCell>
