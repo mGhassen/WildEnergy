@@ -491,46 +491,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update user (admin only)
-  app.put('/api/users/:id', async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { firstName, lastName, role, status } = req.body;
-
-      // Verify admin access (same as above)
-      const token = req.headers.authorization?.split(' ')[1];
-      if (!token) {
-        return res.status(401).json({ error: 'No token provided' });
-      }
-
-      const { data: { user: adminUser }, error: authError } = await supabase.auth.getUser(token);
-      if (authError || !adminUser) {
-        return res.status(401).json({ error: 'Invalid or expired token' });
-      }
-
-      // Update user profile
-      const { data: user, error: updateError } = await supabase
-        .from('users')
-        .update({
-          first_name: firstName,
-          last_name: lastName,
-          is_admin: role === 'admin',
-          status: status || 'active',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (updateError) throw updateError;
-
-      res.json(user);
-    } catch (error) {
-      console.error('Error updating user:', error);
-      res.status(500).json({ error: 'Failed to update user' });
-    }
-  });
-
   // Delete user (admin only)
   app.delete('/api/users/:id', async (req, res) => {
     try {
@@ -746,27 +706,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   console.log('Registering route: PUT /api/users/:id');
-  app.put("/api/users/:id", requireAdmin, async (req: any, res) => {
+  app.put("/api/users/:id", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
     try {
       const { id } = req.params;
-      const updates = req.body;
+      const { firstName, lastName, email, phone, dateOfBirth, memberNotes, isAdmin, isMember, isTrainer, status } = req.body;
+      
+      // Map camelCase to snake_case for database
+      const updates: any = {};
+      if (firstName !== undefined) updates.first_name = firstName;
+      if (lastName !== undefined) updates.last_name = lastName;
+      if (email !== undefined) updates.email = email;
+      if (phone !== undefined) updates.phone = phone;
+      if (dateOfBirth !== undefined) updates.date_of_birth = dateOfBirth;
+      if (memberNotes !== undefined) updates.member_notes = memberNotes;
+      if (isAdmin !== undefined) updates.is_admin = isAdmin;
+      if (isMember !== undefined) updates.is_member = isMember;
+      if (isTrainer !== undefined) updates.is_trainer = isTrainer;
+      if (status !== undefined) updates.status = status;
+      
       const user = await storage.updateUser(id, updates);
       res.json(user);
     } catch (error) {
       console.error("Error updating user:", error);
       res.status(500).json({ error: "Failed to update user" });
-    }
-  });
-
-  console.log('Registering route: DELETE /api/users/:id');
-  app.delete("/api/users/:id", requireAdmin, async (req: any, res) => {
-    try {
-      const { id } = req.params;
-      await storage.deleteUser(id);
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error deleting user:", error);
-      res.status(500).json({ error: "Failed to delete user" });
     }
   });
 
