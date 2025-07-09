@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Users, UserCheck, TrendingUp, Calendar, Clock, ChevronLeft, ChevronRight } from "lucide-react";
 import { formatDateTime, formatTime, formatDate } from "@/lib/auth";
 import { useState } from "react";
-import { apiRequest } from "@/lib/api";
+import { apiRequest } from "@/lib/queryClient";
 
 interface DashboardStats {
   totalUsers: number;

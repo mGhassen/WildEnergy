@@ -2,7 +2,7 @@ import type {
   User, InsertUser, Trainer, InsertTrainer, Category, InsertCategory,
   Plan, InsertPlan, Class, InsertClass, Schedule, InsertSchedule, 
   Course, InsertCourse, Subscription, InsertSubscription, ClassRegistration, InsertClassRegistration, 
-  Checkin, InsertCheckin
+  Checkin, InsertCheckin, Payment, InsertPayment
 } from "@shared/schema";
 import { supabase } from "./supabase";
 
@@ -70,6 +70,16 @@ export interface IStorage {
   getUserActiveSubscription(userId: string): Promise<Subscription | undefined>;
   createSubscription(subscription: InsertSubscription): Promise<Subscription>;
   updateSubscription(id: number, updates: Partial<InsertSubscription>): Promise<Subscription>;
+  deleteSubscription(id: number): Promise<void>;
+
+  // Payments
+  getPayments(): Promise<Payment[]>;
+  getPayment(id: number): Promise<Payment | undefined>;
+  getPaymentsBySubscription(subscriptionId: number): Promise<Payment[]>;
+  getPaymentsByUser(userId: string): Promise<Payment[]>;
+  createPayment(payment: InsertPayment): Promise<Payment>;
+  updatePayment(id: number, updates: Partial<InsertPayment>): Promise<Payment>;
+  deletePayment(id: number): Promise<void>;
 
   // Class Registrations
   getClassRegistrations(userId?: string): Promise<ClassRegistration[]>;
@@ -1104,6 +1114,127 @@ export class DatabaseStorage implements IStorage {
     }
 
     return subscription as Subscription;
+  }
+
+  async deleteSubscription(id: number): Promise<void> {
+    const { error } = await supabase
+      .from('subscriptions')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting subscription:', error);
+      throw new Error(error.message || 'Failed to delete subscription');
+    }
+  }
+
+  async getPayments(): Promise<Payment[]> {
+    const { data: payments, error } = await supabase
+      .from('payments')
+      .select('*')
+      .order('payment_date', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching payments:', error);
+      throw new Error(error.message || 'Failed to fetch payments');
+    }
+
+    return payments || [];
+  }
+
+  async getPayment(id: number): Promise<Payment | undefined> {
+    const { data: payment, error } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching payment:', error);
+      return undefined;
+    }
+
+    return payment as Payment | undefined;
+  }
+
+  async getPaymentsBySubscription(subscriptionId: number): Promise<Payment[]> {
+    const { data: payments, error } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('subscription_id', subscriptionId)
+      .order('payment_date', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching payments by subscription:', error);
+      throw new Error(error.message || 'Failed to fetch payments by subscription');
+    }
+
+    return payments || [];
+  }
+
+  async getPaymentsByUser(userId: string): Promise<Payment[]> {
+    const { data: payments, error } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('user_id', userId)
+      .order('payment_date', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching payments by user:', error);
+      throw new Error(error.message || 'Failed to fetch payments by user');
+    }
+
+    return payments || [];
+  }
+
+  async createPayment(payment: InsertPayment): Promise<Payment> {
+    const { data: newPayment, error } = await supabase
+      .from('payments')
+      .insert({
+        ...payment,
+        payment_date: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating payment:', error);
+      throw new Error(error.message || 'Failed to create payment');
+    }
+
+    return newPayment as Payment;
+  }
+
+  async updatePayment(id: number, updates: Partial<InsertPayment>): Promise<Payment> {
+    const { data: payment, error } = await supabase
+      .from('payments')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating payment:', error);
+      throw new Error(error.message || 'Failed to update payment');
+    }
+
+    return payment as Payment;
+  }
+
+  async deletePayment(id: number): Promise<void> {
+    const { error } = await supabase
+      .from('payments')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting payment:', error);
+      throw new Error(error.message || 'Failed to delete payment');
+    }
   }
 
   async getClassRegistrations(userId?: string): Promise<ClassRegistration[]> {
