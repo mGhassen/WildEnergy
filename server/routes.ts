@@ -1485,17 +1485,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "userId and planId are required" });
       }
 
-      // Convert dates from ISO strings to Date objects
+      // Accept startDate and endDate as 'YYYY-MM-DD 00:00:00' and convert to Date objects for DB
       const subscriptionData = {
-        userId,
-        planId: parseInt(planId),
-        startDate: new Date(startDate).toISOString(),
-        endDate: new Date(endDate).toISOString(),
-        sessionsRemaining: parseInt(sessionsRemaining) || 0,
-        status: (status || 'active') as 'active' | 'expired' | 'cancelled',
-        paymentStatus: (paymentStatus || 'pending') as 'pending' | 'paid' | 'failed',
-        paymentMethod: undefined,
-        transactionId: undefined
+        user_id: userId,
+        plan_id: parseInt(planId),
+        start_date: new Date(startDate),
+        end_date: new Date(endDate),
+        sessions_remaining: parseInt(sessionsRemaining) || 0,
+        status: (status || 'active'),
+        payment_status: (paymentStatus || 'pending'),
+        notes: notes || null,
+        created_at: new Date(),
+        updated_at: new Date()
       };
 
       console.log("Processed subscription data:", subscriptionData);

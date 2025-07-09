@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertSubscriptionSchema } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
@@ -17,10 +17,56 @@ import { getInitials, formatDate } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 
-const subscriptionFormSchema = insertSubscriptionSchema.extend({
-  planId: z.string().transform((val) => parseInt(val)),
-}).omit({ userId: true }).extend({
-  memberId: z.string().min(1, "Member is required"),
+// Type definitions
+
+type Member = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  status: string;
+};
+
+type Plan = {
+  id: number;
+  name: string;
+  price: number;
+  sessionsIncluded: number;
+  durationDays: number;
+  duration: number; // Added for the new duration display
+};
+
+type Subscription = {
+  id: number;
+  member: Member;
+  plan: Plan;
+  startDate: string;
+  endDate: string;
+  sessionsRemaining: number;
+  isActive: boolean;
+  notes?: string;
+  paymentType?: string;
+  transactionId?: string;
+  amountPaid?: string;
+  paymentDate?: string;
+  dueDate?: string;
+  discount?: string;
+  paymentNotes?: string;
+};
+
+const subscriptionFormSchema = z.object({
+  userId: z.string().min(1, "Member is required"),
+  planId: z.string().min(1, "Plan is required"),
+  startDate: z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/, "Invalid date"),
+  notes: z.string().optional(),
+  paymentType: z.string().min(1, 'Payment type is required'),
+  transactionId: z.string().optional(),
+  amountPaid: z.string().optional(),
+  paymentDate: z.string().optional(),
+  dueDate: z.string().optional(),
+  discount: z.string().optional(),
+  paymentNotes: z.string().optional(),
+  status: z.enum(['active', 'pending', 'cancelled', 'expired']).default('pending'),
 });
 type SubscriptionFormData = z.infer<typeof subscriptionFormSchema>;
 
@@ -30,31 +76,51 @@ export default function AdminSubscriptions() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: subscriptions, isLoading } = useQuery({
+  const { data: subscriptions = [], isLoading } = useQuery<Subscription[]>({
     queryKey: ["/api/subscriptions"],
   });
 
-  const { data: members } = useQuery({
+  const { data: members = [] } = useQuery<Member[]>({
     queryKey: ["/api/members"],
   });
 
-  const { data: plans } = useQuery({
+  const { data: plans = [] } = useQuery<Plan[]>({
     queryKey: ["/api/plans"],
   });
 
-  const form = useForm<any>({
+  // Map snake_case fields to camelCase for UI
+  const mappedPlans = Array.isArray(plans)
+    ? plans.map((plan: any) => ({
+        ...plan,
+        sessionsIncluded: plan.max_sessions ?? plan.sessionsIncluded ?? 0,
+        duration: plan.duration_days ?? plan.duration ?? 0,
+      }))
+    : [];
+
+  // Debug: log plans and mappedPlans
+  console.log('plans', plans);
+  console.log('mappedPlans', mappedPlans);
+
+  const form = useForm<SubscriptionFormData>({
     resolver: zodResolver(subscriptionFormSchema),
     defaultValues: {
-      memberId: "",
+      userId: "",
       planId: "",
-      startDate: new Date(),
-      endDate: new Date(),
-      sessionsRemaining: 0,
+      startDate: new Date().toISOString().split('T')[0],
+      notes: "",
+      paymentType: "cash",
+      transactionId: "",
+      amountPaid: "",
+      paymentDate: "",
+      dueDate: "",
+      discount: "",
+      paymentNotes: "",
+      status: "pending",
     },
   });
 
   const createSubscriptionMutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: SubscriptionFormData) => {
       return await apiRequest("POST", "/api/subscriptions", data);
     },
     onSuccess: () => {
@@ -72,15 +138,14 @@ export default function AdminSubscriptions() {
     },
   });
 
-  const filteredSubscriptions = subscriptions?.filter((subscription: any) =>
+  const filteredSubscriptions = subscriptions.filter((subscription) =>
     `${subscription.member?.firstName} ${subscription.member?.lastName} ${subscription.plan?.name}`
       .toLowerCase()
       .includes(searchTerm.toLowerCase())
-  ) || [];
+  );
 
-  const handleSubmit = (data: any) => {
-    // Validate required fields
-    if (!data.memberId || !data.planId) {
+  const handleSubmit = (data: SubscriptionFormData) => {
+    if (!data.userId || !data.planId) {
       toast({
         title: "Validation Error",
         description: "Please select both member and plan",
@@ -88,9 +153,7 @@ export default function AdminSubscriptions() {
       });
       return;
     }
-    
-    // Calculate end date based on plan duration
-    const selectedPlan = plans?.find((plan: any) => plan.id === parseInt(data.planId));
+    const selectedPlan = mappedPlans.find((plan) => plan.id === parseInt(data.planId));
     if (!selectedPlan) {
       toast({
         title: "Error",
@@ -99,21 +162,34 @@ export default function AdminSubscriptions() {
       });
       return;
     }
-    
-    const endDate = new Date(data.startDate);
-    endDate.setDate(endDate.getDate() + selectedPlan.durationDays);
-    
-    // Convert to the correct format for the API
+    if (!data.startDate) {
+      toast({
+        title: "Validation Error",
+        description: "Please select a start date",
+        variant: "destructive"
+      });
+      return;
+    }
+    // Calculate end date by adding plan duration (in days) to start date
+    const startDateObj = new Date(data.startDate);
+    startDateObj.setDate(startDateObj.getDate() + Number(selectedPlan.duration));
+    const endDateStr = startDateObj.toISOString().split('T')[0];
+
     const submitData = {
-      userId: data.memberId,
-      planId: selectedPlan.id,
-      startDate: data.startDate instanceof Date ? data.startDate.toISOString() : data.startDate,
-      endDate: endDate.toISOString(),
-      sessionsRemaining: selectedPlan.sessionsIncluded,
-      status: 'active',
-      paymentStatus: 'pending'
+      userId: data.userId,
+      planId: data.planId,
+      startDate: data.startDate,
+      endDate: endDateStr,
+      notes: data.notes,
+      paymentType: data.paymentType,
+      transactionId: data.transactionId,
+      amountPaid: data.amountPaid,
+      paymentDate: data.paymentDate,
+      dueDate: data.dueDate,
+      discount: data.discount,
+      paymentNotes: data.paymentNotes,
+      status: data.status,
     };
-    
     createSubscriptionMutation.mutate(submitData);
   };
 
@@ -129,7 +205,7 @@ export default function AdminSubscriptions() {
     }).format(Number(price));
   };
 
-  const getStatusColor = (subscription: any) => {
+  const getStatusColor = (subscription: Subscription) => {
     if (!subscription.isActive) return "secondary";
     const now = new Date();
     const endDate = new Date(subscription.endDate);
@@ -137,7 +213,7 @@ export default function AdminSubscriptions() {
     return "default";
   };
 
-  const getStatusText = (subscription: any) => {
+  const getStatusText = (subscription: Subscription) => {
     if (!subscription.isActive) return "Inactive";
     const now = new Date();
     const endDate = new Date(subscription.endDate);
@@ -159,7 +235,7 @@ export default function AdminSubscriptions() {
               Add Subscription
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className="sm:max-w-3xl">
             <DialogHeader>
               <DialogTitle>Add New Subscription</DialogTitle>
               <DialogDescription>
@@ -167,78 +243,259 @@ export default function AdminSubscriptions() {
               </DialogDescription>
             </DialogHeader>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="memberId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Member</FormLabel>
-                      <Select onValueChange={(value) => field.onChange(value)} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select member" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {members?.filter((member: any) => member.status === 'active').map((member: any) => (
-                            <SelectItem key={member.id} value={member.id}>
-                              {member.firstName} {member.lastName} ({member.email})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="planId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Plan</FormLabel>
-                      <Select onValueChange={(value) => field.onChange(value)} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select plan" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {plans?.map((plan: any) => (
-                            <SelectItem key={plan.id} value={plan.id.toString()}>
-                              {plan.name} - {formatPrice(plan.price)} ({plan.sessionsIncluded} sessions)
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="startDate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Start Date</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="date" 
-                          {...field} 
-                          value={field.value instanceof Date ? field.value.toISOString().split('T')[0] : field.value}
-                          onChange={(e) => field.onChange(new Date(e.target.value))}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <DialogFooter>
-                  <Button 
-                    type="submit" 
+              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Left: Subscription Details */}
+                  <div className="space-y-4 bg-card rounded-lg p-4 shadow-sm border">
+                    <h3 className="font-bold text-lg mb-2">Subscription Details</h3>
+                    <Controller
+                      name="userId"
+                      control={form.control}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Member</FormLabel>
+                          <Select
+                            value={field.value}
+                            onValueChange={val => {
+                              field.onChange(val);
+                              field.onBlur();
+                            }}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select member" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {members.filter((member) => member.status === 'active').map((member) => (
+                                <SelectItem key={member.id} value={member.id}>
+                                  {member.firstName} {member.lastName} ({member.email})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <Controller
+                      name="planId"
+                      control={form.control}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Plan</FormLabel>
+                          <Select
+                            value={field.value}
+                            onValueChange={val => {
+                              field.onChange(val);
+                              field.onBlur();
+                            }}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select plan" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {mappedPlans.map((plan) => (
+                                <SelectItem key={plan.id} value={plan.id.toString()}>
+                                  {plan.name} - {formatPrice(plan.price)} ({plan.sessionsIncluded || 0} sessions, {plan.duration || 0} days)
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="startDate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Start Date</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="date"
+                              value={field.value || ''}
+                              onChange={e => field.onChange(e.target.value)}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="notes"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Notes</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="text"
+                              placeholder="Optional notes..."
+                              value={field.value || ''}
+                              onChange={e => field.onChange(e.target.value)}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="status"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Status</FormLabel>
+                          <Select
+                            value={field.value}
+                            onValueChange={val => {
+                              field.onChange(val);
+                              field.onBlur();
+                            }}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select status" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="active">Active</SelectItem>
+                              <SelectItem value="pending">Pending</SelectItem>
+                              <SelectItem value="cancelled">Cancelled</SelectItem>
+                              <SelectItem value="expired">Expired</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    {/* Show plan info if selected */}
+                    {(() => {
+                      const planId = form.watch('planId');
+                      if (!planId) {
+                        return <div className="text-sm text-muted-foreground border-t pt-2 mt-2">Select a plan to see details.</div>;
+                      }
+                      const plan = mappedPlans.find((p) => p.id === parseInt(planId));
+                      if (!plan) return null;
+                      return (
+                        <div className="text-sm text-muted-foreground border-t pt-2 mt-2">
+                          <div>Sessions included: <b>{plan.sessionsIncluded || 0}</b></div>
+                          <div>Duration: <b>{plan.duration || 0} days</b></div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                  {/* Right: Payment Info */}
+                  <div className="space-y-4 bg-card rounded-lg p-4 shadow-sm border">
+                    <h3 className="font-bold text-lg mb-2">Payment Info</h3>
+                    <div className="grid grid-cols-1 gap-3">
+                      <FormField
+                        control={form.control}
+                        name="paymentType"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Payment Type</FormLabel>
+                            <FormControl>
+                              <select {...field} className="input w-full">
+                                <option value="cash">Cash</option>
+                                <option value="credit_card">Credit Card</option>
+                                <option value="bank_transfer">Bank Transfer</option>
+                                <option value="online">Online</option>
+                              </select>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="transactionId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Transaction ID</FormLabel>
+                            <FormControl>
+                              <Input type="text" placeholder="Transaction ID (if any)" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="amountPaid"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Amount Paid</FormLabel>
+                            <FormControl>
+                              <Input type="number" step="0.01" placeholder="Amount paid" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="paymentDate"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Payment Date</FormLabel>
+                            <FormControl>
+                              <Input type="date" placeholder="YYYY-MM-DD" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="dueDate"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Due Date</FormLabel>
+                            <FormControl>
+                              <Input type="date" placeholder="YYYY-MM-DD" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="discount"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Discount</FormLabel>
+                            <FormControl>
+                              <Input type="number" step="0.01" placeholder="Discount amount" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="paymentNotes"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Payment Notes</FormLabel>
+                            <FormControl>
+                              <Input type="text" placeholder="Payment-specific notes..." {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter className="pt-4">
+                  <Button
+                    type="submit"
                     disabled={createSubscriptionMutation.isPending}
-
+                    className="w-full md:w-auto ml-auto"
                   >
                     {createSubscriptionMutation.isPending ? "Creating..." : "Create Subscription"}
                   </Button>
@@ -269,7 +526,7 @@ export default function AdminSubscriptions() {
         <CardHeader>
           <CardTitle>All Subscriptions</CardTitle>
           <CardDescription>
-            {filteredSubscriptions.length} of {subscriptions?.length || 0} subscriptions
+            {filteredSubscriptions.length} of {subscriptions.length} subscriptions
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -295,10 +552,17 @@ export default function AdminSubscriptions() {
                   <TableHead>Sessions</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Amount</TableHead>
+                  <TableHead>Notes</TableHead>
+                  <TableHead>Payment Type</TableHead>
+                  <TableHead>Amount Paid</TableHead>
+                  <TableHead>Payment Date</TableHead>
+                  <TableHead>Due Date</TableHead>
+                  <TableHead>Discount</TableHead>
+                  <TableHead>Payment Notes</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredSubscriptions.map((subscription: any) => (
+                {filteredSubscriptions.map((subscription) => (
                   <TableRow key={subscription.id}>
                     <TableCell>
                       <div className="flex items-center space-x-3">
@@ -347,6 +611,15 @@ export default function AdminSubscriptions() {
                         <span className="font-medium">{formatPrice(subscription.plan?.price || 0)}</span>
                       </div>
                     </TableCell>
+                    <TableCell>
+                      <span className="text-sm text-muted-foreground">{subscription.notes || ''}</span>
+                    </TableCell>
+                    <TableCell>{subscription.paymentType || ''}</TableCell>
+                    <TableCell>{subscription.amountPaid || ''}</TableCell>
+                    <TableCell>{subscription.paymentDate || ''}</TableCell>
+                    <TableCell>{subscription.dueDate || ''}</TableCell>
+                    <TableCell>{subscription.discount || ''}</TableCell>
+                    <TableCell>{subscription.paymentNotes || ''}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
