@@ -17,8 +17,8 @@ export default function MemberClasses() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: schedules, isLoading } = useQuery({
-    queryKey: ["/api/schedules"],
+  const { data: courses, isLoading } = useQuery({
+    queryKey: ["/api/courses"],
   });
 
   const { data: subscription } = useQuery({
@@ -30,8 +30,8 @@ export default function MemberClasses() {
   });
 
   const registerMutation = useMutation({
-    mutationFn: async (scheduleId: number) => {
-      const response = await apiRequest("POST", "/api/registrations", { scheduleId });
+    mutationFn: async (courseId: number) => {
+      const response = await apiRequest("POST", "/api/registrations", { courseId });
       return response.json();
     },
     onSuccess: () => {
@@ -50,20 +50,21 @@ export default function MemberClasses() {
     },
   });
 
-  const registeredScheduleIds = new Set(registrations?.map((reg: any) => reg.schedule?.id) || []);
+  const registeredCourseIds = new Set(registrations?.map((reg: any) => reg.course?.id) || []);
 
-  const filteredSchedules = schedules?.filter((schedule: any) => {
-    const matchesSearch = `${schedule.class?.name} ${schedule.trainer?.firstName} ${schedule.trainer?.lastName}`
+  const filteredCourses = courses?.filter((course: any) => {
+    const matchesSearch = `${course.class?.name} ${course.trainer?.firstName} ${course.trainer?.lastName}`
       .toLowerCase()
       .includes(searchTerm.toLowerCase());
     
-    const matchesCategory = !categoryFilter || categoryFilter === "all" || schedule.class?.category === categoryFilter;
-    const matchesDay = !dayFilter || dayFilter === "all" || schedule.dayOfWeek.toString() === dayFilter;
+    const matchesCategory = !categoryFilter || categoryFilter === "all" || course.class?.category === categoryFilter;
+    const courseDate = new Date(course.course_date);
+    const matchesDay = !dayFilter || dayFilter === "all" || courseDate.getDay().toString() === dayFilter;
     
-    return matchesSearch && matchesCategory && matchesDay && schedule.isActive;
+    return matchesSearch && matchesCategory && matchesDay && course.is_active;
   }) || [];
 
-  const handleRegister = (scheduleId: number) => {
+  const handleRegister = (courseId: number) => {
     if (!subscription || subscription.sessionsRemaining <= 0) {
       toast({
         title: "No sessions remaining",
@@ -73,7 +74,7 @@ export default function MemberClasses() {
       return;
     }
     
-    registerMutation.mutate(scheduleId);
+    registerMutation.mutate(courseId);
   };
 
   const getCategoryColor = (category: string) => {
@@ -171,7 +172,7 @@ export default function MemberClasses() {
             </Select>
             <div className="flex items-center space-x-2">
               <span className="text-sm text-muted-foreground">
-                {filteredSchedules.length} classes available
+                {filteredCourses.length} classes available
               </span>
             </div>
           </div>
@@ -193,22 +194,22 @@ export default function MemberClasses() {
               </CardContent>
             </Card>
           ))
-        ) : filteredSchedules.length > 0 ? (
-          filteredSchedules.map((schedule: any) => {
-            const isRegistered = registeredScheduleIds.has(schedule.id);
-            const intensity = getIntensityLevel(schedule.class?.category);
+        ) : filteredCourses.length > 0 ? (
+          filteredCourses.map((course: any) => {
+            const isRegistered = registeredCourseIds.has(course.id);
+            const intensity = getIntensityLevel(course.class?.category);
             
             return (
-              <Card key={schedule.id} className="overflow-hidden hover:shadow-md transition-shadow">
+              <Card key={course.id} className="overflow-hidden hover:shadow-md transition-shadow">
                 <CardHeader className="pb-4">
                   <div className="flex items-center justify-between mb-2">
-                    <CardTitle className="text-lg">{schedule.class?.name}</CardTitle>
-                    <Badge className={getCategoryColor(schedule.class?.category)}>
-                      {schedule.class?.category}
+                    <CardTitle className="text-lg">{course.class?.name}</CardTitle>
+                    <Badge className={getCategoryColor(course.class?.category)}>
+                      {course.class?.category}
                     </Badge>
                   </div>
                   <CardDescription className="line-clamp-2">
-                    {schedule.class?.description || "Join this exciting fitness class and challenge yourself!"}
+                    {course.class?.description || "Join this exciting fitness class and challenge yourself!"}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -222,32 +223,32 @@ export default function MemberClasses() {
                       </div>
                       <div className="flex items-center">
                         <Clock className="w-4 h-4 mr-1 text-muted-foreground" />
-                        <span>{schedule.class?.duration} min</span>
+                        <span>{course.class?.duration} min</span>
                       </div>
                     </div>
 
                     <div className="space-y-2">
                       <div className="flex items-center text-sm text-muted-foreground">
                         <Calendar className="w-4 h-4 mr-2" />
-                        <span>{getDayName(schedule.dayOfWeek)}</span>
+                        <span>{new Date(course.course_date).toLocaleDateString()}</span>
                       </div>
                       <div className="flex items-center text-sm text-muted-foreground">
                         <Clock className="w-4 h-4 mr-2" />
-                        <span>{formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}</span>
+                        <span>{formatTime(course.start_time)} - {formatTime(course.end_time)}</span>
                       </div>
                       <div className="flex items-center text-sm text-muted-foreground">
                         <Users className="w-4 h-4 mr-2" />
-                        <span>with {schedule.trainer?.firstName} {schedule.trainer?.lastName}</span>
+                        <span>with Trainer {course.trainer?.id}</span>
                       </div>
                       <div className="flex items-center text-sm text-muted-foreground">
                         <Users className="w-4 h-4 mr-2" />
-                        <span>Max {schedule.class?.maxCapacity} participants</span>
+                        <span>{course.current_participants}/{course.max_participants} participants</span>
                       </div>
                     </div>
 
                     <Button
                       className="w-full"
-                      onClick={() => handleRegister(schedule.id)}
+                      onClick={() => handleRegister(course.id)}
                       disabled={isRegistered || registerMutation.isPending || !subscription || subscription.sessionsRemaining <= 0}
                       variant={isRegistered ? "secondary" : "default"}
                     >

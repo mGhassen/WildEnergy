@@ -2,6 +2,7 @@ import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
+import { Toaster as SonnerToaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth, AuthProvider } from "@/hooks/use-auth";
 import LoginPage from "@/pages/auth/login";
@@ -14,6 +15,7 @@ import AdminTrainers from "@/pages/admin/trainers";
 import AdminCategories from "@/pages/admin/categories";
 import AdminClasses from "@/pages/admin/classes";
 import AdminSchedules from "@/pages/admin/schedules";
+import AdminCourses from "@/pages/admin/courses";
 import AdminPlans from "@/pages/admin/plans";
 import AdminSubscriptions from "@/pages/admin/subscriptions";
 import AdminCheckins from "@/pages/admin/checkins";
@@ -131,6 +133,14 @@ function AppRouter() {
         </ProtectedRoute>
       </Route>
 
+      <Route path="/admin/courses">
+        <ProtectedRoute requiredRole="admin">
+          <AdminLayout>
+            <AdminCourses />
+          </AdminLayout>
+        </ProtectedRoute>
+      </Route>
+
       <Route path="/admin/plans">
         <ProtectedRoute requiredRole="admin">
           <AdminLayout>
@@ -220,6 +230,7 @@ export default function App() {
         <AuthProvider>
           <AppRouter />
           <Toaster />
+          <SonnerToaster />
         </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>

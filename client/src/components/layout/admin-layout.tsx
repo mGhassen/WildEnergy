@@ -13,7 +13,8 @@ import {
   CreditCard, 
   QrCode, 
   LogOut,
-  Bell
+  Bell,
+  BookOpen
 } from "lucide-react";
 
 interface AdminLayoutProps {
@@ -40,6 +41,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     { name: "Categories", href: "/admin/categories", icon: Tags },
     { name: "Classes", href: "/admin/classes", icon: Calendar },
     { name: "Schedules", href: "/admin/schedules", icon: Clock },
+    { name: "Courses", href: "/admin/courses", icon: BookOpen },
     { name: "Plans", href: "/admin/plans", icon: Package },
     { name: "Subscriptions", href: "/admin/subscriptions", icon: CreditCard },
     { name: "Check-ins", href: "/admin/checkins", icon: QrCode },

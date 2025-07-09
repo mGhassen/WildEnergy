@@ -8,14 +8,13 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
 
-import ScheduleCalendar from "@/components/schedule-calendar";
 import { apiRequest } from "@/lib/queryClient";
 import { Plus, Search, Edit, Trash2, Clock, Calendar, List, Users, TrendingUp, RepeatIcon } from "lucide-react";
 import { getDayName, formatTime } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
+
 interface ScheduleFormData {
   classId: number;
   trainerId: number;
@@ -40,7 +39,6 @@ function mapScheduleToApi(data: any) {
     repetition_type: data.repetitionType,
     schedule_date: data.scheduleDate,
     is_active: data.isActive,
-    // add other fields as needed
   };
 }
 
@@ -48,7 +46,6 @@ export default function AdminSchedules() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [calendarView, setCalendarView] = useState<"daily" | "weekly" | "monthly">("monthly");
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -57,7 +54,7 @@ export default function AdminSchedules() {
   });
 
   // Map snake_case fields to camelCase for UI
-  const schedules = (rawSchedules || []).map((sch: any) => ({
+  const schedules = ((rawSchedules as any[]) || []).map((sch: any) => ({
     ...sch,
     startTime: sch.start_time,
     endTime: sch.end_time,
@@ -65,7 +62,6 @@ export default function AdminSchedules() {
     dayOfWeek: sch.day_of_week,
     repetitionType: sch.repetition_type,
     isActive: sch.is_active,
-    // The backend now always provides the class object, so we don't need fallbacks
     class: sch.class,
     trainer: sch.trainer || {
       id: sch.trainer_id,
@@ -82,10 +78,6 @@ export default function AdminSchedules() {
     queryKey: ["/api/checkins"],
   });
 
-  // Debug logging
-  console.log("Schedules data:", schedules);
-  console.log("Is loading:", isLoading);
-
   const { data: classes } = useQuery({
     queryKey: ["/api/classes"],
   });
@@ -95,7 +87,7 @@ export default function AdminSchedules() {
   });
 
   // Flatten trainers to expose firstName and lastName at the top level
-  const trainersList = (trainers || []).map((trainer: any) => ({
+  const trainersList = ((trainers as any[]) || []).map((trainer: any) => ({
     ...trainer,
     firstName: trainer.user?.firstName || "",
     lastName: trainer.user?.lastName || "",
@@ -179,11 +171,11 @@ export default function AdminSchedules() {
   ) || [];
 
   const getScheduleRegistrations = (scheduleId: number) => {
-    return registrations?.filter((reg: any) => reg.schedule?.id === scheduleId) || [];
+    return ((registrations as any[]) || []).filter((reg: any) => reg.schedule?.id === scheduleId);
   };
 
   const getScheduleCheckins = (scheduleId: number) => {
-    return checkins?.filter((checkin: any) => checkin.registration?.schedule?.id === scheduleId) || [];
+    return ((checkins as any[]) || []).filter((checkin: any) => checkin.registration?.schedule?.id === scheduleId);
   };
 
   const getRepetitionLabel = (type: string) => {
@@ -238,7 +230,7 @@ export default function AdminSchedules() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-foreground mb-2">Schedules</h1>
-          <p className="text-muted-foreground">Manage class schedules and time slots</p>
+          <p className="text-muted-foreground">Manage class schedule templates</p>
         </div>
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
           <DialogTrigger asChild>
@@ -251,7 +243,7 @@ export default function AdminSchedules() {
             <DialogHeader>
               <DialogTitle>{editingSchedule ? "Edit Schedule" : "Add New Schedule"}</DialogTitle>
               <DialogDescription>
-                {editingSchedule ? "Update schedule information" : "Add a new schedule slot"}
+                {editingSchedule ? "Update schedule information" : "Add a new schedule template"}
               </DialogDescription>
             </DialogHeader>
             <Form {...form}>
@@ -269,7 +261,7 @@ export default function AdminSchedules() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {classes?.map((classItem: any) => (
+                          {((classes as any[]) || []).map((classItem: any) => (
                             <SelectItem key={classItem.id} value={classItem.id.toString()}>
                               {classItem.name}
                             </SelectItem>
@@ -322,15 +314,12 @@ export default function AdminSchedules() {
                           <SelectItem value="once">Once (Single session)</SelectItem>
                           <SelectItem value="daily">Daily</SelectItem>
                           <SelectItem value="weekly">Weekly</SelectItem>
-
                         </SelectContent>
                       </Select>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-
-
 
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
@@ -451,190 +440,163 @@ export default function AdminSchedules() {
         </Dialog>
       </div>
 
-      {/* Main Content with Tabs */}
-      <Tabs defaultValue="calendar" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="calendar" className="flex items-center gap-2">
-            <Calendar className="w-4 h-4" />
-            Calendar View
-          </TabsTrigger>
-          <TabsTrigger value="list" className="flex items-center gap-2">
-            <List className="w-4 h-4" />
-            List View
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="calendar" className="space-y-6">
-          <Card>
-            <CardContent className="p-6">
-              <ScheduleCalendar
-                schedules={schedules || []}
-                registrations={registrations || []}
-                checkins={checkins || []}
-                viewMode={calendarView}
-                onViewModeChange={setCalendarView}
+      {/* Main Content - List View Only */}
+      <div className="space-y-6">
+        {/* Search */}
+        <Card>
+          <CardContent className="p-6">
+            <div className="relative">
+              <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search schedules..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
               />
-            </CardContent>
-          </Card>
-        </TabsContent>
+            </div>
+          </CardContent>
+        </Card>
 
-        <TabsContent value="list" className="space-y-6">
-          {/* Search */}
-          <Card>
-            <CardContent className="p-6">
-              <div className="relative">
-                <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search schedules..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Schedules Table */}
-          <Card>
-            <CardHeader>
-              <CardTitle>All Schedules</CardTitle>
-              <CardDescription>
-                {filteredSchedules.length} of {schedules?.length || 0} schedules
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="space-y-4">
-                  {[...Array(5)].map((_, i) => (
-                    <div key={i} className="animate-pulse flex items-center space-x-4 p-4">
-                      <div className="w-12 h-12 bg-muted rounded-lg"></div>
-                      <div className="flex-1 space-y-2">
-                        <div className="h-4 bg-muted rounded w-1/4"></div>
-                        <div className="h-3 bg-muted rounded w-1/3"></div>
-                      </div>
+        {/* Schedules Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle>All Schedules</CardTitle>
+            <CardDescription>
+              {filteredSchedules.length} of {schedules?.length || 0} schedules
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="space-y-4">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="animate-pulse flex items-center space-x-4 p-4">
+                    <div className="w-12 h-12 bg-muted rounded-lg"></div>
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 bg-muted rounded w-1/4"></div>
+                      <div className="h-3 bg-muted rounded w-1/3"></div>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {filteredSchedules.map((schedule: any) => {
-                    const registeredMembers = getScheduleRegistrations(schedule.id);
-                    const attendedMembers = getScheduleCheckins(schedule.id);
-                    const attendanceRate = registeredMembers.length > 0 
-                      ? Math.round((attendedMembers.length / registeredMembers.length) * 100)
-                      : 0;
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredSchedules.map((schedule: any) => {
+                  const registeredMembers = getScheduleRegistrations(schedule.id);
+                  const attendedMembers = getScheduleCheckins(schedule.id);
+                  const attendanceRate = registeredMembers.length > 0 
+                    ? Math.round((attendedMembers.length / registeredMembers.length) * 100)
+                    : 0;
 
-                    return (
-                      <Card key={schedule.id} className="hover:shadow-md transition-shadow">
-                        <CardContent className="p-6">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-4 flex-1">
-                              <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
-                                <Calendar className="w-8 h-8 text-white" />
-                              </div>
-                              
-                              <div className="flex-1">
-                                <div className="flex items-center gap-3 mb-2">
-                                  <h3 className="text-lg font-semibold text-foreground">{schedule.class?.name}</h3>
-                                  <Badge variant="outline" className="text-xs">
-                                    {schedule.class?.category}
-                                  </Badge>
-                                  <Badge variant="secondary" className="text-xs flex items-center gap-1">
-                                    <RepeatIcon className="w-3 h-3" />
-                                    {getRepetitionLabel(schedule.repetitionType || 'weekly')}
-                                  </Badge>
-                                </div>
-                                
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                                  <div>
-                                    <p className="text-muted-foreground">Trainer</p>
-                                    <p className="font-medium">{schedule.trainer?.firstName} {schedule.trainer?.lastName}</p>
-                                  </div>
-                                  
-                                  <div>
-                                    <p className="text-muted-foreground">Schedule</p>
-                                    <div className="flex items-center gap-1">
-                                      <Badge variant="outline" className="text-xs">
-                                        {schedule.scheduleDate ? new Date(schedule.scheduleDate).toLocaleDateString() : getDayName(schedule.dayOfWeek)}
-                                      </Badge>
-                                      <span className="text-xs text-muted-foreground">
-                                        {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}
-                                      </span>
-                                    </div>
-                                  </div>
-                                  
-                                  <div>
-                                    <p className="text-muted-foreground">Capacity</p>
-                                    <div className="flex items-center gap-1">
-                                      <Users className="w-4 h-4 text-muted-foreground" />
-                                      <span className="font-medium">
-                                        {registeredMembers.length}/{schedule.class?.maxCapacity || 0}
-                                      </span>
-                                    </div>
-                                  </div>
-                                  
-                                  <div>
-                                    <p className="text-muted-foreground">Attendance</p>
-                                    <div className="flex items-center gap-1">
-                                      <TrendingUp className="w-4 h-4 text-green-600" />
-                                      <span className="font-medium text-green-600">
-                                        {attendedMembers.length}/{registeredMembers.length} ({attendanceRate}%)
-                                      </span>
-                                    </div>
-                                  </div>
-                                </div>
-                                
-                                {schedule.class?.duration && (
-                                  <div className="mt-2 text-xs text-muted-foreground">
-                                    Duration: {schedule.class.duration} minutes
-                                  </div>
-                                )}
-                              </div>
+                  return (
+                    <Card key={schedule.id} className="hover:shadow-md transition-shadow">
+                      <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-4 flex-1">
+                            <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
+                              <Calendar className="w-8 h-8 text-white" />
                             </div>
                             
-                            <div className="flex flex-col items-end gap-2">
-                              <Badge variant={schedule.isActive ? 'default' : 'secondary'}>
-                                {schedule.isActive ? 'Active' : 'Inactive'}
-                              </Badge>
-                              
-                              <div className="flex space-x-2">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleEdit(schedule)}
-                                >
-                                  <Edit className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleDelete(schedule.id)}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-3 mb-2">
+                                <h3 className="text-lg font-semibold text-foreground">{schedule.class?.name}</h3>
+                                <Badge variant="outline" className="text-xs">
+                                  {schedule.class?.category}
+                                </Badge>
+                                <Badge variant="secondary" className="text-xs flex items-center gap-1">
+                                  <RepeatIcon className="w-3 h-3" />
+                                  {getRepetitionLabel(schedule.repetitionType || 'weekly')}
+                                </Badge>
                               </div>
+                              
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                <div>
+                                  <p className="text-muted-foreground">Trainer</p>
+                                  <p className="font-medium">{schedule.trainer?.firstName} {schedule.trainer?.lastName}</p>
+                                </div>
+                                
+                                <div>
+                                  <p className="text-muted-foreground">Schedule</p>
+                                  <div className="flex items-center gap-1">
+                                    <Badge variant="outline" className="text-xs">
+                                      {schedule.scheduleDate ? new Date(schedule.scheduleDate).toLocaleDateString() : getDayName(schedule.dayOfWeek)}
+                                    </Badge>
+                                    <span className="text-xs text-muted-foreground">
+                                      {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}
+                                    </span>
+                                  </div>
+                                </div>
+                                
+                                <div>
+                                  <p className="text-muted-foreground">Capacity</p>
+                                  <div className="flex items-center gap-1">
+                                    <Users className="w-4 h-4 text-muted-foreground" />
+                                    <span className="font-medium">
+                                      {registeredMembers.length}/{schedule.class?.maxCapacity || 0}
+                                    </span>
+                                  </div>
+                                </div>
+                                
+                                <div>
+                                  <p className="text-muted-foreground">Attendance</p>
+                                  <div className="flex items-center gap-1">
+                                    <TrendingUp className="w-4 h-4 text-green-600" />
+                                    <span className="font-medium text-green-600">
+                                      {attendedMembers.length}/{registeredMembers.length} ({attendanceRate}%)
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              {schedule.class?.duration && (
+                                <div className="mt-2 text-xs text-muted-foreground">
+                                  Duration: {schedule.class.duration} minutes
+                                </div>
+                              )}
                             </div>
                           </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                  
-                  {filteredSchedules.length === 0 && (
-                    <div className="text-center py-12">
-                      <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                      <h3 className="text-lg font-medium text-foreground mb-2">No schedules found</h3>
-                      <p className="text-muted-foreground">
-                        {searchTerm ? 'Try adjusting your search criteria' : 'Create your first schedule to get started'}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                          
+                          <div className="flex flex-col items-end gap-2">
+                            <Badge variant={schedule.isActive ? 'default' : 'secondary'}>
+                              {schedule.isActive ? 'Active' : 'Inactive'}
+                            </Badge>
+                            
+                            <div className="flex space-x-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEdit(schedule)}
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDelete(schedule.id)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+                
+                {filteredSchedules.length === 0 && (
+                  <div className="text-center py-12">
+                    <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-foreground mb-2">No schedules found</h3>
+                    <p className="text-muted-foreground">
+                      {searchTerm ? 'Try adjusting your search criteria' : 'Create your first schedule to get started'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
