@@ -117,6 +117,13 @@ export const subscriptions = pgTable("subscriptions", {
   status: text("status").notNull().default("active"), // 'active', 'expired', 'cancelled'
   paymentStatus: text("payment_status").notNull().default("pending"), // 'pending', 'paid', 'failed'
   notes: text("notes"),
+  paymentType: text("payment_type"),
+  transactionId: text("transaction_id"),
+  amountPaid: decimal("amount_paid", { precision: 10, scale: 2 }),
+  paymentDate: date("payment_date"),
+  dueDate: date("due_date"),
+  discount: decimal("discount", { precision: 10, scale: 2 }),
+  paymentNotes: text("payment_notes"),
 });
 
 // Class registrations table
@@ -325,12 +332,20 @@ export const insertCheckinSchema = z.object({
 export const insertSubscriptionSchema = z.object({
   userId: z.string().uuid(),
   planId: z.number().min(1, "Plan is required"),
-  startDate: z.string().datetime(),
-  endDate: z.string().datetime(),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD'),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD'),
   status: z.enum(['active', 'expired', 'cancelled']).default('active'),
   paymentStatus: z.enum(['pending', 'paid', 'failed']).default('pending'),
+  paymentType: z.string().min(1, 'Payment type is required'),
+  transactionId: z.string().optional(),
+  amountPaid: z.preprocess((v) => v === '' ? undefined : v, z.string().optional()),
+  paymentDate: z.string().optional(),
+  dueDate: z.string().optional(),
+  discount: z.preprocess((v) => v === '' ? undefined : v, z.string().optional()),
+  paymentNotes: z.string().optional(),
   paymentMethod: z.string().optional(),
-  transactionId: z.string().optional()
+  transactionId: z.string().optional(),
+  notes: z.string().optional(),
 });
 
 // Types
