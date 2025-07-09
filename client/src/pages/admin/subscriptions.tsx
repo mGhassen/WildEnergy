@@ -52,6 +52,7 @@ type Subscription = {
   dueDate?: string;
   discount?: string;
   paymentNotes?: string;
+  paymentStatus?: string; // Added for payment status
 };
 
 const subscriptionFormSchema = z.object({
@@ -138,8 +139,22 @@ export default function AdminSubscriptions() {
     },
   });
 
-  const filteredSubscriptions = subscriptions.filter((subscription) =>
-    `${subscription.member?.firstName} ${subscription.member?.lastName} ${subscription.plan?.name}`
+  // After fetching subscriptions, members, and plans:
+  const mappedSubscriptions = Array.isArray(subscriptions) && Array.isArray(members) && Array.isArray(plans)
+    ? subscriptions.map((sub: any) => ({
+        ...sub,
+        member: members.find((m: any) => m.id === sub.user_id || m.id === sub.userId) || null,
+        plan: plans.find((p: any) => p.id === sub.plan_id || p.id === sub.planId) || null,
+      }))
+    : [];
+
+  // Debug: log subscriptions and mappedSubscriptions
+  console.log('subscriptions', subscriptions);
+  console.log('mappedSubscriptions', mappedSubscriptions);
+
+  // Replace filteredSubscriptions with mappedSubscriptions in the table and details dialog
+  const filteredSubscriptions = mappedSubscriptions.filter((subscription) =>
+    `${subscription.member?.firstName || ''} ${subscription.member?.lastName || ''} ${subscription.plan?.name || ''}`
       .toLowerCase()
       .includes(searchTerm.toLowerCase())
   );
@@ -220,6 +235,99 @@ export default function AdminSubscriptions() {
     if (endDate < now) return "Expired";
     return "Active";
   };
+
+  // Add state for selected subscription and dialog
+  const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
+  const [showDetails, setShowDetails] = useState(false);
+
+  // Add state for editing
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingSubscription, setEditingSubscription] = useState<any>(null);
+
+  // Edit mutation
+  const updateSubscriptionMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return await apiRequest("PUT", `/api/subscriptions/${editingSubscription?.id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/subscriptions"] });
+      setIsEditModalOpen(false);
+      setShowDetails(false);
+      setEditingSubscription(null);
+      toast({ title: "Subscription updated successfully" });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error updating subscription",
+        description: error.message,
+        variant: "destructive"
+      });
+    },
+  });
+
+  // Edit form logic (reuse form, but with editingSubscription as default values)
+  const openEditModal = (sub: any) => {
+    setEditingSubscription(sub);
+    form.reset({
+      userId: sub.user_id || sub.userId || '',
+      planId: (sub.plan_id || sub.planId || '').toString(),
+      startDate: sub.start_date ? sub.start_date.split('T')[0] : sub.startDate || '',
+      notes: sub.notes || '',
+      paymentType: sub.paymentType || '',
+      transactionId: sub.transactionId || '',
+      amountPaid: sub.amountPaid || '',
+      paymentDate: sub.paymentDate ? sub.paymentDate.split('T')[0] : '',
+      dueDate: sub.dueDate ? sub.dueDate.split('T')[0] : '',
+      discount: sub.discount || '',
+      paymentNotes: sub.paymentNotes || '',
+      status: sub.status || 'active',
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleEditSubmit = (data: SubscriptionFormData) => {
+    // Same logic as handleSubmit, but for update
+    const selectedPlan = mappedPlans.find((plan) => plan.id === parseInt(data.planId));
+    const startDateObj = new Date(data.startDate);
+    startDateObj.setDate(startDateObj.getDate() + Number(selectedPlan?.duration || 0));
+    const endDateStr = startDateObj.toISOString().split('T')[0];
+    const submitData = {
+      userId: data.userId,
+      planId: data.planId,
+      startDate: data.startDate,
+      endDate: endDateStr,
+      notes: data.notes,
+      paymentType: data.paymentType,
+      transactionId: data.transactionId,
+      amountPaid: data.amountPaid,
+      paymentDate: data.paymentDate,
+      dueDate: data.dueDate,
+      discount: data.discount,
+      paymentNotes: data.paymentNotes,
+      status: data.status,
+    };
+    updateSubscriptionMutation.mutate(submitData);
+  };
+
+  // Add loading and empty state guards before rendering the table
+  const isLoadingAny = isLoading || !members.length || !plans.length;
+
+  if (isLoadingAny) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mb-4"></div>
+        <p className="text-muted-foreground">Loading subscriptions...</p>
+      </div>
+    );
+  }
+
+  if (!subscriptions.length) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24">
+        <p className="text-muted-foreground">No subscriptions found.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -548,17 +656,8 @@ export default function AdminSubscriptions() {
                 <TableRow>
                   <TableHead>Member</TableHead>
                   <TableHead>Plan</TableHead>
-                  <TableHead>Duration</TableHead>
-                  <TableHead>Sessions</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Notes</TableHead>
-                  <TableHead>Payment Type</TableHead>
-                  <TableHead>Amount Paid</TableHead>
-                  <TableHead>Payment Date</TableHead>
-                  <TableHead>Due Date</TableHead>
-                  <TableHead>Discount</TableHead>
-                  <TableHead>Payment Notes</TableHead>
+                  <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -581,24 +680,6 @@ export default function AdminSubscriptions() {
                     </TableCell>
                     <TableCell>
                       <p className="font-medium text-foreground">{subscription.plan?.name}</p>
-                      <p className="text-sm text-muted-foreground">{subscription.plan?.sessionsIncluded} sessions included</p>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <div className="flex items-center text-sm">
-                          <Calendar className="w-4 h-4 mr-1 text-muted-foreground" />
-                          {formatDate(subscription.startDate)}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          to {formatDate(subscription.endDate)}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-center">
-                        <p className="font-medium text-foreground">{subscription.sessionsRemaining}</p>
-                        <p className="text-xs text-muted-foreground">remaining</p>
-                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge variant={getStatusColor(subscription)}>
@@ -606,20 +687,17 @@ export default function AdminSubscriptions() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center">
-                        <DollarSign className="w-4 h-4 mr-1 text-muted-foreground" />
-                        <span className="font-medium">{formatPrice(subscription.plan?.price || 0)}</span>
-                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedSubscription(subscription);
+                          setShowDetails(true);
+                        }}
+                      >
+                        View
+                      </Button>
                     </TableCell>
-                    <TableCell>
-                      <span className="text-sm text-muted-foreground">{subscription.notes || ''}</span>
-                    </TableCell>
-                    <TableCell>{subscription.paymentType || ''}</TableCell>
-                    <TableCell>{subscription.amountPaid || ''}</TableCell>
-                    <TableCell>{subscription.paymentDate || ''}</TableCell>
-                    <TableCell>{subscription.dueDate || ''}</TableCell>
-                    <TableCell>{subscription.discount || ''}</TableCell>
-                    <TableCell>{subscription.paymentNotes || ''}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -627,6 +705,352 @@ export default function AdminSubscriptions() {
           )}
         </CardContent>
       </Card>
+
+      {/* Subscription Details Dialog */}
+      <Dialog open={showDetails} onOpenChange={setShowDetails}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Subscription Details</DialogTitle>
+            <DialogDescription>All information for this subscription</DialogDescription>
+          </DialogHeader>
+          {selectedSubscription && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <h4 className="font-semibold mb-1">Member</h4>
+                  <div>{selectedSubscription.member?.firstName} {selectedSubscription.member?.lastName}</div>
+                  <div className="text-sm text-muted-foreground">{selectedSubscription.member?.email}</div>
+                </div>
+                <div>
+                  <h4 className="font-semibold mb-1">Plan</h4>
+                  <div>{selectedSubscription.plan?.name}</div>
+                  <div className="text-sm text-muted-foreground">{selectedSubscription.plan?.sessionsIncluded} sessions, {selectedSubscription.plan?.duration || selectedSubscription.plan?.durationDays} days</div>
+                  <div className="text-sm text-muted-foreground">Price: {formatPrice(selectedSubscription.plan?.price || 0)}</div>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <h4 className="font-semibold mb-1">Dates</h4>
+                  <div>Start: {formatDate(selectedSubscription.startDate)}</div>
+                  <div>End: {formatDate(selectedSubscription.endDate)}</div>
+                </div>
+                <div>
+                  <h4 className="font-semibold mb-1">Sessions</h4>
+                  <div>Remaining: {selectedSubscription.sessionsRemaining}</div>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <h4 className="font-semibold mb-1">Status</h4>
+                  <Badge variant={getStatusColor(selectedSubscription)}>
+                    {getStatusText(selectedSubscription)}
+                  </Badge>
+                </div>
+                <div>
+                  <h4 className="font-semibold mb-1">Payment</h4>
+                  <div>Status: <Badge variant={selectedSubscription.paymentStatus === 'paid' ? 'default' : selectedSubscription.paymentStatus === 'pending' ? 'secondary' : 'destructive'}>{selectedSubscription.paymentStatus || 'pending'}</Badge></div>
+                  <div>Type: {selectedSubscription.paymentType || '-'}</div>
+                  <div>Amount Paid: {selectedSubscription.amountPaid || '-'}</div>
+                  <div>Transaction ID: {selectedSubscription.transactionId || '-'}</div>
+                  <div>Payment Date: {selectedSubscription.paymentDate ? formatDate(selectedSubscription.paymentDate) : '-'}</div>
+                  <div>Due Date: {selectedSubscription.dueDate ? formatDate(selectedSubscription.dueDate) : '-'}</div>
+                  <div>Discount: {selectedSubscription.discount || '-'}</div>
+                </div>
+              </div>
+              {selectedSubscription.notes && (
+                <div>
+                  <h4 className="font-semibold mb-1">Notes</h4>
+                  <div className="text-muted-foreground text-sm whitespace-pre-wrap">{selectedSubscription.notes}</div>
+                </div>
+              )}
+              {selectedSubscription.paymentNotes && (
+                <div>
+                  <h4 className="font-semibold mb-1">Payment Notes</h4>
+                  <div className="text-muted-foreground text-sm whitespace-pre-wrap">{selectedSubscription.paymentNotes}</div>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDetails(false)}>
+              Close
+            </Button>
+            <Button variant="default" onClick={() => openEditModal(selectedSubscription)}>
+              Edit
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Subscription Dialog */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent className="sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Edit Subscription</DialogTitle>
+            <DialogDescription>Edit the subscription details below.</DialogDescription>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleEditSubmit)} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Left: Subscription Details */}
+                <div className="space-y-4 bg-card rounded-lg p-4 shadow-sm border">
+                  <h3 className="font-bold text-lg mb-2">Subscription Details</h3>
+                  <Controller
+                    name="userId"
+                    control={form.control}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Member</FormLabel>
+                        <Select
+                          value={field.value}
+                          onValueChange={val => {
+                            field.onChange(val);
+                            field.onBlur();
+                          }}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select member" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {members.filter((member) => member.status === 'active').map((member) => (
+                              <SelectItem key={member.id} value={member.id}>
+                                {member.firstName} {member.lastName} ({member.email})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Controller
+                    name="planId"
+                    control={form.control}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Plan</FormLabel>
+                        <Select
+                          value={field.value}
+                          onValueChange={val => {
+                            field.onChange(val);
+                            field.onBlur();
+                          }}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select plan" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {mappedPlans.map((plan) => (
+                              <SelectItem key={plan.id} value={plan.id.toString()}>
+                                {plan.name} - {formatPrice(plan.price)} ({plan.sessionsIncluded || 0} sessions, {plan.duration || 0} days)
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="startDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Start Date</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="date"
+                            value={field.value || ''}
+                            onChange={e => field.onChange(e.target.value)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="notes"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Notes</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="text"
+                            placeholder="Optional notes..."
+                            value={field.value || ''}
+                            onChange={e => field.onChange(e.target.value)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Status</FormLabel>
+                        <Select
+                          value={field.value}
+                          onValueChange={val => {
+                            field.onChange(val);
+                            field.onBlur();
+                          }}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select status" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="active">Active</SelectItem>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="cancelled">Cancelled</SelectItem>
+                            <SelectItem value="expired">Expired</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  {/* Show plan info if selected */}
+                  {(() => {
+                    const planId = form.watch('planId');
+                    if (!planId) {
+                      return <div className="text-sm text-muted-foreground border-t pt-2 mt-2">Select a plan to see details.</div>;
+                    }
+                    const plan = mappedPlans.find((p) => p.id === parseInt(planId));
+                    if (!plan) return null;
+                    return (
+                      <div className="text-sm text-muted-foreground border-t pt-2 mt-2">
+                        <div>Sessions included: <b>{plan.sessionsIncluded || 0}</b></div>
+                        <div>Duration: <b>{plan.duration || 0} days</b></div>
+                      </div>
+                    );
+                  })()}
+                </div>
+                {/* Right: Payment Info */}
+                <div className="space-y-4 bg-card rounded-lg p-4 shadow-sm border">
+                  <h3 className="font-bold text-lg mb-2">Payment Info</h3>
+                  <div className="grid grid-cols-1 gap-3">
+                    <FormField
+                      control={form.control}
+                      name="paymentType"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Payment Type</FormLabel>
+                          <FormControl>
+                            <select {...field} className="input w-full">
+                              <option value="cash">Cash</option>
+                              <option value="credit_card">Credit Card</option>
+                              <option value="bank_transfer">Bank Transfer</option>
+                              <option value="online">Online</option>
+                            </select>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="transactionId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Transaction ID</FormLabel>
+                          <FormControl>
+                            <Input type="text" placeholder="Transaction ID (if any)" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="amountPaid"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Amount Paid</FormLabel>
+                          <FormControl>
+                            <Input type="number" step="0.01" placeholder="Amount paid" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="paymentDate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Payment Date</FormLabel>
+                          <FormControl>
+                            <Input type="date" placeholder="YYYY-MM-DD" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="dueDate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Due Date</FormLabel>
+                          <FormControl>
+                            <Input type="date" placeholder="YYYY-MM-DD" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="discount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Discount</FormLabel>
+                          <FormControl>
+                            <Input type="number" step="0.01" placeholder="Discount amount" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="paymentNotes"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Payment Notes</FormLabel>
+                          <FormControl>
+                            <Input type="text" placeholder="Payment-specific notes..." {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
+              </div>
+              <DialogFooter className="pt-4">
+                <Button
+                  type="submit"
+                  disabled={updateSubscriptionMutation.isPending}
+                  className="w-full md:w-auto ml-auto"
+                >
+                  {updateSubscriptionMutation.isPending ? "Saving..." : "Save Changes"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
