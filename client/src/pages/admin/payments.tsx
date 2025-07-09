@@ -6,24 +6,57 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, DollarSign } from "lucide-react";
 import { getInitials, formatDate } from "@/lib/auth";
+import { Subscription, Member, Plan } from "@/types";
 
 export default function AdminPayments() {
   const [searchTerm, setSearchTerm] = useState("");
-  const { data: subscriptions = [], isLoading } = useQuery<any[]>({
+  const { data: subscriptions = [], isLoading } = useQuery<Subscription[]>({
     queryKey: ["/api/subscriptions"],
   });
 
-  // Filter payments by member name, plan, or status
-  const filteredPayments = subscriptions.filter((sub) => {
-    const member = `${sub.member?.firstName || ''} ${sub.member?.lastName || ''}`.toLowerCase();
-    const plan = sub.plan?.name?.toLowerCase() || '';
-    const status = (sub.paymentStatus || '').toLowerCase();
-    return (
-      member.includes(searchTerm.toLowerCase()) ||
-      plan.includes(searchTerm.toLowerCase()) ||
-      status.includes(searchTerm.toLowerCase())
-    );
+  const { data: members = [] } = useQuery<Member[]>({
+    queryKey: ["/api/members"],
   });
+
+  const { data: plans = [] } = useQuery<Plan[]>({
+    queryKey: ["/api/plans"],
+  });
+
+  // Map members from snake_case to camelCase for UI
+  const mappedMembers = Array.isArray(members)
+    ? members.map((m: any) => ({
+        ...m,
+        firstName: m.firstName || m.first_name || '',
+        lastName: m.lastName || m.last_name || '',
+        email: m.email,
+        status: m.status,
+      }))
+    : [];
+
+  // Map snake_case fields to camelCase for UI
+  const mappedPlans = Array.isArray(plans)
+    ? plans.map((plan: any) => ({
+        ...plan,
+        sessionsIncluded: plan.max_sessions ?? plan.sessionsIncluded ?? 0,
+        duration: plan.duration_days ?? plan.duration ?? 0,
+      }))
+    : [];
+
+  // After fetching subscriptions, mappedMembers, and mappedPlans:
+  const mappedSubscriptions = Array.isArray(subscriptions) && Array.isArray(mappedMembers) && Array.isArray(mappedPlans)
+    ? subscriptions.map((sub: any) => ({
+        ...sub,
+        member: mappedMembers.find((m: any) => m.id === sub.user_id || m.id === sub.userId) || null,
+        plan: mappedPlans.find((p: any) => p.id === sub.plan_id || p.id === sub.planId) || null,
+      }))
+    : [];
+
+  // Replace filteredSubscriptions with mappedSubscriptions
+  const filteredPayments = mappedSubscriptions.filter((subscription) =>
+    `${subscription.member?.firstName || ''} ${subscription.member?.lastName || ''} ${subscription.plan?.name || ''}`
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase())
+  );
 
   const formatPrice = (price: string | number) => {
     return new Intl.NumberFormat('en-US', {

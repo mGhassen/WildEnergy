@@ -18,9 +18,24 @@ export default function AdminCheckins() {
 
   const today = new Date().toISOString().split('T')[0];
   
-  const { data: todayCheckins, isLoading } = useQuery({
-    queryKey: ["/api/checkins", { date: today }],
+  const { data: todayCheckins = [], isLoading } = useQuery({
+    queryKey: ["/api/checkins", today],
+    queryFn: () => apiRequest("GET", `/api/checkins?date=${today}`),
   });
+
+  // Map checkins to ensure member data has camelCase fields
+  const mappedCheckins = Array.isArray(todayCheckins)
+    ? todayCheckins.map((checkin: any) => ({
+        ...checkin,
+        member: checkin.member ? {
+          ...checkin.member,
+          firstName: checkin.member.firstName || checkin.member.first_name || '',
+          lastName: checkin.member.lastName || checkin.member.last_name || '',
+          email: checkin.member.email,
+        } : null,
+        class: checkin.class || checkin.registration?.schedule?.class,
+      }))
+    : [];
 
   const checkinMutation = useMutation({
     mutationFn: async (qrCode: string) => {
@@ -123,10 +138,10 @@ export default function AdminCheckins() {
                         <div className="flex items-center space-x-3 mt-1">
                           <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
                             <span className="text-xs font-medium text-primary">
-                              {getInitials(scanResult.member.firstName, scanResult.member.lastName)}
+                              {getInitials(scanResult.member.firstName || '', scanResult.member.lastName || '')}
                             </span>
                           </div>
-                          <span className="font-medium">{scanResult.member.firstName} {scanResult.member.lastName}</span>
+                          <span className="font-medium">{scanResult.member.firstName || ''} {scanResult.member.lastName || ''}</span>
                         </div>
                       </div>
                       
@@ -169,7 +184,7 @@ export default function AdminCheckins() {
                       <div className="mt-4 p-4 bg-muted rounded-lg">
                         <label className="text-sm font-medium text-muted-foreground">Member Information</label>
                         <p className="mt-1 text-foreground font-medium">
-                          {scanResult.member.firstName} {scanResult.member.lastName}
+                          {scanResult.member.firstName || ''} {scanResult.member.lastName || ''}
                         </p>
                         <p className="text-sm text-muted-foreground">
                           {scanResult.member.email}
@@ -254,7 +269,7 @@ export default function AdminCheckins() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {todayCheckins.map((checkin: any) => (
+                {mappedCheckins.map((checkin: any) => (
                   <TableRow key={checkin.id}>
                     <TableCell>
                       {formatDateTime(checkin.checkinTime)}
@@ -263,11 +278,11 @@ export default function AdminCheckins() {
                       <div className="flex items-center space-x-3">
                         <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
                           <span className="text-xs font-medium text-primary">
-                            {checkin.member ? getInitials(checkin.member.firstName, checkin.member.lastName) : "?"}
+                            {checkin.member ? getInitials(checkin.member.firstName || '', checkin.member.lastName || '') : "?"}
                           </span>
                         </div>
                         <span className="font-medium text-foreground">
-                          {checkin.member?.firstName} {checkin.member?.lastName}
+                          {checkin.member?.firstName || ''} {checkin.member?.lastName || ''}
                         </span>
                       </div>
                     </TableCell>

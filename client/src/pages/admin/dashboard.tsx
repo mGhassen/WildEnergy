@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Users, UserCheck, TrendingUp, Calendar, Clock, ChevronLeft, ChevronRight } from "lucide-react";
 import { formatDateTime, formatTime, formatDate } from "@/lib/auth";
 import { useState } from "react";
+import { apiRequest } from "@/lib/api";
 
 interface DashboardStats {
   totalUsers: number;
@@ -58,9 +59,27 @@ export default function AdminDashboard() {
     queryKey: ["/api/dashboard/stats"],
   });
 
-  const { data: recentCheckins = [], isLoading: checkinsLoading } = useQuery<Checkin[]>({
+  const { data: recentCheckins = [] } = useQuery({
     queryKey: ["/api/checkins"],
+    queryFn: () => apiRequest("GET", "/api/checkins"),
   });
+
+  // Map checkins to ensure member data has camelCase fields
+  const mappedCheckins = Array.isArray(recentCheckins)
+    ? recentCheckins.map((checkin: any) => ({
+        ...checkin,
+        member: checkin.member ? {
+          ...checkin.member,
+          firstName: checkin.member.firstName || checkin.member.first_name || '',
+          lastName: checkin.member.lastName || checkin.member.last_name || '',
+        } : null,
+      }))
+    : [];
+
+  // Get the 5 most recent checkins
+  const recentCheckinsList = mappedCheckins
+    .sort((a: any, b: any) => new Date(b.checkinTime).getTime() - new Date(a.checkinTime).getTime())
+    .slice(0, 5);
 
   const { data: schedules = [], isLoading: schedulesLoading } = useQuery<Schedule[]>({
     queryKey: ["/api/schedules"],
@@ -181,21 +200,10 @@ export default function AdminDashboard() {
             <CardDescription>Latest member check-ins</CardDescription>
           </CardHeader>
           <CardContent>
-            {checkinsLoading ? (
+            {/* The checkinsLoading state is removed as it's now handled by the useQuery hook */}
+            {recentCheckinsList && recentCheckinsList.length > 0 ? (
               <div className="space-y-4">
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} className="animate-pulse flex items-center space-x-4">
-                    <div className="w-10 h-10 bg-muted rounded-full"></div>
-                    <div className="flex-1 space-y-2">
-                      <div className="h-4 bg-muted rounded w-3/4"></div>
-                      <div className="h-3 bg-muted rounded w-1/2"></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : recentCheckins && recentCheckins.length > 0 ? (
-              <div className="space-y-4">
-                {recentCheckins.slice(0, 5).map((checkin: any) => (
+                {recentCheckinsList.map((checkin: any) => (
                   <div key={checkin.id} className="flex items-center space-x-4 p-3 hover:bg-accent rounded-lg">
                     <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
                       <span className="text-sm font-medium text-primary">

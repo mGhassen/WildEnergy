@@ -71,7 +71,38 @@ export default function UsersPage() {
     // Fetch users
     const { data: users = [], isLoading } = useQuery({
         queryKey: ["/api/users"],
+        queryFn: () => apiRequest("GET", "/api/users"),
     });
+
+    // Map users from snake_case to camelCase for UI
+    const mappedUsers = Array.isArray(users)
+        ? users.map((u: any) => ({
+            ...u,
+            firstName: u.firstName || u.first_name || '',
+            lastName: u.lastName || u.last_name || '',
+            email: u.email,
+            status: u.status,
+            isAdmin: u.isAdmin || u.is_admin || false,
+            isMember: u.isMember || u.is_member || false,
+            isTrainer: u.isTrainer || u.is_trainer || false,
+            createdAt: u.createdAt || u.created_at,
+        }))
+        : [];
+
+    // Filter users
+    const filteredUsers = Array.isArray(mappedUsers) ? mappedUsers.filter((user: any) =>
+        user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.lastName?.toLowerCase().includes(searchTerm.toLowerCase())
+    ) : [];
+
+    // Map fields to camelCase for role rendering
+    const usersMapped = filteredUsers.map((user: any) => ({
+        ...user,
+        isAdmin: user.isAdmin,
+        isMember: user.isMember,
+        isTrainer: user.isTrainer,
+    }));
 
     // Create user form
     const createForm = useForm<CreateUserForm>({
@@ -240,21 +271,6 @@ export default function UsersPage() {
             status: user.status || "active",
         });
     };
-
-    // Filter users
-    const filteredUsers = Array.isArray(users) ? users.filter((user: any) =>
-        user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.lastName?.toLowerCase().includes(searchTerm.toLowerCase())
-    ) : [];
-
-    // Map fields to camelCase for role rendering
-    const usersMapped = filteredUsers.map((user: any) => ({
-        ...user,
-        isAdmin: user.is_admin,
-        isMember: user.is_member,
-        isTrainer: user.is_trainer,
-    }));
 
     if (isLoading) {
         return (
@@ -519,7 +535,7 @@ export default function UsersPage() {
                                     </TableCell>
                                     <TableCell>
                                         <p className="text-sm text-muted-foreground">
-                                            {formatDate(user.created_at)}
+                                            {formatDate(user.createdAt)}
                                         </p>
                                     </TableCell>
                                     <TableCell>
