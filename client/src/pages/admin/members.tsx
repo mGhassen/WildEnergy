@@ -1,20 +1,15 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { apiRequest } from "@/lib/queryClient";
 import { 
   Search, 
-  Plus, 
-  Edit, 
   Eye, 
   User, 
   Calendar, 
@@ -22,15 +17,7 @@ import {
   Activity,
   Clock,
   CheckCircle,
-  XCircle,
-  Phone,
-  Mail,
-  MapPin
-} from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+  XCircle} from "lucide-react";
 import { formatDate } from "@/lib/date";
 
 // Types for member details
@@ -79,8 +66,6 @@ export default function MembersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedMember, setSelectedMember] = useState<any>(null);
   const [showMemberDetails, setShowMemberDetails] = useState(false);
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   // Fetch members with related data
   const { data: members = [], isLoading } = useQuery({
@@ -142,32 +127,6 @@ export default function MembersPage() {
   }));
 
   // Helper function to get actual subscription status from subscription data
-  const getActualSubscriptionStatus = (subscriptions: any[]) => {
-    if (!subscriptions || subscriptions.length === 0) return 'inactive';
-    
-    // Check for active subscriptions
-    const activeSubscription = subscriptions.find(sub => 
-      sub.status === 'active' && 
-      new Date(sub.endDate) > new Date() && 
-      sub.sessionsRemaining > 0
-    );
-    
-    if (activeSubscription) return 'active';
-    
-    // Check for expired subscriptions
-    const expiredSubscription = subscriptions.find(sub => 
-      sub.status === 'active' && 
-      new Date(sub.endDate) <= new Date()
-    );
-    
-    if (expiredSubscription) return 'expired';
-    
-    // Check for pending subscriptions
-    const pendingSubscription = subscriptions.find(sub => sub.status === 'pending');
-    if (pendingSubscription) return 'pending';
-    
-    return 'inactive';
-  };
 
   // Helper to get the most relevant subscription (active, or most recent)
   const getRelevantSubscription = (subscriptions: any[]) => {
@@ -185,23 +144,6 @@ export default function MembersPage() {
   const relevantSubscription = getRelevantSubscription(mappedSubscriptions);
 
   // Helper to get the most relevant subscription (active, or most recent) for a member
-  const getRelevantSubscriptionForMember = (subscriptions: any[]) => {
-    if (!subscriptions || subscriptions.length === 0) return null;
-    const mapped = (subscriptions || []).map((sub: any) => ({
-      ...sub,
-      startDate: sub.startDate || sub.start_date,
-      endDate: sub.endDate || sub.end_date,
-      sessionsRemaining: sub.sessionsRemaining ?? sub.sessions_remaining,
-      status: sub.status,
-    }));
-    const active = mapped.find(sub => sub.status === 'active' && new Date(sub.endDate) > new Date() && sub.sessionsRemaining > 0);
-    if (active) return active;
-    return mapped.slice().sort((a, b) => {
-      const aDate = a.endDate ? new Date(a.endDate).getTime() : 0;
-      const bDate = b.endDate ? new Date(b.endDate).getTime() : 0;
-      return bDate - aDate;
-    })[0];
-  };
 
   // Filter members
   const filteredMembers = Array.isArray(mappedMembers) ? mappedMembers.filter((member: any) =>
@@ -477,11 +419,11 @@ export default function MembersPage() {
                         </div>
                         <div className="flex justify-between">
                           <span className="text-sm font-medium">Admin Access:</span>
-                          <span className="text-sm">{selectedMember?.isAdmin ? 'Yes' : 'No'}</span>
+                          <span className="text-sm">{selectedMember?.is_admin ? 'Yes' : 'No'}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-sm font-medium">Member Access:</span>
-                          <span className="text-sm">{selectedMember?.isMember ? 'Yes' : 'No'}</span>
+                          <span className="text-sm">{selectedMember?.is_member ? 'Yes' : 'No'}</span>
                         </div>
                       </CardContent>
                     </Card>

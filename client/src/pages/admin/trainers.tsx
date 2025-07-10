@@ -14,7 +14,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTrainerSchema } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { Plus, Search, Edit, Trash2 } from "lucide-react";
-import { getInitials, formatDate } from "@/lib/auth";
+import { getInitials } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 
