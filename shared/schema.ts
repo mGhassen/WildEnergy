@@ -20,6 +20,8 @@ export const users = pgTable("users", {
   profileImageUrl: text("profile_image_url"),
   // Member-specific fields (only relevant when isMember = true)
   memberNotes: text("member_notes"),
+  // Add credit field for member credit system
+  credit: numeric("credit").default("0"),
   // Timestamps
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -260,6 +262,8 @@ export const userBaseSchema = {
   subscriptionStatus: z.string().default('inactive'),
   profileImageUrl: z.string().optional(),
   memberNotes: z.string().optional(),
+  // Add credit field for InsertUser
+  credit: z.number().optional(),
 };
 
 // Insert user schema

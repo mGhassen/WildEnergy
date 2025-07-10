@@ -17,6 +17,9 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { getInitials, formatDate } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Avatar } from "@/components/ui/avatar";
+import { DialogClose } from "@/components/ui/dialog";
 
 // Type definitions
 type Member = {
@@ -77,13 +80,13 @@ const subscriptionFormSchema = z.object({
 
 // Payment form schema
 const paymentFormSchema = z.object({
-  subscriptionId: z.number(),
-  userId: z.string(),
+  subscription_id: z.number(),
+  user_id: z.string(),
   amount: z.number().min(0.01, "Amount must be greater than 0"),
-  paymentType: z.enum(['cash', 'card', 'bank_transfer', 'check', 'other']),
-  paymentStatus: z.enum(['pending', 'completed', 'failed', 'refunded', 'cancelled']).default('completed'),
-  paymentDate: z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/, "Invalid date"),
-  transactionId: z.string().optional(),
+  payment_type: z.enum(['cash', 'card', 'bank_transfer', 'check', 'other']),
+  payment_status: z.enum(['pending', 'completed', 'failed', 'refunded', 'cancelled']).default('completed'),
+  payment_date: z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/, "Invalid date"),
+  transaction_id: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -99,6 +102,9 @@ export default function AdminSubscriptions() {
   const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
   const [editingSubscription, setEditingSubscription] = useState<Subscription | null>(null);
   const [, setSelectedSubscriptionForPayment] = useState<Subscription | null>(null);
+  const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
+  const [isDeletePaymentModalOpen, setIsDeletePaymentModalOpen] = useState(false);
+  const [paymentToDelete, setPaymentToDelete] = useState<Payment | null>(null);
   
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -165,13 +171,13 @@ export default function AdminSubscriptions() {
   const paymentForm = useForm<PaymentFormData>({
     resolver: zodResolver(paymentFormSchema),
     defaultValues: {
-      subscriptionId: 0,
-      userId: "",
+      subscription_id: 0,
+      user_id: "",
       amount: 0,
-      paymentType: "cash",
-      paymentStatus: "completed",
-      paymentDate: new Date().toISOString().split('T')[0],
-      transactionId: "",
+      payment_type: "cash",
+      payment_status: "completed",
+      payment_date: new Date().toISOString().split('T')[0],
+      transaction_id: "",
       notes: "",
     },
   });
@@ -266,32 +272,62 @@ export default function AdminSubscriptions() {
     },
   });
 
+  // Update createPaymentMutation to accept snake_case fields
   const createPaymentMutation = useMutation({
-    mutationFn: async (data: PaymentFormData) => {
-      const submitData = {
-        subscription_id: data.subscriptionId,
-        user_id: data.userId,
-        amount: data.amount,
-        payment_type: data.paymentType,
-        payment_status: data.paymentStatus,
-        payment_date: data.paymentDate,
-        transaction_id: data.transactionId,
-        notes: data.notes,
-      };
-      
-      return await apiRequest("POST", "/api/payments", submitData);
+    mutationFn: async (data: any) => {
+      return await apiRequest("POST", "/api/payments", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
       setIsPaymentModalOpen(false);
-      paymentForm.reset();
+      setEditingPayment(null);
       toast({ title: "Payment created successfully" });
     },
     onError: (error) => {
-      toast({ 
-        title: "Error creating payment", 
+      toast({
+        title: "Error creating payment",
         description: error.message,
-        variant: "destructive" 
+        variant: "destructive"
+      });
+    },
+  });
+
+  // Update updatePaymentMutation to accept snake_case fields
+  const updatePaymentMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return await apiRequest("PUT", `/api/payments/${data.id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
+      setIsPaymentModalOpen(false);
+      setEditingPayment(null);
+      toast({ title: "Payment updated successfully" });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error updating payment",
+        description: error.message,
+        variant: "destructive"
+      });
+    },
+  });
+
+  // Add a mutation for deleting a payment
+  const deletePaymentMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return await apiRequest("DELETE", `/api/payments/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
+      setIsDeletePaymentModalOpen(false);
+      setPaymentToDelete(null);
+      toast({ title: "Payment deleted successfully" });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error deleting payment",
+        description: error.message,
+        variant: "destructive"
       });
     },
   });
@@ -317,13 +353,13 @@ export default function AdminSubscriptions() {
   const openPaymentModal = (subscription: Subscription) => {
     setSelectedSubscriptionForPayment(subscription);
     paymentForm.reset({
-      subscriptionId: subscription.id,
-      userId: subscription.user_id,
+      subscription_id: subscription.id,
+      user_id: subscription.user_id,
       amount: subscription.plan?.price || 0,
-      paymentType: "cash",
-      paymentStatus: "completed",
-      paymentDate: new Date().toISOString().split('T')[0],
-      transactionId: "",
+      payment_type: "cash",
+      payment_status: "completed",
+      payment_date: new Date().toISOString().split('T')[0],
+      transaction_id: "",
       notes: "",
     });
     setIsPaymentModalOpen(true);
@@ -343,7 +379,26 @@ export default function AdminSubscriptions() {
   };
 
   const handlePaymentSubmit = (data: PaymentFormData) => {
-    createPaymentMutation.mutate(data);
+    const safePayment_type = ["cash", "card", "bank_transfer", "check", "other"].includes(data.payment_type) ? data.payment_type : "cash";
+    const safePayment_status = ["pending", "completed", "failed", "refunded", "cancelled"].includes(data.payment_status) ? data.payment_status : "completed";
+    const paymentPayload = {
+      subscription_id: data.subscription_id,
+      user_id: data.user_id,
+      amount: data.amount,
+      payment_type: safePayment_type,
+      payment_status: safePayment_status,
+      payment_date: data.payment_date,
+      transaction_id: data.transaction_id,
+      notes: data.notes,
+    };
+    if (editingPayment) {
+      updatePaymentMutation.mutate({
+        ...paymentPayload,
+        id: editingPayment.id,
+      });
+    } else {
+      createPaymentMutation.mutate(paymentPayload);
+    }
   };
 
   const handleDeleteSubscription = (id: number) => {
@@ -351,6 +406,26 @@ export default function AdminSubscriptions() {
       deleteSubscriptionMutation.mutate(id);
     }
   };
+
+  function handleEditPayment(payment: Payment) {
+    setEditingPayment(payment);
+    paymentForm.reset({
+      subscription_id: payment.subscription_id,
+      user_id: payment.user_id,
+      amount: payment.amount,
+      payment_type: (payment.payment_type as "cash" | "card" | "bank_transfer" | "check" | "other") || "cash",
+      payment_status: (payment.payment_status as "pending" | "completed" | "failed" | "refunded" | "cancelled") || "completed",
+      payment_date: payment.payment_date.split('T')[0],
+      transaction_id: payment.transaction_id || '',
+      notes: payment.notes || '',
+    });
+    setIsPaymentModalOpen(true);
+  }
+
+  function handleDeletePayment(payment: Payment) {
+    setPaymentToDelete(payment);
+    setIsDeletePaymentModalOpen(true);
+  }
 
   // Filter subscriptions
   const filteredSubscriptions = mappedSubscriptions.filter((subscription) =>
@@ -389,6 +464,16 @@ export default function AdminSubscriptions() {
       case 'expired': return "Expired";
       case 'cancelled': return "Cancelled";
       default: return status;
+    }
+  };
+
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case 'active': return "default";
+      case 'pending': return "secondary";
+      case 'expired': return "destructive";
+      case 'cancelled': return "secondary";
+      default: return "outline";
     }
   };
 
@@ -797,41 +882,6 @@ export default function AdminSubscriptions() {
                   <p>Payment information is managed separately from subscription details.</p>
                   <p>Use the credit card icon in the subscriptions list to add payments.</p>
                 </div>
-                {editingSubscription && (() => {
-                  const subscriptionPayments = getPaymentsForSubscription(editingSubscription.id);
-                  if (subscriptionPayments.length === 0) {
-                    return (
-                      <div className="mt-3 pt-3 border-t">
-                        <p className="text-sm text-muted-foreground">No payments recorded for this subscription.</p>
-                      </div>
-                    );
-                  }
-                  return (
-                    <div className="mt-3 pt-3 border-t">
-                      <h5 className="font-semibold text-xs mb-2">Recent Payments:</h5>
-                      <div className="space-y-2">
-                        {subscriptionPayments.slice(0, 3).map((payment) => (
-                          <div key={payment.id} className="border rounded p-2 text-xs">
-                            <div className="flex justify-between">
-                              <span className="font-medium">{formatPrice(payment.amount)}</span>
-                              <Badge variant={payment.payment_status === 'completed' ? 'default' : 'secondary'} className="text-xs">
-                                {payment.payment_status}
-                              </Badge>
-                            </div>
-                            <div className="text-muted-foreground text-xs">
-                              {payment.payment_type} • {formatDate(payment.payment_date)}
-                            </div>
-                          </div>
-                        ))}
-                        {subscriptionPayments.length > 3 && (
-                          <p className="text-xs text-muted-foreground">
-                            +{subscriptionPayments.length - 3} more payments
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })()}
               </div>
 
               {/* Subscription Details */}
@@ -1019,7 +1069,7 @@ export default function AdminSubscriptions() {
                 />
 
                 <Controller
-                  name="paymentType"
+                  name="payment_type"
                   control={paymentForm.control}
                   render={({ field }) => (
                     <FormItem>
@@ -1050,7 +1100,7 @@ export default function AdminSubscriptions() {
                 />
 
                 <Controller
-                  name="paymentStatus"
+                  name="payment_status"
                   control={paymentForm.control}
                   render={({ field }) => (
                     <FormItem>
@@ -1081,7 +1131,7 @@ export default function AdminSubscriptions() {
                 />
 
                 <Controller
-                  name="paymentDate"
+                  name="payment_date"
                   control={paymentForm.control}
                   render={({ field }) => (
                     <FormItem>
@@ -1095,7 +1145,7 @@ export default function AdminSubscriptions() {
                 />
 
                 <Controller
-                  name="transactionId"
+                  name="transaction_id"
                   control={paymentForm.control}
                   render={({ field }) => (
                     <FormItem>
@@ -1140,92 +1190,176 @@ export default function AdminSubscriptions() {
       <Dialog open={isDetailsModalOpen} onOpenChange={setIsDetailsModalOpen}>
         <DialogContent className="sm:max-w-4xl">
           <DialogHeader>
-            <DialogTitle>Subscription Details</DialogTitle>
-            <DialogDescription>
-              View subscription and payment information
-            </DialogDescription>
-          </DialogHeader>
-          {selectedSubscription && (
-            <div className="space-y-6">
-              {/* Subscription Details */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b">
+              <div className="flex items-center gap-4">
+                <Avatar className="h-14 w-14">
+                  <span className="text-2xl font-bold bg-muted rounded-full w-full h-full flex items-center justify-center">
+                    {selectedSubscription?.member?.firstName?.[0]}
+                  </span>
+                </Avatar>
                 <div>
-                  <h3 className="font-semibold mb-2">Subscription Information</h3>
-                  {/* Payment Status Badge */}
-                  {(() => {
-                    const subscriptionPayments = getPaymentsForSubscription(selectedSubscription.id);
-                    const totalPaid = subscriptionPayments
-                      .filter((p) => p.payment_status === 'completed')
-                      .reduce((sum, p) => sum + (p.amount || 0), 0);
-                    const planPrice = selectedSubscription.plan?.price || 0;
-                    let status = 'Not Paid';
-                    let color: 'default' | 'destructive' | 'secondary' | 'outline' = 'destructive';
-                    if (totalPaid >= planPrice && planPrice > 0) {
-                      status = 'Fully Paid';
-                      color = 'default';
-                    } else if (totalPaid > 0 && totalPaid < planPrice) {
-                      status = 'Partially Paid';
-                      color = 'secondary';
-                    }
-                    return <Badge variant={color}>{status}</Badge>;
-                  })()}
-                  <div className="space-y-2 text-sm">
-                    <div><span className="font-medium">Member:</span> {selectedSubscription.member?.firstName} {selectedSubscription.member?.lastName}</div>
-                    <div><span className="font-medium">Email:</span> {selectedSubscription.member?.email}</div>
-                    <div><span className="font-medium">Plan:</span> {selectedSubscription.plan?.name}</div>
-                    <div><span className="font-medium">Price:</span> {formatPrice(selectedSubscription.plan?.price || 0)}</div>
-                    <div><span className="font-medium">Start Date:</span> {formatDate(selectedSubscription.start_date)}</div>
-                    <div><span className="font-medium">End Date:</span> {formatDate(selectedSubscription.end_date)}</div>
-                    <div><span className="font-medium">Sessions Remaining:</span> {selectedSubscription.sessions_remaining} / {selectedSubscription.plan?.max_sessions ?? 0}</div>
-                    <div><span className="font-medium">Status:</span> 
-                      <Badge variant={getStatusColor(selectedSubscription.status)} className="ml-2">
-                        {getStatusText(selectedSubscription.status)}
+                  <div className="font-semibold text-lg flex items-center gap-2">
+                    {selectedSubscription?.member?.firstName} {selectedSubscription?.member?.lastName}
+                  </div>
+                  <div className="text-muted-foreground text-sm">{selectedSubscription?.member?.email}</div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="font-medium text-primary">{selectedSubscription?.plan?.name}</span>
+                    {selectedSubscription && (
+                      <Badge variant={getStatusBadgeVariant(selectedSubscription.status)}>
+                        {selectedSubscription.status.charAt(0).toUpperCase() + selectedSubscription.status.slice(1)}
                       </Badge>
-          </div>
-                    {selectedSubscription.notes && (
-                      <div><span className="font-medium">Notes:</span> {selectedSubscription.notes}</div>
                     )}
                   </div>
                 </div>
-
-                {/* Payment History */}
-                <div>
-                  <h3 className="font-semibold mb-2">Payment History</h3>
-                  {(() => {
-                    const subscriptionPayments = getPaymentsForSubscription(selectedSubscription.id);
-                    if (subscriptionPayments.length === 0) {
-                      return <p className="text-sm text-muted-foreground">No payments recorded</p>;
-                    }
-                    return (
-                      <div className="space-y-2">
-                        {subscriptionPayments.map((payment) => (
-                          <div key={payment.id} className="border rounded p-3 text-sm">
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <div className="font-medium">{formatPrice(payment.amount)}</div>
-                                <div className="text-muted-foreground">{payment.payment_type}</div>
-                              </div>
-                              <Badge variant={payment.payment_status === 'completed' ? 'default' : 'secondary'}>
-                                {payment.payment_status}
-                              </Badge>
-                            </div>
-                            <div className="text-muted-foreground mt-1">
-                              {formatDate(payment.payment_date)}
+              </div>
+              {/* Only one close button here */}
+              <DialogClose asChild>
+              </DialogClose>
             </div>
-                            {payment.transaction_id && (
-                              <div className="text-muted-foreground text-xs">
-                                ID: {payment.transaction_id}
-                        </div>
-                            )}
-                        </div>
-                        ))}
+          </DialogHeader>
+          <Tabs defaultValue="overview" className="w-full">
+            <TabsList className="mb-0 px-6 pt-4 bg-transparent">
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="payments">Payments</TabsTrigger>
+            </TabsList>
+            <div className="p-6">
+              <TabsContent value="overview">
+                <Card className="shadow-none border-none bg-transparent">
+                  <CardHeader className="p-0 mb-4">
+                    <CardTitle className="text-lg">Subscription Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0 space-y-3">
+                    <div className="flex flex-wrap gap-4">
+                      <div className="flex-1 min-w-[180px]">
+                        <div className="text-sm text-muted-foreground">Plan</div>
+                        <div className="font-medium">{selectedSubscription?.plan?.name}</div>
                       </div>
-                    );
-                  })()}
+                      <div className="flex-1 min-w-[180px]">
+                        <div className="text-sm text-muted-foreground">Price</div>
+                        <div className="font-medium">{formatPrice(selectedSubscription?.plan?.price || 0)}</div>
+                      </div>
+                      <div className="flex-1 min-w-[180px]">
+                        <div className="text-sm text-muted-foreground">Sessions Remaining</div>
+                        <div className="font-medium">{selectedSubscription?.sessions_remaining} / {selectedSubscription?.plan?.max_sessions ?? 0}</div>
+                      </div>
+                      <div className="flex-1 min-w-[180px]">
+                        <div className="text-sm text-muted-foreground">Start Date</div>
+                        <div className="font-medium">{selectedSubscription?.start_date ? formatDate(selectedSubscription.start_date) : '-'}</div>
+                      </div>
+                      <div className="flex-1 min-w-[180px]">
+                        <div className="text-sm text-muted-foreground">End Date</div>
+                        <div className="font-medium">{selectedSubscription?.end_date ? formatDate(selectedSubscription.end_date) : '-'}</div>
+                      </div>
+                    </div>
+                    {selectedSubscription?.notes && (
+                      <div className="mt-4">
+                        <div className="text-sm text-muted-foreground mb-1">Notes</div>
+                        <div className="text-sm whitespace-pre-wrap">{selectedSubscription.notes}</div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              <TabsContent value="payments">
+                <Card className="shadow-none border-none bg-transparent">
+                  <CardHeader className="p-0 mb-4 flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                      <CreditCard className="w-5 h-5 text-primary" />
+                      <CardTitle className="text-lg">Payments</CardTitle>
+                    </div>
+                    {/* Payment summary row */}
+                    {(() => {
+                      const subscriptionPayments = selectedSubscription ? getPaymentsForSubscription(selectedSubscription.id) : [];
+                      const totalPaid = subscriptionPayments
+                        .filter((p) => p.payment_status === 'completed')
+                        .reduce((sum, p) => sum + (p.amount || 0), 0);
+                      const planPrice = selectedSubscription?.plan?.price || 0;
+                      let status = 'Not Paid';
+                      let color: 'default' | 'destructive' | 'secondary' | 'outline' = 'destructive';
+                      if (totalPaid >= planPrice && planPrice > 0) {
+                        status = 'Fully Paid';
+                        color = 'default';
+                      } else if (totalPaid > 0 && totalPaid < planPrice) {
+                        status = 'Partially Paid';
+                        color = 'secondary';
+                      }
+                      return (
+                        <div className="flex flex-wrap gap-4 items-center text-sm mt-2">
+                          <div className="flex items-center gap-1">
+                            <span className="text-muted-foreground">Total Paid:</span>
+                            <span className="font-semibold">{formatPrice(totalPaid)}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-muted-foreground">Plan Price:</span>
+                            <span className="font-semibold">{formatPrice(planPrice)}</span>
+                          </div>
+                          <Badge variant={color}>{status}</Badge>
                         </div>
-                      </div>
-                      </div>
-          )}
+                      );
+                    })()}
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    {(() => {
+                      const subscriptionPayments = selectedSubscription ? getPaymentsForSubscription(selectedSubscription.id) : [];
+                      if (subscriptionPayments.length === 0) {
+                        return (
+                          <div className="pt-3 border-t">
+                            <p className="text-sm text-muted-foreground">No payments recorded for this subscription.</p>
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                          {subscriptionPayments.map((payment) => (
+                            <div key={payment.id} className="border rounded-lg p-3 text-xs flex flex-col md:flex-row md:items-center md:justify-between bg-muted/30 shadow-sm gap-2">
+                              <div className="flex flex-col md:flex-row md:items-center gap-2 flex-1">
+                                <span className="font-semibold text-base text-primary">{formatPrice(payment.amount)}</span>
+                                <Badge variant={payment.payment_status === 'completed' ? 'default' : payment.payment_status === 'pending' ? 'secondary' : 'destructive'} className="ml-2 text-xs capitalize">
+                                  {payment.payment_status}
+                                </Badge>
+                                <span className="text-muted-foreground ml-2">{payment.payment_type} • {formatDate(payment.payment_date)}</span>
+                                {payment.transaction_id && (
+                                  <span className="text-muted-foreground text-xs ml-2">ID: {payment.transaction_id}</span>
+                                )}
+                              </div>
+                              <div className="flex gap-2 mt-2 md:mt-0 md:ml-4">
+                                <Button size="icon" variant="ghost" onClick={() => handleEditPayment(payment)} title="Edit Payment">
+                                  <span className="sr-only">Edit Payment</span>
+                                  <Edit className="w-4 h-4" />
+                                </Button>
+                                <Button size="icon" variant="ghost" onClick={() => handleDeletePayment(payment)} title="Delete Payment">
+                                  <span className="sr-only">Delete Payment</span>
+                                  <Trash2 className="w-4 h-4 text-destructive" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </div>
+          </Tabs>
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment Delete Confirmation Modal */}
+      <Dialog open={isDeletePaymentModalOpen} onOpenChange={setIsDeletePaymentModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Payment</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this payment?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setIsDeletePaymentModalOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={() => paymentToDelete && deletePaymentMutation.mutate(paymentToDelete.id)} disabled={deletePaymentMutation.isPending}>
+              {deletePaymentMutation.isPending ? "Deleting..." : "Delete"}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

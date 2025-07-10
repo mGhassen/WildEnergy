@@ -139,11 +139,12 @@ export class DatabaseStorage implements IStorage {
       last_name: insertUser.lastName,
       is_admin: insertUser.isAdmin,
       is_member: insertUser.isMember,
-      is_trainer: insertUser.isTrainer || false,
+      // status, subscriptionStatus, credit are all valid
       status: insertUser.status || 'active',
       subscription_status: insertUser.subscriptionStatus || 'inactive',
       created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
+      ...(insertUser.credit !== undefined ? { credit: insertUser.credit } : {}),
     };
 
     const { data: user, error } = await supabase
@@ -180,6 +181,8 @@ export class DatabaseStorage implements IStorage {
       .from('users')
       .update({
         ...updates,
+        // Add credit if present
+        ...(updates.credit !== undefined ? { credit: updates.credit } : {}),
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
@@ -1030,16 +1033,16 @@ export class DatabaseStorage implements IStorage {
       if (shouldCreateCourse) {
         console.log(`Creating course for date: ${dateString}`);
         newCourses.push({
-          schedule_id: scheduleId,
-          class_id: schedule.class_id,
-          trainer_id: schedule.trainer_id,
-          course_date: dateString,
-          start_time: schedule.start_time,
-          end_time: schedule.end_time,
-          max_participants: schedule.max_participants,
-          current_participants: 0,
+          scheduleId: scheduleId,
+          classId: schedule.class_id,
+          trainerId: schedule.trainer_id,
+          courseDate: dateString,
+          startTime: schedule.start_time,
+          endTime: schedule.end_time,
+          maxParticipants: schedule.max_participants,
+          currentParticipants: 0,
           status: 'scheduled',
-          is_active: schedule.is_active,
+          isActive: schedule.is_active,
         });
       }
 
@@ -1511,6 +1514,25 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error('Error in markAbsentClasses:', error);
       throw error;
+    }
+  }
+
+  // Helper: Update subscription status to active if fully paid
+  async updateSubscriptionStatusIfFullyPaid(subscriptionId: number): Promise<void> {
+    // Get the subscription
+    const subscription = await this.getSubscription(subscriptionId);
+    if (!subscription) return;
+    // Get the plan
+    const plan = await this.getPlan(subscription.planId);
+    if (!plan) return;
+    // Get all payments for this subscription
+    const payments = await this.getPaymentsBySubscription(subscriptionId);
+    // Sum the payments (amount is string, so parseFloat)
+    const totalPaid = payments.reduce((sum, p) => sum + parseFloat(p.amount as any), 0);
+    // If fully paid and not already active, update status
+    const planPrice = parseFloat(plan.price as any);
+    if (totalPaid >= planPrice && subscription.status !== 'active') {
+      await this.updateSubscription(subscriptionId, { status: 'active' });
     }
   }
 }
