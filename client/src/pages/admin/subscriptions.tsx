@@ -6,14 +6,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertSubscriptionSchema } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
-import { Plus, Search, Calendar, DollarSign, Edit, Trash2, Eye, CreditCard, MoreVertical } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Eye, CreditCard, MoreVertical } from "lucide-react";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { getInitials, formatDate } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
@@ -98,7 +97,7 @@ export default function AdminSubscriptions() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
   const [editingSubscription, setEditingSubscription] = useState<Subscription | null>(null);
-  const [selectedSubscriptionForPayment, setSelectedSubscriptionForPayment] = useState<Subscription | null>(null);
+  const [, setSelectedSubscriptionForPayment] = useState<Subscription | null>(null);
   
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -419,17 +418,17 @@ export default function AdminSubscriptions() {
             </Button>
           </DialogTrigger>
         </Dialog>
-      </div>
+      </div>      
 
       {/* Search */}
       <div className="flex items-center space-x-2">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
           <Input
             placeholder="Search subscriptions..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-8"
+            className="pl-10"
           />
         </div>
       </div>

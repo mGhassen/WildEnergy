@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -11,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useForm } from "react-hook-form";
 
 import { apiRequest } from "@/lib/queryClient";
-import { Plus, Search, Edit, Trash2, Clock, Calendar, List, Users, TrendingUp, RepeatIcon } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Calendar, Users, TrendingUp, RepeatIcon } from "lucide-react";
 import { getDayName, formatTime } from "@/lib/auth";
 
 // Utility function for European date formatting (DD/MM/YYYY)
@@ -192,9 +191,6 @@ export default function AdminSchedules() {
       .includes(searchTerm.toLowerCase())
   ) || [];
 
-  const getScheduleRegistrations = (scheduleId: number) => {
-    return ((registrations as any[]) || []).filter((reg: any) => reg.schedule?.id === scheduleId);
-  };
 
   const getScheduleCheckins = (scheduleId: number) => {
     return ((checkins as any[]) || []).filter((checkin: any) => checkin.registration?.schedule?.id === scheduleId);
@@ -502,7 +498,6 @@ export default function AdminSchedules() {
             ) : (
               <div className="space-y-4">
                 {filteredSchedules.map((schedule: any) => {
-                  const registeredMembers = getScheduleRegistrations(schedule.id);
                   const attendedMembers = getScheduleCheckins(schedule.id);
                   
                   // Get capacity from class max_capacity

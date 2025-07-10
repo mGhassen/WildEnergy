@@ -3,8 +3,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight, Calendar, Users, Clock, MapPin } from "lucide-react";
-import { formatTime, getDayName } from "@/lib/auth";
+import { ChevronLeft, ChevronRight, Calendar, Users, Clock } from "lucide-react";
+import { formatTime } from "@/lib/auth";
+
+// Utility function for European date formatting (DD/MM/YYYY)
+const formatEuropeanDate = (date: Date) => {
+  return date.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+};
 
 interface Schedule {
   id: number;
@@ -95,13 +104,13 @@ export default function ScheduleCalendar({
 
   const getDateRange = () => {
     if (viewMode === "daily") {
-      return currentDate.toLocaleDateString();
+      return formatEuropeanDate(currentDate);
     } else if (viewMode === "weekly") {
       const startOfWeek = new Date(currentDate);
       startOfWeek.setDate(currentDate.getDate() - currentDate.getDay());
       const endOfWeek = new Date(startOfWeek);
       endOfWeek.setDate(startOfWeek.getDate() + 6);
-      return `${startOfWeek.toLocaleDateString()} - ${endOfWeek.toLocaleDateString()}`;
+      return `${formatEuropeanDate(startOfWeek)} - ${formatEuropeanDate(endOfWeek)}`;
     } else {
       return currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
     }
@@ -216,7 +225,7 @@ export default function ScheduleCalendar({
                         </div>
                         <div className="flex items-center gap-1">
                           <Users className="w-4 h-4" />
-                          {registeredMembers.length}/{schedule.class.maxCapacity}
+                          {attendedMembers.length}/{schedule.class.maxCapacity}
                         </div>
                       </div>
                     </div>
@@ -224,10 +233,6 @@ export default function ScheduleCalendar({
                       <Badge variant="secondary">
                         {schedule.class.category}
                       </Badge>
-                      <div className="text-sm">
-                        <div className="text-muted-foreground">Attended:</div>
-                        <div className="font-semibold">{attendedMembers.length}/{registeredMembers.length}</div>
-                      </div>
                     </div>
                   </div>
                 </CardContent>
@@ -314,7 +319,6 @@ export default function ScheduleCalendar({
       const days = [];
       for (let day = 0; day < 7; day++) {
         const date = new Date(currentWeekDate);
-        const dateStr = date.toISOString().split('T')[0];
         
         // Filter schedules for this specific day
         const daySchedules = schedules.filter(schedule => 
@@ -355,7 +359,6 @@ export default function ScheduleCalendar({
                   </div>
                   <div className="space-y-1">
                     {day.schedules.slice(0, 2).map((schedule) => {
-                      const registeredMembers = getScheduleRegistrations(schedule.id);
                       const attendedMembers = getScheduleCheckins(schedule.id);
                       
                       return (
@@ -365,7 +368,7 @@ export default function ScheduleCalendar({
                           <div className="truncate font-medium">{schedule.class.name}</div>
                           <div className="flex justify-between">
                             <span>{formatTime(schedule.startTime)}</span>
-                            <span>{attendedMembers.length}/{registeredMembers.length}</span>
+                            <span>{attendedMembers.length}/{schedule.class.maxCapacity}</span>
                           </div>
                         </div>
                       );
