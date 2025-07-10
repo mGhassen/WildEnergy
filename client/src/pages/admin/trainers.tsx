@@ -36,16 +36,33 @@ export default function AdminTrainers() {
         const data = await apiRequest("GET", "/api/trainers");
         
         // Transform the data to match the expected structure
-        return data.map((trainer: any) => ({
-          ...trainer,
-          // If user data is nested, flatten it
-          ...(trainer.user ? {
-            firstName: trainer.user.firstName || trainer.user.first_name,
-            lastName: trainer.user.lastName || trainer.user.last_name,
-            email: trainer.user.email,
-            phone: trainer.user.phone
-          } : {})
-        }));
+        return data.map((trainer: any) => {
+          console.log('Raw trainer data:', trainer); // Debug log
+          console.log('User object:', trainer.user); // Debug user object
+          console.log('First name from user:', trainer.user?.first_name); // Debug first name
+          console.log('Last name from user:', trainer.user?.last_name); // Debug last name
+          
+          const firstName = trainer.user?.first_name || trainer.firstName || trainer.user?.firstName || "";
+          const lastName = trainer.user?.last_name || trainer.lastName || trainer.user?.lastName || "";
+          
+          console.log('Extracted firstName:', firstName); // Debug extracted first name
+          console.log('Extracted lastName:', lastName); // Debug extracted last name
+          
+          return {
+            id: trainer.id,
+            firstName: firstName,
+            lastName: lastName,
+            email: trainer.user?.email || trainer.email || "",
+            phone: trainer.user?.phone || trainer.phone || "",
+            bio: trainer.bio || "",
+            status: trainer.status || "active",
+            specialization: trainer.specialization || "",
+            experience_years: trainer.experience_years || 0,
+            certification: trainer.certification || "",
+            created_at: trainer.created_at,
+            updated_at: trainer.updated_at
+          };
+        });
       } catch (err) {
         console.error('Error fetching trainers:', err);
         toast({
@@ -352,8 +369,8 @@ export default function AdminTrainers() {
                   <TableRow key={trainer.id}>
                     <TableCell>
                       <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-secondary/20 rounded-full flex items-center justify-center">
-                          <span className="text-sm font-medium text-secondary">
+                        <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                          <span className="text-sm font-medium text-primary">
                             {getInitials(trainer.firstName, trainer.lastName)}
                           </span>
                         </div>
@@ -361,7 +378,6 @@ export default function AdminTrainers() {
                           <p className="font-medium text-foreground">
                             {trainer.firstName} {trainer.lastName}
                           </p>
-                          <p className="text-sm text-muted-foreground">ID: #{trainer.id}</p>
                         </div>
                       </div>
                     </TableCell>
