@@ -13,20 +13,48 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 
+// Add types for session, subscription, and registration
+interface SessionUser {
+  id: string;
+  credit?: number;
+}
+interface SessionResponse {
+  user: SessionUser;
+}
+interface Plan {
+  id: number;
+  name: string;
+  price: string;
+  sessionsIncluded: number;
+}
+interface Subscription {
+  id: number;
+  plan?: Plan;
+  sessionsRemaining: number;
+  startDate: string;
+  endDate: string;
+}
+interface Registration {
+  id: number;
+  class?: { name: string };
+  schedule?: { dayOfWeek: number; startTime: string };
+  qrCode: string;
+}
+
 export default function MemberSubscriptions() {
   const [selectedQR, setSelectedQR] = useState<any>(null);
   const { toast } = useToast();
   // Add state for tabs
   const [tab, setTab] = useState("overview");
   // Fetch user credit (assume it's part of the subscription or fetch separately)
-  const { data: profile } = useQuery({ queryKey: ["/api/auth/session"] });
+  const { data: profile } = useQuery<SessionResponse>({ queryKey: ["/api/auth/session"] });
   const credit = profile?.user?.credit ?? 0;
 
-  const { data: subscription, isLoading: subscriptionLoading, refetch } = useQuery({
+  const { data: subscription, isLoading: subscriptionLoading, refetch } = useQuery<Subscription>({
     queryKey: ["/api/member/subscription"],
   });
 
-  const { data: registrations, isLoading: registrationsLoading } = useQuery({
+  const { data: registrations, isLoading: registrationsLoading } = useQuery<Registration[]>({
     queryKey: ["/api/registrations"],
   });
 
@@ -76,10 +104,10 @@ export default function MemberSubscriptions() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          subscriptionId: subscription.id,
-          userId: profile.user.id,
+          subscription_id: subscription.id,
+          user_id: profile.user.id,
           amount: Number(paymentAmount),
-          paymentType,
+          payment_type: paymentType,
         }),
       });
       const data = await res.json();
@@ -117,12 +145,24 @@ export default function MemberSubscriptions() {
     );
   }
 
-  const sessionsUsed = subscription ? (subscription.plan?.sessionsIncluded - subscription.sessionsRemaining) : 0;
-  const totalSessions = subscription?.plan?.sessionsIncluded || 0;
+  const sessionsUsed = subscription ? ((subscription.plan?.sessionsIncluded ?? 0) - subscription.sessionsRemaining) : 0;
+  const totalSessions = subscription?.plan?.sessionsIncluded ?? 0;
   const usagePercentage = totalSessions > 0 ? (sessionsUsed / totalSessions) * 100 : 0;
 
   return (
     <div className="space-y-8">
+      {/* Credit Tag at the Top */}
+      <div className="flex items-center justify-end mb-4">
+        <Card className="flex items-center gap-3 px-4 py-2 bg-gradient-to-r from-green-100 to-green-50 border-green-200 shadow-none">
+          <span className="inline-flex items-center gap-1 text-green-700 font-semibold text-lg">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3-1.343-3-3-3zm0 0V4m0 16v-4m8-4a8 8 0 11-16 0 8 8 0 0116 0z" /></svg>
+            {credit} TND
+          </span>
+          <Badge variant={credit > 0 ? "default" : "secondary"} className="ml-2 px-2 py-1 rounded-full text-xs">
+            {credit > 0 ? "Credit Available" : "No Credit"}
+          </Badge>
+        </Card>
+      </div>
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-foreground mb-2">My Subscriptions</h1>
         <p className="text-muted-foreground">View and manage your active subscriptions</p>
@@ -150,12 +190,12 @@ export default function MemberSubscriptions() {
                       <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4">
                         <Star className="w-8 h-8 text-primary" />
                       </div>
-                      <h3 className="text-2xl font-bold text-primary mb-2">{subscription.plan?.name}</h3>
+                      <h3 className="text-2xl font-bold text-primary mb-2">{subscription.plan?.name ?? "Plan"}</h3>
                       <p className="text-lg font-semibold text-foreground">
-                        ${subscription.plan?.price}/month
+                        ${subscription.plan?.price ?? 0}/month
                       </p>
                       <p className="text-sm text-muted-foreground mt-2">
-                        {subscription.plan?.sessionsIncluded} sessions included
+                        {subscription.plan?.sessionsIncluded ?? 0} sessions included
                       </p>
                     </div>
 
@@ -243,14 +283,14 @@ export default function MemberSubscriptions() {
                     </div>
                   ) : registrations && registrations.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {registrations.map((registration: any) => (
+                      {registrations.map((registration: Registration) => (
                         <Card key={registration.id} className="p-4">
                           <div className="text-center">
                             <h4 className="font-medium text-foreground mb-1">
-                              {registration.class?.name}
+                              {registration.class?.name ?? "Class"}
                             </h4>
                             <p className="text-sm text-muted-foreground mb-3">
-                              {getDayName(registration.schedule?.dayOfWeek)} • {formatTime(registration.schedule?.startTime)}
+                              {getDayName(registration.schedule?.dayOfWeek ?? 0)} • {formatTime(registration.schedule?.startTime ?? "00:00")}
                             </p>
                             
                             <div className="w-32 h-32 mx-auto mb-3 bg-white border border-border rounded-lg p-2">
@@ -377,6 +417,18 @@ export default function MemberSubscriptions() {
       {/* QR Code Modal */}
       <Dialog open={!!selectedQR} onOpenChange={() => setSelectedQR(null)}>
         <DialogContent className="sm:max-w-md">
+          {/* Credit Tag at the Top of Popup */}
+          <div className="flex items-center justify-end mb-4">
+            <Card className="flex items-center gap-3 px-4 py-2 bg-gradient-to-r from-green-100 to-green-50 border-green-200 shadow-none">
+              <span className="inline-flex items-center gap-1 text-green-700 font-semibold text-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3-1.343-3-3-3zm0 0V4m0 16v-4m8-4a8 8 0 11-16 0 8 8 0 0116 0z" /></svg>
+                {credit} TND
+              </span>
+              <Badge variant={credit > 0 ? "default" : "secondary"} className="ml-2 px-2 py-1 rounded-full text-xs">
+                {credit > 0 ? "Credit Available" : "No Credit"}
+              </Badge>
+            </Card>
+          </div>
           <DialogHeader>
             <DialogTitle>Class QR Code</DialogTitle>
             <DialogDescription>

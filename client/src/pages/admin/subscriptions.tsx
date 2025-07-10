@@ -28,6 +28,7 @@ type Member = {
   lastName: string;
   email: string;
   status: string;
+  credit: number; // Added credit field
 };
 
 type Plan = {
@@ -83,7 +84,7 @@ const paymentFormSchema = z.object({
   subscription_id: z.number(),
   user_id: z.string(),
   amount: z.number().min(0.01, "Amount must be greater than 0"),
-  payment_type: z.enum(['cash', 'card', 'bank_transfer', 'check', 'other']),
+  payment_type: z.enum(['credit', 'cash', 'card', 'bank_transfer', 'check', 'other']),
   payment_status: z.enum(['pending', 'completed', 'failed', 'refunded', 'cancelled']).default('completed'),
   payment_date: z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/, "Invalid date"),
   transaction_id: z.string().optional(),
@@ -134,6 +135,7 @@ export default function AdminSubscriptions() {
         lastName: m.lastName || m.last_name || '',
         email: m.email,
         status: m.status,
+        credit: m.credit || 0, // Map credit field
       }))
     : [];
 
@@ -279,6 +281,8 @@ export default function AdminSubscriptions() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/members"] }); // After payment, refetch members to update credit
+      queryClient.invalidateQueries({ queryKey: ["/api/subscriptions"] });
       setIsPaymentModalOpen(false);
       setEditingPayment(null);
       toast({ title: "Payment created successfully" });
@@ -299,6 +303,7 @@ export default function AdminSubscriptions() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/subscriptions"] });
       setIsPaymentModalOpen(false);
       setEditingPayment(null);
       toast({ title: "Payment updated successfully" });
@@ -319,6 +324,8 @@ export default function AdminSubscriptions() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/members"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/subscriptions"] });
       setIsDeletePaymentModalOpen(false);
       setPaymentToDelete(null);
       toast({ title: "Payment deleted successfully" });
@@ -350,13 +357,14 @@ export default function AdminSubscriptions() {
     setIsEditModalOpen(true);
   };
 
-  const openPaymentModal = (subscription: Subscription) => {
+  // 1. Fix openPaymentModal to accept an optional override for payment_type and amount
+  const openPaymentModal = (subscription: Subscription, override?: { amount?: number; payment_type?: PaymentFormData['payment_type'] }) => {
     setSelectedSubscriptionForPayment(subscription);
     paymentForm.reset({
       subscription_id: subscription.id,
       user_id: subscription.user_id,
-      amount: subscription.plan?.price || 0,
-      payment_type: "cash",
+      amount: override?.amount ?? (subscription.plan?.price || 0),
+      payment_type: override?.payment_type ?? "cash",
       payment_status: "completed",
       payment_date: new Date().toISOString().split('T')[0],
       transaction_id: "",
@@ -378,15 +386,14 @@ export default function AdminSubscriptions() {
     updateSubscriptionMutation.mutate(data);
   };
 
+  // 3. In handlePaymentSubmit, do not override payment_type, just use data.payment_type
   const handlePaymentSubmit = (data: PaymentFormData) => {
-    const safePayment_type = ["cash", "card", "bank_transfer", "check", "other"].includes(data.payment_type) ? data.payment_type : "cash";
-    const safePayment_status = ["pending", "completed", "failed", "refunded", "cancelled"].includes(data.payment_status) ? data.payment_status : "completed";
     const paymentPayload = {
       subscription_id: data.subscription_id,
       user_id: data.user_id,
       amount: data.amount,
-      payment_type: safePayment_type,
-      payment_status: safePayment_status,
+      payment_type: data.payment_type,
+      payment_status: data.payment_status,
       payment_date: data.payment_date,
       transaction_id: data.transaction_id,
       notes: data.notes,
@@ -1046,6 +1053,32 @@ export default function AdminSubscriptions() {
               Record a payment for this subscription
             </DialogDescription>
           </DialogHeader>
+          {/* Show member credit at the top */}
+          {(() => {
+            const userId = paymentForm.getValues('user_id');
+            const member = mappedMembers.find(m => m.id === userId);
+            if (!member) return null;
+            return (
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-green-700 font-semibold text-lg">Credit: {Number(member.credit) || 0} TND</span>
+                {/* 2. Update the Use Credit button to call openPaymentModal with the correct values */}
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    if (!selectedSubscription) return;
+                    const planPriceLocal = selectedSubscription.plan ? selectedSubscription.plan.price || 0 : 0;
+                    const useAmount = Math.min(Number(member.credit) || 0, planPriceLocal);
+                    openPaymentModal(selectedSubscription, { amount: useAmount, payment_type: 'credit' });
+                  }}
+                  disabled={!member.credit || Number(member.credit) <= 0 || !selectedSubscription}
+                >
+                  Use Credit
+                </Button>
+              </div>
+            );
+          })()}
           <Form {...paymentForm}>
             <form onSubmit={paymentForm.handleSubmit(handlePaymentSubmit)} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1071,32 +1104,38 @@ export default function AdminSubscriptions() {
                 <Controller
                   name="payment_type"
                   control={paymentForm.control}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Payment Type</FormLabel>
-                      <Select
-                        value={field.value}
-                        onValueChange={val => {
-                          field.onChange(val);
-                          field.onBlur();
-                        }}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select payment type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="cash">Cash</SelectItem>
-                          <SelectItem value="card">Card</SelectItem>
-                          <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                          <SelectItem value="check">Check</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  render={({ field }) => {
+                    const userId = paymentForm.getValues('user_id');
+                    const member = mappedMembers.find(m => m.id === userId);
+                    const hasCredit = member && Number(member.credit) > 0;
+                    return (
+                      <FormItem>
+                        <FormLabel>Payment Type</FormLabel>
+                        <Select
+                          value={field.value}
+                          onValueChange={val => {
+                            field.onChange(val);
+                            field.onBlur();
+                          }}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select payment type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {hasCredit && <SelectItem value="credit">Credit</SelectItem>}
+                            <SelectItem value="cash">Cash</SelectItem>
+                            <SelectItem value="card">Card</SelectItem>
+                            <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                            <SelectItem value="check">Check</SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
 
                 <Controller

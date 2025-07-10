@@ -85,6 +85,7 @@ export default function MembersPage() {
         phone: m.phone,
         dateOfBirth: m.dateOfBirth || m.date_of_birth,
         createdAt: m.createdAt || m.created_at,
+        credit: m.credit ?? 0,
       }))
     : [];
 
@@ -328,13 +329,27 @@ export default function MembersPage() {
       <Dialog open={showMemberDetails} onOpenChange={setShowMemberDetails}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                <span className="text-sm font-medium text-primary">
-                  {selectedMember && getInitials(selectedMember.firstName || "", selectedMember.lastName || "")}
-                </span>
+            <DialogTitle className="flex items-center justify-between w-full">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                  <span className="text-sm font-medium text-primary">
+                    {selectedMember && getInitials(selectedMember.firstName || "", selectedMember.lastName || "")}
+                  </span>
+                </div>
+                <span>{selectedMember?.firstName} {selectedMember?.lastName}</span>
               </div>
-              <span>{selectedMember?.firstName} {selectedMember?.lastName}</span>
+              {/* Credit Tag aligned with title, only if credit > 0 */}
+              {selectedMember?.credit > 0 && (
+                <Card className="flex items-center gap-3 px-4 py-2 bg-gradient-to-r from-green-100 to-green-50 border-green-200 shadow-none">
+                  <span className="inline-flex items-center gap-1 text-green-700 font-semibold text-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3-1.343-3-3-3zm0 0V4m0 16v-4m8-4a8 8 0 11-16 0 8 8 0 0116 0z" /></svg>
+                    {selectedMember.credit} TND
+                  </span>
+                  <Badge variant="default" className="ml-2 px-2 py-1 rounded-full text-xs">
+                    Credit Available
+                  </Badge>
+                </Card>
+              )}
             </DialogTitle>
             <DialogDescription>
               Comprehensive member information and activity
