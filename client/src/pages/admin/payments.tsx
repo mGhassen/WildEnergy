@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, DollarSign, Filter, Calendar, TrendingUp, Users, CreditCard } from "lucide-react";
+import { Search, DollarSign, Filter, Calendar, TrendingUp, CreditCard } from "lucide-react";
 import { getInitials, formatDate } from "@/lib/auth";
 import { apiRequest } from "@/lib/queryClient";
 

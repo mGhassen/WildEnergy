@@ -414,7 +414,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ error: 'Failed to fetch users' });
       }
 
-      res.json(users);
+      // Expose credit field
+      const usersWithCredit = users.map((u: any) => ({ ...u, credit: u.credit ?? 0 }));
+      res.json(usersWithCredit);
     } catch (error) {
       console.error('Error in users endpoint:', error);
       res.status(500).json({ error: 'Internal server error' });
@@ -637,7 +639,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Admin routes - User management
   console.log('Registering route: GET /api/users');
-  app.get("/api/users", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
+  app.get("/api/users", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (_req: any, res) => {
     try {
       const users = await storage.getUsers();
       res.json(users);
@@ -649,10 +651,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Member management routes
   console.log('Registering route: GET /api/members');
-  app.get("/api/members", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
+  app.get("/api/members", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (_req: any, res) => {
     try {
       const members = await storage.getUsers();
-      res.json(members.filter((user: any) => user.is_member));
+      // Expose credit field
+      const membersWithCredit = members.filter((user: any) => user.is_member).map((u: any) => ({ ...u, credit: u.credit ?? 0 }));
+      res.json(membersWithCredit);
     } catch (error) {
       console.error("Error fetching members:", error);
       res.status(500).json({ error: "Failed to fetch members" });
@@ -700,8 +704,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get member's payments
       const payments = await storage.getPaymentsByUser(id);
 
+      // Expose credit field
       res.json({
-        member,
+        member: { ...member, credit: member.credit ?? 0 },
         subscriptions: memberSubscriptions,
         registrations,
         checkins,
@@ -754,7 +759,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Trainers management
   console.log('Registering route: GET /api/trainers');
-  app.get("/api/trainers", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
+  app.get("/api/trainers", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (_req: any, res) => {
     try {
       const trainers = await storage.getTrainers();
       res.json(trainers);
@@ -820,7 +825,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Categories routes
   console.log('Registering route: GET /api/admin/categories');
-  app.get("/api/admin/categories", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
+  app.get("/api/admin/categories", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (_req: any, res) => {
     try {
       const categories = await storage.getCategories();
       res.json(categories);
@@ -888,7 +893,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Classes management
   console.log('Registering route: GET /api/admin/classes');
-  app.get("/api/admin/classes", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
+  app.get("/api/admin/classes", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (_req: any, res) => {
     try {
       const classes = await storage.getClasses();
       res.json(classes);
@@ -966,7 +971,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Plans management
   console.log('Registering route: GET /api/plans');
-  app.get("/api/plans", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
+  app.get("/api/plans", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (_req: any, res) => {
     try {
       const plans = await storage.getPlans();
       res.json(plans);
@@ -1003,7 +1008,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Schedules management
   console.log('Registering route: GET /api/schedules');
-  app.get("/api/schedules", asyncHandler(requireAuth), async (req: any, res) => {
+  app.get("/api/schedules", asyncHandler(requireAuth), async (_req: any, res) => {
     try {
       const schedules = await storage.getSchedules();
       res.json(schedules);
@@ -1446,7 +1451,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Subscriptions management
   console.log('Registering route: GET /api/subscriptions');
-  app.get("/api/subscriptions", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
+  app.get("/api/subscriptions", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (_req: any, res) => {
     try {
       const subscriptions = await storage.getSubscriptions();
       res.json(subscriptions);
@@ -1460,11 +1465,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/subscriptions", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
     try {
       console.log("Creating subscription with data:", req.body);
-      const { userId, planId, startDate, endDate, sessionsRemaining, status, notes } = req.body;
+      let { userId, planId, startDate, endDate, sessionsRemaining, status, notes } = req.body;
 
       // Validate required fields
       if (!userId || !planId) {
         return res.status(400).json({ error: "userId and planId are required" });
+      }
+
+      // Fetch plan to get max_sessions if sessionsRemaining is not provided
+      if (!sessionsRemaining) {
+        const plan = await storage.getPlan(parseInt(planId));
+        if (!plan) {
+          return res.status(400).json({ error: "Plan not found" });
+        }
+        sessionsRemaining = plan.sessionsIncluded || 0;
       }
 
       // Accept startDate and endDate as 'YYYY-MM-DD 00:00:00' and convert to Date objects for DB
@@ -1597,7 +1611,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Public classes endpoint for schedule creation
   console.log('Registering route: GET /api/classes');
-  app.get("/api/classes", asyncHandler(requireAuth), async (req: any, res) => {
+  app.get("/api/classes", asyncHandler(requireAuth), async (_req: any, res) => {
     try {
       const classes = await storage.getClasses();
       res.json(classes);
@@ -1609,7 +1623,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Dashboard stats
   console.log('Registering route: GET /api/dashboard/stats');
-  app.get("/api/dashboard/stats", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
+  app.get("/api/dashboard/stats", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (_req: any, res) => {
     try {
       const stats = await storage.getDashboardStats();
       res.json(stats);
@@ -1621,7 +1635,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Payments routes
   console.log('Registering route: GET /api/payments');
-  app.get("/api/payments", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
+  app.get("/api/payments", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (_req: any, res) => {
     try {
       const payments = await storage.getPayments();
       res.json(payments);
@@ -1646,9 +1660,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
   console.log('Registering route: POST /api/payments');
   app.post("/api/payments", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
     try {
+      console.log("Incoming payment POST body:", req.body);
       const paymentData = req.body;
-      const payment = await storage.createPayment(paymentData);
-      res.json(payment);
+      // Use snake_case only
+      const subscription_id = paymentData.subscription_id;
+      const user_id = paymentData.user_id;
+      const amount = paymentData.amount;
+      if (!subscription_id || !user_id || !amount || amount <= 0) {
+        return res.status(400).json({ error: "subscription_id, user_id, and positive amount are required" });
+      }
+      // Fetch subscription and plan
+      const subscription = await storage.getSubscription(subscription_id);
+      if (!subscription) return res.status(404).json({ error: "Subscription not found" });
+      const plan = await storage.getPlan(subscription.plan_id);
+      if (!plan) return res.status(404).json({ error: "Plan not found" });
+      // Calculate total paid so far
+      const payments = await storage.getPaymentsBySubscription(subscription_id);
+      const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+      const planPrice = Number(plan.price);
+      let appliedAmount = amount;
+      let creditAmount = 0;
+      if (totalPaid + amount > planPrice) {
+        appliedAmount = Math.max(planPrice - totalPaid, 0);
+        creditAmount = amount - appliedAmount;
+      }
+      // Create payment with appliedAmount (skip if appliedAmount is 0)
+      let payment = null;
+      if (appliedAmount > 0) {
+        payment = await storage.createPayment({ ...paymentData, subscription_id, user_id, amount: appliedAmount });
+        // If subscription is inactive, activate it after first payment
+        if (subscription.status === 'inactive') {
+          await storage.updateSubscription(subscription_id, { status: 'active' });
+        }
+        // Update subscription status if fully paid
+        if (payment && payment.subscription_id) {
+          await storage.updateSubscriptionStatusIfFullyPaid(payment.subscription_id);
+        }
+      }
+      // If creditAmount > 0, update user's credit
+      if (creditAmount > 0) {
+        const user = await storage.getUser(user_id);
+        if (user && typeof user.credit === 'number') {
+          const newCredit = user.credit + creditAmount;
+          await storage.updateUser(user_id, { credit: newCredit });
+        }
+      }
+      res.json({ payment, creditAdded: creditAmount });
     } catch (error) {
       console.error("Error creating payment:", error);
       res.status(500).json({ error: "Failed to create payment" });
@@ -1660,7 +1717,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const updates = req.body;
-      const payment = await storage.updatePayment(parseInt(id), updates);
+      // Use snake_case only
+      const subscription_id = updates.subscription_id;
+      const payment = await storage.updatePayment(parseInt(id), { ...updates, subscription_id });
+      // Update subscription status if fully paid
+      if (payment.subscription_id) {
+        await storage.updateSubscriptionStatusIfFullyPaid(payment.subscription_id);
+      }
       res.json(payment);
     } catch (error) {
       console.error("Error updating payment:", error);
