@@ -28,6 +28,7 @@ type Payment = {
     firstName: string;
     lastName: string;
     email: string;
+    credit?: number; // Added credit field
   };
   subscription?: {
     plan?: {
@@ -166,6 +167,9 @@ export default function AdminPayments() {
 
     const completedPayments = filteredPayments.filter(p => p.payment_status === 'completed');
 
+    // Sum of all credits on hold
+    const totalCredits = mappedMembers.reduce((sum, m) => sum + (m.credit > 0 ? m.credit : 0), 0);
+
     return {
       total: completedPayments.reduce((sum, p) => sum + Number(p.amount), 0),
       today: todayPayments.filter(p => p.payment_status === 'completed').reduce((sum, p) => sum + Number(p.amount), 0),
@@ -174,8 +178,9 @@ export default function AdminPayments() {
       totalPayments: filteredPayments.length,
       completedPayments: completedPayments.length,
       uniqueMembers: new Set(filteredPayments.map(p => p.user_id)).size,
+      totalCredits,
     };
-  }, [filteredPayments]);
+  }, [filteredPayments, mappedMembers]);
 
   const formatPrice = (price: string | number) => {
     return new Intl.NumberFormat('en-US', {
@@ -256,7 +261,12 @@ export default function AdminPayments() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatPrice(stats.total)}</div>
+            <div className="text-2xl font-bold flex flex-col items-start">
+              <span>{formatPrice(stats.total)}</span>
+              {stats.totalCredits > 0 && (
+                <span className="text-orange-600 text-base font-semibold mt-1">+{stats.totalCredits} credits</span>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">
               {stats.completedPayments} completed payments
             </p>
@@ -431,6 +441,44 @@ export default function AdminPayments() {
         </CardContent>
       </Card>
 
+      {/* Credits On Hold for Members */}
+      {mappedMembers.filter(m => m.credit > 0).length > 0 && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Credits On Hold</CardTitle>
+            <CardDescription>Members who currently have credits</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Member</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Credit</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {mappedMembers.filter(m => m.credit > 0).map(member => (
+                  <TableRow key={member.id}>
+                    <TableCell>
+                      <div className="flex items-center space-x-2">
+                        <span className="font-medium">{member.firstName} {member.lastName}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>{member.email}</TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className="text-orange-700 border-orange-300 bg-orange-50">
+                        {member.credit} TND
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Payments Table */}
       <Card>
         <CardHeader>
@@ -478,7 +526,15 @@ export default function AdminPayments() {
                       <span className="font-medium">{formatPrice(payment.amount)}</span>
                     </div>
                   </TableCell>
-                  <TableCell>{payment.payment_type || '-'}</TableCell>
+                  <TableCell>
+                    {payment.payment_type === 'credit' ? (
+                      <Badge style={{ backgroundColor: '#FFA500', color: '#fff' }}>
+                        Credit
+                      </Badge>
+                    ) : (
+                      payment.payment_type || '-'
+                    )}
+                  </TableCell>
                   <TableCell>{payment.payment_date ? formatDate(payment.payment_date) : '-'}</TableCell>
                   <TableCell>
                     <Badge className={getPaymentStatusColor(payment.payment_status)}>
