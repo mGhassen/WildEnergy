@@ -1,3 +1,5 @@
+DROP VIEW IF EXISTS members_with_subscription_status;
+
 CREATE OR REPLACE VIEW members_with_subscription_status AS
 SELECT
   users.*,

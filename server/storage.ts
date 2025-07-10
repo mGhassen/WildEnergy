@@ -1521,18 +1521,33 @@ export class DatabaseStorage implements IStorage {
   async updateSubscriptionStatusIfFullyPaid(subscriptionId: number): Promise<void> {
     // Get the subscription
     const subscription = await this.getSubscription(subscriptionId);
-    if (!subscription) return;
-    // Get the plan
-    const plan = await this.getPlan(subscription.planId);
-    if (!plan) return;
+    console.log('[updateSubscriptionStatusIfFullyPaid] subscription:', subscription);
+    if (!subscription) {
+      console.log('[updateSubscriptionStatusIfFullyPaid] No subscription found for id', subscriptionId);
+      return;
+    }
+    // Use plan_id (snake_case) as returned by Supabase
+    const plan = await this.getPlan((subscription as any).plan_id);
+    console.log('[updateSubscriptionStatusIfFullyPaid] plan:', plan);
+    if (!plan) {
+      console.log('[updateSubscriptionStatusIfFullyPaid] No plan found for plan_id', (subscription as any).plan_id);
+      return;
+    }
     // Get all payments for this subscription
     const payments = await this.getPaymentsBySubscription(subscriptionId);
-    // Sum the payments (amount is string, so parseFloat)
-    const totalPaid = payments.reduce((sum, p) => sum + parseFloat(p.amount as any), 0);
-    // If fully paid and not already active, update status
+    console.log('[updateSubscriptionStatusIfFullyPaid] payments:', payments);
+    // Use payment_status (snake_case) as returned by Supabase
+    const totalPaid = payments
+      .filter(p => (p as any).payment_status === 'completed')
+      .reduce((sum, p) => sum + parseFloat(p.amount as any), 0);
     const planPrice = parseFloat(plan.price as any);
+    console.log(`[updateSubscriptionStatusIfFullyPaid] totalPaid=${totalPaid}, planPrice=${planPrice}, currentStatus=${subscription.status}`);
     if (totalPaid >= planPrice && subscription.status !== 'active') {
+      console.log(`[updateSubscriptionStatusIfFullyPaid] Subscription #${subscriptionId} status will be updated to 'active'`);
       await this.updateSubscription(subscriptionId, { status: 'active' });
+      console.log(`[updateSubscriptionStatusIfFullyPaid] Subscription #${subscriptionId} status updated to 'active'`);
+    } else {
+      console.log(`[updateSubscriptionStatusIfFullyPaid] No status update needed for subscription #${subscriptionId}`);
     }
   }
 }

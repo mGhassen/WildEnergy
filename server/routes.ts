@@ -1666,8 +1666,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const subscription_id = paymentData.subscription_id;
       const user_id = paymentData.user_id;
       const amount = paymentData.amount;
+      const payment_type = paymentData.payment_type;
       if (!subscription_id || !user_id || !amount || amount <= 0) {
         return res.status(400).json({ error: "subscription_id, user_id, and positive amount are required" });
+      }
+      // If payment_type is 'credit', check and deduct credit
+      if (payment_type === 'credit') {
+        const user = await storage.getUser(user_id);
+        if (!user) return res.status(404).json({ error: "User not found" });
+        if (typeof user.credit !== 'number' || user.credit < amount) {
+          return res.status(400).json({ error: "Not enough credit to complete this payment" });
+        }
+        // Deduct credit
+        await storage.updateUser(user_id, { credit: user.credit - amount });
       }
       // Fetch subscription and plan
       const subscription = await storage.getSubscription(subscription_id);
@@ -1697,7 +1708,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.updateSubscriptionStatusIfFullyPaid(payment.subscription_id);
         }
       }
-      // If creditAmount > 0, update user's credit
+      // If creditAmount > 0, update user's credit (add back the excess, even for credit payments)
       if (creditAmount > 0) {
         const user = await storage.getUser(user_id);
         if (user && typeof user.credit === 'number') {
@@ -1735,7 +1746,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/payments/:id", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
     try {
       const { id } = req.params;
+      // Fetch the payment first
+      const payment = await storage.getPayment(parseInt(id));
+      if (!payment) {
+        return res.status(404).json({ error: "Payment not found" });
+      }
+      // If payment type is 'credit', restore the credit to the user
+      if (payment.payment_type === 'credit') {
+        const user = await storage.getUser(payment.user_id);
+        if (user && typeof user.credit === 'number') {
+          const newCredit = user.credit + Number(payment.amount);
+          await storage.updateUser(payment.user_id, { credit: newCredit });
+        }
+      }
+      // Delete the payment
       await storage.deletePayment(parseInt(id));
+
+      // After deletion, check if the subscription is still fully paid
+      if (payment.subscription_id) {
+        // Get the subscription and plan
+        const subscription = await storage.getSubscription(payment.subscription_id);
+        const plan = subscription ? await storage.getPlan(subscription.plan_id) : null;
+        if (subscription && plan) {
+          // Get all payments for this subscription
+          const payments = await storage.getPaymentsBySubscription(payment.subscription_id);
+          const totalPaid = payments
+            .filter((p: any) => p.payment_status === 'completed')
+            .reduce((sum: number, p: any) => sum + parseFloat(p.amount), 0);
+          const planPrice = parseFloat(plan.price);
+          if (totalPaid < planPrice && subscription.status === 'active') {
+            await storage.updateSubscription(payment.subscription_id, { status: 'pending' });
+          }
+        }
+      }
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting payment:", error);
