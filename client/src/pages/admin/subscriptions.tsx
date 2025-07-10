@@ -34,6 +34,7 @@ type Plan = {
   sessionsIncluded: number;
   durationDays: number;
   duration: number;
+  max_sessions?: number;
 };
 
 type Subscription = {
@@ -450,6 +451,7 @@ export default function AdminSubscriptions() {
                 <TableHead>Start Date</TableHead>
                 <TableHead>End Date</TableHead>
                 <TableHead>Sessions Remaining</TableHead>
+                <TableHead>Payment Status</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -498,6 +500,28 @@ export default function AdminSubscriptions() {
                       </div>
                     </div>
                   </TableCell>
+                  {/* Payment Status Badge */}
+                  <TableCell>
+                    {
+                      (() => {
+                        const subscriptionPayments = getPaymentsForSubscription(subscription.id);
+                        const totalPaid = subscriptionPayments
+                          .filter((p) => p.payment_status === 'completed')
+                          .reduce((sum, p) => sum + (p.amount || 0), 0);
+                        const planPrice = subscription.plan?.price || 0;
+                        let status = 'Not Paid';
+                        let color: 'default' | 'destructive' | 'secondary' | 'outline' = 'destructive';
+                        if (totalPaid >= planPrice && planPrice > 0) {
+                          status = 'Fully Paid';
+                          color = 'default';
+                        } else if (totalPaid > 0 && totalPaid < planPrice) {
+                          status = 'Partially Paid';
+                          color = 'secondary';
+                        }
+                        return <Badge variant={color}>{status}</Badge>;
+                      })()
+                    }
+                  </TableCell>
                   <TableCell>
                     <Badge variant={getStatusColor(subscription.status)}>
                       {getStatusText(subscription.status)}
@@ -528,14 +552,32 @@ export default function AdminSubscriptions() {
                           >
                             <Edit className="w-4 h-4 mr-2" /> Edit
                           </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openPaymentModal(subscription);
-                            }}
-                          >
-                            <CreditCard className="w-4 h-4 mr-2" /> Add Payment
-                          </DropdownMenuItem>
+                          {/* Payment logic: disable if fully paid */}
+                          {(() => {
+                            const subscriptionPayments = getPaymentsForSubscription(subscription.id);
+                            const totalPaid = subscriptionPayments
+                              .filter((p) => p.payment_status === 'completed')
+                              .reduce((sum, p) => sum + (p.amount || 0), 0);
+                            const planPrice = subscription.plan?.price || 0;
+                            if (totalPaid >= planPrice) {
+                              return (
+                                <DropdownMenuItem disabled>
+                                  <CreditCard className="w-4 h-4 mr-2" />
+                                  <span className="text-green-600">Fully paid</span>
+                                </DropdownMenuItem>
+                              );
+                            }
+                            return (
+                              <DropdownMenuItem 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openPaymentModal(subscription);
+                                }}
+                              >
+                                <CreditCard className="w-4 h-4 mr-2" /> Add Payment
+                              </DropdownMenuItem>
+                            );
+                          })()}
                           <DropdownMenuItem 
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1109,6 +1151,24 @@ export default function AdminSubscriptions() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <h3 className="font-semibold mb-2">Subscription Information</h3>
+                  {/* Payment Status Badge */}
+                  {(() => {
+                    const subscriptionPayments = getPaymentsForSubscription(selectedSubscription.id);
+                    const totalPaid = subscriptionPayments
+                      .filter((p) => p.payment_status === 'completed')
+                      .reduce((sum, p) => sum + (p.amount || 0), 0);
+                    const planPrice = selectedSubscription.plan?.price || 0;
+                    let status = 'Not Paid';
+                    let color: 'default' | 'destructive' | 'secondary' | 'outline' = 'destructive';
+                    if (totalPaid >= planPrice && planPrice > 0) {
+                      status = 'Fully Paid';
+                      color = 'default';
+                    } else if (totalPaid > 0 && totalPaid < planPrice) {
+                      status = 'Partially Paid';
+                      color = 'secondary';
+                    }
+                    return <Badge variant={color}>{status}</Badge>;
+                  })()}
                   <div className="space-y-2 text-sm">
                     <div><span className="font-medium">Member:</span> {selectedSubscription.member?.firstName} {selectedSubscription.member?.lastName}</div>
                     <div><span className="font-medium">Email:</span> {selectedSubscription.member?.email}</div>
@@ -1116,7 +1176,7 @@ export default function AdminSubscriptions() {
                     <div><span className="font-medium">Price:</span> {formatPrice(selectedSubscription.plan?.price || 0)}</div>
                     <div><span className="font-medium">Start Date:</span> {formatDate(selectedSubscription.start_date)}</div>
                     <div><span className="font-medium">End Date:</span> {formatDate(selectedSubscription.end_date)}</div>
-                    <div><span className="font-medium">Sessions Remaining:</span> {selectedSubscription.sessions_remaining} / {selectedSubscription.plan?.sessionsIncluded || 0}</div>
+                    <div><span className="font-medium">Sessions Remaining:</span> {selectedSubscription.sessions_remaining} / {selectedSubscription.plan?.max_sessions ?? 0}</div>
                     <div><span className="font-medium">Status:</span> 
                       <Badge variant={getStatusColor(selectedSubscription.status)} className="ml-2">
                         {getStatusText(selectedSubscription.status)}
