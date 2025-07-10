@@ -227,10 +227,10 @@ export class DatabaseStorage implements IStorage {
 
   async getUsers(): Promise<User[]> {
     const { data: users, error } = await supabase
-      .from('users')
+      .from('members_with_subscription_status')
       .select('*')
       .order('created_at', { ascending: false });
-      
+    
     if (error) {
       console.error('Error fetching users:', error);
       return [];

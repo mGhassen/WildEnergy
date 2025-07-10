@@ -671,9 +671,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Member not found" });
       }
 
-      // Get member's subscriptions
+      // Get member's subscriptions with plan data
       const subscriptions = await storage.getSubscriptions();
-      const memberSubscriptions = subscriptions.filter((sub: any) => sub.userId === id);
+      const plans = await storage.getPlans();
+      const memberSubscriptions = subscriptions
+        .filter((sub: any) => sub.user_id === id)
+        .map((sub: any) => {
+          const plan = plans.find((p: any) => p.id === sub.plan_id);
+          return {
+            ...sub,
+            startDate: sub.start_date,
+            endDate: sub.end_date,
+            sessionsRemaining: sub.sessions_remaining,
+            plan: plan ? {
+              ...plan,
+              sessionsIncluded: plan.sessionsIncluded,
+              price: plan.price
+            } : null
+          };
+        });
 
       // Get member's class registrations
       const registrations = await storage.getClassRegistrations(id);
@@ -681,11 +697,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get member's check-ins
       const checkins = await storage.getUserCheckins(id);
 
+      // Get member's payments
+      const payments = await storage.getPaymentsByUser(id);
+
       res.json({
         member,
         subscriptions: memberSubscriptions,
         registrations,
-        checkins
+        checkins,
+        payments
       });
     } catch (error) {
       console.error("Error fetching member details:", error);

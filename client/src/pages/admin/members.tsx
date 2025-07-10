@@ -33,6 +33,15 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { formatDate } from "@/lib/date";
 
+// Types for member details
+interface MemberDetails {
+  member: any;
+  subscriptions: any[];
+  registrations: any[];
+  checkins: any[];
+  payments: any[];
+}
+
 // Helper functions
 const getInitials = (firstName: string, lastName: string): string => {
   return `${firstName?.charAt(0) || ''}${lastName?.charAt(0) || ''}`.toUpperCase();
@@ -95,10 +104,104 @@ export default function MembersPage() {
     : [];
 
   // Fetch member details when selected
-  const { data: memberDetails, isLoading: isLoadingDetails } = useQuery({
+  const { data: memberDetails, isLoading: isLoadingDetails } = useQuery<MemberDetails>({
     queryKey: ["/api/members", selectedMember?.id, "details"],
+    queryFn: () => apiRequest("GET", `/api/members/${selectedMember?.id}/details`),
     enabled: !!selectedMember?.id,
   });
+
+  // Type assertion to help TypeScript understand the structure
+  const details = memberDetails as MemberDetails | undefined;
+
+  // Helper function to safely get member details
+  const getMemberDetails = () => {
+    if (!details) return { subscriptions: [], payments: [], registrations: [], checkins: [] };
+    return {
+      subscriptions: details.subscriptions || [],
+      payments: details.payments || [],
+      registrations: details.registrations || [],
+      checkins: details.checkins || []
+    };
+  };
+
+  const memberData = getMemberDetails();
+
+  // Map subscriptions to camelCase fields for status logic
+  const mappedSubscriptions = (memberData.subscriptions || []).map((sub: any) => ({
+    ...sub,
+    startDate: sub.startDate || sub.start_date,
+    endDate: sub.endDate || sub.end_date,
+    sessionsRemaining: sub.sessionsRemaining ?? sub.sessions_remaining,
+    status: sub.status,
+    plan: sub.plan ? {
+      ...sub.plan,
+      sessionsIncluded: sub.plan.sessionsIncluded ?? sub.plan.max_sessions,
+      price: sub.plan.price,
+      name: sub.plan.name,
+    } : undefined,
+  }));
+
+  // Helper function to get actual subscription status from subscription data
+  const getActualSubscriptionStatus = (subscriptions: any[]) => {
+    if (!subscriptions || subscriptions.length === 0) return 'inactive';
+    
+    // Check for active subscriptions
+    const activeSubscription = subscriptions.find(sub => 
+      sub.status === 'active' && 
+      new Date(sub.endDate) > new Date() && 
+      sub.sessionsRemaining > 0
+    );
+    
+    if (activeSubscription) return 'active';
+    
+    // Check for expired subscriptions
+    const expiredSubscription = subscriptions.find(sub => 
+      sub.status === 'active' && 
+      new Date(sub.endDate) <= new Date()
+    );
+    
+    if (expiredSubscription) return 'expired';
+    
+    // Check for pending subscriptions
+    const pendingSubscription = subscriptions.find(sub => sub.status === 'pending');
+    if (pendingSubscription) return 'pending';
+    
+    return 'inactive';
+  };
+
+  // Helper to get the most relevant subscription (active, or most recent)
+  const getRelevantSubscription = (subscriptions: any[]) => {
+    if (!subscriptions || subscriptions.length === 0) return null;
+    // Prefer active subscriptions
+    const active = subscriptions.find(sub => sub.status === 'active' && new Date(sub.endDate) > new Date() && sub.sessionsRemaining > 0);
+    if (active) return active;
+    // Otherwise, return the most recent by endDate
+    return subscriptions.slice().sort((a, b) => {
+      const aDate = a.endDate ? new Date(a.endDate).getTime() : 0;
+      const bDate = b.endDate ? new Date(b.endDate).getTime() : 0;
+      return bDate - aDate;
+    })[0];
+  };
+  const relevantSubscription = getRelevantSubscription(mappedSubscriptions);
+
+  // Helper to get the most relevant subscription (active, or most recent) for a member
+  const getRelevantSubscriptionForMember = (subscriptions: any[]) => {
+    if (!subscriptions || subscriptions.length === 0) return null;
+    const mapped = (subscriptions || []).map((sub: any) => ({
+      ...sub,
+      startDate: sub.startDate || sub.start_date,
+      endDate: sub.endDate || sub.end_date,
+      sessionsRemaining: sub.sessionsRemaining ?? sub.sessions_remaining,
+      status: sub.status,
+    }));
+    const active = mapped.find(sub => sub.status === 'active' && new Date(sub.endDate) > new Date() && sub.sessionsRemaining > 0);
+    if (active) return active;
+    return mapped.slice().sort((a, b) => {
+      const aDate = a.endDate ? new Date(a.endDate).getTime() : 0;
+      const bDate = b.endDate ? new Date(b.endDate).getTime() : 0;
+      return bDate - aDate;
+    })[0];
+  };
 
   // Filter members
   const filteredMembers = Array.isArray(mappedMembers) ? mappedMembers.filter((member: any) =>
@@ -207,7 +310,6 @@ export default function MembersPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Member</TableHead>
-                <TableHead>Contact</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Subscription</TableHead>
                 <TableHead>Joined</TableHead>
@@ -233,20 +335,6 @@ export default function MembersPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="space-y-1">
-                      {member.phone && (
-                        <div className="flex items-center text-sm text-muted-foreground">
-                          <Phone className="w-3 h-3 mr-1" />
-                          {formatPhoneNumber(member.phone)}
-                        </div>
-                      )}
-                      <div className="flex items-center text-sm text-muted-foreground">
-                        <Mail className="w-3 h-3 mr-1" />
-                        {member.email}
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
                     <Badge className={getMemberStatusColor(member.status)}>
                       {member.status === 'active' && '✅ Active'}
                       {member.status === 'onhold' && '⏳ Pending'}
@@ -255,10 +343,12 @@ export default function MembersPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge className={getSubscriptionStatusColor(member.subscriptionStatus)}>
-                      {member.subscriptionStatus === 'active' && '💳 Active'}
-                      {member.subscriptionStatus === 'expired' && '❌ Expired'}
-                      {member.subscriptionStatus === 'inactive' && '⚪ Inactive'}
+                    <Badge className={getSubscriptionStatusColor(member.current_subscription_status)}>
+                      {member.current_subscription_status === 'active' && '💳 Active'}
+                      {member.current_subscription_status === 'expired' && '❌ Expired'}
+                      {member.current_subscription_status === 'pending' && '⏳ Pending'}
+                      {member.current_subscription_status === 'cancelled' && '🚫 Cancelled'}
+                      {['active','expired','pending','cancelled'].indexOf(member.current_subscription_status) === -1 && member.current_subscription_status}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -316,75 +406,89 @@ export default function MembersPage() {
             </div>
           ) : (
             <Tabs defaultValue="overview" className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>
+                <TabsTrigger value="payments">Payments</TabsTrigger>
                 <TabsTrigger value="schedules">Schedules</TabsTrigger>
                 <TabsTrigger value="activity">Activity</TabsTrigger>
               </TabsList>
 
               <TabsContent value="overview" className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg">Personal Information</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium">Name:</span>
-                        <span className="text-sm">{selectedMember?.firstName} {selectedMember?.lastName}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium">Email:</span>
-                        <span className="text-sm">{selectedMember?.email}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium">Phone:</span>
-                        <span className="text-sm">{formatPhoneNumber(selectedMember?.phone || '')}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium">Date of Birth:</span>
-                        <span className="text-sm">
-                          {selectedMember?.dateOfBirth ? formatDate(selectedMember.dateOfBirth) : 'Not provided'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium">Member Since:</span>
-                        <span className="text-sm">{formatDate(selectedMember?.createdAt)}</span>
-                      </div>
-                    </CardContent>
-                  </Card>
+                {isLoadingDetails ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
+                    <p className="mt-2 text-sm text-muted-foreground">Loading member details...</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Personal Information</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="flex justify-between">
+                          <span className="text-sm font-medium">Name:</span>
+                          <span className="text-sm">{selectedMember?.firstName} {selectedMember?.lastName}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm font-medium">Email:</span>
+                          <span className="text-sm">{selectedMember?.email}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm font-medium">Phone:</span>
+                          <span className="text-sm">{formatPhoneNumber(selectedMember?.phone || '')}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm font-medium">Date of Birth:</span>
+                          <span className="text-sm">
+                            {selectedMember?.dateOfBirth ? formatDate(selectedMember.dateOfBirth) : 'Not provided'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm font-medium">Member Since:</span>
+                          <span className="text-sm">{formatDate(selectedMember?.createdAt)}</span>
+                        </div>
+                      </CardContent>
+                    </Card>
 
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg">Status & Permissions</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium">Account Status:</span>
-                        <Badge className={getMemberStatusColor(selectedMember?.status)}>
-                          {selectedMember?.status}
-                        </Badge>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium">Subscription Status:</span>
-                        <Badge className={getSubscriptionStatusColor(selectedMember?.subscriptionStatus)}>
-                          {selectedMember?.subscriptionStatus}
-                        </Badge>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium">Admin Access:</span>
-                        <span className="text-sm">{selectedMember?.isAdmin ? 'Yes' : 'No'}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium">Member Access:</span>
-                        <span className="text-sm">{selectedMember?.isMember ? 'Yes' : 'No'}</span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Status & Permissions</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-medium">Account Status:</span>
+                          <Badge className={getMemberStatusColor(selectedMember?.status)}>
+                            {selectedMember?.status}
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-medium">Subscription Status:</span>
+                          {relevantSubscription ? (
+                            <Badge className={getSubscriptionStatusColor(relevantSubscription.status)}>
+                              {relevantSubscription.status}
+                            </Badge>
+                          ) : (
+                            <Badge className={getSubscriptionStatusColor('inactive')}>
+                              inactive
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm font-medium">Admin Access:</span>
+                          <span className="text-sm">{selectedMember?.isAdmin ? 'Yes' : 'No'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm font-medium">Member Access:</span>
+                          <span className="text-sm">{selectedMember?.isMember ? 'Yes' : 'No'}</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
 
-                {selectedMember?.memberNotes && (
+                {selectedMember?.memberNotes && !isLoadingDetails && (
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-lg">Notes</CardTitle>
@@ -407,9 +511,9 @@ export default function MembersPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {memberDetails?.subscriptions?.length > 0 ? (
+                    {(mappedSubscriptions || []).length > 0 ? (
                       <div className="space-y-4">
-                        {memberDetails.subscriptions.map((subscription: any) => (
+                        {(mappedSubscriptions || []).map((subscription: any) => (
                           <div key={subscription.id} className="border rounded-lg p-4">
                             <div className="flex justify-between items-start">
                               <div>
@@ -445,6 +549,53 @@ export default function MembersPage() {
                 </Card>
               </TabsContent>
 
+              <TabsContent value="payments" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center">
+                      <CreditCard className="w-5 h-5 mr-2" />
+                      Payment History
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {(memberData.payments || []).length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full text-sm">
+                          <thead>
+                            <tr>
+                              <th className="px-2 py-1 text-left">Date</th>
+                              <th className="px-2 py-1 text-left">Amount</th>
+                              <th className="px-2 py-1 text-left">Type</th>
+                              <th className="px-2 py-1 text-left">Status</th>
+                              <th className="px-2 py-1 text-left">Notes</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(memberData.payments || []).map((payment: any) => (
+                              <tr key={payment.id} className="border-b last:border-b-0">
+                                <td className="px-2 py-1">{formatDate(payment.payment_date)}</td>
+                                <td className="px-2 py-1 font-medium">${payment.amount}</td>
+                                <td className="px-2 py-1">{payment.payment_type || '-'}</td>
+                                <td className="px-2 py-1">
+                                  <Badge variant={payment.status === 'completed' ? 'default' : 'secondary'}>
+                                    {payment.status || 'pending'}
+                                  </Badge>
+                                </td>
+                                <td className="px-2 py-1">{payment.payment_notes || '-'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <p className="text-center text-muted-foreground py-8">
+                        No payments found for this member
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
               <TabsContent value="schedules" className="space-y-4">
                 <Card>
                   <CardHeader>
@@ -454,9 +605,9 @@ export default function MembersPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {memberDetails?.registrations?.length > 0 ? (
+                    {(memberData.registrations || []).length > 0 ? (
                       <div className="space-y-4">
-                        {memberDetails.registrations.map((registration: any) => (
+                        {(memberData.registrations || []).map((registration: any) => (
                           <div key={registration.id} className="border rounded-lg p-4">
                             <div className="flex justify-between items-start">
                               <div>
@@ -499,13 +650,13 @@ export default function MembersPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {memberDetails?.checkins?.length > 0 ? (
+                    {(memberData.checkins || []).length > 0 ? (
                       <div className="space-y-4">
-                        {memberDetails.checkins.map((checkin: any) => (
+                        {(memberData.checkins || []).map((checkin: any) => (
                           <div key={checkin.id} className="border rounded-lg p-4">
                             <div className="flex justify-between items-start">
                               <div>
-                                <h4 className="font-medium">{checkin.registration?.schedule?.class?.name}</h4>
+                                <h4 className="font-medium">{checkin.registration?.schedule?.class?.name ?? 'Unknown Class'}</h4>
                                 <p className="text-sm text-muted-foreground">
                                   Check-in: {formatDateTime(checkin.checkinTime)}
                                 </p>
