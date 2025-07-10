@@ -44,7 +44,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Edit, Trash2, Palette } from "lucide-react";
+import { Plus, Edit, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const categoryFormSchema = z.object({
