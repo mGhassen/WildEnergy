@@ -13,6 +13,16 @@ import { useForm } from "react-hook-form";
 import { apiRequest } from "@/lib/queryClient";
 import { Plus, Search, Edit, Trash2, Clock, Calendar, List, Users, TrendingUp, RepeatIcon } from "lucide-react";
 import { getDayName, formatTime } from "@/lib/auth";
+
+// Utility function for European date formatting (DD/MM/YYYY)
+const formatEuropeanDate = (dateString: string) => {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+};
 import { useToast } from "@/hooks/use-toast";
 
 interface ScheduleFormData {
@@ -63,7 +73,11 @@ export default function AdminSchedules() {
     repetitionType: sch.repetition_type,
     isActive: sch.is_active,
     class: sch.class,
-    trainer: sch.trainer || {
+    trainer: sch.trainer ? {
+      id: sch.trainer.id,
+      firstName: sch.trainer.user?.first_name || "",
+      lastName: sch.trainer.user?.last_name || "",
+    } : {
       id: sch.trainer_id,
       firstName: "",
       lastName: "",
@@ -80,6 +94,14 @@ export default function AdminSchedules() {
 
   const { data: classes } = useQuery({
     queryKey: ["/api/classes"],
+  });
+
+  const { data: plans = [] } = useQuery({
+    queryKey: ["/api/plans"],
+  });
+
+  const { data: subscriptions = [] } = useQuery({
+    queryKey: ["/api/subscriptions"],
   });
 
   const { data: trainers } = useQuery({
@@ -442,20 +464,19 @@ export default function AdminSchedules() {
 
       {/* Main Content - List View Only */}
       <div className="space-y-6">
-        {/* Search */}
-        <Card>
-          <CardContent className="p-6">
-            <div className="relative">
-              <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Search schedules..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-          </CardContent>
-        </Card>
+
+      {/* Search */}
+      <div className="flex items-center space-x-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+          <Input
+            placeholder="Search schedules..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+      </div>
 
         {/* Schedules Table */}
         <Card>
@@ -483,8 +504,16 @@ export default function AdminSchedules() {
                 {filteredSchedules.map((schedule: any) => {
                   const registeredMembers = getScheduleRegistrations(schedule.id);
                   const attendedMembers = getScheduleCheckins(schedule.id);
-                  const attendanceRate = registeredMembers.length > 0 
-                    ? Math.round((attendedMembers.length / registeredMembers.length) * 100)
+                  
+                  // Get capacity from class max_capacity
+                  const maxCapacity = schedule.class?.max_capacity || 0;
+                  
+                  // Calculate attendance rate: total attendance over capacity multiplied by repetitions
+                  const totalAttendance = attendedMembers.length;
+                  const repetitionCount = schedule.repetitionType === 'weekly' ? 4 : schedule.repetitionType === 'daily' ? 30 : 1; // Estimate repetitions
+                  const adjustedCapacity = maxCapacity * repetitionCount;
+                  const attendanceRate = adjustedCapacity > 0 
+                    ? Math.round((totalAttendance / adjustedCapacity) * 100)
                     : 0;
 
                   return (
@@ -518,7 +547,7 @@ export default function AdminSchedules() {
                                   <p className="text-muted-foreground">Schedule</p>
                                   <div className="flex items-center gap-1">
                                     <Badge variant="outline" className="text-xs">
-                                      {schedule.scheduleDate ? new Date(schedule.scheduleDate).toLocaleDateString() : getDayName(schedule.dayOfWeek)}
+                                      {schedule.scheduleDate ? formatEuropeanDate(schedule.scheduleDate) : getDayName(schedule.dayOfWeek)}
                                     </Badge>
                                     <span className="text-xs text-muted-foreground">
                                       {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}
@@ -531,7 +560,7 @@ export default function AdminSchedules() {
                                   <div className="flex items-center gap-1">
                                     <Users className="w-4 h-4 text-muted-foreground" />
                                     <span className="font-medium">
-                                      {registeredMembers.length}/{schedule.class?.maxCapacity || 0}
+                                      {maxCapacity}
                                     </span>
                                   </div>
                                 </div>
@@ -541,7 +570,7 @@ export default function AdminSchedules() {
                                   <div className="flex items-center gap-1">
                                     <TrendingUp className="w-4 h-4 text-green-600" />
                                     <span className="font-medium text-green-600">
-                                      {attendedMembers.length}/{registeredMembers.length} ({attendanceRate}%)
+                                      {totalAttendance}/{adjustedCapacity} ({attendanceRate}%)
                                     </span>
                                   </div>
                                 </div>

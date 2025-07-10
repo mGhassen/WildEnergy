@@ -46,7 +46,7 @@ export default function AdminClasses() {
   });
 
   // Map snake_case fields to camelCase for UI
-  const classes = (rawClasses || []).map((cls: any) => ({
+  const classes = Array.isArray(rawClasses) ? rawClasses.map((cls: any) => ({
     ...cls,
     categoryId: cls.category_id,
     durationMinutes: cls.duration, // ensure durationMinutes is set for the form
@@ -54,11 +54,14 @@ export default function AdminClasses() {
     isActive: cls.is_active,
     createdAt: cls.created_at,
     updatedAt: cls.updated_at,
-  }));
+  })) : [];
 
-  const { data: categories = [], isLoading: categoriesLoading } = useQuery({
+  const { data: rawCategories = [], isLoading: categoriesLoading } = useQuery({
     queryKey: ["/api/admin/categories"],
   });
+
+  // Ensure categories is always an array
+  const categories = Array.isArray(rawCategories) ? rawCategories : [];
 
   const form = useForm<ClassFormData>({
     resolver: zodResolver(classFormSchema),
@@ -132,12 +135,12 @@ export default function AdminClasses() {
     },
   });
 
-  const categoriesOptions = (Array.isArray(categories) ? categories : []).map((cat: any) => ({
+  const categoriesOptions = categories.map((cat: any) => ({
     value: cat.id,
     label: cat.name,
   }));
 
-  const filteredClasses = (Array.isArray(classes) ? classes : []).filter((classItem: any) => {
+  const filteredClasses = classes.filter((classItem: any) => {
     if (!classItem) return false;
     const searchText = `${classItem.name || ""} ${classItem.description || ""}`;
     return searchText.toLowerCase().includes((searchTerm || "").toLowerCase());
@@ -192,16 +195,34 @@ export default function AdminClasses() {
     setIsModalOpen(true);
   };
 
-  const getCategoryColor = (category: string) => {
-    const colors: Record<string, string> = {
-      yoga: "bg-green-100 text-green-800",
-      hiit: "bg-red-100 text-red-800",
-      strength: "bg-blue-100 text-blue-800",
-      cardio: "bg-orange-100 text-orange-800",
-      pilates: "bg-purple-100 text-purple-800",
-      boxing: "bg-gray-100 text-gray-800",
+  const getCategoryColor = (categoryId: number) => {
+    const category = categories.find((cat: any) => cat && cat.id === categoryId);
+    if (category && category.color) {
+      // Convert hex color to RGB and create very subtle versions
+      const hex = category.color.replace('#', '');
+      const r = parseInt(hex.substr(0, 2), 16);
+      const g = parseInt(hex.substr(2, 2), 16);
+      const b = parseInt(hex.substr(4, 2), 16);
+      
+      // Create very light background color (mix with 85% white)
+      const lightR = Math.round(r + (255 - r) * 0.35);
+      const lightG = Math.round(g + (255 - g) * 0.35);
+      const lightB = Math.round(b + (255 - b) * 0.35);
+      
+      // Create muted text color (mix with gray)
+      const mutedR = Math.round(r * 0.3 + 100 * 0.1);
+      const mutedG = Math.round(g * 0.3 + 100 * 0.1);
+      const mutedB = Math.round(b * 0.3 + 100 * 0.1);
+      
+      return {
+        backgroundColor: `rgb(${lightR}, ${lightG}, ${lightB})`,
+        color: `rgb(${mutedR}, ${mutedG}, ${mutedB})`
+      };
+    }
+    return {
+      backgroundColor: '#f8fafc',
+      color: '#64748b'
     };
-    return colors[category.toLowerCase()] || "bg-gray-100 text-gray-800";
   };
 
   return (
@@ -339,26 +360,24 @@ export default function AdminClasses() {
       </div>
 
       {/* Search */}
-      <Card>
-        <CardContent className="p-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Search classes..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex items-center space-x-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+          <Input
+            placeholder="Search classes..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+      </div>
 
       {/* Classes Table */}
       <Card>
         <CardHeader>
           <CardTitle>All Classes</CardTitle>
           <CardDescription>
-            {filteredClasses.length} of {Array.isArray(classes) ? classes.length : 0} classes
+            {filteredClasses.length} of {classes.length} classes
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -391,9 +410,12 @@ export default function AdminClasses() {
                   <TableRow key={classItem.id}>
                     <TableCell>
                       <div className="flex items-center space-x-3">
-                        <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center">
-                          <span className="text-white text-xs font-medium">
-                            {(Array.isArray(categories) ? categories : []).find((cat: any) => cat && cat.id === classItem.categoryId)?.name?.charAt(0)?.toUpperCase() || 'C'}
+                        <div 
+                          className="w-12 h-12 rounded-lg flex items-center justify-center"
+                          style={getCategoryColor(classItem.categoryId)}
+                        >
+                          <span className="text-xs font-medium">
+                            {categories.find((cat: any) => cat && cat.id === classItem.categoryId)?.name?.charAt(0)?.toUpperCase() || 'C'}
                           </span>
                         </div>
                         <div>
@@ -405,8 +427,11 @@ export default function AdminClasses() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge className="bg-blue-100 text-blue-800">
-                        {(Array.isArray(categories) ? categories : []).find((cat: any) => cat && cat.id === classItem.categoryId)?.name || 'Unknown'}
+                      <Badge 
+                        style={getCategoryColor(classItem.categoryId)}
+                        className="border-0"
+                      >
+                        {categories.find((cat: any) => cat && cat.id === classItem.categoryId)?.name || 'Unknown'}
                       </Badge>
                     </TableCell>
                     <TableCell>
