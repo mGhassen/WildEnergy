@@ -413,6 +413,18 @@ export class DatabaseStorage implements IStorage {
       throw new Error(fetchError?.message || 'Trainer not found');
     }
 
+    // Get the user record to find the auth_user_id
+    const { data: user, error: userFetchError } = await supabase
+      .from('users')
+      .select('auth_user_id, email, first_name, last_name, phone')
+      .eq('id', currentTrainer.user_id)
+      .single();
+
+    if (userFetchError || !user) {
+      console.error('Error finding user:', userFetchError);
+      throw new Error(userFetchError?.message || 'User not found');
+    }
+
     // Update user data if needed
     const userUpdates: any = {};
     if (updates.firstName) userUpdates.first_name = updates.firstName;
@@ -422,13 +434,30 @@ export class DatabaseStorage implements IStorage {
 
     if (Object.keys(userUpdates).length > 0) {
       const { error: userError } = await supabase.auth.admin.updateUserById(
-        currentTrainer.user_id,
+        user.auth_user_id,
         { user_metadata: userUpdates }
       );
 
       if (userError) {
         console.error('Error updating trainer user:', userError);
         throw new Error(userError.message || 'Failed to update trainer user');
+      }
+
+      // Also update the users table
+      const userTableUpdates: any = {};
+      if (updates.firstName) userTableUpdates.first_name = updates.firstName;
+      if (updates.lastName) userTableUpdates.last_name = updates.lastName;
+      if (updates.email) userTableUpdates.email = updates.email;
+      if (updates.phone) userTableUpdates.phone = updates.phone;
+
+      const { error: userTableError } = await supabase
+        .from('users')
+        .update(userTableUpdates)
+        .eq('id', currentTrainer.user_id);
+
+      if (userTableError) {
+        console.error('Error updating user table:', userTableError);
+        throw new Error(userTableError.message || 'Failed to update user table');
       }
     }
 
@@ -726,7 +755,14 @@ export class DatabaseStorage implements IStorage {
   async getSchedules(): Promise<Schedule[]> {
     const { data: schedules, error } = await supabase
       .from('schedules')
-      .select('*, class:class_id (id, name), trainer:trainer_id (id)')
+      .select(`
+        *,
+        class:class_id (id, name, max_capacity),
+        trainer:trainer_id (
+          id,
+          user:user_id (id, first_name, last_name)
+        )
+      `)
       .order('start_time', { ascending: true });
 
     if (error) {

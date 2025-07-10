@@ -202,7 +202,10 @@ export default function AdminCategories() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Categories</h1>
+        <div>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Categories</h1>
+          <p className="text-muted-foreground">Manage categories for your gym classes</p>
+        </div>
         <Dialog open={isCreateDialogOpen || !!editingCategory} onOpenChange={(open) => {
           if (!open) {
             setIsCreateDialogOpen(false);
