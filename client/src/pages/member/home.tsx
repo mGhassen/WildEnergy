@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/use-auth";
 import QRGenerator from "@/components/qr-generator";
-import { Calendar, Clock, Users, MapPin, QrCode, ArrowRight, Sparkles, ChevronLeft, ChevronRight } from "lucide-react";
+import { Calendar, Clock, Users, MapPin, QrCode, ArrowRight, Sparkles } from "lucide-react";
 import { formatTime, getDayName } from "@/lib/auth";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 export default function MemberHome() {
   const { user } = useAuth();
   const [selectedQR, setSelectedQR] = useState<any>(null);
-  const [currentDayIndex, setCurrentDayIndex] = useState(0);
+  const [tab, setTab] = useState<'today' | 'upcoming'>('today');
 
   const { data: registrations, isLoading: registrationsLoading } = useQuery({
     queryKey: ["/api/registrations"],
@@ -34,33 +34,6 @@ export default function MemberHome() {
   const registrationsArr = Array.isArray(registrations) ? registrations : [];
   const schedulesArr = Array.isArray(schedules) ? schedules : [];
 
-  // Generate next 7 days starting from today
-  const generateNextDays = () => {
-    const days = [];
-    const today = new Date();
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() + i);
-      days.push({
-        date,
-        dayOfWeek: date.getDay(),
-        dayName: getDayName(date.getDay()),
-        isToday: i === 0,
-        isTomorrow: i === 1
-      });
-    }
-    return days;
-  };
-
-  const nextDays = generateNextDays();
-
-  // Get registrations for a specific day
-  const getRegistrationsForDay = (dayOfWeek: number) => {
-    return registrationsArr.filter((reg: any) => 
-      reg.course?.schedule?.dayOfWeek === dayOfWeek && reg.status === 'registered'
-    );
-  };
-
   const upcomingRegistrations = registrationsArr.filter((reg: any) => {
     const today = new Date();
     const classDate = new Date();
@@ -68,15 +41,12 @@ export default function MemberHome() {
     return classDate >= today && reg.status === 'registered';
   });
 
+  const todayDay = new Date().getDay();
+  const registrationsToday = registrationsArr.filter((reg: any) => 
+    reg.course?.schedule?.dayOfWeek === todayDay && reg.status === 'registered'
+  );
+
   const nextClass = upcomingRegistrations[0];
-
-  const handlePreviousDay = () => {
-    setCurrentDayIndex((prev) => (prev > 0 ? prev - 1 : nextDays.length - 1));
-  };
-
-  const handleNextDay = () => {
-    setCurrentDayIndex((prev) => (prev < nextDays.length - 1 ? prev + 1 : 0));
-  };
 
   if (registrationsLoading) {
     return (
@@ -110,7 +80,7 @@ export default function MemberHome() {
       </div>
 
       {/* Next Class Highlight */}
-      {nextClass && (
+      {/* {nextClass && (
         <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20 mb-8">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -149,7 +119,7 @@ export default function MemberHome() {
             </div>
           </CardContent>
         </Card>
-      )}
+      )} */}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Main Content */}
@@ -180,91 +150,59 @@ export default function MemberHome() {
             </Card>
           </div>
 
-          {/* Schedule Slider */}
+          {/* Combined Card with Enhanced Tabs */}
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <Calendar className="w-5 h-5" />
-                    Schedule
-                  </CardTitle>
-                  <CardDescription>
-                    Your booked classes for the week
-                  </CardDescription>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handlePreviousDay}
-                    className="h-8 w-8 p-0"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </Button>
-                  <div className="flex items-center gap-1">
-                    {nextDays.map((day, index) => (
-                      <button
-                        key={index}
-                        onClick={() => setCurrentDayIndex(index)}
-                        className={`w-2 h-2 rounded-full transition-colors ${
-                          index === currentDayIndex ? 'bg-primary' : 'bg-muted'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleNextDay}
-                    className="h-8 w-8 p-0"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </Button>
-                </div>
+              <h2 className="text-2xl font-bold mb-2 text-foreground">My Classes This Week</h2>
+              <div className="flex items-center gap-2 bg-muted/50 rounded-full p-1 w-fit mx-auto mb-2 shadow-sm">
+                <Button
+                  variant={tab === 'today' ? 'default' : 'ghost'}
+                  onClick={() => setTab('today')}
+                  className={`rounded-full px-5 py-2 flex items-center gap-2 transition-all ${tab === 'today' ? 'shadow bg-primary text-primary-foreground' : 'bg-transparent text-muted-foreground hover:bg-muted'}`}
+                >
+                  <Calendar className="w-4 h-4 mr-1" />
+                  Today
+                </Button>
+                <Button
+                  variant={tab === 'upcoming' ? 'default' : 'ghost'}
+                  onClick={() => setTab('upcoming')}
+                  className={`rounded-full px-5 py-2 flex items-center gap-2 transition-all ${tab === 'upcoming' ? 'shadow bg-primary text-primary-foreground' : 'bg-transparent text-muted-foreground hover:bg-muted'}`}
+                >
+                  <Clock className="w-4 h-4 mr-1" />
+                  Upcoming
+                </Button>
               </div>
+              <CardDescription className="text-center text-base mt-2">
+                {tab === 'today'
+                  ? 'Your booked classes for today'
+                  : "Classes you're registered for this week"}
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="mb-4">
-                <div className="flex items-center gap-2">
-                  <Badge variant={nextDays[currentDayIndex].isToday ? "default" : "secondary"}>
-                    {nextDays[currentDayIndex].isToday ? "Today" : nextDays[currentDayIndex].isTomorrow ? "Tomorrow" : nextDays[currentDayIndex].dayName}
-                  </Badge>
-                  <span className="text-sm text-muted-foreground">
-                    {nextDays[currentDayIndex].date.toLocaleDateString('en-US', { 
-                      weekday: 'long', 
-                      month: 'short', 
-                      day: 'numeric' 
-                    })}
-                  </span>
-                </div>
-              </div>
-
-              {(() => {
-                const dayRegistrations = getRegistrationsForDay(nextDays[currentDayIndex].dayOfWeek);
-                return dayRegistrations.length > 0 ? (
+              {tab === 'today' ? (
+                registrationsToday.length > 0 ? (
                   <div className="space-y-4">
-                    {dayRegistrations.map((reg: any) => (
+                    {registrationsToday.map((reg: any) => (
                       <div key={reg.id} className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors">
                         <div className="flex items-center gap-4">
                           <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                                                      <span className="text-primary font-semibold text-sm">
-                            {reg.course?.class?.category?.name?.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                        <div>
-                          <h4 className="font-medium text-foreground">{reg.course?.class?.name}</h4>
-                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              {formatTime(reg.course?.schedule?.startTime)} - {formatTime(reg.course?.schedule?.endTime)}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Users className="w-3 h-3" />
-                              {reg.course?.trainer?.firstName} {reg.course?.trainer?.lastName}
+                            <span className="text-primary font-semibold text-sm">
+                              {reg.course?.class?.category?.name?.charAt(0).toUpperCase()}
                             </span>
                           </div>
-                        </div>
+                          <div>
+                            <h4 className="font-medium text-foreground">{reg.course?.class?.name}</h4>
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {formatTime(reg.course?.schedule?.startTime)} - {formatTime(reg.course?.schedule?.endTime)}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Users className="w-3 h-3" />
+                                {reg.course?.trainer?.firstName} {reg.course?.trainer?.lastName}
+                              </span>
+                            </div>
+                          </div>
                         </div>
                         <Button
                           variant="outline"
@@ -278,87 +216,72 @@ export default function MemberHome() {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <Calendar className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                    <h3 className="text-lg font-medium mb-2">
-                      No classes booked for {nextDays[currentDayIndex].isToday ? 'today' : nextDays[currentDayIndex].isTomorrow ? 'tomorrow' : nextDays[currentDayIndex].dayName.toLowerCase()}
-                    </h3>
-                    <p className="text-sm mb-4">Book a class to see it here</p>
+                  <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                    <Calendar className="w-16 h-16 mb-4 opacity-50" />
+                    <h3 className="text-xl font-semibold mb-2">No classes booked for today</h3>
+                    <p className="text-base mb-4">Book a class to see it here</p>
                     <Button variant="outline" asChild>
                       <a href="/member/classes">
                         Browse All Classes
                       </a>
                     </Button>
                   </div>
-                );
-              })()}
-            </CardContent>
-          </Card>
-
-          {/* Upcoming Classes */}
-          {upcomingRegistrations.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Clock className="w-5 h-5" />
-                  Your Upcoming Classes
-                </CardTitle>
-                <CardDescription>
-                  Classes you're registered for this week
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {upcomingRegistrations.slice(0, 3).map((registration: any) => (
-                    <div key={registration.id} className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center">
-                          <span className="text-white text-xs font-medium">
-                            {registration.course?.class?.category?.name?.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                        <div>
-                          <h4 className="font-medium text-foreground">{registration.course?.class?.name}</h4>
-                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <Calendar className="w-3 h-3" />
-                              {getDayName(registration.course?.schedule?.dayOfWeek)}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              {formatTime(registration.course?.schedule?.startTime)}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Users className="w-3 h-3" />
-                              {registration.course?.trainer?.firstName} {registration.course?.trainer?.lastName}
+                )
+              ) : (
+                upcomingRegistrations.length > 0 ? (
+                  <div className="space-y-4">
+                    {upcomingRegistrations.map((registration: any) => (
+                      <div key={registration.id} className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center">
+                            <span className="text-white text-xs font-medium">
+                              {registration.course?.class?.category?.name?.charAt(0).toUpperCase()}
                             </span>
                           </div>
+                          <div>
+                            <h4 className="font-medium text-foreground">{registration.course?.class?.name}</h4>
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Calendar className="w-3 h-3" />
+                                {getDayName(registration.course?.schedule?.dayOfWeek)}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {formatTime(registration.course?.schedule?.startTime)}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Users className="w-3 h-3" />
+                                {registration.course?.trainer?.firstName} {registration.course?.trainer?.lastName}
+                              </span>
+                            </div>
+                          </div>
                         </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedQR(registration)}
+                        >
+                          <QrCode className="w-4 h-4 mr-1" />
+                          QR
+                        </Button>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSelectedQR(registration)}
-                      >
-                        <QrCode className="w-4 h-4 mr-1" />
-                        QR
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-                {upcomingRegistrations.length > 3 && (
-                  <div className="mt-4 pt-4 border-t">
-                    <Button variant="ghost" className="w-full" asChild>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                    <Clock className="w-16 h-16 mb-4 opacity-50" />
+                    <h3 className="text-xl font-semibold mb-2">No upcoming classes booked</h3>
+                    <p className="text-base mb-4">Book a class to see it here</p>
+                    <Button variant="outline" asChild>
                       <a href="/member/classes">
-                        View All {upcomingRegistrations.length} Classes
-                        <ArrowRight className="w-4 h-4 ml-2" />
+                        Browse All Classes
                       </a>
                     </Button>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
+                )
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         {/* Sidebar */}
