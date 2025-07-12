@@ -9,6 +9,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { Search, Clock, Users, Calendar, Star } from "lucide-react";
 import { formatTime, getDayName } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
+import { apiFetch } from "@/lib/api";
 
 export default function MemberClasses() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -21,9 +22,13 @@ export default function MemberClasses() {
     queryKey: ["/api/courses"],
   });
 
-  const { data: subscription } = useQuery({
-    queryKey: ["/api/member/subscription"],
+  const { data: subscriptionsRaw } = useQuery({
+    queryKey: ["/api/member/subscriptions"],
+    queryFn: () => apiFetch("/api/member/subscriptions"),
   });
+  const subscriptions = Array.isArray(subscriptionsRaw) ? subscriptionsRaw : [];
+  const activeSubscriptions = subscriptions.filter((sub: any) => sub.status === 'active');
+  const totalSessionsRemaining = activeSubscriptions.reduce((sum: number, sub: any) => sum + (sub.sessions_remaining || 0), 0);
 
   const { data: registrations } = useQuery({
     queryKey: ["/api/registrations"],
@@ -65,7 +70,7 @@ export default function MemberClasses() {
   }) || [];
 
   const handleRegister = (courseId: number) => {
-    if (!subscription || subscription.sessionsRemaining <= 0) {
+    if (!activeSubscriptions.length || totalSessionsRemaining <= 0) {
       toast({
         title: "No sessions remaining",
         description: "Please renew your subscription to book classes.",
@@ -109,18 +114,18 @@ export default function MemberClasses() {
       </div>
 
       {/* Current Plan Summary */}
-      {subscription && (
+      {activeSubscriptions.length > 0 && (
         <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-primary/10">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-semibold text-primary">{subscription.plan?.name}</h3>
+                <h3 className="text-lg font-semibold text-primary">Active Subscriptions</h3>
                 <p className="text-sm text-muted-foreground">
-                  Unlimited access to all classes
+                  Total sessions remaining across all active plans
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-2xl font-bold text-primary">{subscription.sessionsRemaining}</p>
+                <p className="text-2xl font-bold text-primary">{totalSessionsRemaining}</p>
                 <p className="text-sm text-muted-foreground">sessions left</p>
               </div>
             </div>
@@ -249,11 +254,11 @@ export default function MemberClasses() {
                     <Button
                       className="w-full"
                       onClick={() => handleRegister(course.id)}
-                      disabled={isRegistered || registerMutation.isPending || !subscription || subscription.sessionsRemaining <= 0}
+                      disabled={isRegistered || registerMutation.isPending || !activeSubscriptions.length || totalSessionsRemaining <= 0}
                       variant={isRegistered ? "secondary" : "default"}
                     >
                       {isRegistered ? "Already Registered" : 
-                       !subscription || subscription.sessionsRemaining <= 0 ? "No Sessions Left" :
+                       !activeSubscriptions.length || totalSessionsRemaining <= 0 ? "No Sessions Left" :
                        registerMutation.isPending ? "Booking..." : "Book Class"}
                     </Button>
                   </div>
