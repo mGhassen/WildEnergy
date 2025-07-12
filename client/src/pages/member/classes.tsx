@@ -40,14 +40,34 @@ export default function MemberClasses() {
       const response = await apiRequest("POST", "/api/registrations", { courseId });
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/registrations"] });
-      toast({
-        title: "Registration successful!",
-        description: "You are now registered for this recurring class. Your QR code has been generated.",
+    onMutate: async (courseId: number) => {
+      // Optimistically update the registrations
+      await queryClient.cancelQueries({ queryKey: ["/api/registrations"] });
+      
+      const previousRegistrations = queryClient.getQueryData(["/api/registrations"]);
+      
+      // Optimistically add the new registration
+      queryClient.setQueryData(["/api/registrations"], (old: any) => {
+        const newRegistration = {
+          id: Date.now(), // temporary ID
+          course_id: courseId,
+          user_id: "temp",
+          status: "registered",
+          registration_date: new Date().toISOString(),
+          qr_code: "temp",
+          notes: null
+        };
+        return old ? [...old, newRegistration] : [newRegistration];
       });
+      
+      return { previousRegistrations };
     },
-    onError: (error: any) => {
+    onError: (error: any, courseId: number, context: any) => {
+      // Rollback on error
+      if (context?.previousRegistrations) {
+        queryClient.setQueryData(["/api/registrations"], context.previousRegistrations);
+      }
+      
       let errorMessage = "Failed to book class";
       
       // Handle specific error messages from the backend
@@ -67,6 +87,15 @@ export default function MemberClasses() {
         variant: "destructive",
       });
     },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/registrations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/member/subscriptions"] });
+      toast({
+        title: "Registration successful!",
+        description: "You are now registered for this class. Your QR code has been generated.",
+      });
+    },
   });
 
   const cancelMutation = useMutation({
@@ -74,7 +103,25 @@ export default function MemberClasses() {
       const response = await apiRequest("POST", `/api/registrations/${registrationId}/cancel`, {});
       return response.json();
     },
+    onMutate: async (registrationId: number) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["/api/registrations"] });
+      
+      // Snapshot the previous value
+      const previousRegistrations = queryClient.getQueryData(["/api/registrations"]);
+      
+      // Optimistically update to remove the registration
+      queryClient.setQueryData(["/api/registrations"], (old: any) => {
+        if (!old) return old;
+        return old.map((reg: any) => 
+          reg.id === registrationId ? { ...reg, status: 'cancelled' } : reg
+        );
+      });
+      
+      return { previousRegistrations };
+    },
     onSuccess: (data) => {
+      // Invalidate and refetch
       queryClient.invalidateQueries({ queryKey: ["/api/registrations"] });
       queryClient.invalidateQueries({ queryKey: ["/api/member/subscriptions"] });
       queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
@@ -91,7 +138,12 @@ export default function MemberClasses() {
         });
       }
     },
-    onError: (error: any) => {
+    onError: (error: any, registrationId, context) => {
+      // Rollback on error
+      if (context?.previousRegistrations) {
+        queryClient.setQueryData(["/api/registrations"], context.previousRegistrations);
+      }
+      
       toast({
         title: "Cannot cancel registration",
         description: error.message || "Failed to cancel registration",
@@ -100,25 +152,41 @@ export default function MemberClasses() {
     },
   });
 
-  // Create a set of course IDs that the user is registered for
+  // Create a set of course IDs that the user is registered for (only active registrations)
   const registrationsArray = Array.isArray(registrations) ? registrations : [];
-  const registeredCourseIds = new Set(registrationsArray.map((reg: any) => reg.course_id));
+  const registeredCourseIds = new Set(
+    registrationsArray
+      .filter((reg: any) => reg.status === 'registered')
+      .map((reg: any) => reg.course_id)
+  );
 
   // Helper function to get registration for a course
   const getRegistrationForCourse = (courseId: number) => {
     return registrationsArray.find((reg: any) => reg.course_id === courseId && reg.status === 'registered');
   };
 
+  // Debug logging
+  console.log('All registrations:', registrationsArray);
+  console.log('Active registrations:', registrationsArray.filter((reg: any) => reg.status === 'registered'));
+  console.log('Registered course IDs:', Array.from(registeredCourseIds));
+
   // Helper function to check if cancellation is allowed
   const canCancelRegistration = (course: any) => {
-    const courseDateTime = new Date(`${course.course_date}T${course.start_time}`);
+    const courseDateTime = new Date(`${course.courseDate}T${course.startTime}`);
     const now = new Date();
     return now < courseDateTime;
   };
 
+  // Helper function to check if course is in the past
+  const isCourseInPast = (course: any) => {
+    const courseDateTime = new Date(`${course.courseDate}T${course.startTime}`);
+    const now = new Date();
+    return now >= courseDateTime;
+  };
+
   // Helper function to check if within 24 hours
   const isWithin24Hours = (course: any) => {
-    const courseDateTime = new Date(`${course.course_date}T${course.start_time}`);
+    const courseDateTime = new Date(`${course.courseDate}T${course.startTime}`);
     const cutoffTime = new Date(courseDateTime.getTime() - (24 * 60 * 60 * 1000));
     const now = new Date();
     return now >= cutoffTime && now < courseDateTime;
@@ -145,13 +213,29 @@ export default function MemberClasses() {
       .includes(searchTerm.toLowerCase());
     
     const matchesCategory = !categoryFilter || categoryFilter === "all" || course.class?.category === categoryFilter;
-    const courseDate = new Date(course.course_date);
+    const courseDate = new Date(course.courseDate);
     const matchesDay = !dayFilter || dayFilter === "all" || courseDate.getDay().toString() === dayFilter;
     
-    return matchesSearch && matchesCategory && matchesDay && course.is_active;
+    // Only show active courses that haven't ended yet
+    const isNotPast = !isCourseInPast(course);
+    
+    return matchesSearch && matchesCategory && matchesDay && course.isActive && isNotPast;
   });
 
   const handleRegister = (courseId: number, scheduleId: number) => {
+    // Find the course to check if it's in the past
+    const course = coursesArray.find((c: any) => c.id === courseId);
+    
+    // Check if course is in the past
+    if (course && isCourseInPast(course)) {
+      toast({
+        title: "Cannot register",
+        description: "This class has already started or ended.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     // Check if already registered for this course
     if (registeredCourseIds.has(courseId)) {
       toast({
@@ -327,23 +411,23 @@ export default function MemberClasses() {
                     <div className="space-y-2">
                       <div className="flex items-center text-sm text-muted-foreground">
                         <Calendar className="w-4 h-4 mr-2" />
-                        <span>{formatDate(course.course_date)}</span>
+                        <span>{formatDate(course.courseDate)}</span>
                       </div>
                       <div className="flex items-center text-sm text-muted-foreground">
                         <Clock className="w-4 h-4 mr-2" />
-                        <span>{formatTime(course.start_time)} - {formatTime(course.end_time)}</span>
+                        <span>{formatTime(course.startTime)} - {formatTime(course.endTime)}</span>
                       </div>
-                                              <div className="flex items-center text-sm text-muted-foreground">
-                          <Users className="w-4 h-4 mr-2" />
-                          <span>
-                            with Trainer {course.schedule?.class?.trainer?.user?.first_name && course.schedule?.class?.trainer?.user?.last_name
-                              ? `${course.schedule.class.trainer.user.first_name} ${course.schedule.class.trainer.user.last_name}`
-                              : 'Unknown Trainer'}
-                          </span>
-                        </div>
                       <div className="flex items-center text-sm text-muted-foreground">
                         <Users className="w-4 h-4 mr-2" />
-                        <span>{course.current_participants}/{course.max_participants} participants</span>
+                        <span>
+                          with Trainer {course.trainer?.firstName && course.trainer?.lastName
+                            ? `${course.trainer.firstName} ${course.trainer.lastName}`
+                            : 'Unknown Trainer'}
+                        </span>
+                      </div>
+                      <div className="flex items-center text-sm text-muted-foreground">
+                        <Users className="w-4 h-4 mr-2" />
+                        <span>{course.currentParticipants}/{course.maxParticipants} participants</span>
                       </div>
                     </div>
 
@@ -372,10 +456,12 @@ export default function MemberClasses() {
                     ) : (
                       <Button
                         className="w-full"
-                        onClick={() => handleRegister(course.id, course.schedule_id)}
-                        disabled={registerMutation.isPending || !activeSubscriptions.length || totalSessionsRemaining <= 0}
+                        onClick={() => handleRegister(course.id, course.scheduleId)}
+                        disabled={registerMutation.isPending || !activeSubscriptions.length || totalSessionsRemaining <= 0 || isCourseInPast(course)}
+                        variant={isCourseInPast(course) ? "secondary" : "default"}
                       >
-                        {!activeSubscriptions.length || totalSessionsRemaining <= 0 ? "No Sessions Left" :
+                        {isCourseInPast(course) ? "Class Ended" :
+                         !activeSubscriptions.length || totalSessionsRemaining <= 0 ? "No Sessions Left" :
                          registerMutation.isPending ? "Registering..." : "Register for Class"}
                       </Button>
                     )}

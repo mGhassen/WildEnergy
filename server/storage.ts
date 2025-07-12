@@ -869,7 +869,24 @@ export class DatabaseStorage implements IStorage {
       throw new Error(error.message || 'Failed to fetch courses');
     }
 
-    return courses || [];
+    // Convert snake_case to camelCase for each course
+    return (courses || []).map(course => ({
+      id: course.id,
+      scheduleId: course.schedule_id,
+      classId: course.class_id,
+      trainerId: course.trainer_id,
+      courseDate: course.course_date,
+      startTime: course.start_time,
+      endTime: course.end_time,
+      maxParticipants: course.max_participants,
+      currentParticipants: course.current_participants,
+      status: course.status,
+      isActive: course.is_active,
+      createdAt: course.created_at,
+      updatedAt: course.updated_at,
+      class: course.class,
+      trainer: course.trainer
+    })) as Course[];
   }
 
   async getCourse(id: number): Promise<Course | undefined> {
@@ -884,7 +901,26 @@ export class DatabaseStorage implements IStorage {
       return undefined;
     }
 
-    return course as Course | undefined;
+    if (!course) {
+      return undefined;
+    }
+
+    // Convert snake_case to camelCase
+    return {
+      id: course.id,
+      scheduleId: course.schedule_id,
+      classId: course.class_id,
+      trainerId: course.trainer_id,
+      courseDate: course.course_date,
+      startTime: course.start_time,
+      endTime: course.end_time,
+      maxParticipants: course.max_participants,
+      currentParticipants: course.current_participants,
+      status: course.status,
+      isActive: course.is_active,
+      createdAt: course.created_at,
+      updatedAt: course.updated_at
+    } as Course;
   }
 
   async createCourse(course: InsertCourse): Promise<Course> {
