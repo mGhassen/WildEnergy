@@ -1205,7 +1205,7 @@ export class DatabaseStorage implements IStorage {
       `)
       .eq('user_id', userId)
       .eq('status', 'active')
-      .order('created_at', { ascending: true });
+      .order('start_date', { ascending: true });
 
     if (error) {
       console.error('Error fetching user active subscriptions:', error);
