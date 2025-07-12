@@ -21,8 +21,16 @@ function mapRegistration(reg: any) {
       startTime: reg.course.start_time,
       endTime: reg.course.end_time,
       dayOfWeek: reg.course.day_of_week,
-      class: reg.course.class,
-      trainer: reg.course.trainer,
+      class: reg.course.class && {
+        id: reg.course.class.id,
+        name: reg.course.class.name,
+        category: reg.course.class.category?.name,
+      },
+      trainer: reg.course.trainer && {
+        id: reg.course.trainer.id,
+        firstName: reg.course.trainer.user?.first_name,
+        lastName: reg.course.trainer.user?.last_name,
+      }
     }
   };
 }

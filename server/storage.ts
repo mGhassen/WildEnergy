@@ -1415,7 +1415,7 @@ export class DatabaseStorage implements IStorage {
           schedule_id,
           class_id,
           trainer_id,
-          class:class_id (id, name, category_id),
+          class:class_id (id, name, category_id, category:category_id (id, name)),
           trainer:trainer_id (id, user:user_id (first_name, last_name))
         )
       `);
