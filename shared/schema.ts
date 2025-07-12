@@ -143,7 +143,7 @@ export const subscriptions = pgTable("subscriptions", {
 export const classRegistrations = pgTable("class_registrations", {
   id: serial("id").primaryKey(),
   userId: uuid("user_id").references(() => users.id).notNull(), // Direct reference to users table
-  scheduleId: integer("schedule_id").references(() => schedules.id).notNull(),
+  courseId: integer("course_id").references(() => courses.id).notNull(),
   registrationDate: timestamp("registration_date").defaultNow(),
   qrCode: text("qr_code").notNull().unique(),
   status: text("status").notNull().default("registered"), // 'registered', 'attended', 'cancelled', 'absent'
@@ -187,7 +187,7 @@ export const classesRelations = relations(classes, ({ one, many }) => ({
   schedules: many(schedules),
 }));
 
-export const schedulesRelations = relations(schedules, ({ one, many }) => ({
+export const schedulesRelations = relations(schedules, ({ one }) => ({
   class: one(classes, {
     fields: [schedules.classId],
     references: [classes.id],
@@ -196,7 +196,6 @@ export const schedulesRelations = relations(schedules, ({ one, many }) => ({
     fields: [schedules.trainerId],
     references: [trainers.id],
   }),
-  registrations: many(classRegistrations),
 }));
 
 export const subscriptionsRelations = relations(subscriptions, ({ one, many }) => ({
@@ -222,14 +221,30 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
   }),
 }));
 
+export const coursesRelations = relations(courses, ({ one, many }) => ({
+  schedule: one(schedules, {
+    fields: [courses.scheduleId],
+    references: [schedules.id],
+  }),
+  class: one(classes, {
+    fields: [courses.classId],
+    references: [classes.id],
+  }),
+  trainer: one(trainers, {
+    fields: [courses.trainerId],
+    references: [trainers.id],
+  }),
+  registrations: many(classRegistrations),
+}));
+
 export const classRegistrationsRelations = relations(classRegistrations, ({ one, many }) => ({
   user: one(users, {
     fields: [classRegistrations.userId],
     references: [users.id],
   }),
-  schedule: one(schedules, {
-    fields: [classRegistrations.scheduleId],
-    references: [schedules.id],
+  course: one(courses, {
+    fields: [classRegistrations.courseId],
+    references: [courses.id],
   }),
   checkins: many(checkins),
 }));
@@ -345,7 +360,7 @@ export const insertCourseSchema = z.object({
 
 export const insertClassRegistrationSchema = z.object({
   userId: z.string().uuid(),
-  scheduleId: z.number().min(1, "Schedule is required"),
+  courseId: z.number().min(1, "Course is required"),
   notes: z.string().optional()
 });
 
@@ -361,6 +376,7 @@ export const insertSubscriptionSchema = z.object({
   planId: z.number().min(1, "Plan is required"),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD'),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD'),
+  sessionsRemaining: z.number().min(0).default(0),
   status: z.enum(['active', 'expired', 'cancelled']).default('active'),
   notes: z.string().optional(),
 });
