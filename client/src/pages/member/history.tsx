@@ -133,65 +133,49 @@ export default function MemberHistory() {
 
     return (
       <Card key={`${classData.id}-${classData.status}`} className="overflow-hidden">
-        <CardHeader className="pb-3">
+        <CardHeader className="pb-2 px-4 pt-4">
           <div className="flex justify-between items-start">
             <div>
-              <CardTitle className="text-lg text-foreground">{classData.schedule.class.name}</CardTitle>
-              <CardDescription className="mt-1">
+              <CardTitle className="text-base font-semibold leading-tight">{classData.schedule.class.name}</CardTitle>
+              <CardDescription className="mt-0.5 text-xs">
                 {classData.schedule.trainer.firstName} {classData.schedule.trainer.lastName}
               </CardDescription>
             </div>
             {getStatusBadge(classData.status)}
           </div>
         </CardHeader>
-        
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div className="flex items-center text-muted-foreground">
-              <Calendar className="w-4 h-4 mr-2" />
-              {getDayName(classData.schedule.dayOfWeek)}
+        <CardContent className="flex flex-row items-center gap-4 px-4 pb-3 pt-1 min-h-[100px]">
+          {/* Left: Info */}
+          <div className="flex-1 flex flex-col gap-1 text-xs">
+            <div className="flex flex-wrap gap-x-4 gap-y-1 mb-1">
+              <span className="flex items-center text-muted-foreground"><Calendar className="w-4 h-4 mr-1" />{getDayName(classData.schedule.dayOfWeek)}, {formatDate(classData.schedule.scheduleDate)}</span>
+              <span className="flex items-center text-muted-foreground"><Clock className="w-4 h-4 mr-1" />{formatTime(classData.schedule.startTime)}</span>
+              <span className="flex items-center text-muted-foreground"><User className="w-4 h-4 mr-1" />{classData.schedule.class.category}</span>
             </div>
-            <div className="flex items-center text-muted-foreground">
-              <Clock className="w-4 h-4 mr-2" />
-              {formatTime(classData.schedule.startTime)}
-            </div>
-            <div className="flex items-center text-muted-foreground">
-              <User className="w-4 h-4 mr-2" />
-              {classData.schedule.class.category}
-            </div>
-            <div className="flex items-center text-muted-foreground">
-              {getStatusIcon(classData.status)}
-              <span className="ml-2 capitalize">{classData.status}</span>
+            <div className="text-xs text-muted-foreground">
+              {isAttended && classData.checkinTime && (
+                <span>Attended: {formatDateTime(classData.checkinTime)}</span>
+              )}
+              {isRegistered && (
+                <span>Class Date: {formatDate(classData.schedule.scheduleDate)}</span>
+              )}
+              {isCancelled && (
+                <span>Cancelled: {formatDate(classData.registrationDate)}</span>
+              )}
             </div>
           </div>
-
-          <div className="text-sm text-muted-foreground">
-            {isAttended && classData.checkinTime && (
-              <p>Attended: {formatDateTime(classData.checkinTime)}</p>
-            )}
-            {isRegistered && (
-              <p>Class Date: {formatDate(classData.schedule.scheduleDate)}</p>
-            )}
-            {isCancelled && (
-              <p>Cancelled: {formatDate(classData.registrationDate)}</p>
-            )}
-          </div>
-
+          {/* Right: QR code */}
           {showQR && isRegistered && classData.qrCode && (
-            <div className="pt-4 border-t">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium">Your QR Code</span>
-                <button
-                  onClick={() => setSelectedQR(classData.qrCode)}
-                  className="flex items-center text-xs text-blue-600 hover:text-blue-800"
-                >
-                  <QrCode className="w-3 h-3 mr-1" />
-                  View Full Size
-                </button>
-              </div>
-              <div className="flex justify-center">
-                <QRGenerator value={classData.qrCode} size={100} />
-              </div>
+            <div className="flex flex-col items-center justify-center min-w-[110px]">
+              <span className="text-xs font-medium mb-1">QR Code</span>
+              <QRGenerator value={classData.qrCode} size={70} />
+              <button
+                onClick={() => setSelectedQR(classData.qrCode)}
+                className="mt-1 flex items-center text-xs text-blue-600 hover:text-blue-800"
+              >
+                <QrCode className="w-3 h-3 mr-1" />
+                View
+              </button>
             </div>
           )}
         </CardContent>

@@ -2037,6 +2037,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // All other API routes can be added here following the same pattern
 
+  // Public categories endpoint
+  console.log('Registering route: GET /api/categories');
+  app.get("/api/categories", async (_req, res) => {
+    try {
+      const categories = await storage.getCategories();
+      res.json(categories);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+      res.status(500).json({ error: "Failed to fetch categories" });
+    }
+  });
+
   // Create HTTP server
   const httpServer = createServer(app);
   return httpServer;
