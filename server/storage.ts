@@ -69,6 +69,7 @@ export interface IStorage {
   getSubscription(id: number): Promise<Subscription | undefined>;
   getUserActiveSubscription(userId: string): Promise<Subscription | undefined>;
   getUserOldestActiveSubscription(userId: string): Promise<Subscription | undefined>;
+  getUserActiveSubscriptions(userId: string): Promise<Subscription[]>;
   getUserSubscriptions(userId: string): Promise<Subscription[]>;
   createSubscription(subscription: InsertSubscription): Promise<Subscription>;
   updateSubscription(id: number, updates: Partial<InsertSubscription>): Promise<Subscription>;
@@ -906,12 +907,28 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateCourse(id: number, updates: Partial<InsertCourse>): Promise<Course> {
+    console.log('updateCourse called with id:', id, 'updates:', updates);
+    
+    // Map camelCase to snake_case for database
+    const dbUpdates: any = {};
+    if (updates.scheduleId !== undefined) dbUpdates.schedule_id = updates.scheduleId;
+    if (updates.classId !== undefined) dbUpdates.class_id = updates.classId;
+    if (updates.trainerId !== undefined) dbUpdates.trainer_id = updates.trainerId;
+    if (updates.courseDate !== undefined) dbUpdates.course_date = updates.courseDate;
+    if (updates.startTime !== undefined) dbUpdates.start_time = updates.startTime;
+    if (updates.endTime !== undefined) dbUpdates.end_time = updates.endTime;
+    if (updates.maxParticipants !== undefined) dbUpdates.max_participants = updates.maxParticipants;
+    if (updates.currentParticipants !== undefined && updates.currentParticipants !== null) {
+      dbUpdates.current_participants = updates.currentParticipants;
+    }
+    if (updates.status !== undefined) dbUpdates.status = updates.status;
+    if (updates.isActive !== undefined) dbUpdates.is_active = updates.isActive;
+
+    console.log('dbUpdates object:', dbUpdates);
+
     const { data: updatedCourse, error } = await supabase
       .from('courses')
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString()
-      })
+      .update(dbUpdates)
       .eq('id', id)
       .select()
       .single();
@@ -1143,6 +1160,25 @@ export class DatabaseStorage implements IStorage {
     return subscription as Subscription | undefined;
   }
 
+  async getUserActiveSubscriptions(userId: string): Promise<Subscription[]> {
+    const { data: subscriptions, error } = await supabase
+      .from('subscriptions')
+      .select(`
+        *,
+        plan:plan_id (*)
+      `)
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching user active subscriptions:', error);
+      return [];
+    }
+
+    return subscriptions || [];
+  }
+
   async getUserSubscriptions(userId: string): Promise<Subscription[]> {
     const { data: subscriptions, error } = await supabase
       .from('subscriptions')
@@ -1181,10 +1217,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateSubscription(id: number, updates: Partial<InsertSubscription>): Promise<Subscription> {
+    // Map camelCase to snake_case for database
+    const dbUpdates: any = {};
+    if (updates.userId !== undefined) dbUpdates.user_id = updates.userId;
+    if (updates.planId !== undefined) dbUpdates.plan_id = updates.planId;
+    if (updates.startDate !== undefined) dbUpdates.start_date = updates.startDate;
+    if (updates.endDate !== undefined) dbUpdates.end_date = updates.endDate;
+    if (updates.sessionsRemaining !== undefined) dbUpdates.sessions_remaining = updates.sessionsRemaining;
+    if (updates.status !== undefined) dbUpdates.status = updates.status;
+    if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
+
     const { data: subscription, error } = await supabase
       .from('subscriptions')
       .update({
-        ...updates,
+        ...dbUpdates,
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
@@ -1325,16 +1371,14 @@ export class DatabaseStorage implements IStorage {
       .from('class_registrations')
       .select(`
         *,
-        schedule:schedule_id (
+        course:course_id (
           id,
-          day_of_week,
+          course_date,
           start_time,
           end_time,
-          class:class_id (
-            id,
-            name,
-            description
-          )
+          schedule_id,
+          class_id,
+          trainer_id
         )
       `);
 
@@ -1353,12 +1397,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createClassRegistration(registration: InsertClassRegistration): Promise<ClassRegistration> {
+    // Generate a unique QR code for this registration
+    const qrCode = `REG_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
     const { data: newRegistration, error } = await supabase
       .from('class_registrations')
       .insert({
-        ...registration,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        user_id: registration.userId,
+        course_id: registration.courseId,
+        qr_code: qrCode,
+        registration_date: new Date().toISOString(),
+        status: 'registered',
+        notes: registration.notes
       })
       .select()
       .single();
@@ -1374,10 +1424,7 @@ export class DatabaseStorage implements IStorage {
   async updateClassRegistration(id: number, updates: Partial<InsertClassRegistration>): Promise<ClassRegistration> {
     const { data: registration, error } = await supabase
       .from('class_registrations')
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString()
-      })
+      .update(updates)
       .eq('id', id)
       .select()
       .single();
@@ -1521,10 +1568,10 @@ export class DatabaseStorage implements IStorage {
         .select(`
           id,
           user_id,
-          schedule:schedule_id (id, start_time, end_time)
+          course:course_id (id, start_time, end_time)
         `)
         .eq('status', 'registered')
-        .lt('schedule.end_time', oneHourAgo.toISOString())
+        .lt('course.end_time', oneHourAgo.toISOString())
         .is('checkin_id', null);
 
       if (findError) {

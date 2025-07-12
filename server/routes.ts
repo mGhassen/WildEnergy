@@ -1570,6 +1570,214 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  console.log('Registering route: POST /api/registrations');
+  app.post("/api/registrations", asyncHandler(requireAuth), async (req: any, res) => {
+    try {
+      const { courseId } = req.body;
+      const userId = req.user?.id;
+
+      if (!courseId) {
+        return res.status(400).json({ error: 'Course ID is required' });
+      }
+
+      if (!userId) {
+        return res.status(400).json({ error: 'User ID is undefined' });
+      }
+
+      // Check if user has any active subscription with sessions remaining
+      const activeSubscriptions = await storage.getUserActiveSubscriptions(userId);
+      console.log('Active subscriptions found:', activeSubscriptions);
+      
+      // Also get all subscriptions to debug
+      const allSubscriptions = await storage.getUserSubscriptions(userId);
+      console.log('All subscriptions for user:', allSubscriptions);
+      
+      const totalSessionsRemaining = activeSubscriptions.reduce((sum: number, sub: any) => sum + (sub.sessions_remaining || 0), 0);
+      console.log('Total sessions remaining:', totalSessionsRemaining);
+      
+      if (totalSessionsRemaining <= 0) {
+        return res.status(400).json({ error: 'No active subscription with sessions remaining' });
+      }
+
+      // Check if course exists and has available spots
+      const course = await storage.getCourse(courseId);
+      if (!course) {
+        return res.status(404).json({ error: 'Course not found' });
+      }
+
+      console.log('Course object from database:', JSON.stringify(course, null, 2));
+      console.log('Course current_participants:', course.current_participants);
+      console.log('Course max_participants:', course.max_participants);
+
+      const currentParticipants = course.current_participants ?? 0;
+      const maxParticipants = course.max_participants ?? 10;
+
+      if (currentParticipants >= maxParticipants) {
+        return res.status(400).json({ error: 'Course is full' });
+      }
+
+      // Check if user is already registered for this course (per-instance booking)
+      const existingRegistrations = await storage.getClassRegistrations(userId);
+      const isAlreadyRegistered = existingRegistrations.some((reg: any) => reg.course_id === courseId);
+      if (isAlreadyRegistered) {
+        return res.status(400).json({ error: 'Already registered for this course' });
+      }
+
+      // Find the subscription to deduct from (oldest with sessions remaining)
+      let subscriptionToDeduct = null;
+      for (const subscription of activeSubscriptions) {
+        if (subscription.sessions_remaining > 0) {
+          subscriptionToDeduct = subscription;
+          break;
+        }
+      }
+
+      if (!subscriptionToDeduct) {
+        return res.status(400).json({ error: 'No active subscription with sessions remaining' });
+      }
+
+      console.log('Using subscription:', subscriptionToDeduct.id, 'with sessions remaining:', subscriptionToDeduct.sessions_remaining);
+
+      // Use a simple approach with proper error handling
+      try {
+        // Create registration
+        const registration = await storage.createClassRegistration({
+          userId: userId,
+          courseId: courseId,
+          notes: undefined
+        });
+
+        // Update course participants count
+        await storage.updateCourse(courseId, {
+          currentParticipants: currentParticipants + 1
+        });
+
+        // Deduct session from subscription
+        await storage.updateSubscription(subscriptionToDeduct.id, {
+          sessionsRemaining: subscriptionToDeduct.sessions_remaining - 1
+        });
+
+        console.log(`Successfully registered for course ${courseId}, deducted session from subscription ${subscriptionToDeduct.id}`);
+
+        res.json({ success: true, registration });
+      } catch (error) {
+        console.error('Error during registration:', error);
+        res.status(500).json({ error: 'Failed to create registration' });
+      }
+    } catch (error) {
+      console.error('Error creating registration:', error);
+      res.status(500).json({ error: 'Failed to create registration' });
+    }
+  });
+
+  // Cancel registration endpoint
+  console.log('Registering route: POST /api/registrations/:id/cancel');
+  app.post("/api/registrations/:id/cancel", asyncHandler(requireAuth), async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user?.id;
+
+      if (!userId) {
+        return res.status(400).json({ error: 'User ID is undefined' });
+      }
+
+      // Get the registration
+      const registrations = await storage.getClassRegistrations(userId);
+      const registration = registrations.find((reg: any) => reg.id === parseInt(id));
+
+      if (!registration) {
+        return res.status(404).json({ error: 'Registration not found' });
+      }
+
+      // Check if user owns this registration
+      if (registration.user_id !== userId) {
+        return res.status(403).json({ error: 'Not authorized to cancel this registration' });
+      }
+
+      // Check if registration is already cancelled
+      if (registration.status === 'cancelled') {
+        return res.status(400).json({ error: 'Registration is already cancelled' });
+      }
+
+      // Get the course details
+      const course = await storage.getCourse(registration.course_id);
+      if (!course) {
+        return res.status(404).json({ error: 'Course not found' });
+      }
+
+      // Check if class has already started
+      const courseDateTime = new Date(`${course.course_date}T${course.start_time}`);
+      const now = new Date();
+      
+      if (now >= courseDateTime) {
+        return res.status(400).json({ error: 'Cannot cancel registration for a class that has already started' });
+      }
+
+      // Calculate if within 24 hours
+      const cutoffTime = new Date(courseDateTime.getTime() - (24 * 60 * 60 * 1000));
+      const isWithin24Hours = now >= cutoffTime;
+
+      console.log(`Cancelling registration ${id} for course ${course.id}`);
+      console.log(`Course date/time: ${courseDateTime}`);
+      console.log(`Cutoff time: ${cutoffTime}`);
+      console.log(`Current time: ${now}`);
+      console.log(`Within 24 hours: ${isWithin24Hours}`);
+
+      // Use a simple approach with proper error handling
+      try {
+        // Update registration status to cancelled
+        await storage.updateClassRegistration(parseInt(id), {
+          status: 'cancelled'
+        });
+
+        // Update course participants count
+        // For within 24 hours: increase participants (spot becomes available, session forfeited)
+        // For more than 24 hours: decrease participants (spot becomes available, session refunded)
+        const participantChange = isWithin24Hours ? 1 : -1;
+        await storage.updateCourse(course.id, {
+          currentParticipants: course.current_participants + participantChange
+        });
+
+        let refundInfo = null;
+
+        // Only refund session if more than 24 hours in advance
+        if (!isWithin24Hours) {
+          // Find the subscription that was used for this registration
+          // We'll refund to the oldest active subscription with sessions remaining
+          const activeSubscriptions = await storage.getUserActiveSubscriptions(userId);
+          const subscriptionToRefund = activeSubscriptions.find((sub: any) => sub.sessions_remaining > 0);
+
+          if (subscriptionToRefund) {
+            await storage.updateSubscription(subscriptionToRefund.id, {
+              sessionsRemaining: subscriptionToRefund.sessions_remaining + 1
+            });
+            refundInfo = {
+              subscriptionId: subscriptionToRefund.id,
+              sessionsRefunded: 1,
+              newSessionsRemaining: subscriptionToRefund.sessions_remaining + 1
+            };
+          }
+        }
+
+        console.log(`Successfully cancelled registration ${id} for course ${course.id}`);
+        console.log(`Within 24 hours: ${isWithin24Hours}, Session refunded: ${!isWithin24Hours}`);
+
+        res.json({ 
+          success: true, 
+          registration: { ...registration, status: 'cancelled' },
+          refundInfo,
+          isWithin24Hours
+        });
+      } catch (error) {
+        console.error('Error during cancellation:', error);
+        res.status(500).json({ error: 'Failed to cancel registration' });
+      }
+    } catch (error) {
+      console.error('Error cancelling registration:', error);
+      res.status(500).json({ error: 'Failed to cancel registration' });
+    }
+  });
+
   // Check-ins
   console.log('Registering route: GET /api/checkins');
   app.get("/api/checkins", asyncHandler(requireAuth), async (req: any, res) => {

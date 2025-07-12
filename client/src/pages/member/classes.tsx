@@ -10,6 +10,7 @@ import { Search, Clock, Users, Calendar, Star } from "lucide-react";
 import { formatTime, getDayName } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "@/lib/api";
+import { formatDate } from "@/lib/date";
 
 export default function MemberClasses() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -30,7 +31,7 @@ export default function MemberClasses() {
   const activeSubscriptions = subscriptions.filter((sub: any) => sub.status === 'active');
   const totalSessionsRemaining = activeSubscriptions.reduce((sum: number, sub: any) => sum + (sub.sessions_remaining || 0), 0);
 
-  const { data: registrations } = useQuery({
+  const { data: registrations = [] } = useQuery({
     queryKey: ["/api/registrations"],
   });
 
@@ -42,22 +43,103 @@ export default function MemberClasses() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/registrations"] });
       toast({
-        title: "Class booked successfully!",
-        description: "Your QR code has been generated. Check 'My Classes' to view it.",
+        title: "Registration successful!",
+        description: "You are now registered for this recurring class. Your QR code has been generated.",
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      let errorMessage = "Failed to book class";
+      
+      // Handle specific error messages from the backend
+      if (error.message?.includes("Already registered")) {
+        errorMessage = "You are already registered for this class";
+      } else if (error.message?.includes("No active subscription")) {
+        errorMessage = "No active subscription with sessions remaining";
+      } else if (error.message?.includes("Course is full")) {
+        errorMessage = "This class is full";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
-        title: "Failed to book class",
-        description: error.message,
+        title: "Booking failed",
+        description: errorMessage,
         variant: "destructive",
       });
     },
   });
 
-  const registeredCourseIds = new Set(registrations?.map((reg: any) => reg.course?.id) || []);
+  const cancelMutation = useMutation({
+    mutationFn: async (registrationId: number) => {
+      const response = await apiRequest("POST", `/api/registrations/${registrationId}/cancel`, {});
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/registrations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/member/subscriptions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
+      
+      if (data.isWithin24Hours) {
+        toast({
+          title: "Registration cancelled",
+          description: "Your registration has been cancelled. Session forfeited due to late cancellation.",
+        });
+      } else {
+        toast({
+          title: "Registration cancelled",
+          description: "Your registration has been cancelled and session refunded to your account.",
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Cannot cancel registration",
+        description: error.message || "Failed to cancel registration",
+        variant: "destructive",
+      });
+    },
+  });
 
-  const filteredCourses = courses?.filter((course: any) => {
+  // Create a set of course IDs that the user is registered for
+  const registrationsArray = Array.isArray(registrations) ? registrations : [];
+  const registeredCourseIds = new Set(registrationsArray.map((reg: any) => reg.course_id));
+
+  // Helper function to get registration for a course
+  const getRegistrationForCourse = (courseId: number) => {
+    return registrationsArray.find((reg: any) => reg.course_id === courseId && reg.status === 'registered');
+  };
+
+  // Helper function to check if cancellation is allowed
+  const canCancelRegistration = (course: any) => {
+    const courseDateTime = new Date(`${course.course_date}T${course.start_time}`);
+    const now = new Date();
+    return now < courseDateTime;
+  };
+
+  // Helper function to check if within 24 hours
+  const isWithin24Hours = (course: any) => {
+    const courseDateTime = new Date(`${course.course_date}T${course.start_time}`);
+    const cutoffTime = new Date(courseDateTime.getTime() - (24 * 60 * 60 * 1000));
+    const now = new Date();
+    return now >= cutoffTime && now < courseDateTime;
+  };
+
+  const handleCancel = (course: any) => {
+    const registration = getRegistrationForCourse(course.id);
+    if (!registration) return;
+
+    const within24h = isWithin24Hours(course);
+    const message = within24h 
+      ? "Cancelling within 24 hours will forfeit your session. Continue?"
+      : "Are you sure you want to cancel this class registration?";
+    
+    if (confirm(message)) {
+      cancelMutation.mutate(registration.id);
+    }
+  };
+
+  const coursesArray = Array.isArray(courses) ? courses : [];
+  const filteredCourses = coursesArray.filter((course: any) => {
     const matchesSearch = `${course.class?.name} ${course.trainer?.firstName} ${course.trainer?.lastName}`
       .toLowerCase()
       .includes(searchTerm.toLowerCase());
@@ -67,9 +149,19 @@ export default function MemberClasses() {
     const matchesDay = !dayFilter || dayFilter === "all" || courseDate.getDay().toString() === dayFilter;
     
     return matchesSearch && matchesCategory && matchesDay && course.is_active;
-  }) || [];
+  });
 
-  const handleRegister = (courseId: number) => {
+  const handleRegister = (courseId: number, scheduleId: number) => {
+    // Check if already registered for this course
+    if (registeredCourseIds.has(courseId)) {
+      toast({
+        title: "Already registered",
+        description: "You are already registered for this class instance.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     if (!activeSubscriptions.length || totalSessionsRemaining <= 0) {
       toast({
         title: "No sessions remaining",
@@ -235,32 +327,58 @@ export default function MemberClasses() {
                     <div className="space-y-2">
                       <div className="flex items-center text-sm text-muted-foreground">
                         <Calendar className="w-4 h-4 mr-2" />
-                        <span>{new Date(course.course_date).toLocaleDateString()}</span>
+                        <span>{formatDate(course.course_date)}</span>
                       </div>
                       <div className="flex items-center text-sm text-muted-foreground">
                         <Clock className="w-4 h-4 mr-2" />
                         <span>{formatTime(course.start_time)} - {formatTime(course.end_time)}</span>
                       </div>
-                      <div className="flex items-center text-sm text-muted-foreground">
-                        <Users className="w-4 h-4 mr-2" />
-                        <span>with Trainer {course.trainer?.id}</span>
-                      </div>
+                                              <div className="flex items-center text-sm text-muted-foreground">
+                          <Users className="w-4 h-4 mr-2" />
+                          <span>
+                            with Trainer {course.schedule?.class?.trainer?.user?.first_name && course.schedule?.class?.trainer?.user?.last_name
+                              ? `${course.schedule.class.trainer.user.first_name} ${course.schedule.class.trainer.user.last_name}`
+                              : 'Unknown Trainer'}
+                          </span>
+                        </div>
                       <div className="flex items-center text-sm text-muted-foreground">
                         <Users className="w-4 h-4 mr-2" />
                         <span>{course.current_participants}/{course.max_participants} participants</span>
                       </div>
                     </div>
 
-                    <Button
-                      className="w-full"
-                      onClick={() => handleRegister(course.id)}
-                      disabled={isRegistered || registerMutation.isPending || !activeSubscriptions.length || totalSessionsRemaining <= 0}
-                      variant={isRegistered ? "secondary" : "default"}
-                    >
-                      {isRegistered ? "Already Registered" : 
-                       !activeSubscriptions.length || totalSessionsRemaining <= 0 ? "No Sessions Left" :
-                       registerMutation.isPending ? "Booking..." : "Book Class"}
-                    </Button>
+                    {isRegistered ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center text-green-600 text-sm mb-2">
+                          <span className="mr-2">✓</span>
+                          You're registered for this class
+                        </div>
+                        {canCancelRegistration(course) ? (
+                          <Button
+                            variant="outline"
+                            className="w-full"
+                            onClick={() => handleCancel(course)}
+                            disabled={cancelMutation.isPending}
+                          >
+                            {cancelMutation.isPending ? "Cancelling..." : 
+                             isWithin24Hours(course) ? "Cancel (Forfeit Session)" : "Cancel Registration"}
+                          </Button>
+                        ) : (
+                          <div className="text-sm text-muted-foreground text-center">
+                            Cannot cancel - class has started
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <Button
+                        className="w-full"
+                        onClick={() => handleRegister(course.id, course.schedule_id)}
+                        disabled={registerMutation.isPending || !activeSubscriptions.length || totalSessionsRemaining <= 0}
+                      >
+                        {!activeSubscriptions.length || totalSessionsRemaining <= 0 ? "No Sessions Left" :
+                         registerMutation.isPending ? "Registering..." : "Register for Class"}
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
