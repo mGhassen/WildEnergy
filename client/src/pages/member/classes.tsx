@@ -67,15 +67,15 @@ export default function MemberClasses() {
         queryClient.setQueryData(["/api/registrations"], context.previousRegistrations);
       }
       
-      let errorMessage = "Failed to book class";
+      let errorMessage = "Failed to book course";
       
       // Handle specific error messages from the backend
       if (error.message?.includes("Already registered")) {
-        errorMessage = "You are already registered for this class";
+        errorMessage = "You are already registered for this course";
       } else if (error.message?.includes("No active subscription")) {
         errorMessage = "No active subscription with sessions remaining";
       } else if (error.message?.includes("Course is full")) {
-        errorMessage = "This class is full";
+        errorMessage = "This course is full";
       } else if (error.message) {
         errorMessage = error.message;
       }
@@ -92,7 +92,7 @@ export default function MemberClasses() {
       queryClient.invalidateQueries({ queryKey: ["/api/member/subscriptions"] });
       toast({
         title: "Registration successful!",
-        description: "You are now registered for this class. Your QR code has been generated.",
+        description: "You are now registered for this course. Your QR code has been generated.",
       });
     },
   });
@@ -206,11 +206,11 @@ export default function MemberClasses() {
 
   const coursesArray = Array.isArray(courses) ? courses : [];
   const filteredCourses = coursesArray.filter((course: any) => {
-    const matchesSearch = `${course.class?.name} ${course.trainer?.firstName} ${course.trainer?.lastName}`
+    const matchesSearch = `${course.class?.name} ${course.trainer?.user?.first_name || ''} ${course.trainer?.user?.last_name || ''}`
       .toLowerCase()
       .includes(searchTerm.toLowerCase());
     
-    const matchesCategory = !categoryFilter || categoryFilter === "all" || course.class?.category === categoryFilter;
+    const matchesCategory = !categoryFilter || categoryFilter === "all" || course.class?.category?.name === categoryFilter;
     const courseDate = new Date(course.courseDate);
     const matchesDay = !dayFilter || dayFilter === "all" || courseDate.getDay().toString() === dayFilter;
     
@@ -228,7 +228,7 @@ export default function MemberClasses() {
     if (course && isCourseInPast(course)) {
       toast({
         title: "Cannot register",
-        description: "This class has already started or ended.",
+        description: "This course has already started or ended.",
         variant: "destructive",
       });
       return;
@@ -238,7 +238,7 @@ export default function MemberClasses() {
     if (registeredCourseIds.has(courseId)) {
       toast({
         title: "Already registered",
-        description: "You are already registered for this class instance.",
+        description: "You are already registered for this course instance.",
         variant: "destructive",
       });
       return;
@@ -247,7 +247,7 @@ export default function MemberClasses() {
     if (!activeSubscriptions.length || totalSessionsRemaining <= 0) {
       toast({
         title: "No sessions remaining",
-        description: "Please renew your subscription to book classes.",
+        description: "Please renew your subscription to book courses.",
         variant: "destructive",
       });
       return;
@@ -268,23 +268,21 @@ export default function MemberClasses() {
     return colors[category?.toLowerCase()] || "bg-gray-100 text-gray-800";
   };
 
-  const getIntensityLevel = (category: string) => {
-    const levels: Record<string, { level: string; color: string }> = {
-      yoga: { level: "Low", color: "text-green-600" },
-      hiit: { level: "High", color: "text-red-600" },
-      strength: { level: "Medium", color: "text-blue-600" },
-      cardio: { level: "Medium", color: "text-orange-600" },
-      pilates: { level: "Low", color: "text-purple-600" },
-      boxing: { level: "High", color: "text-red-600" },
+  const getDifficultyColor = (difficulty: string) => {
+    const colors: Record<string, string> = {
+      beginner: "bg-green-100 text-green-800",
+      intermediate: "bg-blue-100 text-blue-800",
+      advanced: "bg-red-100 text-red-800",
+      expert: "bg-purple-100 text-purple-800",
     };
-    return levels[category?.toLowerCase()] || { level: "Medium", color: "text-gray-600" };
+    return colors[difficulty?.toLowerCase()] || "bg-gray-100 text-gray-800";
   };
 
   return (
     <div className="space-y-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground mb-2">Browse Classes</h1>
-        <p className="text-muted-foreground">Find and book fitness classes that fit your schedule</p>
+        <h1 className="text-3xl font-bold text-foreground mb-2">Browse Courses</h1>
+        <p className="text-muted-foreground">Find and book fitness courses that fit your schedule</p>
       </div>
 
       {/* Current Plan Summary */}
@@ -314,7 +312,7 @@ export default function MemberClasses() {
             <div className="relative">
               <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Search classes..."
+                placeholder="Search courses..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -351,14 +349,14 @@ export default function MemberClasses() {
             </Select>
             <div className="flex items-center space-x-2">
               <span className="text-sm text-muted-foreground">
-                {filteredCourses.length} classes available
+                {filteredCourses.length} courses available
               </span>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Classes Grid */}
+      {/* Courses Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {isLoading ? (
           [...Array(6)].map((_, i) => (
@@ -376,15 +374,16 @@ export default function MemberClasses() {
         ) : filteredCourses.length > 0 ? (
           filteredCourses.map((course: any) => {
             const isRegistered = registeredCourseIds.has(course.id);
-            const intensity = getIntensityLevel(course.class?.category);
             
             return (
               <Card key={course.id} className="overflow-hidden hover:shadow-md transition-shadow">
                 <CardHeader className="pb-4">
                   <div className="flex items-center justify-between mb-2">
                     <CardTitle className="text-lg">{course.class?.name}</CardTitle>
-                    <Badge className={getCategoryColor(course.class?.category)}>
-                      {course.class?.category}
+                    <Badge className={getCategoryColor(course.class?.category?.name)}>
+                      {course.class?.category?.name
+                        ? course.class.category.name.charAt(0).toUpperCase() + course.class.category.name.slice(1)
+                        : "Unknown"}
                     </Badge>
                   </div>
                   <CardDescription className="line-clamp-2">
@@ -393,17 +392,24 @@ export default function MemberClasses() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center">
-                        <Star className="w-4 h-4 mr-1 text-muted-foreground" />
-                        <span className={`font-medium ${intensity.color}`}>
-                          {intensity.level} Intensity
-                        </span>
-                      </div>
-                      <div className="flex items-center">
-                        <Clock className="w-4 h-4 mr-1 text-muted-foreground" />
-                        <span>{course.class?.duration} min</span>
-                      </div>
+                    <div className="flex items-center text-sm text-muted-foreground">
+                      <Star className="w-4 h-4 mr-1 text-muted-foreground" />
+                      <span className="font-medium text-gray-600">
+                        {course.class?.difficulty
+                          ? course.class.difficulty.charAt(0).toUpperCase() + course.class.difficulty.slice(1)
+                          : "Unknown"}
+                      </span>
+                    </div>
+                    <div className="flex items-center text-sm">
+                      <Clock className="w-4 h-4 mr-1 text-muted-foreground" />
+                      <span>{(() => {
+                        if (!course.startTime || !course.endTime) return '60 min';
+                        const start = new Date(`2000-01-01T${course.startTime}`);
+                        const end = new Date(`2000-01-01T${course.endTime}`);
+                        const diffMs = end.getTime() - start.getTime();
+                        const diffMins = Math.round(diffMs / (1000 * 60));
+                        return `${diffMins} min`;
+                      })()}</span>
                     </div>
 
                     <div className="space-y-2">
@@ -418,22 +424,19 @@ export default function MemberClasses() {
                       <div className="flex items-center text-sm text-muted-foreground">
                         <Users className="w-4 h-4 mr-2" />
                         <span>
-                          with Trainer {course.trainer?.firstName && course.trainer?.lastName
-                            ? `${course.trainer.firstName} ${course.trainer.lastName}`
+                          {course.trainer?.user?.first_name && course.trainer?.user?.last_name
+                            ? `${course.trainer.user.first_name} ${course.trainer.user.last_name}`
                             : 'Unknown Trainer'}
                         </span>
                       </div>
-                      <div className="flex items-center text-sm text-muted-foreground">
-                        <Users className="w-4 h-4 mr-2" />
-                        <span>{course.currentParticipants}/{course.maxParticipants} participants</span>
-                      </div>
+
                     </div>
 
                     {isRegistered ? (
                       <div className="space-y-2">
                         <div className="flex items-center text-green-600 text-sm mb-2">
                           <span className="mr-2">✓</span>
-                          You're registered for this class
+                          You're registered for this course
                         </div>
                         {canCancelRegistration(course) ? (
                           <Button
@@ -447,7 +450,7 @@ export default function MemberClasses() {
                           </Button>
                         ) : (
                           <div className="text-sm text-muted-foreground text-center">
-                            Cannot cancel - class has started
+                            Cannot cancel - course has started
                           </div>
                         )}
                       </div>
@@ -458,9 +461,9 @@ export default function MemberClasses() {
                         disabled={registerMutation.isPending || !activeSubscriptions.length || totalSessionsRemaining <= 0 || isCourseInPast(course)}
                         variant={isCourseInPast(course) ? "secondary" : "default"}
                       >
-                        {isCourseInPast(course) ? "Class Ended" :
+                        {isCourseInPast(course) ? "Course Ended" :
                          !activeSubscriptions.length || totalSessionsRemaining <= 0 ? "No Sessions Left" :
-                         registerMutation.isPending ? "Registering..." : "Register for Class"}
+                         registerMutation.isPending ? "Registering..." : "Register for Course"}
                       </Button>
                     )}
                   </div>
@@ -471,9 +474,9 @@ export default function MemberClasses() {
         ) : (
           <div className="col-span-full text-center py-12">
             <Calendar className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-            <h3 className="text-lg font-medium text-foreground mb-2">No classes found</h3>
+            <h3 className="text-lg font-medium text-foreground mb-2">No courses found</h3>
             <p className="text-muted-foreground">
-              Try adjusting your filters to see more classes
+              Try adjusting your filters to see more courses
             </p>
           </div>
         )}
