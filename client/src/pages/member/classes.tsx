@@ -23,6 +23,12 @@ export default function MemberClasses() {
     queryKey: ["/api/courses"],
   });
 
+  // Fetch categories from API
+  const { data: categories, isLoading: categoriesLoading } = useQuery({
+    queryKey: ["/api/categories"],
+    queryFn: () => apiFetch("/api/categories"),
+  });
+
   const { data: subscriptionsRaw } = useQuery({
     queryKey: ["/api/member/subscriptions"],
     queryFn: () => apiFetch("/api/member/subscriptions"),
@@ -205,18 +211,24 @@ export default function MemberClasses() {
   };
 
   const coursesArray = Array.isArray(courses) ? courses : [];
+  // Helper: get unique categories from courses
+  const uniqueCategories = Array.from(new Set(coursesArray.map((c: any) => c.class?.category?.name).filter(Boolean)));
+  // Helper: day names
+  const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   const filteredCourses = coursesArray.filter((course: any) => {
-    const matchesSearch = `${course.class?.name} ${course.trainer?.user?.first_name || ''} ${course.trainer?.user?.last_name || ''}`
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase());
-    
-    const matchesCategory = !categoryFilter || categoryFilter === "all" || course.class?.category?.name === categoryFilter;
+    const className = course.class?.name?.toLowerCase() || "";
+    const trainerName = `${course.trainer?.user?.first_name || ''} ${course.trainer?.user?.last_name || ''}`.toLowerCase();
+    const categoryName = course.class?.category?.name?.toLowerCase() || "";
+    const matchesSearch = [className, trainerName, categoryName].some(str => str.includes(searchTerm.toLowerCase()));
+
+    const matchesCategory = !categoryFilter || categoryFilter === "all" || categoryName === categoryFilter.toLowerCase();
+
     const courseDate = new Date(course.courseDate);
     const matchesDay = !dayFilter || dayFilter === "all" || courseDate.getDay().toString() === dayFilter;
-    
+
     // Only show active courses that haven't ended yet
     const isNotPast = !isCourseInPast(course);
-    
+
     return matchesSearch && matchesCategory && matchesDay && course.isActive && isNotPast;
   });
 
@@ -327,11 +339,11 @@ export default function MemberClasses() {
       {/* Filters */}
       <Card>
         <CardContent className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Search courses..."
+                placeholder="Search courses, trainers, categories..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -343,12 +355,13 @@ export default function MemberClasses() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Categories</SelectItem>
-                <SelectItem value="yoga">Yoga</SelectItem>
-                <SelectItem value="hiit">HIIT</SelectItem>
-                <SelectItem value="strength">Strength Training</SelectItem>
-                <SelectItem value="cardio">Cardio</SelectItem>
-                <SelectItem value="pilates">Pilates</SelectItem>
-                <SelectItem value="boxing">Boxing</SelectItem>
+                {categoriesLoading ? (
+                  <SelectItem disabled value="loading">Loading...</SelectItem>
+                ) : (
+                  Array.isArray(categories) && categories.map((cat: any) => (
+                    <SelectItem key={cat.id} value={cat.name}>{cat.name.charAt(0).toUpperCase() + cat.name.slice(1)}</SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
             <Select value={dayFilter} onValueChange={setDayFilter}>
@@ -357,19 +370,18 @@ export default function MemberClasses() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Days</SelectItem>
-                <SelectItem value="0">Sunday</SelectItem>
-                <SelectItem value="1">Monday</SelectItem>
-                <SelectItem value="2">Tuesday</SelectItem>
-                <SelectItem value="3">Wednesday</SelectItem>
-                <SelectItem value="4">Thursday</SelectItem>
-                <SelectItem value="5">Friday</SelectItem>
-                <SelectItem value="6">Saturday</SelectItem>
+                {dayNames.map((day, idx) => (
+                  <SelectItem key={day} value={String(idx)}>{day}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <div className="flex items-center space-x-2">
               <span className="text-sm text-muted-foreground">
                 {filteredCourses.length} courses available
               </span>
+            </div>
+            <div className="flex items-center">
+              <Button variant="ghost" size="sm" onClick={() => { setSearchTerm(""); setCategoryFilter(""); setDayFilter(""); }}>Reset Filters</Button>
             </div>
           </div>
         </CardContent>
