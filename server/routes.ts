@@ -1606,11 +1606,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log('Course object from database:', JSON.stringify(course, null, 2));
-      console.log('Course current_participants:', course.current_participants);
-      console.log('Course max_participants:', course.max_participants);
+      console.log('Course current_participants:', course.currentParticipants);
+      console.log('Course max_participants:', course.maxParticipants);
 
-      const currentParticipants = course.current_participants ?? 0;
-      const maxParticipants = course.max_participants ?? 10;
+      const currentParticipants = course.currentParticipants ?? 0;
+      const maxParticipants = course.maxParticipants ?? 10;
 
       if (currentParticipants >= maxParticipants) {
         return res.status(400).json({ error: 'Course is full' });
@@ -1618,7 +1618,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check if user is already registered for this course (per-instance booking)
       const existingRegistrations = await storage.getClassRegistrations(userId);
-      const isAlreadyRegistered = existingRegistrations.some((reg: any) => reg.course_id === courseId);
+      const isAlreadyRegistered = existingRegistrations.some((reg: any) => 
+        reg.course_id === courseId && reg.status === 'registered'
+      );
       if (isAlreadyRegistered) {
         return res.status(400).json({ error: 'Already registered for this course' });
       }
@@ -1706,7 +1708,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if class has already started
-      const courseDateTime = new Date(`${course.course_date}T${course.start_time}`);
+      const courseDateTime = new Date(`${course.courseDate}T${course.startTime}`);
       const now = new Date();
       
       if (now >= courseDateTime) {
@@ -1728,14 +1730,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Update registration status to cancelled
         await storage.updateClassRegistration(parseInt(id), {
           status: 'cancelled'
-        });
+        } as any);
 
         // Update course participants count
         // For within 24 hours: increase participants (spot becomes available, session forfeited)
         // For more than 24 hours: decrease participants (spot becomes available, session refunded)
         const participantChange = isWithin24Hours ? 1 : -1;
         await storage.updateCourse(course.id, {
-          currentParticipants: course.current_participants + participantChange
+          currentParticipants: course.currentParticipants + participantChange
         });
 
         let refundInfo = null;
