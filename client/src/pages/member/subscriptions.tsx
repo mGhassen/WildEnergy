@@ -4,13 +4,24 @@ import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/date";
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/hooks/use-auth";
-import React from "react";
+import React, { useState, useEffect } from "react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { CreditCard, Clock, CheckCircle, XCircle, Info, Calendar } from "lucide-react";
 
 interface Plan {
   id: number;
   name: string;
   price: string;
   max_sessions: number;
+}
+
+interface Payment {
+  id: number;
+  subscription_id: number;
+  amount: number;
+  status: string;
+  payment_date: string;
+  method: string;
 }
 
 interface Subscription {
@@ -24,12 +35,17 @@ interface Subscription {
 
 export default function MemberSubscriptions() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const [mainTab, setMainTab] = useState<'active' | 'history'>('active');
+  const [subTabs, setSubTabs] = useState<{ [subId: number]: 'details' | 'payments' }>({});
 
   // Fetch user credit
   const { data: profile, isLoading: loadingProfile, error: errorProfile } = useQuery<any>({
     queryKey: ["/api/auth/session"],
     queryFn: () => apiFetch("/api/auth/session"),
     enabled: isAuthenticated && !authLoading,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    staleTime: 0, // Always consider data stale to force refetch
   });
   const credit = profile?.user?.credit ?? 0;
 
@@ -38,10 +54,24 @@ export default function MemberSubscriptions() {
     queryKey: ["/api/member/subscriptions"],
     queryFn: () => apiFetch("/api/member/subscriptions"),
     enabled: isAuthenticated && !authLoading,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    staleTime: 0, // Always consider data stale to force refetch
   });
   const subscriptions: Subscription[] = Array.isArray(subscriptionsRaw) ? subscriptionsRaw : [];
 
-  if (authLoading || isLoading || loadingProfile) {
+  // Fetch all payments for the user
+  const { data: allPaymentsRaw, isLoading: loadingPayments } = useQuery<Payment[]>({
+    queryKey: ["/api/member/payments"],
+    queryFn: () => apiFetch("/api/member/payments"),
+    enabled: isAuthenticated && !authLoading,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    staleTime: 0, // Always consider data stale to force refetch
+  });
+  const allPayments: Payment[] = Array.isArray(allPaymentsRaw) ? allPaymentsRaw : [];
+
+  if (authLoading || isLoading || loadingProfile || loadingPayments) {
     return (
       <div className="flex items-center justify-center min-h-[40vh]">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -68,13 +98,16 @@ export default function MemberSubscriptions() {
   const activeSubscriptions = subscriptions.filter(sub => sub.status === 'active');
   const inactiveSubscriptions = subscriptions.filter(sub => sub.status !== 'active');
 
+  // Helper: payments for a subscription
+  const getPaymentsForSub = (subId: number) => allPayments.filter(p => p.subscription_id === subId);
+
   return (
     <div className="max-w-4xl mx-auto py-8 px-4 space-y-8">
       {/* Header with credit tag */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold text-foreground mb-2 md:mb-0">My Subscriptions</h1>
-          <p className="text-muted-foreground">View all your subscriptions</p>
+          <p className="text-muted-foreground">View all your subscriptions and payment history</p>
         </div>
         <Card className="flex items-center gap-3 px-4 py-2 bg-gradient-to-r from-green-100 to-green-50 border-green-200 shadow-none">
           <span className="inline-flex items-center gap-1 text-green-700 font-semibold text-lg">
@@ -86,14 +119,42 @@ export default function MemberSubscriptions() {
         </Card>
       </div>
 
-      {/* Active Subscriptions */}
-      {activeSubscriptions.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold text-foreground">Active Subscriptions</h2>
+      {/* Main Tabs */}
+      <div className="flex justify-center mb-8">
+        <div className="flex gap-2 bg-muted/50 rounded-full p-1 shadow-sm">
+          <button
+            className={`rounded-full px-5 py-2 flex items-center gap-2 transition-all text-base font-semibold ${mainTab === 'active' ? 'shadow bg-primary text-primary-foreground' : 'bg-transparent text-muted-foreground hover:bg-muted'}`}
+            onClick={() => setMainTab('active')}
+          >
+            <CheckCircle className="w-4 h-4 mr-1" /> Active
+          </button>
+          <button
+            className={`rounded-full px-5 py-2 flex items-center gap-2 transition-all text-base font-semibold ${mainTab === 'history' ? 'shadow bg-primary text-primary-foreground' : 'bg-transparent text-muted-foreground hover:bg-muted'}`}
+            onClick={() => setMainTab('history')}
+          >
+            <Clock className="w-4 h-4 mr-1" /> History
+          </button>
+        </div>
+      </div>
+
+      {/* Active Subscriptions Tab */}
+      {mainTab === 'active' && (
+        <div className="space-y-6">
+          {activeSubscriptions.length === 0 && (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <h3 className="text-lg font-medium text-foreground mb-2">No Active Subscriptions</h3>
+                <p className="text-muted-foreground mb-4">
+                  You don't have any active subscriptions. Contact the gym to set up your membership.
+                </p>
+              </CardContent>
+            </Card>
+          )}
           {activeSubscriptions.map((sub) => {
             const plan = sub.plan || { name: "", price: "", max_sessions: 0 };
             const totalSessions = plan.max_sessions ?? 0;
             const sessionsUsed = totalSessions - sub.sessions_remaining;
+            const subTab = subTabs[sub.id] || 'details';
             return (
               <Card key={sub.id} className="border-l-4 border-l-primary">
                 <CardHeader>
@@ -104,30 +165,71 @@ export default function MemberSubscriptions() {
                   <CardDescription>Active membership details</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="text-center p-3 bg-primary/5 rounded-lg">
-                      <p className="text-sm font-medium text-muted-foreground">Sessions Remaining</p>
-                      <p className="text-2xl font-bold text-primary">{sub.sessions_remaining}</p>
-                    </div>
-                    <div className="text-center p-3 bg-muted/50 rounded-lg">
-                      <p className="text-sm font-medium text-muted-foreground">Sessions Used</p>
-                      <p className="text-2xl font-bold text-foreground">{sessionsUsed}</p>
-                    </div>
-                    <div className="text-center p-3 bg-muted/50 rounded-lg">
-                      <p className="text-sm font-medium text-muted-foreground">Total Sessions</p>
-                      <p className="text-2xl font-bold text-foreground">{totalSessions}</p>
-                    </div>
+                  {/* Mini-tabs for details/payments */}
+                  <div className="flex gap-2 mb-4">
+                    <button
+                      className={`rounded-full px-4 py-1 text-sm font-medium flex items-center gap-1 transition-all ${subTab === 'details' ? 'bg-primary text-primary-foreground shadow' : 'bg-muted text-muted-foreground hover:bg-muted/70'}`}
+                      onClick={() => setSubTabs(t => ({ ...t, [sub.id]: 'details' }))}
+                    >
+                      <Info className="w-4 h-4" /> Details
+                    </button>
+                    <button
+                      className={`rounded-full px-4 py-1 text-sm font-medium flex items-center gap-1 transition-all ${subTab === 'payments' ? 'bg-primary text-primary-foreground shadow' : 'bg-muted text-muted-foreground hover:bg-muted/70'}`}
+                      onClick={() => setSubTabs(t => ({ ...t, [sub.id]: 'payments' }))}
+                    >
+                      <CreditCard className="w-4 h-4" /> Payments
+                    </button>
                   </div>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">Start Date:</span>
-                      <p className="font-medium">{formatDate(sub.start_date)}</p>
+                  {subTab === 'details' ? (
+                    <>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="text-center p-3 bg-primary/5 rounded-lg">
+                          <p className="text-sm text-muted-foreground">Sessions Remaining</p>
+                          <p className="text-2xl font-bold text-primary">{sub.sessions_remaining}</p>
+                        </div>
+                        <div className="text-center p-3 bg-muted/50 rounded-lg">
+                          <p className="text-sm font-medium text-muted-foreground">Sessions Used</p>
+                          <p className="text-2xl font-bold text-foreground">{sessionsUsed}</p>
+                        </div>
+                        <div className="text-center p-3 bg-muted/50 rounded-lg">
+                          <p className="text-sm font-medium text-muted-foreground">Total Sessions</p>
+                          <p className="text-2xl font-bold text-foreground">{totalSessions}</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Start Date:</span>
+                          <p className="font-medium">{formatDate(sub.start_date)}</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">End Date:</span>
+                          <p className="font-medium">{formatDate(sub.end_date)}</p>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="space-y-2">
+                      {getPaymentsForSub(sub.id).length === 0 ? (
+                        <div className="text-center text-muted-foreground py-6">
+                          <CreditCard className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                          <div>No payments found for this subscription.</div>
+                        </div>
+                      ) : (
+                        getPaymentsForSub(sub.id).map(payment => (
+                          <div key={payment.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                            <div className="flex items-center gap-2">
+                              <CreditCard className="w-5 h-5 text-primary" />
+                              <span className="font-medium">{payment.amount} TND</span>
+                              <span className="text-xs text-muted-foreground">{formatDate(payment.payment_date)}</span>
+                            </div>
+                            <Badge variant={payment.status === 'paid' ? 'default' : 'secondary'}>
+                              {payment.status === 'paid' ? 'Paid' : payment.status}
+                            </Badge>
+                          </div>
+                        ))
+                      )}
                     </div>
-                    <div>
-                      <span className="text-muted-foreground">End Date:</span>
-                      <p className="font-medium">{formatDate(sub.end_date)}</p>
-                    </div>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
             );
@@ -135,57 +237,141 @@ export default function MemberSubscriptions() {
         </div>
       )}
 
-      {/* Inactive Subscriptions */}
-      {inactiveSubscriptions.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold text-foreground">Inactive Subscriptions</h2>
-          {inactiveSubscriptions.map((sub) => {
-            const plan = sub.plan || { name: "", price: "", max_sessions: 0 };
-            return (
-              <Card key={sub.id} className="border-l-4 border-l-muted opacity-75">
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <span>{plan.name || "Plan"}</span>
-                    <Badge variant="secondary">{sub.status}</Badge>
-                  </CardTitle>
-                  <CardDescription>Inactive membership details</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">Start Date:</span>
-                      <p className="font-medium">{formatDate(sub.start_date)}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">End Date:</span>
-                      <p className="font-medium">{formatDate(sub.end_date)}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Price:</span>
-                      <p className="font-medium">{plan.price ?? 0} TND</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Status:</span>
-                      <Badge variant="secondary" className="ml-1">{sub.status}</Badge>
-                    </div>
-                  </div>
+      {/* History Tab */}
+      {mainTab === 'history' && (
+        <div className="space-y-8">
+          <div className="space-y-6">
+            {inactiveSubscriptions.length === 0 && (
+              <Card>
+                <CardContent className="p-12 text-center">
+                  <h3 className="text-lg font-medium text-foreground mb-2">No History</h3>
+                  <p className="text-muted-foreground mb-4">
+                    You have no past subscriptions.
+                  </p>
                 </CardContent>
               </Card>
-            );
-          })}
-        </div>
-      )}
+            )}
+            {inactiveSubscriptions.map((sub) => {
+              const plan = sub.plan || { name: "", price: "", max_sessions: 0 };
+              const subTab = subTabs[sub.id] || 'details';
+              return (
+                <Card key={sub.id} className="border-l-4 border-l-muted opacity-75">
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      <span>{plan.name || "Plan"}</span>
+                      <Badge variant="secondary">{sub.status}</Badge>
+                    </CardTitle>
+                    <CardDescription>Inactive membership details</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Mini-tabs for details/payments */}
+                    <div className="flex gap-2 mb-4">
+                      <button
+                        className={`rounded-full px-4 py-1 text-sm font-medium flex items-center gap-1 transition-all ${subTab === 'details' ? 'bg-primary text-primary-foreground shadow' : 'bg-muted text-muted-foreground hover:bg-muted/70'}`}
+                        onClick={() => setSubTabs(t => ({ ...t, [sub.id]: 'details' }))}
+                      >
+                        <Info className="w-4 h-4" /> Details
+                      </button>
+                      <button
+                        className={`rounded-full px-4 py-1 text-sm font-medium flex items-center gap-1 transition-all ${subTab === 'payments' ? 'bg-primary text-primary-foreground shadow' : 'bg-muted text-muted-foreground hover:bg-muted/70'}`}
+                        onClick={() => setSubTabs(t => ({ ...t, [sub.id]: 'payments' }))}
+                      >
+                        <CreditCard className="w-4 h-4" /> Payments
+                      </button>
+                    </div>
+                    {subTab === 'details' ? (
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Start Date:</span>
+                          <p className="font-medium">{formatDate(sub.start_date)}</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">End Date:</span>
+                          <p className="font-medium">{formatDate(sub.end_date)}</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Price:</span>
+                          <p className="font-medium">{plan.price ?? 0} TND</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Status:</span>
+                          <Badge variant="secondary" className="ml-1">{sub.status}</Badge>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {getPaymentsForSub(sub.id).length === 0 ? (
+                          <div className="text-center text-muted-foreground py-6">
+                            <CreditCard className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                            <div>No payments found for this subscription.</div>
+                          </div>
+                        ) : (
+                          getPaymentsForSub(sub.id).map(payment => (
+                            <div key={payment.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                              <div className="flex items-center gap-2">
+                                <CreditCard className="w-5 h-5 text-primary" />
+                                <span className="font-medium">{payment.amount} TND</span>
+                                <span className="text-xs text-muted-foreground">{formatDate(payment.payment_date)}</span>
+                              </div>
+                              <Badge variant={payment.status === 'paid' ? 'default' : 'secondary'}>
+                                {payment.status === 'paid' ? 'Paid' : payment.status}
+                              </Badge>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
 
-      {/* No Subscriptions */}
-      {subscriptions.length === 0 && (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <h3 className="text-lg font-medium text-foreground mb-2">No Subscriptions</h3>
-            <p className="text-muted-foreground mb-4">
-              You don't have any subscriptions. Contact the gym to set up your membership.
-            </p>
-          </CardContent>
-        </Card>
+          {/* All Payments Table */}
+          <div className="mt-10">
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              <CreditCard className="w-5 h-5 text-primary" /> All Payments
+            </h2>
+            {allPayments.length === 0 ? (
+              <div className="text-center text-muted-foreground py-8">
+                <CreditCard className="w-10 h-10 mx-auto mb-2 opacity-40" />
+                <div>No payments found.</div>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm border rounded-lg overflow-hidden">
+                  <thead className="bg-muted">
+                    <tr>
+                      <th className="px-4 py-2 text-left">Date</th>
+                      <th className="px-4 py-2 text-left">Amount</th>
+                      <th className="px-4 py-2 text-left">Status</th>
+                      <th className="px-4 py-2 text-left">Subscription</th>
+                      <th className="px-4 py-2 text-left">Method</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allPayments.map(payment => {
+                      const sub = subscriptions.find(s => s.id === payment.subscription_id);
+                      return (
+                        <tr key={payment.id} className="border-b">
+                          <td className="px-4 py-2">{formatDate(payment.payment_date)}</td>
+                          <td className="px-4 py-2">{payment.amount} TND</td>
+                          <td className="px-4 py-2">
+                            <Badge variant={payment.status === 'paid' ? 'default' : 'secondary'}>
+                              {payment.status === 'paid' ? 'Paid' : payment.status}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-2">{sub?.plan?.name || 'N/A'}</td>
+                          <td className="px-4 py-2">{payment.method}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

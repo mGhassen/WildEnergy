@@ -1334,7 +1334,22 @@ export class DatabaseStorage implements IStorage {
       throw new Error(error.message || 'Failed to fetch payments by subscription');
     }
 
-    return payments || [];
+    // Convert snake_case to camelCase and map properties for frontend compatibility
+    const mappedPayments = (payments || []).map((payment: any) => ({
+      ...payment,
+      // Map payment properties to match frontend expectations
+      method: payment.payment_type || 'cash',
+      status: payment.payment_status || 'pending',
+      payment_date: payment.payment_date || payment.paymentDate,
+      subscription_id: payment.subscription_id || payment.subscriptionId,
+      user_id: payment.user_id || payment.userId,
+      transaction_id: payment.transaction_id || payment.transactionId,
+      due_date: payment.due_date || payment.dueDate,
+      created_at: payment.created_at || payment.createdAt,
+      updated_at: payment.updated_at || payment.updatedAt
+    }));
+
+    return mappedPayments;
   }
 
   async getPaymentsByUser(userId: string): Promise<Payment[]> {
@@ -1349,7 +1364,22 @@ export class DatabaseStorage implements IStorage {
       throw new Error(error.message || 'Failed to fetch payments by user');
     }
 
-    return payments || [];
+    // Convert snake_case to camelCase and map properties for frontend compatibility
+    const mappedPayments = (payments || []).map((payment: any) => ({
+      ...payment,
+      // Map payment properties to match frontend expectations
+      method: payment.payment_type || 'cash',
+      status: payment.payment_status || 'pending',
+      payment_date: payment.payment_date || payment.paymentDate,
+      subscription_id: payment.subscription_id || payment.subscriptionId,
+      user_id: payment.user_id || payment.userId,
+      transaction_id: payment.transaction_id || payment.transactionId,
+      due_date: payment.due_date || payment.dueDate,
+      created_at: payment.created_at || payment.createdAt,
+      updated_at: payment.updated_at || payment.updatedAt
+    }));
+
+    return mappedPayments;
   }
 
   async createPayment(payment: InsertPayment): Promise<Payment> {
