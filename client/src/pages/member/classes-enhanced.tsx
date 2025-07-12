@@ -42,8 +42,7 @@ export default function MemberClassesEnhanced() {
 
   const registerMutation = useMutation({
     mutationFn: async (scheduleId: number) => {
-      const response = await apiRequest("POST", "/api/registrations", { scheduleId });
-      return response.json();
+      return await apiRequest("POST", "/api/registrations", { scheduleId });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/registrations"] });
@@ -66,8 +65,7 @@ export default function MemberClassesEnhanced() {
 
   const cancelMutation = useMutation({
     mutationFn: async (registrationId: number) => {
-      const response = await apiRequest("POST", `/api/registrations/${registrationId}/cancel`, {});
-      return response.json();
+      return await apiRequest("POST", `/api/registrations/${registrationId}/cancel`, {});
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/registrations"] });
@@ -310,7 +308,7 @@ export default function MemberClassesEnhanced() {
           const canCancel = canCancelRegistration(userRegistration);
 
           return (
-            <Card key={schedule.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+            <Card key={schedule.id} className="overflow-hidden hover:shadow-lg transition-shadow flex flex-col h-full">
               <CardHeader className="pb-3">
                 <div className="flex justify-between items-start">
                   <div>
@@ -323,7 +321,7 @@ export default function MemberClassesEnhanced() {
                 </div>
               </CardHeader>
               
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 flex flex-col h-full">
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div className="flex items-center text-muted-foreground">
                     <Calendar className="w-4 h-4 mr-2" />
@@ -347,6 +345,7 @@ export default function MemberClassesEnhanced() {
                   Next class: {formatDate(schedule.scheduleDate)}
                 </div>
 
+                <div className="mt-auto">
                 {isUserRegistered ? (
                   <div className="space-y-2">
                     <div className="flex items-center text-green-600 text-sm">
@@ -383,6 +382,7 @@ export default function MemberClassesEnhanced() {
                      "Book Class"}
                   </Button>
                 )}
+                </div>
               </CardContent>
             </Card>
               );

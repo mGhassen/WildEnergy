@@ -37,8 +37,7 @@ export default function MemberClasses() {
 
   const registerMutation = useMutation({
     mutationFn: async (courseId: number) => {
-      const response = await apiRequest("POST", "/api/registrations", { courseId });
-      return response.json();
+      return await apiRequest("POST", "/api/registrations", { courseId });
     },
     onMutate: async (courseId: number) => {
       // Optimistically update the registrations
@@ -100,8 +99,7 @@ export default function MemberClasses() {
 
   const cancelMutation = useMutation({
     mutationFn: async (registrationId: number) => {
-      const response = await apiRequest("POST", `/api/registrations/${registrationId}/cancel`, {});
-      return response.json();
+      return await apiRequest("POST", `/api/registrations/${registrationId}/cancel`, {});
     },
     onMutate: async (registrationId: number) => {
       // Cancel any outgoing refetches
