@@ -1842,6 +1842,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  console.log('Registering route: GET /api/member/payments');
+  app.get("/api/member/payments", asyncHandler(requireAuth), async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (userId) {
+        const payments = await storage.getPaymentsByUser(userId);
+        res.json(payments);
+      } else {
+        res.status(400).json({ error: 'User ID is undefined' });
+      }
+    } catch (error) {
+      console.error("Error fetching member payments:", error);
+      res.status(500).json({ error: "Failed to fetch payments" });
+    }
+  });
+
   // Public classes endpoint for schedule creation
   console.log('Registering route: GET /api/classes');
   app.get("/api/classes", asyncHandler(requireAuth), async (_req: any, res) => {
