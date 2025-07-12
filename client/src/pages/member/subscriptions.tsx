@@ -37,6 +37,7 @@ interface Plan {
   sessionsIncluded: number;
   duration: number;
   isActive: boolean;
+  max_sessions?: number; // Added max_sessions
 }
 
 interface Subscription {
@@ -101,7 +102,7 @@ export default function MemberSubscriptions() {
         sessionsRemaining: subscription.sessions_remaining,
         plan: subscription.plan ? {
           ...subscription.plan,
-          sessionsIncluded: subscription.plan.sessionsIncluded || 0,
+          max_sessions: subscription.plan.max_sessions || 0,
         } : undefined,
       }));
     },
@@ -264,8 +265,8 @@ export default function MemberSubscriptions() {
                 <div className="space-y-4">
                   <h2 className="text-xl font-semibold text-foreground">Active Subscriptions</h2>
                   {activeSubscriptions.map((subscription) => {
-                    const sessionsUsed = ((subscription.plan?.sessionsIncluded ?? 0) - (subscription as any).sessionsRemaining);
-                    const totalSessions = subscription.plan?.sessionsIncluded ?? 0;
+                    const totalSessions = subscription.plan?.max_sessions ?? 0;
+                    const sessionsUsed = totalSessions - (subscription as any).sessionsRemaining;
                     const usagePercentage = totalSessions > 0 ? (sessionsUsed / totalSessions) * 100 : 0;
 
                     return (

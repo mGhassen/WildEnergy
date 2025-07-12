@@ -68,6 +68,7 @@ export interface IStorage {
   getSubscriptions(): Promise<Subscription[]>;
   getSubscription(id: number): Promise<Subscription | undefined>;
   getUserActiveSubscription(userId: string): Promise<Subscription | undefined>;
+  getUserOldestActiveSubscription(userId: string): Promise<Subscription | undefined>;
   getUserSubscriptions(userId: string): Promise<Subscription[]>;
   createSubscription(subscription: InsertSubscription): Promise<Subscription>;
   updateSubscription(id: number, updates: Partial<InsertSubscription>): Promise<Subscription>;
@@ -1121,6 +1122,27 @@ export class DatabaseStorage implements IStorage {
     return subscription as Subscription | undefined;
   }
 
+  async getUserOldestActiveSubscription(userId: string): Promise<Subscription | undefined> {
+    const { data: subscription, error } = await supabase
+      .from('subscriptions')
+      .select(`
+        *,
+        plan:plan_id (*)
+      `)
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching user oldest active subscription:', error);
+      return undefined;
+    }
+
+    return subscription as Subscription | undefined;
+  }
+
   async getUserSubscriptions(userId: string): Promise<Subscription[]> {
     const { data: subscriptions, error } = await supabase
       .from('subscriptions')
@@ -1530,19 +1552,19 @@ export class DatabaseStorage implements IStorage {
           continue;
         }
 
-        // Deduct session from user's active subscription
-        const activeSubscription = await this.getUserActiveSubscription(registration.user_id);
-        if (activeSubscription && activeSubscription.sessionsRemaining > 0) {
+        // Deduct session from user's oldest active subscription (FIFO principle)
+        const oldestActiveSubscription = await this.getUserOldestActiveSubscription(registration.user_id);
+        if (oldestActiveSubscription && oldestActiveSubscription.sessionsRemaining > 0) {
           const { error: subscriptionError } = await supabase
             .from('subscriptions')
             .update({ 
-              sessionsRemaining: activeSubscription.sessionsRemaining - 1,
+              sessionsRemaining: oldestActiveSubscription.sessionsRemaining - 1,
               updated_at: now.toISOString()
             })
-            .eq('id', activeSubscription.id);
+            .eq('id', oldestActiveSubscription.id);
 
           if (subscriptionError) {
-            console.error(`Error updating subscription for user ${registration.user_id}:`, subscriptionError);
+            console.error(`Error updating oldest subscription for user ${registration.user_id}:`, subscriptionError);
           }
         }
       }
