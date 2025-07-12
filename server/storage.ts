@@ -1415,6 +1415,12 @@ export class DatabaseStorage implements IStorage {
           schedule_id,
           class_id,
           trainer_id,
+          schedule:schedule_id (
+            id,
+            day_of_week,
+            start_time,
+            end_time
+          ),
           class:class_id (id, name, category_id, category:category_id (id, name)),
           trainer:trainer_id (id, user:user_id (first_name, last_name))
         )
@@ -1431,7 +1437,36 @@ export class DatabaseStorage implements IStorage {
       throw new Error(error.message || 'Failed to fetch class registrations');
     }
 
-    return registrations || [];
+    // Convert snake_case to camelCase and map the data structure
+    const mappedRegistrations = (registrations || []).map((reg: any) => ({
+      ...reg,
+      course: reg.course ? {
+        ...reg.course,
+        courseDate: reg.course.course_date,
+        startTime: reg.course.start_time,
+        endTime: reg.course.end_time,
+        scheduleId: reg.course.schedule_id,
+        classId: reg.course.class_id,
+        trainerId: reg.course.trainer_id,
+        schedule: reg.course.schedule ? {
+          ...reg.course.schedule,
+          dayOfWeek: reg.course.schedule.day_of_week,
+          startTime: reg.course.schedule.start_time,
+          endTime: reg.course.schedule.end_time
+        } : null,
+        class: reg.course.class ? {
+          ...reg.course.class,
+          category: reg.course.class.category
+        } : null,
+        trainer: reg.course.trainer ? {
+          ...reg.course.trainer,
+          firstName: reg.course.trainer.user?.first_name || '',
+          lastName: reg.course.trainer.user?.last_name || ''
+        } : null
+      } : null
+    }));
+
+    return mappedRegistrations;
   }
 
   async createClassRegistration(registration: InsertClassRegistration): Promise<ClassRegistration> {
