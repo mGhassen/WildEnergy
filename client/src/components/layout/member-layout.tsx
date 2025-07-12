@@ -25,6 +25,7 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
     { name: "Browse Classes", href: "/member/classes" },
     { name: "Class History", href: "/member/history" },
     { name: "My Subscriptions", href: "/member/subscriptions" },
+    { name: "Plans", href: "/plans" },
   ];
 
   const isActive = (href: string) => {

@@ -973,7 +973,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Plans management
   console.log('Registering route: GET /api/plans');
-  app.get("/api/plans", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (_req: any, res) => {
+  app.get("/api/plans", asyncHandler(requireAuth), async (_req: any, res) => {
     try {
       const plans = await storage.getPlans();
       res.json(plans);
