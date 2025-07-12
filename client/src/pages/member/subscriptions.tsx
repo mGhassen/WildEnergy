@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import QRGenerator from "@/components/qr-generator";
-import { Calendar, Clock, Target, Star, QrCode, Download, Share2 } from "lucide-react";
+import { Calendar, Clock, Target, Star, QrCode, Download, Share2, Plus, Trash2, Edit } from "lucide-react";
 import { formatDate, formatTime, getDayName } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
@@ -88,22 +88,22 @@ export default function MemberSubscriptions() {
   
   const credit = profile?.user?.credit ?? 0;
 
-  // Fetch subscription with proper mapping
-  const { data: subscription, isLoading: subscriptionLoading, refetch } = useQuery<Subscription>({
-    queryKey: ["/api/member/subscription"],
-    queryFn: () => apiRequest("GET", "/api/member/subscription"),
+  // Fetch all subscriptions with proper mapping
+  const { data: subscriptions, isLoading: subscriptionsLoading, refetch } = useQuery<Subscription[]>({
+    queryKey: ["/api/member/subscriptions"],
+    queryFn: () => apiRequest("GET", "/api/member/subscriptions"),
     select: (data) => {
       // Map snake_case to camelCase for frontend
-      return {
-        ...data,
-        startDate: data.start_date,
-        endDate: data.end_date,
-        sessionsRemaining: data.sessions_remaining,
-        plan: data.plan ? {
-          ...data.plan,
-          sessionsIncluded: data.plan.sessionsIncluded || 0,
+      return data.map(subscription => ({
+        ...subscription,
+        startDate: subscription.start_date,
+        endDate: subscription.end_date,
+        sessionsRemaining: subscription.sessions_remaining,
+        plan: subscription.plan ? {
+          ...subscription.plan,
+          sessionsIncluded: subscription.plan.sessionsIncluded || 0,
         } : undefined,
-      };
+      }));
     },
   });
 
@@ -132,12 +132,13 @@ export default function MemberSubscriptions() {
       return await apiRequest("POST", "/api/payments", data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/member/subscription"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/member/subscriptions"] });
       queryClient.invalidateQueries({ queryKey: ["/api/auth/session"] });
       toast({ title: "Payment successful!" });
       setShowPaymentDialog(false);
       setPaymentAmount("");
       setPaymentType("cash");
+      setSelectedSubscription(null);
     },
     onError: (error: any) => {
       toast({ 
@@ -169,11 +170,12 @@ export default function MemberSubscriptions() {
   const [paymentType, setPaymentType] = useState("cash");
   const [paymentAmount, setPaymentAmount] = useState("");
   const [isPaying, setIsPaying] = useState(false);
+  const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
 
   // Payment handler
   async function handlePaymentSubmit() {
-    if (!subscription?.id) {
-      toast({ title: "No active subscription", description: "You must have an active subscription to pay.", variant: "destructive" });
+    if (!selectedSubscription?.id) {
+      toast({ title: "No subscription selected", description: "Please select a subscription to pay for.", variant: "destructive" });
       return;
     }
     if (!profile?.user?.id) {
@@ -192,7 +194,7 @@ export default function MemberSubscriptions() {
     setIsPaying(true);
     try {
       await createPaymentMutation.mutateAsync({
-        subscription_id: subscription.id,
+        subscription_id: selectedSubscription.id,
         user_id: profile.user.id,
         amount: Number(paymentAmount),
         payment_type: paymentType,
@@ -204,7 +206,12 @@ export default function MemberSubscriptions() {
     }
   }
 
-  if (subscriptionLoading) {
+  const openPaymentDialog = (subscription: Subscription) => {
+    setSelectedSubscription(subscription);
+    setShowPaymentDialog(true);
+  };
+
+  if (subscriptionsLoading) {
     return (
       <div className="space-y-6">
         {[...Array(3)].map((_, i) => (
@@ -222,9 +229,8 @@ export default function MemberSubscriptions() {
     );
   }
 
-  const sessionsUsed = subscription ? ((subscription.plan?.sessionsIncluded ?? 0) - (subscription as any).sessionsRemaining) : 0;
-  const totalSessions = subscription?.plan?.sessionsIncluded ?? 0;
-  const usagePercentage = totalSessions > 0 ? (sessionsUsed / totalSessions) * 100 : 0;
+  const activeSubscriptions = subscriptions?.filter(sub => sub.status === 'active') || [];
+  const inactiveSubscriptions = subscriptions?.filter(sub => sub.status !== 'active') || [];
 
   return (
     <div className="space-y-8">
@@ -242,7 +248,7 @@ export default function MemberSubscriptions() {
       </div>
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-foreground mb-2">My Subscriptions</h1>
-        <p className="text-muted-foreground">View and manage your active subscriptions</p>
+        <p className="text-muted-foreground">View and manage all your subscriptions</p>
       </div>
       <Tabs value={tab} onValueChange={setTab} className="w-full">
         <TabsList className="mb-4">
@@ -251,96 +257,143 @@ export default function MemberSubscriptions() {
         </TabsList>
         <TabsContent value="overview">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Current Subscription */}
+            {/* Subscriptions List */}
             <div className="lg:col-span-2 space-y-6">
-              {subscription ? (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
-                      <span>Current Plan</span>
-                      <Badge variant={subscription.status === 'active' ? 'default' : 'secondary'}>
-                        {subscription.status === 'active' ? 'Active' : subscription.status}
-                      </Badge>
-                    </CardTitle>
-                    <CardDescription>Your active membership details</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    <div className="text-center p-6 bg-gradient-to-r from-primary/10 to-primary/5 rounded-lg border border-primary/20">
-                      <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Star className="w-8 h-8 text-primary" />
-                      </div>
-                      <h3 className="text-2xl font-bold text-primary mb-2">{subscription.plan?.name ?? "Plan"}</h3>
-                      <p className="text-lg font-semibold text-foreground">
-                        ${subscription.plan?.price ?? 0}/month
-                      </p>
-                      <p className="text-sm text-muted-foreground mt-2">
-                        {subscription.plan?.sessionsIncluded ?? 0} sessions included
-                      </p>
-                    </div>
+              {/* Active Subscriptions */}
+              {activeSubscriptions.length > 0 && (
+                <div className="space-y-4">
+                  <h2 className="text-xl font-semibold text-foreground">Active Subscriptions</h2>
+                  {activeSubscriptions.map((subscription) => {
+                    const sessionsUsed = ((subscription.plan?.sessionsIncluded ?? 0) - (subscription as any).sessionsRemaining);
+                    const totalSessions = subscription.plan?.sessionsIncluded ?? 0;
+                    const usagePercentage = totalSessions > 0 ? (sessionsUsed / totalSessions) * 100 : 0;
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <div className="text-center">
-                        <p className="text-sm font-medium text-muted-foreground">Sessions Remaining</p>
-                        <p className="text-2xl font-bold text-primary">{(subscription as any).sessionsRemaining}</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-sm font-medium text-muted-foreground">Sessions Used</p>
-                        <p className="text-2xl font-bold text-foreground">{sessionsUsed}</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-sm font-medium text-muted-foreground">Total Sessions</p>
-                        <p className="text-2xl font-bold text-foreground">{totalSessions}</p>
-                      </div>
-                    </div>
+                    return (
+                      <Card key={subscription.id} className="border-l-4 border-l-primary">
+                        <CardHeader>
+                          <CardTitle className="flex items-center justify-between">
+                            <span>{subscription.plan?.name ?? "Plan"}</span>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="default">Active</Badge>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openPaymentDialog(subscription)}
+                              >
+                                <Plus className="w-4 h-4 mr-1" />
+                                Pay
+                              </Button>
+                            </div>
+                          </CardTitle>
+                          <CardDescription>Active membership details</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="text-center p-3 bg-primary/5 rounded-lg">
+                              <p className="text-sm font-medium text-muted-foreground">Sessions Remaining</p>
+                              <p className="text-2xl font-bold text-primary">{(subscription as any).sessionsRemaining}</p>
+                            </div>
+                            <div className="text-center p-3 bg-muted/50 rounded-lg">
+                              <p className="text-sm font-medium text-muted-foreground">Sessions Used</p>
+                              <p className="text-2xl font-bold text-foreground">{sessionsUsed}</p>
+                            </div>
+                            <div className="text-center p-3 bg-muted/50 rounded-lg">
+                              <p className="text-sm font-medium text-muted-foreground">Total Sessions</p>
+                              <p className="text-2xl font-bold text-foreground">{totalSessions}</p>
+                            </div>
+                          </div>
 
-                    <div>
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-sm font-medium text-muted-foreground">Usage Progress</span>
-                        <span className="text-sm text-muted-foreground">
-                          {Math.round(usagePercentage)}% used
-                        </span>
-                      </div>
-                      <Progress value={usagePercentage} className="h-3" />
-                    </div>
+                          <div>
+                            <div className="flex justify-between items-center mb-2">
+                              <span className="text-sm font-medium text-muted-foreground">Usage Progress</span>
+                              <span className="text-sm text-muted-foreground">
+                                {Math.round(usagePercentage)}% used
+                              </span>
+                            </div>
+                            <Progress value={usagePercentage} className="h-3" />
+                          </div>
 
-                    <div className="space-y-3">
-                      <div className="flex justify-between">
-                        <span className="text-sm text-muted-foreground">Start Date</span>
-                        <span className="text-sm font-medium">{formatDate((subscription as any).startDate)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-muted-foreground">End Date</span>
-                        <span className="text-sm font-medium">{formatDate((subscription as any).endDate)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-muted-foreground">Status</span>
-                        <Badge variant={subscription.status === 'active' ? 'default' : 'secondary'}>
-                          {subscription.status}
-                        </Badge>
-                      </div>
-                    </div>
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <span className="text-muted-foreground">Start Date:</span>
+                              <p className="font-medium">{formatDate((subscription as any).startDate)}</p>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">End Date:</span>
+                              <p className="font-medium">{formatDate((subscription as any).endDate)}</p>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Price:</span>
+                              <p className="font-medium">${subscription.plan?.price ?? 0}/month</p>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Status:</span>
+                              <Badge variant="default" className="ml-1">Active</Badge>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
 
-                    <div className="flex gap-3">
-                      <Button 
-                        variant="outline" 
-                        className="flex-1"
-                        onClick={() => setShowPaymentDialog(true)}
-                      >
-                        Make Payment
-                      </Button>
-                      <Button variant="outline" className="flex-1">
-                        Update Plan
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ) : (
+              {/* Inactive Subscriptions */}
+              {inactiveSubscriptions.length > 0 && (
+                <div className="space-y-4">
+                  <h2 className="text-xl font-semibold text-foreground">Inactive Subscriptions</h2>
+                  {inactiveSubscriptions.map((subscription) => (
+                    <Card key={subscription.id} className="border-l-4 border-l-muted opacity-75">
+                      <CardHeader>
+                        <CardTitle className="flex items-center justify-between">
+                          <span>{subscription.plan?.name ?? "Plan"}</span>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="secondary">{subscription.status}</Badge>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openPaymentDialog(subscription)}
+                            >
+                              <Plus className="w-4 h-4 mr-1" />
+                              Pay
+                            </Button>
+                          </div>
+                        </CardTitle>
+                        <CardDescription>Inactive membership details</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">Start Date:</span>
+                            <p className="font-medium">{formatDate((subscription as any).startDate)}</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">End Date:</span>
+                            <p className="font-medium">{formatDate((subscription as any).endDate)}</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Price:</span>
+                            <p className="font-medium">${subscription.plan?.price ?? 0}/month</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Status:</span>
+                            <Badge variant="secondary" className="ml-1">{subscription.status}</Badge>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+
+              {/* No Subscriptions */}
+              {subscriptions?.length === 0 && (
                 <Card>
                   <CardContent className="p-12 text-center">
                     <Target className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-                    <h3 className="text-lg font-medium text-foreground mb-2">No Active Subscription</h3>
+                    <h3 className="text-lg font-medium text-foreground mb-2">No Subscriptions</h3>
                     <p className="text-muted-foreground mb-4">
-                      You don't have an active subscription. Contact the gym to set up your membership.
+                      You don't have any subscriptions. Contact the gym to set up your membership.
                     </p>
                     <Button>Contact Support</Button>
                   </CardContent>
@@ -428,16 +481,16 @@ export default function MemberSubscriptions() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Classes Attended</span>
-                    <span className="font-medium text-foreground">{sessionsUsed}</span>
+                    <span className="text-sm text-muted-foreground">Active Subscriptions</span>
+                    <span className="font-medium text-foreground">{activeSubscriptions.length}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Classes Remaining</span>
-                    <span className="font-medium text-primary">{(subscription as any)?.sessionsRemaining || 0}</span>
+                    <span className="text-sm text-muted-foreground">Total Subscriptions</span>
+                    <span className="font-medium text-primary">{subscriptions?.length || 0}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Current Streak</span>
-                    <span className="font-medium text-foreground">5 days</span>
+                    <span className="text-sm text-muted-foreground">Available Credit</span>
+                    <span className="font-medium text-foreground">{credit} TND</span>
                   </div>
                 </CardContent>
               </Card>
@@ -472,7 +525,7 @@ export default function MemberSubscriptions() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground mb-4">
-                    Have questions about your subscription or need assistance?
+                    Have questions about your subscriptions or need assistance?
                   </p>
                   <Button variant="outline" className="w-full">
                     Contact Support
@@ -561,6 +614,12 @@ export default function MemberSubscriptions() {
               </span>
             </DialogDescription>
           </DialogHeader>
+          {selectedSubscription && (
+            <div className="mb-4 p-3 bg-muted/50 rounded-lg">
+              <p className="text-sm font-medium">Selected Plan: {selectedSubscription.plan?.name}</p>
+              <p className="text-sm text-muted-foreground">Price: ${selectedSubscription.plan?.price}/month</p>
+            </div>
+          )}
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium mb-1">Amount</label>

@@ -1595,6 +1595,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  console.log('Registering route: GET /api/member/subscriptions');
+  app.get("/api/member/subscriptions", asyncHandler(requireAuth), async (req: any, res) => {
+    try {
+        const userId = req.user?.id;
+      if (userId) {
+        const subscriptions = await storage.getUserSubscriptions(userId);
+        res.json(subscriptions);
+      } else {
+        res.status(400).json({ error: 'User ID is undefined' });
+      }
+    } catch (error) {
+      console.error("Error fetching member subscriptions:", error);
+      res.status(500).json({ error: "Failed to fetch subscriptions" });
+    }
+  });
+
   console.log('Registering route: GET /api/member/checkins');
   app.get("/api/member/checkins", asyncHandler(requireAuth), async (req: any, res) => {
     try {
@@ -1754,26 +1770,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Payment not found" });
       }
       // If payment type is 'credit', restore the credit to the user
-      if (payment.payment_type === 'credit') {
-        const user = await storage.getUser(payment.user_id);
+      if (payment.paymentType === 'credit') {
+        const user = await storage.getUser(payment.userId);
         if (user && typeof user.credit === 'number') {
           const newCredit = user.credit + Number(payment.amount);
-          await storage.updateUser(payment.user_id, { credit: newCredit });
+          await storage.updateUser(payment.userId, { credit: newCredit });
         }
       }
       // Delete the payment
       await storage.deletePayment(parseInt(id));
 
       // After deletion, check if the subscription is still fully paid
-      if (payment.subscription_id) {
+      if (payment.subscriptionId) {
         // Get the subscription and plan
-        const subscription = await storage.getSubscription(payment.subscription_id);
-        const plan = subscription ? await storage.getPlan(subscription.plan_id) : null;
+        const subscription = await storage.getSubscription(payment.subscriptionId);
+        const plan = subscription ? await storage.getPlan(subscription.planId) : null;
         if (subscription && plan) {
           // Get all payments for this subscription
-          const payments = await storage.getPaymentsBySubscription(payment.subscription_id);
+          const payments = await storage.getPaymentsBySubscription(payment.subscriptionId);
           const totalPaid = payments
-            .filter((p: any) => p.payment_status === 'completed')
+            .filter((p: any) => p.paymentStatus === 'completed')
             .reduce((sum: number, p: any) => sum + parseFloat(p.amount), 0);
           const planPrice = parseFloat(plan.price);
           if (totalPaid < planPrice && subscription.status === 'active') {

@@ -68,6 +68,7 @@ export interface IStorage {
   getSubscriptions(): Promise<Subscription[]>;
   getSubscription(id: number): Promise<Subscription | undefined>;
   getUserActiveSubscription(userId: string): Promise<Subscription | undefined>;
+  getUserSubscriptions(userId: string): Promise<Subscription[]>;
   createSubscription(subscription: InsertSubscription): Promise<Subscription>;
   updateSubscription(id: number, updates: Partial<InsertSubscription>): Promise<Subscription>;
   deleteSubscription(id: number): Promise<void>;
@@ -1118,6 +1119,24 @@ export class DatabaseStorage implements IStorage {
     }
 
     return subscription as Subscription | undefined;
+  }
+
+  async getUserSubscriptions(userId: string): Promise<Subscription[]> {
+    const { data: subscriptions, error } = await supabase
+      .from('subscriptions')
+      .select(`
+        *,
+        plan:plan_id (*)
+      `)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching user subscriptions:', error);
+      return [];
+    }
+
+    return subscriptions || [];
   }
 
   async createSubscription(subscription: InsertSubscription): Promise<Subscription> {
