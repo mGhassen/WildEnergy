@@ -1467,21 +1467,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/subscriptions", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
     try {
       console.log("Creating subscription with data:", req.body);
-      let { userId, planId, startDate, endDate, sessionsRemaining, status, notes } = req.body;
+      let { userId, planId, startDate, endDate, status, notes } = req.body;
 
       // Validate required fields
       if (!userId || !planId) {
         return res.status(400).json({ error: "userId and planId are required" });
       }
 
-      // Fetch plan to get max_sessions if sessionsRemaining is not provided
-      if (!sessionsRemaining) {
-        const plan = await storage.getPlan(parseInt(planId));
-        if (!plan) {
-          return res.status(400).json({ error: "Plan not found" });
-        }
-        sessionsRemaining = plan.sessionsIncluded || 0;
+      // Always fetch plan and set sessions_remaining to plan.max_sessions
+      const plan = await storage.getPlan(parseInt(planId));
+      if (!plan) {
+        return res.status(400).json({ error: "Plan not found" });
       }
+      const sessionsRemaining = plan.max_sessions || 0;
 
       // Accept startDate and endDate as 'YYYY-MM-DD 00:00:00' and convert to Date objects for DB
       const subscriptionData = {
@@ -1510,12 +1508,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/subscriptions/:id", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
     try {
       const { id } = req.params;
-      const { userId, planId, startDate, endDate, sessionsRemaining, status, notes } = req.body;
+      const { userId, planId, startDate, endDate, status, notes } = req.body;
 
       // Validate required fields
       if (!userId || !planId) {
         return res.status(400).json({ error: "userId and planId are required" });
       }
+
+      // Always fetch plan and set sessions_remaining to plan.max_sessions
+      const plan = await storage.getPlan(parseInt(planId));
+      if (!plan) {
+        return res.status(400).json({ error: "Plan not found" });
+      }
+      const sessionsRemaining = plan.max_sessions || 0;
 
       const updates = {
         user_id: userId,
