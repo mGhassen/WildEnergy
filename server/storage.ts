@@ -847,7 +847,7 @@ export class DatabaseStorage implements IStorage {
   async getCourses(dateRange?: { startDate: string; endDate: string }): Promise<Course[]> {
     let query = supabase
       .from('courses')
-      .select('*, class:class_id (id, name), trainer:trainer_id (id, user:user_id (first_name, last_name))')
+      .select('*, class:class_id (id, name, difficulty, category:category_id (id, name, color)), trainer:trainer_id (id, user:user_id (first_name, last_name))')
       .order('course_date', { ascending: true })
       .order('start_time', { ascending: true });
 

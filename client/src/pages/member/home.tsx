@@ -132,7 +132,6 @@ export default function MemberHome() {
                   <Users className="w-6 h-6 text-primary" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Active Subscriptions</p>
                   <p className="text-2xl font-bold text-foreground">{totalActive}</p>
                 </div>
               </CardContent>
