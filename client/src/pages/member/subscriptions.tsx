@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,50 +12,140 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { apiRequest } from "@/lib/queryClient";
 
-// Add types for session, subscription, and registration
+// Updated types to match backend structure
 interface SessionUser {
   id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  isAdmin: boolean;
+  status: string;
   credit?: number;
 }
+
 interface SessionResponse {
+  success: boolean;
   user: SessionUser;
 }
+
 interface Plan {
   id: number;
   name: string;
   price: string;
   sessionsIncluded: number;
+  duration: number;
+  isActive: boolean;
 }
+
 interface Subscription {
   id: number;
+  user_id: string;
+  plan_id: number;
+  start_date: string;
+  end_date: string;
+  sessions_remaining: number;
+  status: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
   plan?: Plan;
-  sessionsRemaining: number;
-  startDate: string;
-  endDate: string;
 }
+
 interface Registration {
   id: number;
-  class?: { name: string };
-  schedule?: { dayOfWeek: number; startTime: string };
-  qrCode: string;
+  user_id: string;
+  schedule_id: number;
+  registration_date: string;
+  qr_code: string;
+  status: string;
+  notes?: string;
+  class?: { 
+    id: number;
+    name: string;
+    description?: string;
+  };
+  schedule?: { 
+    id: number;
+    day_of_week: number;
+    start_time: string;
+    end_time: string;
+  };
 }
 
 export default function MemberSubscriptions() {
   const [selectedQR, setSelectedQR] = useState<any>(null);
   const { toast } = useToast();
-  // Add state for tabs
   const [tab, setTab] = useState("overview");
-  // Fetch user credit (assume it's part of the subscription or fetch separately)
-  const { data: profile } = useQuery<SessionResponse>({ queryKey: ["/api/auth/session"] });
+  const queryClient = useQueryClient();
+
+  // Fetch user session with credit
+  const { data: profile } = useQuery<SessionResponse>({ 
+    queryKey: ["/api/auth/session"],
+    queryFn: () => apiRequest("GET", "/api/auth/session"),
+  });
+  
   const credit = profile?.user?.credit ?? 0;
 
+  // Fetch subscription with proper mapping
   const { data: subscription, isLoading: subscriptionLoading, refetch } = useQuery<Subscription>({
     queryKey: ["/api/member/subscription"],
+    queryFn: () => apiRequest("GET", "/api/member/subscription"),
+    select: (data) => {
+      // Map snake_case to camelCase for frontend
+      return {
+        ...data,
+        startDate: data.start_date,
+        endDate: data.end_date,
+        sessionsRemaining: data.sessions_remaining,
+        plan: data.plan ? {
+          ...data.plan,
+          sessionsIncluded: data.plan.sessionsIncluded || 0,
+        } : undefined,
+      };
+    },
   });
 
+  // Fetch registrations with proper mapping
   const { data: registrations, isLoading: registrationsLoading } = useQuery<Registration[]>({
     queryKey: ["/api/registrations"],
+    queryFn: () => apiRequest("GET", "/api/registrations"),
+    select: (data) => {
+      return data.map(reg => ({
+        ...reg,
+        registrationDate: reg.registration_date,
+        qrCode: reg.qr_code,
+        schedule: reg.schedule ? {
+          ...reg.schedule,
+          dayOfWeek: reg.schedule.day_of_week,
+          startTime: reg.schedule.start_time,
+          endTime: reg.schedule.end_time,
+        } : undefined,
+      }));
+    },
+  });
+
+  // Payment mutation
+  const createPaymentMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return await apiRequest("POST", "/api/payments", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/member/subscription"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/session"] });
+      toast({ title: "Payment successful!" });
+      setShowPaymentDialog(false);
+      setPaymentAmount("");
+      setPaymentType("cash");
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Payment failed", 
+        description: error.message || "Please try again.", 
+        variant: "destructive" 
+      });
+    },
   });
 
   const handleDownloadQR = () => {
@@ -98,30 +188,17 @@ export default function MemberSubscriptions() {
       toast({ title: "Insufficient credit", description: "You do not have enough credit.", variant: "destructive" });
       return;
     }
+
     setIsPaying(true);
     try {
-      const res = await fetch("/api/payments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          subscription_id: subscription.id,
-          user_id: profile.user.id,
-          amount: Number(paymentAmount),
-          payment_type: paymentType,
-        }),
+      await createPaymentMutation.mutateAsync({
+        subscription_id: subscription.id,
+        user_id: profile.user.id,
+        amount: Number(paymentAmount),
+        payment_type: paymentType,
       });
-      const data = await res.json();
-      if (res.ok) {
-        toast({ title: "Payment successful!" });
-        setShowPaymentDialog(false);
-        setPaymentAmount("");
-        setPaymentType("cash");
-        await refetch();
-      } else {
-        toast({ title: "Payment failed", description: data.error || "Please try again.", variant: "destructive" });
-      }
-    } catch (e) {
-      toast({ title: "Payment failed", description: (e as any)?.message || "Please try again.", variant: "destructive" });
+    } catch (error) {
+      // Error is handled by the mutation
     } finally {
       setIsPaying(false);
     }
@@ -145,7 +222,7 @@ export default function MemberSubscriptions() {
     );
   }
 
-  const sessionsUsed = subscription ? ((subscription.plan?.sessionsIncluded ?? 0) - subscription.sessionsRemaining) : 0;
+  const sessionsUsed = subscription ? ((subscription.plan?.sessionsIncluded ?? 0) - (subscription as any).sessionsRemaining) : 0;
   const totalSessions = subscription?.plan?.sessionsIncluded ?? 0;
   const usagePercentage = totalSessions > 0 ? (sessionsUsed / totalSessions) * 100 : 0;
 
@@ -181,7 +258,9 @@ export default function MemberSubscriptions() {
                   <CardHeader>
                     <CardTitle className="flex items-center justify-between">
                       <span>Current Plan</span>
-                      <Badge variant="default">Active</Badge>
+                      <Badge variant={subscription.status === 'active' ? 'default' : 'secondary'}>
+                        {subscription.status === 'active' ? 'Active' : subscription.status}
+                      </Badge>
                     </CardTitle>
                     <CardDescription>Your active membership details</CardDescription>
                   </CardHeader>
@@ -202,7 +281,7 @@ export default function MemberSubscriptions() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                       <div className="text-center">
                         <p className="text-sm font-medium text-muted-foreground">Sessions Remaining</p>
-                        <p className="text-2xl font-bold text-primary">{subscription.sessionsRemaining}</p>
+                        <p className="text-2xl font-bold text-primary">{(subscription as any).sessionsRemaining}</p>
                       </div>
                       <div className="text-center">
                         <p className="text-sm font-medium text-muted-foreground">Sessions Used</p>
@@ -227,21 +306,27 @@ export default function MemberSubscriptions() {
                     <div className="space-y-3">
                       <div className="flex justify-between">
                         <span className="text-sm text-muted-foreground">Start Date</span>
-                        <span className="text-sm font-medium">{formatDate(subscription.startDate)}</span>
+                        <span className="text-sm font-medium">{formatDate((subscription as any).startDate)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-sm text-muted-foreground">End Date</span>
-                        <span className="text-sm font-medium">{formatDate(subscription.endDate)}</span>
+                        <span className="text-sm font-medium">{formatDate((subscription as any).endDate)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-sm text-muted-foreground">Auto Renewal</span>
-                        <Badge variant="outline">Enabled</Badge>
+                        <span className="text-sm text-muted-foreground">Status</span>
+                        <Badge variant={subscription.status === 'active' ? 'default' : 'secondary'}>
+                          {subscription.status}
+                        </Badge>
                       </div>
                     </div>
 
                     <div className="flex gap-3">
-                      <Button variant="outline" className="flex-1">
-                        Manage Billing
+                      <Button 
+                        variant="outline" 
+                        className="flex-1"
+                        onClick={() => setShowPaymentDialog(true)}
+                      >
+                        Make Payment
                       </Button>
                       <Button variant="outline" className="flex-1">
                         Update Plan
@@ -290,15 +375,15 @@ export default function MemberSubscriptions() {
                               {registration.class?.name ?? "Class"}
                             </h4>
                             <p className="text-sm text-muted-foreground mb-3">
-                              {getDayName(registration.schedule?.dayOfWeek ?? 0)} • {formatTime(registration.schedule?.startTime ?? "00:00")}
+                              {getDayName((registration as any).schedule?.dayOfWeek ?? 0)} • {formatTime((registration as any).schedule?.startTime ?? "00:00")}
                             </p>
                             
                             <div className="w-32 h-32 mx-auto mb-3 bg-white border border-border rounded-lg p-2">
-                              <QRGenerator value={registration.qrCode} size={112} />
+                              <QRGenerator value={(registration as any).qrCode} size={112} />
                             </div>
                             
                             <p className="text-xs text-muted-foreground mb-3">
-                              {registration.qrCode}
+                              {(registration as any).qrCode}
                             </p>
                             
                             <div className="flex gap-2">
@@ -348,7 +433,7 @@ export default function MemberSubscriptions() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-muted-foreground">Classes Remaining</span>
-                    <span className="font-medium text-primary">{subscription?.sessionsRemaining || 0}</span>
+                    <span className="font-medium text-primary">{(subscription as any)?.sessionsRemaining || 0}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-muted-foreground">Current Streak</span>
@@ -442,11 +527,11 @@ export default function MemberSubscriptions() {
                   {selectedQR.class?.name}
                 </h4>
                 <p className="text-muted-foreground mb-4">
-                  {getDayName(selectedQR.schedule?.dayOfWeek)} • {formatTime(selectedQR.schedule?.startTime)}
+                  {getDayName((selectedQR as any).schedule?.dayOfWeek)} • {formatTime((selectedQR as any).schedule?.startTime)}
                 </p>
-                <QRGenerator value={selectedQR.qrCode} size={200} />
+                <QRGenerator value={(selectedQR as any).qrCode} size={200} />
                 <p className="text-sm text-muted-foreground mt-4">
-                  Code: {selectedQR.qrCode}
+                  Code: {(selectedQR as any).qrCode}
                 </p>
               </div>
               <div className="flex gap-3">
@@ -464,9 +549,7 @@ export default function MemberSubscriptions() {
         </DialogContent>
       </Dialog>
 
-      <Button className="mt-4" onClick={() => setShowPaymentDialog(true)}>
-        Add Payment
-      </Button>
+      {/* Payment Dialog */}
       <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -498,7 +581,11 @@ export default function MemberSubscriptions() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="card">Card</SelectItem>
+                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                  <SelectItem value="check">Check</SelectItem>
                   <SelectItem value="credit" disabled={credit <= 0}>Credit ({credit} TND available)</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
               </Select>
             </div>

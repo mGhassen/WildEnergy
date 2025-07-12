@@ -279,7 +279,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isAdmin: Boolean(userData.is_admin),
           firstName: userData.first_name || user.email?.split('@')[0] || 'User',
           lastName: userData.last_name || '',
-          status: userData.status || 'active'
+          status: userData.status || 'active',
+          credit: userData.credit ?? 0
         };
 
         console.log('Returning user data for:', userResponse.email);
@@ -389,7 +390,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           firstName: userProfile.first_name,
           lastName: userProfile.last_name,
           isAdmin: userProfile.is_admin,
-          status: userProfile.status
+          status: userProfile.status,
+          credit: userProfile.credit ?? 0
         }
       });
     } catch (error) {
