@@ -26,6 +26,8 @@ import MemberHistory from "@/pages/member/history";
 import MemberSubscriptions from "@/pages/member/subscriptions";
 import AdminLayout from "@/components/layout/admin-layout";
 import MemberLayout from "@/components/layout/member-layout";
+import PlansPage from "@/pages/plans";
+import MemberHome from "@/pages/member/home";
 
 function ProtectedRoute({ children, requiredRole }: { children: React.ReactNode; requiredRole?: string }) {
   const { user, isLoading, isAuthenticated } = useAuth();
@@ -76,6 +78,7 @@ function AppRouter() {
       <Route path="/login" component={!user ? LoginPage : () => <Redirect to={user?.isAdmin ? '/admin' : '/member'} />} />
       <Route path="/register" component={!user ? RegisterPage : () => <Redirect to={user?.isAdmin ? '/admin' : '/member'} />} />
       <Route path="/auth/onhold" component={OnHoldPage} />
+      <Route path="/plans" component={PlansPage} />
 
       {/* Admin routes */}
       <Route path="/admin">
@@ -175,11 +178,24 @@ function AppRouter() {
       </Route>
 
       {/* Member routes */}
-      <Route path="/member">
+      <Route path="/member/home">
+        <ProtectedRoute requiredRole="member">
+          <MemberHome />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/member/dashboard">
+        <Redirect to="/member/home" />
+      </Route>
+      <Route path="/member/subscriptions">
         <ProtectedRoute requiredRole="member">
           <MemberLayout>
-            <MemberDashboard />
+            <MemberSubscriptions />
           </MemberLayout>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/member">
+        <ProtectedRoute requiredRole="member">
+          <MemberHome />
         </ProtectedRoute>
       </Route>
 
