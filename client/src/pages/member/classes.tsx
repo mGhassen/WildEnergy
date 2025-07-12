@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiRequest } from "@/lib/queryClient";
-import { Search, Clock, Users, Calendar, Star } from "lucide-react";
+import { Search, Clock, Users, Calendar, Star, Check } from "lucide-react";
 import { formatTime, getDayName } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "@/lib/api";
@@ -278,6 +278,25 @@ export default function MemberClasses() {
     return colors[difficulty?.toLowerCase()] || "bg-gray-100 text-gray-800";
   };
 
+  // Add this helper to render difficulty stars
+  const renderDifficultyStars = (difficulty: string) => {
+    const levels = {
+      beginner: { count: 1, color: 'text-green-600', label: 'Beginner' },
+      intermediate: { count: 2, color: 'text-blue-600', label: 'Intermediate' },
+      advanced: { count: 3, color: 'text-red-600', label: 'Advanced' },
+      expert: { count: 4, color: 'text-purple-600', label: 'Expert' },
+    } as Record<string, { count: number; color: string; label: string }>;
+    const key = difficulty?.toLowerCase() || '';
+    const level = levels[key] || { count: 1, color: 'text-gray-400', label: 'Unknown' };
+    return (
+      <span className={`flex items-center ml-2`} title={level.label} aria-label={level.label}>
+        {[...Array(level.count)].map((_, i) => (
+          <Star key={i} className={`w-4 h-4 ${level.color}`} fill="currentColor" />
+        ))}
+      </span>
+    );
+  };
+
   return (
     <div className="space-y-8">
       <div className="mb-8">
@@ -376,98 +395,85 @@ export default function MemberClasses() {
             const isRegistered = registeredCourseIds.has(course.id);
             
             return (
-              <Card key={course.id} className="overflow-hidden hover:shadow-md transition-shadow">
-                <CardHeader className="pb-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <CardTitle className="text-lg">{course.class?.name}</CardTitle>
-                    <Badge className={getCategoryColor(course.class?.category?.name)}>
-                      {course.class?.category?.name
-                        ? course.class.category.name.charAt(0).toUpperCase() + course.class.category.name.slice(1)
-                        : "Unknown"}
-                    </Badge>
-                  </div>
-                  <CardDescription className="line-clamp-2">
-                    {course.class?.description || "Join this exciting fitness class and challenge yourself!"}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-center text-sm text-muted-foreground">
-                      <Star className="w-4 h-4 mr-1 text-muted-foreground" />
-                      <span className="font-medium text-gray-600">
-                        {course.class?.difficulty
-                          ? course.class.difficulty.charAt(0).toUpperCase() + course.class.difficulty.slice(1)
-                          : "Unknown"}
+              <Card key={course.id} className="flex flex-col justify-between overflow-hidden hover:shadow-md transition-shadow border border-border bg-white rounded-lg min-h-[240px]">
+                <div className="flex-1 flex flex-col">
+                  <CardHeader className="pb-2 px-4 pt-4">
+                    <div className="flex items-center justify-between mb-1">
+                      <CardTitle className="text-base font-semibold leading-tight">{course.class?.name}</CardTitle>
+                      <div className="flex items-center gap-2">
+                        <Badge className={getCategoryColor(course.class?.category?.name)}>
+                          {course.class?.category?.name
+                            ? course.class.category.name.charAt(0).toUpperCase() + course.class.category.name.slice(1)
+                            : "Unknown"}
+                        </Badge>
+                        {renderDifficultyStars(course.class?.difficulty)}
+                      </div>
+                    </div>
+                    <CardDescription className="line-clamp-1 text-sm mb-2">
+                      {course.class?.description || "Join this exciting fitness class and challenge yourself!"}
+                    </CardDescription>
+                    <div className="border-b border-gray-200 my-2" />
+                    {/* Centered info bar */}
+                    <div className="flex flex-row flex-wrap justify-center items-center gap-6 py-1">
+                      {/* Trainer */}
+                      <span className="flex items-center text-gray-700"><Users className="w-4 h-4 mr-1" />{course.trainer?.user?.first_name} {course.trainer?.user?.last_name}</span>
+                      {/* Duration pill */}
+                      <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-800 text-xs font-medium flex items-center">
+                        <Clock className="w-4 h-4 mr-1 text-gray-500" />
+                        {course.durationMinutes && course.durationMinutes > 0
+                          ? `${course.durationMinutes} min`
+                          : (() => {
+                              if (!course.startTime || !course.endTime) return '—';
+                              const [sh, sm] = course.startTime.split(":").map(Number);
+                              const [eh, em] = course.endTime.split(":").map(Number);
+                              const start = sh * 60 + sm;
+                              const end = eh * 60 + em;
+                              const diff = end - start;
+                              return diff > 0 ? `${diff} min` : '—';
+                            })()
+                        }
+                      </span>
+                      {/* Date */}
+                      <span className="flex items-center font-semibold text-primary"><Calendar className="w-4 h-4 mr-1" />{formatDate(course.courseDate)}</span>
+                      {/* Time */}
+                      <span className="flex items-center font-semibold text-primary">
+                        <Clock className="w-4 h-4 mr-1" />
+                        {formatTime(course.startTime)} - {formatTime(course.endTime)}
                       </span>
                     </div>
-                    <div className="flex items-center text-sm">
-                      <Clock className="w-4 h-4 mr-1 text-muted-foreground" />
-                      <span>{(() => {
-                        if (!course.startTime || !course.endTime) return '60 min';
-                        const start = new Date(`2000-01-01T${course.startTime}`);
-                        const end = new Date(`2000-01-01T${course.endTime}`);
-                        const diffMs = end.getTime() - start.getTime();
-                        const diffMins = Math.round(diffMs / (1000 * 60));
-                        return `${diffMins} min`;
-                      })()}</span>
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex items-center text-sm text-muted-foreground">
-                        <Calendar className="w-4 h-4 mr-2" />
-                        <span>{formatDate(course.courseDate)}</span>
+                  </CardHeader>
+                </div>
+                {/* Action buttons always at the bottom */}
+                <div className="px-4 pt-2 pb-4">
+                  {isRegistered ? (
+                    <>
+                      <div className="text-green-600 text-sm mb-1 flex items-center">
+                        <Check className="w-4 h-4 mr-1" />
+                        You're registered for this course
                       </div>
-                      <div className="flex items-center text-sm text-muted-foreground">
-                        <Clock className="w-4 h-4 mr-2" />
-                        <span>{formatTime(course.startTime)} - {formatTime(course.endTime)}</span>
-                      </div>
-                      <div className="flex items-center text-sm text-muted-foreground">
-                        <Users className="w-4 h-4 mr-2" />
-                        <span>
-                          {course.trainer?.user?.first_name && course.trainer?.user?.last_name
-                            ? `${course.trainer.user.first_name} ${course.trainer.user.last_name}`
-                            : 'Unknown Trainer'}
-                        </span>
-                      </div>
-
-                    </div>
-
-                    {isRegistered ? (
-                      <div className="space-y-2">
-                        <div className="flex items-center text-green-600 text-sm mb-2">
-                          <span className="mr-2">✓</span>
-                          You're registered for this course
-                        </div>
-                        {canCancelRegistration(course) ? (
-                          <Button
-                            variant="outline"
-                            className="w-full"
-                            onClick={() => handleCancel(course)}
-                            disabled={cancelMutation.isPending}
-                          >
-                            {cancelMutation.isPending ? "Cancelling..." : 
-                             isWithin24Hours(course) ? "Cancel (Forfeit Session)" : "Cancel Registration"}
-                          </Button>
-                        ) : (
-                          <div className="text-sm text-muted-foreground text-center">
-                            Cannot cancel - course has started
-                          </div>
-                        )}
-                      </div>
-                    ) : (
                       <Button
-                        className="w-full"
-                        onClick={() => handleRegister(course.id, course.scheduleId)}
-                        disabled={registerMutation.isPending || !activeSubscriptions.length || totalSessionsRemaining <= 0 || isCourseInPast(course)}
-                        variant={isCourseInPast(course) ? "secondary" : "default"}
+                        variant="outline"
+                        className="w-full text-base py-2"
+                        onClick={() => handleCancel(course)}
+                        disabled={cancelMutation.isPending}
                       >
-                        {isCourseInPast(course) ? "Course Ended" :
-                         !activeSubscriptions.length || totalSessionsRemaining <= 0 ? "No Sessions Left" :
-                         registerMutation.isPending ? "Registering..." : "Register for Course"}
+                        {cancelMutation.isPending ? "Cancelling..." : 
+                         isWithin24Hours(course) ? "Cancel (Forfeit Session)" : "Cancel Registration"}
                       </Button>
-                    )}
-                  </div>
-                </CardContent>
+                    </>
+                  ) : (
+                    <Button
+                      className="w-full text-base py-2"
+                      onClick={() => handleRegister(course.id, course.scheduleId)}
+                      disabled={registerMutation.isPending || !activeSubscriptions.length || totalSessionsRemaining <= 0 || isCourseInPast(course)}
+                      variant={isCourseInPast(course) ? "secondary" : "default"}
+                    >
+                      {isCourseInPast(course) ? "Course Ended" :
+                       !activeSubscriptions.length || totalSessionsRemaining <= 0 ? "No Sessions Left" :
+                       registerMutation.isPending ? "Registering..." : "Register for Course"}
+                    </Button>
+                  )}
+                </div>
               </Card>
             );
           })
