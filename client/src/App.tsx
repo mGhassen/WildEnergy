@@ -180,7 +180,9 @@ function AppRouter() {
       {/* Member routes */}
       <Route path="/member/home">
         <ProtectedRoute requiredRole="member">
-          <MemberHome />
+          <MemberLayout>
+            <MemberHome />
+          </MemberLayout>
         </ProtectedRoute>
       </Route>
       <Route path="/member/dashboard">
@@ -195,7 +197,9 @@ function AppRouter() {
       </Route>
       <Route path="/member">
         <ProtectedRoute requiredRole="member">
-          <MemberHome />
+          <MemberLayout>
+            <MemberHome />
+          </MemberLayout>
         </ProtectedRoute>
       </Route>
 
