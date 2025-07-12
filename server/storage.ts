@@ -1470,6 +1470,7 @@ export class DatabaseStorage implements IStorage {
     // Convert snake_case to camelCase and map the data structure
     const mappedRegistrations = (registrations || []).map((reg: any) => ({
       ...reg,
+      qrCode: reg.qr_code, // Map qr_code to qrCode
       course: reg.course ? {
         ...reg.course,
         courseDate: reg.course.course_date,
