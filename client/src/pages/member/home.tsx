@@ -40,10 +40,8 @@ export default function MemberHome() {
     return classDate >= today;
   });
 
-  const todayClasses = schedulesArr.filter((schedule: any) => {
-    const today = new Date().getDay();
-    return schedule.dayOfWeek === today;
-  });
+  const today = new Date().getDay();
+  const registrationsToday = registrationsArr.filter((reg: any) => reg.schedule?.dayOfWeek === today);
 
   const nextClass = upcomingRegistrations[0];
 
@@ -157,38 +155,41 @@ export default function MemberHome() {
                 Today's Schedule
               </CardTitle>
               <CardDescription>
-                Classes available today at your gym
+                Your booked classes for today
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {todayClasses.length > 0 ? (
+              {registrationsToday.length > 0 ? (
                 <div className="space-y-4">
-                  {todayClasses.map((schedule: any) => (
-                    <div key={schedule.id} className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors">
+                  {registrationsToday.map((reg: any) => (
+                    <div key={reg.id} className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors">
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
                           <span className="text-primary font-semibold text-sm">
-                            {schedule.class?.category?.charAt(0).toUpperCase()}
+                            {reg.class?.category?.charAt(0).toUpperCase()}
                           </span>
                         </div>
                         <div>
-                          <h4 className="font-medium text-foreground">{schedule.class?.name}</h4>
+                          <h4 className="font-medium text-foreground">{reg.class?.name}</h4>
                           <div className="flex items-center gap-4 text-sm text-muted-foreground">
                             <span className="flex items-center gap-1">
                               <Clock className="w-3 h-3" />
-                              {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}
+                              {formatTime(reg.schedule?.startTime)} - {formatTime(reg.schedule?.endTime)}
                             </span>
                             <span className="flex items-center gap-1">
                               <Users className="w-3 h-3" />
-                              {schedule.class?.maxCapacity} spots
+                              {reg.trainer?.firstName} {reg.trainer?.lastName}
                             </span>
                           </div>
                         </div>
                       </div>
-                      <Button variant="outline" size="sm" asChild>
-                        <a href="/member/classes">
-                          Join
-                        </a>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSelectedQR(reg)}
+                      >
+                        <QrCode className="w-4 h-4 mr-1" />
+                        QR
                       </Button>
                     </div>
                   ))}
@@ -196,8 +197,8 @@ export default function MemberHome() {
               ) : (
                 <div className="text-center py-12 text-muted-foreground">
                   <Calendar className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                  <h3 className="text-lg font-medium mb-2">No classes today</h3>
-                  <p className="text-sm mb-4">Take a rest day or check out tomorrow's schedule</p>
+                  <h3 className="text-lg font-medium mb-2">No classes booked for today</h3>
+                  <p className="text-sm mb-4">Book a class to see it here</p>
                   <Button variant="outline" asChild>
                     <a href="/member/classes">
                       Browse All Classes
