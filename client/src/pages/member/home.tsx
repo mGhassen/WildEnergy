@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/use-auth";
 import QRGenerator from "@/components/qr-generator";
 import { Calendar, Clock, Users, MapPin, QrCode, ArrowRight, Sparkles } from "lucide-react";
-import { formatTime, getDayName } from "@/lib/auth";
+import { formatTime, getDayName, formatDate } from "@/lib/auth";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -243,7 +243,7 @@ export default function MemberHome() {
                             <div className="flex items-center gap-4 text-sm text-muted-foreground">
                               <span className="flex items-center gap-1">
                                 <Calendar className="w-3 h-3" />
-                                {getDayName(registration.course?.schedule?.dayOfWeek)}
+                                {registration.course?.courseDate ? formatDate(registration.course.courseDate) : getDayName(registration.course?.schedule?.dayOfWeek)}
                               </span>
                               <span className="flex items-center gap-1">
                                 <Clock className="w-3 h-3" />
@@ -360,7 +360,7 @@ export default function MemberHome() {
                   {selectedQR.course?.class?.name}
                 </h4>
                 <p className="text-muted-foreground mb-4">
-                  {getDayName(selectedQR.course?.schedule?.dayOfWeek)} • {formatTime(selectedQR.course?.schedule?.startTime)}
+                  {selectedQR.course?.courseDate ? formatDate(selectedQR.course.courseDate) : getDayName(selectedQR.course?.schedule?.dayOfWeek)} • {formatTime(selectedQR.course?.schedule?.startTime)}
                 </p>
                 <QRGenerator value={selectedQR.qrCode} size={200} />
                 <p className="text-sm text-muted-foreground mt-4">
