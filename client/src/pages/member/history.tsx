@@ -10,21 +10,38 @@ import { formatTime, getDayName, formatDateTime } from "@/lib/auth";
 import QRGenerator from "@/components/qr-generator";
 import { formatDate } from "@/lib/date";
 
+// Map registration object to ensure camelCase properties exist and use 'class' (not 'course')
+function mapRegistration(reg: any) {
+  return {
+    ...reg,
+    registrationDate: reg.registrationDate || reg.registration_date,
+    qrCode: reg.qrCode || reg.qr_code,
+    schedule: reg.course && {
+      scheduleDate: reg.course.course_date,
+      startTime: reg.course.start_time,
+      endTime: reg.course.end_time,
+      dayOfWeek: reg.course.day_of_week,
+      class: reg.course.class,
+      trainer: reg.course.trainer,
+    }
+  };
+}
+
 export default function MemberHistory() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [selectedQR, setSelectedQR] = useState<string | null>(null);
 
-  const { data: registrations = [], isLoading: registrationsLoading } = useQuery({
+  const { data: registrations = [], isLoading: registrationsLoading } = useQuery<any[]>({
     queryKey: ["/api/registrations"],
   });
 
-  const { data: checkins = [], isLoading: checkinsLoading } = useQuery({
+  const { data: checkins = [], isLoading: checkinsLoading } = useQuery<any[]>({
     queryKey: ["/api/member/checkins"],
   });
 
   // Get all registrations without search/status filters for proper categorization
-  const allRegistrations = registrations || [];
+  const allRegistrations = (registrations || []).map(mapRegistration);
 
   const attendedClasses = (checkins || [])
     .filter((checkin: any) => checkin?.registration?.schedule?.class)
@@ -37,8 +54,7 @@ export default function MemberHistory() {
 
   const registeredClasses = allRegistrations.filter((reg: any) => {
     if (reg.status !== 'registered') return false;
-    // For upcoming classes, just check if status is registered
-    // Don't filter by date here since we want to show all registered classes
+    if (!reg.schedule || !reg.schedule.scheduleDate || !reg.schedule.startTime) return false;
     const classDateTime = new Date(reg.schedule.scheduleDate);
     const [hours, minutes] = reg.schedule.startTime.split(':');
     classDateTime.setHours(parseInt(hours), parseInt(minutes));
@@ -50,8 +66,8 @@ export default function MemberHistory() {
   const absentClasses = allRegistrations.filter((reg: any) => {
     // Either explicitly marked as absent, or registered but past and not attended
     if (reg.status === 'absent') return true;
-    
     if (reg.status === 'registered') {
+      if (!reg.schedule || !reg.schedule.scheduleDate || !reg.schedule.startTime) return false;
       const classDateTime = new Date(reg.schedule.scheduleDate);
       const [hours, minutes] = reg.schedule.startTime.split(':');
       classDateTime.setHours(parseInt(hours), parseInt(minutes));
@@ -59,7 +75,6 @@ export default function MemberHistory() {
       const didAttend = attendedClasses.some(attended => attended.id === reg.id);
       return isPast && !didAttend;
     }
-    
     return false;
   });
 
@@ -277,8 +292,8 @@ export default function MemberHistory() {
         <TabsContent value="all" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[...attendedClasses, ...registeredClasses, ...cancelledClasses, ...absentClasses]
-              .sort((a, b) => new Date(b.registrationDate).getTime() - new Date(a.registrationDate).getTime())
-              .map((classData) => renderClassCard(classData, true))}
+              .sort((a: any, b: any) => new Date(b.registrationDate).getTime() - new Date(a.registrationDate).getTime())
+              .map((classData: any) => renderClassCard(classData, true))}
           </div>
           {[...attendedClasses, ...registeredClasses, ...cancelledClasses, ...absentClasses].length === 0 && (
             <div className="text-center py-12">
@@ -290,8 +305,8 @@ export default function MemberHistory() {
         <TabsContent value="attended" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {attendedClasses
-              .sort((a, b) => new Date(b.checkinTime).getTime() - new Date(a.checkinTime).getTime())
-              .map((classData) => renderClassCard(classData))}
+              .sort((a: any, b: any) => new Date(b.checkinTime).getTime() - new Date(a.checkinTime).getTime())
+              .map((classData: any) => renderClassCard(classData))}
           </div>
           {attendedClasses.length === 0 && (
             <div className="text-center py-12">
