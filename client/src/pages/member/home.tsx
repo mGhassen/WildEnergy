@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/use-auth";
 import QRGenerator from "@/components/qr-generator";
-import { Calendar, Clock, Users, MapPin, QrCode, ArrowRight, Sparkles } from "lucide-react";
+import { Calendar, Clock, Users, MapPin, QrCode, ArrowRight, Sparkles, ChevronLeft, ChevronRight } from "lucide-react";
 import { formatTime, getDayName } from "@/lib/auth";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 export default function MemberHome() {
   const { user } = useAuth();
   const [selectedQR, setSelectedQR] = useState<any>(null);
+  const [currentDayIndex, setCurrentDayIndex] = useState(0);
 
   const { data: registrations, isLoading: registrationsLoading } = useQuery({
     queryKey: ["/api/registrations"],
@@ -33,17 +34,49 @@ export default function MemberHome() {
   const registrationsArr = Array.isArray(registrations) ? registrations : [];
   const schedulesArr = Array.isArray(schedules) ? schedules : [];
 
+  // Generate next 7 days starting from today
+  const generateNextDays = () => {
+    const days = [];
+    const today = new Date();
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() + i);
+      days.push({
+        date,
+        dayOfWeek: date.getDay(),
+        dayName: getDayName(date.getDay()),
+        isToday: i === 0,
+        isTomorrow: i === 1
+      });
+    }
+    return days;
+  };
+
+  const nextDays = generateNextDays();
+
+  // Get registrations for a specific day
+  const getRegistrationsForDay = (dayOfWeek: number) => {
+    return registrationsArr.filter((reg: any) => 
+      reg.course?.schedule?.dayOfWeek === dayOfWeek && reg.status === 'registered'
+    );
+  };
+
   const upcomingRegistrations = registrationsArr.filter((reg: any) => {
     const today = new Date();
     const classDate = new Date();
-    classDate.setDate(today.getDate() + (reg.schedule?.dayOfWeek - today.getDay() + 7) % 7);
-    return classDate >= today;
+    classDate.setDate(today.getDate() + (reg.course?.schedule?.dayOfWeek - today.getDay() + 7) % 7);
+    return classDate >= today && reg.status === 'registered';
   });
 
-  const today = new Date().getDay();
-  const registrationsToday = registrationsArr.filter((reg: any) => reg.schedule?.dayOfWeek === today);
-
   const nextClass = upcomingRegistrations[0];
+
+  const handlePreviousDay = () => {
+    setCurrentDayIndex((prev) => (prev > 0 ? prev - 1 : nextDays.length - 1));
+  };
+
+  const handleNextDay = () => {
+    setCurrentDayIndex((prev) => (prev < nextDays.length - 1 ? prev + 1 : 0));
+  };
 
   if (registrationsLoading) {
     return (
@@ -87,14 +120,14 @@ export default function MemberHome() {
                     Next Class
                   </Badge>
                   <span className="text-sm text-muted-foreground">
-                    {getDayName(nextClass.schedule?.dayOfWeek)} • {formatTime(nextClass.schedule?.startTime)}
+                    {getDayName(nextClass.course?.schedule?.dayOfWeek)} • {formatTime(nextClass.course?.schedule?.startTime)}
                   </span>
                 </div>
                 <h3 className="text-xl font-semibold text-foreground">
-                  {nextClass.class?.name}
+                  {nextClass.course?.class?.name}
                 </h3>
                 <p className="text-muted-foreground">
-                  with {nextClass.trainer?.firstName} {nextClass.trainer?.lastName}
+                  with {nextClass.course?.trainer?.firstName} {nextClass.course?.trainer?.lastName}
                 </p>
               </div>
               <div className="flex items-center gap-3">
@@ -147,65 +180,118 @@ export default function MemberHome() {
             </Card>
           </div>
 
-          {/* Today's Schedule */}
+          {/* Schedule Slider */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="w-5 h-5" />
-                Today's Schedule
-              </CardTitle>
-              <CardDescription>
-                Your booked classes for today
-              </CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calendar className="w-5 h-5" />
+                    Schedule
+                  </CardTitle>
+                  <CardDescription>
+                    Your booked classes for the week
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handlePreviousDay}
+                    className="h-8 w-8 p-0"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  <div className="flex items-center gap-1">
+                    {nextDays.map((day, index) => (
+                      <button
+                        key={index}
+                        onClick={() => setCurrentDayIndex(index)}
+                        className={`w-2 h-2 rounded-full transition-colors ${
+                          index === currentDayIndex ? 'bg-primary' : 'bg-muted'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleNextDay}
+                    className="h-8 w-8 p-0"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
-              {registrationsToday.length > 0 ? (
-                <div className="space-y-4">
-                  {registrationsToday.map((reg: any) => (
-                    <div key={reg.id} className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                          <span className="text-primary font-semibold text-sm">
-                            {reg.class?.category?.charAt(0).toUpperCase()}
+              <div className="mb-4">
+                <div className="flex items-center gap-2">
+                  <Badge variant={nextDays[currentDayIndex].isToday ? "default" : "secondary"}>
+                    {nextDays[currentDayIndex].isToday ? "Today" : nextDays[currentDayIndex].isTomorrow ? "Tomorrow" : nextDays[currentDayIndex].dayName}
+                  </Badge>
+                  <span className="text-sm text-muted-foreground">
+                    {nextDays[currentDayIndex].date.toLocaleDateString('en-US', { 
+                      weekday: 'long', 
+                      month: 'short', 
+                      day: 'numeric' 
+                    })}
+                  </span>
+                </div>
+              </div>
+
+              {(() => {
+                const dayRegistrations = getRegistrationsForDay(nextDays[currentDayIndex].dayOfWeek);
+                return dayRegistrations.length > 0 ? (
+                  <div className="space-y-4">
+                    {dayRegistrations.map((reg: any) => (
+                      <div key={reg.id} className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
+                                                      <span className="text-primary font-semibold text-sm">
+                            {reg.course?.class?.category?.name?.charAt(0).toUpperCase()}
                           </span>
                         </div>
                         <div>
-                          <h4 className="font-medium text-foreground">{reg.class?.name}</h4>
+                          <h4 className="font-medium text-foreground">{reg.course?.class?.name}</h4>
                           <div className="flex items-center gap-4 text-sm text-muted-foreground">
                             <span className="flex items-center gap-1">
                               <Clock className="w-3 h-3" />
-                              {formatTime(reg.schedule?.startTime)} - {formatTime(reg.schedule?.endTime)}
+                              {formatTime(reg.course?.schedule?.startTime)} - {formatTime(reg.course?.schedule?.endTime)}
                             </span>
                             <span className="flex items-center gap-1">
                               <Users className="w-3 h-3" />
-                              {reg.trainer?.firstName} {reg.trainer?.lastName}
+                              {reg.course?.trainer?.firstName} {reg.course?.trainer?.lastName}
                             </span>
                           </div>
                         </div>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedQR(reg)}
+                        >
+                          <QrCode className="w-4 h-4 mr-1" />
+                          QR
+                        </Button>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSelectedQR(reg)}
-                      >
-                        <QrCode className="w-4 h-4 mr-1" />
-                        QR
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-12 text-muted-foreground">
-                  <Calendar className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                  <h3 className="text-lg font-medium mb-2">No classes booked for today</h3>
-                  <p className="text-sm mb-4">Book a class to see it here</p>
-                  <Button variant="outline" asChild>
-                    <a href="/member/classes">
-                      Browse All Classes
-                    </a>
-                  </Button>
-                </div>
-              )}
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Calendar className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                    <h3 className="text-lg font-medium mb-2">
+                      No classes booked for {nextDays[currentDayIndex].isToday ? 'today' : nextDays[currentDayIndex].isTomorrow ? 'tomorrow' : nextDays[currentDayIndex].dayName.toLowerCase()}
+                    </h3>
+                    <p className="text-sm mb-4">Book a class to see it here</p>
+                    <Button variant="outline" asChild>
+                      <a href="/member/classes">
+                        Browse All Classes
+                      </a>
+                    </Button>
+                  </div>
+                );
+              })()}
             </CardContent>
           </Card>
 
@@ -228,23 +314,23 @@ export default function MemberHome() {
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center">
                           <span className="text-white text-xs font-medium">
-                            {registration.class?.category?.charAt(0).toUpperCase()}
+                            {registration.course?.class?.category?.name?.charAt(0).toUpperCase()}
                           </span>
                         </div>
                         <div>
-                          <h4 className="font-medium text-foreground">{registration.class?.name}</h4>
+                          <h4 className="font-medium text-foreground">{registration.course?.class?.name}</h4>
                           <div className="flex items-center gap-4 text-sm text-muted-foreground">
                             <span className="flex items-center gap-1">
                               <Calendar className="w-3 h-3" />
-                              {getDayName(registration.schedule?.dayOfWeek)}
+                              {getDayName(registration.course?.schedule?.dayOfWeek)}
                             </span>
                             <span className="flex items-center gap-1">
                               <Clock className="w-3 h-3" />
-                              {formatTime(registration.schedule?.startTime)}
+                              {formatTime(registration.course?.schedule?.startTime)}
                             </span>
                             <span className="flex items-center gap-1">
                               <Users className="w-3 h-3" />
-                              {registration.trainer?.firstName} {registration.trainer?.lastName}
+                              {registration.course?.trainer?.firstName} {registration.course?.trainer?.lastName}
                             </span>
                           </div>
                         </div>
@@ -348,10 +434,10 @@ export default function MemberHome() {
             <div className="space-y-6">
               <div className="text-center">
                 <h4 className="text-lg font-medium text-foreground mb-2">
-                  {selectedQR.class?.name}
+                  {selectedQR.course?.class?.name}
                 </h4>
                 <p className="text-muted-foreground mb-4">
-                  {getDayName(selectedQR.schedule?.dayOfWeek)} • {formatTime(selectedQR.schedule?.startTime)}
+                  {getDayName(selectedQR.course?.schedule?.dayOfWeek)} • {formatTime(selectedQR.course?.schedule?.startTime)}
                 </p>
                 <QRGenerator value={selectedQR.qrCode} size={200} />
                 <p className="text-sm text-muted-foreground mt-4">
