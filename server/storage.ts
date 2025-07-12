@@ -1102,7 +1102,10 @@ export class DatabaseStorage implements IStorage {
   async getUserActiveSubscription(userId: string): Promise<Subscription | undefined> {
     const { data: subscription, error } = await supabase
       .from('subscriptions')
-      .select('*')
+      .select(`
+        *,
+        plan:plan_id (*)
+      `)
       .eq('user_id', userId)
       .eq('status', 'active')
       .order('end_date', { ascending: false })
@@ -1279,7 +1282,20 @@ export class DatabaseStorage implements IStorage {
   async getClassRegistrations(userId?: string): Promise<ClassRegistration[]> {
     let query = supabase
       .from('class_registrations')
-      .select('*');
+      .select(`
+        *,
+        schedule:schedule_id (
+          id,
+          day_of_week,
+          start_time,
+          end_time,
+          class:class_id (
+            id,
+            name,
+            description
+          )
+        )
+      `);
 
     if (userId) {
       query = query.eq('user_id', userId);
