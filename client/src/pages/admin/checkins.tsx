@@ -218,21 +218,7 @@ export default function AdminCheckins() {
                   </div>
                 </div>
               </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Peak Hours</p>
-                    <p className="text-lg font-bold text-foreground">6:00 PM - 8:00 PM</p>
-                  </div>
-                  <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                    <Clock className="w-6 h-6 text-orange-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            </Card>            
           </div>
         </div>
       </div>
