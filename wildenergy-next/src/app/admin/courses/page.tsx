@@ -85,6 +85,11 @@ export default function AdminCourses() {
 
   // Debug: Log raw courses
   console.log('Raw courses:', courses);
+  console.log('Raw courses type:', typeof courses);
+  console.log('Raw courses length:', courses?.length);
+  if (courses && courses.length > 0) {
+    console.log('First course example:', courses[0]);
+  }
 
   // Fetch classes for dropdown
   const { data: classes } = useQuery({
@@ -146,18 +151,18 @@ export default function AdminCourses() {
   // Convert courses to the format expected by ScheduleCalendar
   const coursesAsSchedules = courses?.map((course: any) => ({
     id: course.id,
-    dayOfWeek: new Date(course.courseDate).getDay(),
-    startTime: course.startTime,
-    endTime: course.endTime,
-    scheduleDate: course.courseDate,
+    dayOfWeek: new Date(course.course_date).getDay(),
+    startTime: course.start_time,
+    endTime: course.end_time,
+    scheduleDate: course.course_date,
     repetitionType: 'once',
-    isActive: course.isActive,
+    isActive: course.is_active,
     class: {
       id: course.class?.id || 0,
       name: course.class?.name || 'Unknown Class',
       category: course.class?.name || 'Unknown',
       duration: 60,
-      maxCapacity: course.maxParticipants,
+      maxCapacity: course.max_participants,
     },
     trainer: {
       id: course.trainer?.id || 0,
@@ -211,6 +216,28 @@ export default function AdminCourses() {
           <Badge variant="outline">
             {courses?.length || 0} courses
           </Badge>
+          <Button 
+            onClick={() => {
+              // Create a simple test course
+              const testCourse = {
+                schedule_id: 1,
+                class_id: 1,
+                trainer_id: 1,
+                course_date: new Date().toISOString().split('T')[0],
+                start_time: '10:00:00',
+                end_time: '11:00:00',
+                max_participants: 10,
+                current_participants: 0,
+                status: 'scheduled',
+                is_active: true
+              };
+              console.log('Creating test course:', testCourse);
+              // You can implement the actual creation here
+            }}
+            variant="outline"
+          >
+            Create Test Course
+          </Button>
         </div>
       </div>
 

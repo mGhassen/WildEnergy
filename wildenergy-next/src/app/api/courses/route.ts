@@ -26,16 +26,32 @@ export async function GET(req: NextRequest) {
     if (!adminCheck?.is_admin) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
-    // Fetch all courses
+    // Fetch all courses with related class and trainer data
     const { data: courses, error } = await supabase
       .from('courses')
-      .select('*')
+      .select(`
+        *,
+        class:classes(id, name, description, category_id, duration, max_capacity),
+        trainer:trainers(
+          id,
+          user_id,
+          specialization,
+          experience_years,
+          bio,
+          certification,
+          status,
+          user:users(id, first_name, last_name, email)
+        )
+      `)
       .order('created_at', { ascending: false });
     if (error) {
+      console.error('Supabase error:', error);
       return NextResponse.json({ error: 'Failed to fetch courses' }, { status: 500 });
     }
-    return NextResponse.json(courses);
+    // Return empty array if no courses found, instead of undefined
+    return NextResponse.json(courses || []);
   } catch (error) {
+    console.error('API error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
