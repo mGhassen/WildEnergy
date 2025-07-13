@@ -86,6 +86,7 @@ export interface IStorage {
 
   // Class Registrations
   getClassRegistrations(userId?: string): Promise<ClassRegistration[]>;
+  getAllClassRegistrations(): Promise<ClassRegistration[]>;
   createClassRegistration(registration: InsertClassRegistration): Promise<ClassRegistration>;
   updateClassRegistration(id: number, updates: Partial<InsertClassRegistration>): Promise<ClassRegistration>;
   getRegistrationByQRCode(qrCode: string): Promise<ClassRegistration | undefined>;
@@ -1558,6 +1559,10 @@ export class DatabaseStorage implements IStorage {
     }));
 
     return mappedRegistrations;
+  }
+
+  async getAllClassRegistrations(): Promise<ClassRegistration[]> {
+    return this.getClassRegistrations();
   }
 
   async createClassRegistration(registration: InsertClassRegistration): Promise<ClassRegistration> {
