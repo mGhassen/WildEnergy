@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { supabaseServer } from '@/lib/supabase';
 
 export async function GET(req: NextRequest) {
   try {
@@ -14,11 +9,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
     // Verify admin
-    const { data: { user: adminUser }, error: authError } = await supabase.auth.getUser(token);
+    const { data: { user: adminUser }, error: authError } = await supabaseServer.auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-    const { data: adminCheck } = await supabase
+    const { data: adminCheck } = await supabaseServer
       .from('users')
       .select('is_admin')
       .eq('auth_user_id', adminUser.id)
@@ -28,12 +23,12 @@ export async function GET(req: NextRequest) {
     }
     // Fetch stats
     const [{ count: totalUsers }, { count: totalMembers }, { count: totalTrainers }, { count: totalClasses }, { count: totalCheckins }, { data: payments }] = await Promise.all([
-      supabase.from('users').select('*', { count: 'exact', head: true }),
-      supabase.from('users').select('*', { count: 'exact', head: true }).eq('is_member', true),
-      supabase.from('users').select('*', { count: 'exact', head: true }).eq('is_trainer', true),
-      supabase.from('classes').select('*', { count: 'exact', head: true }),
-      supabase.from('checkins').select('*', { count: 'exact', head: true }),
-      supabase.from('payments').select('*'),
+      supabaseServer.from('users').select('*', { count: 'exact', head: true }),
+      supabaseServer.from('users').select('*', { count: 'exact', head: true }).eq('is_member', true),
+      supabaseServer.from('users').select('*', { count: 'exact', head: true }).eq('is_trainer', true),
+      supabaseServer.from('classes').select('*', { count: 'exact', head: true }),
+      supabaseServer.from('checkins').select('*', { count: 'exact', head: true }),
+      supabaseServer.from('payments').select('*'),
     ]);
     const totalPayments = payments?.length || 0;
     const totalRevenue = (payments || []).reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
