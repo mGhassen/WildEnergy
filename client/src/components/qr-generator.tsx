@@ -5,14 +5,20 @@ interface QRGeneratorProps {
   value: string;
   size?: number;
   className?: string;
+  generateUrl?: boolean;
 }
 
-export default function QRGenerator({ value, size = 200, className = "" }: QRGeneratorProps) {
+export default function QRGenerator({ value, size = 200, className = "", generateUrl = true }: QRGeneratorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     if (canvasRef.current && value) {
-      QRCode.toCanvas(canvasRef.current, value, {
+      // Generate URL for check-in if generateUrl is true
+      const qrValue = generateUrl 
+        ? `${window.location.origin}/checkin/${value}`
+        : value;
+        
+      QRCode.toCanvas(canvasRef.current, qrValue, {
         width: size,
         margin: 2,
         color: {
@@ -23,7 +29,7 @@ export default function QRGenerator({ value, size = 200, className = "" }: QRGen
         if (error) console.error('QR Code generation error:', error);
       });
     }
-  }, [value, size]);
+  }, [value, size, generateUrl]);
 
   return (
     <div className={`flex justify-center ${className}`}>

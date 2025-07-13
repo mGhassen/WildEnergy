@@ -99,7 +99,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // 2. Create user profile
-      const { data: userProfile, error: profileError } = await supabase
+      const { error: profileError } = await supabase
         .from('users')
         .insert([
           {
@@ -900,7 +900,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         name: name.trim(),
         description: description ? String(description).trim() : undefined,
         color: color ? String(color).trim() : undefined,
-        is_active: isActive !== undefined ? Boolean(isActive) : true,
+        isActive: isActive !== undefined ? Boolean(isActive) : true,
       };
 
       console.log("Creating category with:", categoryData);
@@ -919,7 +919,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       let updates = { ...req.body };
       if (typeof updates.isActive !== "undefined") {
-        updates.is_active = updates.isActive;
+        updates.isActive = updates.isActive;
         delete updates.isActive;
       }
       const category = await storage.updateCategory(id, updates);
@@ -971,12 +971,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const classData = {
         name: name.trim(),
         description: description ? String(description).trim() : undefined,
-        category_id: resolvedCategoryId,
+        categoryId: resolvedCategoryId,
         difficulty: difficulty || 'beginner',
-        duration: resolvedDuration,
-        max_capacity: resolvedMaxCapacity,
+        durationMinutes: resolvedDuration,
+        maxCapacity: resolvedMaxCapacity,
         equipment: equipment || null,
-        is_active: is_active !== undefined ? Boolean(is_active) : (isActive !== undefined ? Boolean(isActive) : true),
+        isActive: is_active !== undefined ? Boolean(is_active) : (isActive !== undefined ? Boolean(isActive) : true),
       };
 
       console.log("Creating class with:", classData);
@@ -1096,8 +1096,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const resolvedEndTime = end_time ?? endTime;
       const resolvedRepetitionType = repetition_type ?? repetitionType;
       const resolvedScheduleDate = schedule_date ?? scheduleDate;
-      const resolvedStartDate = start_date ?? startDate;
-      const resolvedEndDate = end_date ?? endDate;
       const resolvedIsActive = is_active !== undefined ? is_active : isActive;
       const resolvedMaxParticipants = Number(max_participants ?? maxParticipants ?? 10);
 
@@ -1211,8 +1209,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const resolvedEndTime = end_time ?? endTime;
       const resolvedRepetitionType = repetition_type ?? repetitionType;
       const resolvedScheduleDate = schedule_date ?? scheduleDate;
-      const resolvedStartDate = start_date ?? startDate;
-      const resolvedEndDate = end_date ?? endDate;
       const resolvedIsActive = is_active !== undefined ? is_active : isActive;
       const resolvedMaxParticipants = Number(max_participants ?? maxParticipants ?? 10);
 
@@ -1290,15 +1286,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           console.log(`Rolling back: Restoring original schedule data for schedule ${originalSchedule.id}`);
           await storage.updateSchedule(parseInt(originalSchedule.id), {
-            class_id: originalSchedule.class_id,
-            trainer_id: originalSchedule.trainer_id,
-            start_time: originalSchedule.start_time,
-            end_time: originalSchedule.end_time,
-            max_participants: originalSchedule.max_participants,
-            repetition_type: originalSchedule.repetition_type,
-            schedule_date: originalSchedule.schedule_date,
-            day_of_week: originalSchedule.day_of_week,
-            is_active: originalSchedule.is_active,
+            classId: originalSchedule.class_id,
+            trainerId: originalSchedule.trainer_id,
+            startTime: originalSchedule.start_time,
+            endTime: originalSchedule.end_time,
+            maxParticipants: originalSchedule.max_participants,
+            repetitionType: originalSchedule.repetition_type,
+            scheduleDate: originalSchedule.schedule_date,
+            dayOfWeek: originalSchedule.day_of_week,
+            isActive: originalSchedule.is_active,
           });
           console.log("Schedule rollback completed");
         } catch (rollbackError) {
@@ -1523,24 +1519,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "userId and planId are required" });
       }
 
-      // Always fetch plan and set sessions_remaining to plan.max_sessions
+      // Always fetch plan and set sessions_remaining to plan.sessionsIncluded
       const plan = await storage.getPlan(parseInt(planId));
       if (!plan) {
         return res.status(400).json({ error: "Plan not found" });
       }
-      const sessionsRemaining = plan.max_sessions || 0;
+      const sessionsRemaining = plan.sessionsIncluded || 0;
 
       // Accept startDate and endDate as 'YYYY-MM-DD 00:00:00' and convert to Date objects for DB
       const subscriptionData = {
-        user_id: userId,
-        plan_id: parseInt(planId),
-        start_date: new Date(startDate),
-        end_date: new Date(endDate),
-        sessions_remaining: parseInt(sessionsRemaining) || 0,
+        userId: String(userId),
+        planId: Number(planId),
+        startDate: startDate,
+        endDate: endDate,
+        sessionsRemaining: sessionsRemaining || 0,
         status: (status || 'active'),
-        notes: notes || null,
-        created_at: new Date(),
-        updated_at: new Date()
+        notes: notes || null
       };
 
       console.log("Processed subscription data:", subscriptionData);
@@ -1564,22 +1558,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "userId and planId are required" });
       }
 
-      // Always fetch plan and set sessions_remaining to plan.max_sessions
+      // Always fetch plan and set sessions_remaining to plan.sessionsIncluded
       const plan = await storage.getPlan(parseInt(planId));
       if (!plan) {
         return res.status(400).json({ error: "Plan not found" });
       }
-      const sessionsRemaining = plan.max_sessions || 0;
+      const sessionsRemaining = plan.sessionsIncluded || 0;
 
       const updates = {
-        user_id: userId,
-        plan_id: parseInt(planId),
-        start_date: new Date(startDate),
-        end_date: new Date(endDate),
-        sessions_remaining: parseInt(sessionsRemaining) || 0,
+        userId: String(userId),
+        planId: Number(planId),
+        startDate: startDate,
+        endDate: endDate,
+        sessionsRemaining: sessionsRemaining || 0,
         status: status,
-        notes: notes || null,
-        updated_at: new Date()
+        notes: notes || null
       };
 
       const subscription = await storage.updateSubscription(parseInt(id), updates);
@@ -1641,7 +1634,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const allSubscriptions = await storage.getUserSubscriptions(userId);
       console.log('All subscriptions for user:', allSubscriptions);
       
-      const totalSessionsRemaining = activeSubscriptions.reduce((sum: number, sub: any) => sum + (sub.sessions_remaining || 0), 0);
+      const totalSessionsRemaining = activeSubscriptions.reduce((sum: number, sub: any) => sum + (sub.sessionsRemaining || 0), 0);
       console.log('Total sessions remaining:', totalSessionsRemaining);
       
       if (totalSessionsRemaining <= 0) {
@@ -1668,7 +1661,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if user is already registered for this course (per-instance booking)
       const existingRegistrations = await storage.getClassRegistrations(userId);
       const isAlreadyRegistered = existingRegistrations.some((reg: any) => 
-        reg.course_id === courseId && reg.status === 'registered'
+        reg.courseId === courseId && reg.status === 'registered'
       );
       if (isAlreadyRegistered) {
         return res.status(400).json({ error: 'Already registered for this course' });
@@ -1677,7 +1670,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Find the subscription to deduct from (oldest with sessions remaining)
       let subscriptionToDeduct = null;
       for (const subscription of activeSubscriptions) {
-        if (subscription.sessions_remaining > 0) {
+        if (subscription.sessionsRemaining > 0) {
           subscriptionToDeduct = subscription;
           break;
         }
@@ -1687,7 +1680,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'No active subscription with sessions remaining' });
       }
 
-      console.log('Using subscription:', subscriptionToDeduct.id, 'with sessions remaining:', subscriptionToDeduct.sessions_remaining);
+      console.log('Using subscription:', subscriptionToDeduct.id, 'with sessions remaining:', subscriptionToDeduct.sessionsRemaining);
 
       // Use a simple approach with proper error handling
       try {
@@ -1705,7 +1698,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Deduct session from subscription
         await storage.updateSubscription(subscriptionToDeduct.id, {
-          sessionsRemaining: subscriptionToDeduct.sessions_remaining - 1
+          sessionsRemaining: subscriptionToDeduct.sessionsRemaining - 1
         });
 
         console.log(`Successfully registered for course ${courseId}, deducted session from subscription ${subscriptionToDeduct.id}`);
@@ -1741,7 +1734,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if user owns this registration
-      if (registration.user_id !== userId) {
+      if (registration.userId !== userId) {
         return res.status(403).json({ error: 'Not authorized to cancel this registration' });
       }
 
@@ -1751,7 +1744,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get the course details
-      const course = await storage.getCourse(registration.course_id);
+      const course = await storage.getCourse(registration.courseId);
       if (!course) {
         return res.status(404).json({ error: 'Course not found' });
       }
@@ -1796,16 +1789,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Find the subscription that was used for this registration
           // We'll refund to the oldest active subscription with sessions remaining
           const activeSubscriptions = await storage.getUserActiveSubscriptions(userId);
-          const subscriptionToRefund = activeSubscriptions.find((sub: any) => sub.sessions_remaining > 0);
+          const subscriptionToRefund = activeSubscriptions.find((sub: any) => sub.sessionsRemaining > 0);
 
           if (subscriptionToRefund) {
             await storage.updateSubscription(subscriptionToRefund.id, {
-              sessionsRemaining: subscriptionToRefund.sessions_remaining + 1
+              sessionsRemaining: subscriptionToRefund.sessionsRemaining + 1
             });
             refundInfo = {
               subscriptionId: subscriptionToRefund.id,
               sessionsRefunded: 1,
-              newSessionsRemaining: subscriptionToRefund.sessions_remaining + 1
+              newSessionsRemaining: subscriptionToRefund.sessionsRemaining + 1
             };
           }
         }
@@ -1839,6 +1832,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching checkins:", error);
       res.status(500).json({ error: "Failed to fetch checkins" });
+    }
+  });
+
+  // QR Code Check-in endpoint (public - no auth required)
+  console.log('Registering route: POST /api/checkins');
+  app.post("/api/checkins", async (req: any, res) => {
+    try {
+      const { qr_code } = req.body;
+      
+      if (!qr_code) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'QR code is required' 
+        });
+      }
+
+      console.log('Processing QR code check-in:', qr_code);
+
+      // Get registration by QR code
+      const registration = await storage.getRegistrationByQRCode(qr_code);
+      
+      if (!registration) {
+        return res.status(404).json({ 
+          success: false, 
+          message: 'Registration not found for this QR code' 
+        });
+      }
+
+      // Check if already checked in
+      const existingCheckins = await storage.getUserCheckins((registration as any).user_id);
+      const alreadyCheckedIn = existingCheckins.some(checkin => 
+        checkin.registrationId === registration.id
+      );
+
+      if (alreadyCheckedIn) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'User already checked in for this class' 
+        });
+      }
+
+      // Get user and course details
+      const user = await storage.getUser((registration as any).user_id);
+      if (!user) {
+        return res.status(404).json({ 
+          success: false, 
+          message: 'User not found' 
+        });
+      }
+
+      const course = await storage.getCourse((registration as any).course_id);
+      if (!course) {
+        return res.status(404).json({ 
+          success: false, 
+          message: 'Course not found' 
+        });
+      }
+
+      // Create check-in
+      const checkinData = {
+        userId: (registration as any).user_id,
+        registrationId: registration.id,
+        sessionConsumed: true,
+        notes: `QR code check-in for course ${(registration as any).course_id}`
+      };
+
+      const checkin = await storage.createCheckin(checkinData);
+
+      // Update registration status to checked in
+      await storage.updateClassRegistration(registration.id, {
+        notes: 'Checked in'
+      });
+
+      res.json({
+        success: true,
+        message: 'Check-in successful',
+        data: {
+          member_name: `${user.firstName} ${user.lastName}`,
+          class_name: course.classId || 'Class',
+          checkin_time: checkin.checkinTime
+        }
+      });
+
+    } catch (error) {
+      console.error("Error processing check-in:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to process check-in',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 
@@ -1981,7 +2064,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Fetch subscription and plan
       const subscription = await storage.getSubscription(subscription_id);
       if (!subscription) return res.status(404).json({ error: "Subscription not found" });
-      const plan = await storage.getPlan(subscription.plan_id);
+      const plan = await storage.getPlan(subscription.planId);
       if (!plan) return res.status(404).json({ error: "Plan not found" });
       // Calculate total paid so far
       const payments = await storage.getPaymentsBySubscription(subscription_id);
@@ -2002,8 +2085,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.updateSubscription(subscription_id, { status: 'active' });
         }
         // Update subscription status if fully paid
-        if (payment && payment.subscription_id) {
-          await storage.updateSubscriptionStatusIfFullyPaid(payment.subscription_id);
+        if (payment && payment.subscriptionId) {
+          await storage.updateSubscriptionStatusIfFullyPaid(payment.subscriptionId);
         }
       }
       // If creditAmount > 0, update user's credit (add back the excess, even for credit payments)
@@ -2027,11 +2110,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const updates = req.body;
       // Use snake_case only
-      const subscription_id = updates.subscription_id;
-      const payment = await storage.updatePayment(parseInt(id), { ...updates, subscription_id });
+      const payment = await storage.updatePayment(parseInt(id), { ...updates, subscriptionId: updates.subscription_id });
       // Update subscription status if fully paid
-      if (payment.subscription_id) {
-        await storage.updateSubscriptionStatusIfFullyPaid(payment.subscription_id);
+      if (payment.subscriptionId) {
+        await storage.updateSubscriptionStatusIfFullyPaid(payment.subscriptionId);
       }
       res.json(payment);
     } catch (error) {
@@ -2073,7 +2155,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .reduce((sum: number, p: any) => sum + parseFloat(p.amount), 0);
           const planPrice = parseFloat(plan.price);
           if (totalPaid < planPrice && subscription.status === 'active') {
-            await storage.updateSubscription(payment.subscription_id, { status: 'pending' });
+            await storage.updateSubscription(payment.subscriptionId, { status: 'expired' });
           }
         }
       }
