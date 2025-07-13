@@ -166,22 +166,7 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div className="flex min-h-screen">
-      {/* Sidebar placeholder - replace with shadcn/ui sidebar if available */}
-      <aside className="w-64 bg-background border-r border-border p-4 hidden md:block">
-        <div className="font-bold text-lg mb-6">Admin Menu</div>
-        <nav className="flex flex-col gap-2">
-          <a href="/admin/dashboard" className="px-3 py-2 rounded hover:bg-muted transition">Dashboard</a>
-          <a href="/admin/members" className="px-3 py-2 rounded hover:bg-muted transition">Members</a>
-          <a href="/admin/classes" className="px-3 py-2 rounded hover:bg-muted transition">Classes</a>
-          <a href="/admin/schedules" className="px-3 py-2 rounded hover:bg-muted transition">Schedules</a>
-          <a href="/admin/trainers" className="px-3 py-2 rounded hover:bg-muted transition">Trainers</a>
-          <a href="/admin/plans" className="px-3 py-2 rounded hover:bg-muted transition">Plans</a>
-          <a href="/admin/payments" className="px-3 py-2 rounded hover:bg-muted transition">Payments</a>
-          <a href="/admin/users" className="px-3 py-2 rounded hover:bg-muted transition">Users</a>
-        </nav>
-      </aside>
-      <main className="flex-1 p-6 space-y-8">
+    <div className="p-6 space-y-8">
         <div>
           <h1 className="text-3xl font-bold text-foreground mb-2">Dashboard</h1>
           <p className="text-muted-foreground">Overview of your gym management system</p>
@@ -389,7 +374,6 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
         </div>
-      </main>
     </div>
   );
 }
