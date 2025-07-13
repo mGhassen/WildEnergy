@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, createContext, useContext, ReactNode } from 'react';
-// Remove: import { useLocation } from 'wouter';
+import { useRouter } from 'next/navigation';
 
 export interface User {
   id: string;
@@ -43,7 +43,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [loginError, setLoginError] = useState<Error | null>(null);
-  // Remove: const [, setLocation] = useLocation();
+  const router = useRouter();
 
   // Fetch user session
   const fetchSession = async (token: string) => {
@@ -65,7 +65,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // User is onhold, suspended, or inactive
           if (errorData.status === 'onhold') {
             // Redirect to onhold page
-            // setLocation('/auth/onhold'); // This line is removed
+            router.push('/auth/onhold');
             throw new Error(errorData.error || 'Account access denied');
           }
           throw new Error(errorData.error || 'Account access denied');
@@ -79,7 +79,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             delete window.__authToken;
           }
           setUser(null);
-          // setLocation('/login'); // This line is removed
+          router.push('/login');
           throw new Error('Session expired or invalid token');
         }
         
@@ -122,7 +122,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
 
     checkAuth();
-  }, []);
+  }, [router]);
 
   // Refresh the current session
   const refreshSession = async () => {
@@ -219,7 +219,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setUser(null);
       
       // Redirect to login page
-      // setLocation('/login'); // This line is removed
+      router.push('/login');
     }
   };
 
