@@ -95,6 +95,7 @@ export interface IStorage {
   getCheckins(date?: string): Promise<EnhancedCheckin[]>;
   getUserCheckins(userId: string): Promise<EnhancedCheckin[]>;
   createCheckin(checkin: InsertCheckin): Promise<Checkin>;
+  deleteCheckin(id: number): Promise<void>;
 
   // Dashboard stats
   getDashboardStats(): Promise<any>;
@@ -1712,6 +1713,7 @@ export class DatabaseStorage implements IStorage {
       } : undefined,
       registration: checkin.registration ? {
         id: checkin.registration.id,
+        qr_code: checkin.registration.qr_code,
         course: checkin.registration.course ? {
           id: checkin.registration.course.id,
           courseDate: checkin.registration.course.course_date,
@@ -1802,6 +1804,7 @@ export class DatabaseStorage implements IStorage {
       } : undefined,
       registration: checkin.registration ? {
         id: checkin.registration.id,
+        qr_code: checkin.registration.qr_code,
         course: checkin.registration.course ? {
           id: checkin.registration.course.id,
           courseDate: checkin.registration.course.course_date,
@@ -1853,6 +1856,17 @@ export class DatabaseStorage implements IStorage {
     }
 
     return newCheckin as Checkin;
+  }
+
+  async deleteCheckin(id: number): Promise<void> {
+    const { error } = await supabase
+      .from('checkins')
+      .delete()
+      .eq('id', id);
+    if (error) {
+      console.error('Error deleting checkin:', error);
+      throw new Error(error.message || 'Failed to delete checkin');
+    }
   }
 
   async getDashboardStats(): Promise<{

@@ -2185,6 +2185,231 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // QR code check-in info endpoint (admin only)
+  app.get('/api/checkin/qr/:qrCode', asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req, res) => {
+    try {
+      const { qrCode } = req.params;
+      if (!qrCode) {
+        return res.status(400).json({ success: false, message: 'QR code is required' });
+      }
+
+      // Get registration by QR code
+      const registration = await storage.getRegistrationByQRCode(qrCode);
+      if (!registration) {
+        return res.status(404).json({ success: false, message: 'Registration not found for this QR code' });
+      }
+
+      // Use both camelCase and snake_case properties for compatibility
+      const regAny = registration as any;
+      const userId = regAny.userId || regAny.user_id;
+      const courseId = regAny.courseId || regAny.course_id;
+      if (!userId || !courseId) {
+        return res.status(404).json({ success: false, message: 'User or course not found (missing IDs)' });
+      }
+
+      // Get user and course details
+      const user = await storage.getUser(userId);
+      const course = await storage.getCourse(courseId);
+      if (!user || !course) {
+        return res.status(404).json({ success: false, message: 'User or course not found' });
+      }
+
+      // Fetch class and trainer details
+      const courseAny = course as any;
+      const classData = await storage.getClass(courseAny.classId || courseAny.class_id);
+      let trainer = null;
+      const trainerId = courseAny.trainerId || courseAny.trainer_id;
+      if (trainerId) {
+        trainer = await storage.getTrainer(trainerId);
+      }
+
+      // Get all registrations for this course
+      const allRegistrations = await storage.getClassRegistrations();
+      const courseRegistrations = allRegistrations.filter(r => {
+        const rAny = r as any;
+        return (rAny.courseId || rAny.course_id) === course.id && r.status === 'registered';
+      });
+      const registeredCount = courseRegistrations.length;
+
+      // Get all registered members (full info)
+      const registeredMembers = await Promise.all(
+        courseRegistrations.map(async r => {
+          const mId = (r as any).userId || (r as any).user_id;
+          return mId ? await storage.getUser(mId) : undefined;
+        })
+      );
+
+      // Get all check-ins for this course
+      const allCheckins = await storage.getCheckins();
+      const courseCheckins = allCheckins.filter(
+        c => c.registration?.course?.id === course.id
+      );
+      const checkedInCount = courseCheckins.length;
+      const alreadyCheckedIn = courseCheckins.some(c => c.userId === userId);
+
+      // Get all attendant members (full info)
+      const attendantMembers = await Promise.all(
+        courseCheckins.map(async c => c.userId ? await storage.getUser(c.userId) : undefined)
+      );
+
+      // Compose response
+      res.json({
+        success: true,
+        data: {
+          member: user ? {
+            id: user.id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            phone: user.phone
+          } : undefined,
+          course: {
+            id: course.id,
+            className: classData?.name || '',
+            class: { name: classData?.name || '' },
+            name: courseAny.name || '',
+            description: courseAny.description || '',
+            date: courseAny.courseDate || courseAny.course_date,
+            startTime: courseAny.startTime || courseAny.start_time,
+            endTime: courseAny.endTime || courseAny.end_time,
+            trainer: trainer ? {
+              id: trainer.id,
+              firstName: trainer.firstName,
+              lastName: trainer.lastName,
+              email: trainer.email
+            } : undefined,
+            maxCapacity: (classData as any)?.maxCapacity || (classData as any)?.max_capacity || 0
+          },
+          registration: {
+            id: registration.id,
+            status: registration.status
+          },
+          registeredCount,
+          checkedInCount,
+          alreadyCheckedIn,
+          registeredMembers: registeredMembers.filter(Boolean),
+          attendantMembers: attendantMembers.filter(Boolean)
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching QR check-in info:', error);
+      res.status(500).json({ success: false, message: 'Failed to fetch check-in info', error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+
+  // QR Code Check-in endpoint (admin only)
+  app.post("/api/checkins", asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req: any, res) => {
+    try {
+      const { qr_code } = req.body;
+      
+      if (!qr_code) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'QR code is required' 
+        });
+      }
+
+      console.log('Processing QR code check-in:', qr_code);
+
+      // Get registration by QR code
+      const registration = await storage.getRegistrationByQRCode(qr_code);
+      
+      if (!registration) {
+        return res.status(404).json({ 
+          success: false, 
+          message: 'Registration not found for this QR code' 
+        });
+      }
+
+      // Check if already checked in
+      const existingCheckins = await storage.getUserCheckins((registration as any).user_id);
+      const alreadyCheckedIn = existingCheckins.some(checkin => 
+        checkin.registrationId === registration.id
+      );
+
+      if (alreadyCheckedIn) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'User already checked in for this class' 
+        });
+      }
+
+      // Get user and course details
+      const user = await storage.getUser((registration as any).user_id);
+      if (!user) {
+        return res.status(404).json({ 
+          success: false, 
+          message: 'User not found' 
+        });
+      }
+
+      const course = await storage.getCourse((registration as any).course_id);
+      if (!course) {
+        return res.status(404).json({ 
+          success: false, 
+          message: 'Course not found' 
+        });
+      }
+
+      // Create check-in
+      const checkinData = {
+        userId: (registration as any).user_id,
+        registrationId: registration.id,
+        sessionConsumed: true,
+        notes: `QR code check-in for course ${(registration as any).course_id}`
+      };
+
+      const checkin = await storage.createCheckin(checkinData);
+
+      // Update registration status to checked in
+      await storage.updateClassRegistration(registration.id, {
+        notes: 'Checked in'
+      });
+
+      res.json({
+        success: true,
+        message: 'Check-in successful',
+        data: {
+          member_name: `${user.firstName} ${user.lastName}`,
+          class_name: course.classId || 'Class',
+          checkin_time: checkin.checkinTime
+        }
+      });
+
+    } catch (error) {
+      console.error("Error processing check-in:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to process check-in',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Unvalidate (remove) a check-in for a registration (admin only)
+  app.post('/api/checkins/:registrationId/unvalidate', asyncHandler(requireAuth), asyncHandler(requireAdmin), async (req, res) => {
+    try {
+      const { registrationId } = req.params;
+      if (!registrationId) {
+        return res.status(400).json({ success: false, message: 'Registration ID is required' });
+      }
+      // Find the check-in for this registration
+      const allCheckins = await storage.getCheckins();
+      const checkin = allCheckins.find(c => String(c.registrationId) === String(registrationId));
+      if (!checkin) {
+        return res.status(404).json({ success: false, message: 'Check-in not found for this registration' });
+      }
+      // Delete the check-in
+      await storage.deleteCheckin(checkin.id);
+      // Optionally, update registration notes
+      await storage.updateClassRegistration(Number(registrationId), { notes: 'Check-in unvalidated' });
+      res.json({ success: true, message: 'Check-in unvalidated' });
+    } catch (error) {
+      console.error('Error unvalidating check-in:', error);
+      res.status(500).json({ success: false, message: 'Failed to unvalidate check-in', error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+
   // Create HTTP server
   const httpServer = createServer(app);
   return httpServer;

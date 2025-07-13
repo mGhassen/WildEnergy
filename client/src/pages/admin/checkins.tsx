@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -9,26 +9,29 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import QRGenerator from "@/components/qr-generator";
 import { apiRequest } from "@/lib/queryClient";
-import { CheckCircle, Clock, Users, QrCode, Copy } from "lucide-react";
+import { CheckCircle, Clock, Users, QrCode, Copy, Eye } from "lucide-react";
 import { getInitials, formatDateTime } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 
 export default function AdminCheckins() {
   const [manualQRCode, setManualQRCode] = useState("");
   const [testQRCode, setTestQRCode] = useState("QR-TEST-123456");
+  const [filterDate, setFilterDate] = useState("");
+  const [filterCourse, setFilterCourse] = useState("");
+  const [filterMember, setFilterMember] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const today = new Date().toISOString().split('T')[0];
-  
-  const { data: todayCheckins = [], isLoading } = useQuery({
-    queryKey: ["/api/checkins", today],
-    queryFn: () => apiRequest("GET", `/api/checkins?date=${today}`),
+  // Fetch all check-ins (not just today)
+  const { data: allCheckins = [], isLoading } = useQuery({
+    queryKey: ["/api/checkins", "all"],
+    queryFn: () => apiRequest("GET", `/api/checkins`),
   });
 
   // Map checkins to ensure member data has camelCase fields
-  const mappedCheckins = Array.isArray(todayCheckins)
-    ? todayCheckins.map((checkin: any) => ({
+  const mappedCheckins = Array.isArray(allCheckins)
+    ? allCheckins.map((checkin: any) => ({
         ...checkin,
         member: checkin.member ? {
           ...checkin.member,
@@ -40,6 +43,23 @@ export default function AdminCheckins() {
       }))
     : [];
 
+  // Filtering logic
+  const filteredCheckins = useMemo(() => {
+    return mappedCheckins.filter((checkin: any) => {
+      const dateMatch = filterDate ? checkin.checkin_time?.startsWith(filterDate) : true;
+      const courseMatch = filterCourse ? (checkin.class?.name || '').toLowerCase().includes(filterCourse.toLowerCase()) : true;
+      const memberMatch = filterMember ? (
+        (checkin.member?.firstName || '').toLowerCase().includes(filterMember.toLowerCase()) ||
+        (checkin.member?.lastName || '').toLowerCase().includes(filterMember.toLowerCase()) ||
+        (checkin.member?.email || '').toLowerCase().includes(filterMember.toLowerCase())
+      ) : true;
+      const statusMatch = filterStatus ? (
+        filterStatus === 'checkedin' ? !!checkin.checkin_time : !checkin.checkin_time
+      ) : true;
+      return dateMatch && courseMatch && memberMatch && statusMatch;
+    });
+  }, [mappedCheckins, filterDate, filterCourse, filterMember, filterStatus]);
+
   const handleManualCheckin = async () => {
     if (!manualQRCode.trim()) {
       toast({
@@ -49,11 +69,9 @@ export default function AdminCheckins() {
       });
       return;
     }
-
     try {
       const response = await apiRequest("POST", "/api/checkins", { qr_code: manualQRCode.trim() });
       const data = await response.json();
-      
       if (data.success) {
         toast({
           title: "Check-in successful!",
@@ -90,22 +108,153 @@ export default function AdminCheckins() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground mb-2">QR Check-ins</h1>
-        <p className="text-muted-foreground">Generate QR codes and manage check-ins</p>
+      {/* Manual Check-in at the top */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <QrCode className="w-5 h-5" />
+            Manual Check-in
+          </CardTitle>
+          <CardDescription>
+            Enter a QR code to process a check-in manually
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex gap-2 max-w-md">
+            <Input
+              id="manualQRCode"
+              value={manualQRCode}
+              onChange={(e) => setManualQRCode(e.target.value)}
+              placeholder="Enter QR code to process check-in"
+            />
+            <Button 
+              onClick={handleManualCheckin} 
+              disabled={!manualQRCode.trim()}
+            >
+              Process Check-in
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Filters */}
+      <div className="flex flex-wrap gap-4 items-end">
+        <div>
+          <Label>Date</Label>
+          <Input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} />
+        </div>
+        <div>
+          <Label>Course/Class</Label>
+          <Input placeholder="Course name" value={filterCourse} onChange={e => setFilterCourse(e.target.value)} />
+        </div>
+        <div>
+          <Label>Member</Label>
+          <Input placeholder="Name or email" value={filterMember} onChange={e => setFilterMember(e.target.value)} />
+        </div>
+        <div>
+          <Label>Status</Label>
+          <select className="border rounded px-2 py-1" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+            <option value="">All</option>
+            <option value="checkedin">Checked In</option>
+            <option value="notcheckedin">Not Checked In</option>
+          </select>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* QR Code Generation and Manual Check-in */}
-        <div className="space-y-6">
+      {/* All Check-ins Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>All Check-ins</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+              <p className="text-muted-foreground mt-2">Loading check-ins...</p>
+            </div>
+          ) : filteredCheckins.length === 0 ? (
+            <div className="text-center py-8">
+              <Clock className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">No check-ins found</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Member</TableHead>
+                    <TableHead>Course/Class</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Time</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredCheckins.map((checkin: any) => {
+                    const checkinDate = checkin.checkin_time ? new Date(checkin.checkin_time) : null;
+                    return (
+                      <TableRow key={checkin.id}>
+                        <TableCell>
+                          {checkin.member ? (
+                            <div>
+                              <div className="font-medium">{checkin.member.firstName} {checkin.member.lastName}</div>
+                              <div className="text-xs text-muted-foreground">{checkin.member.email}</div>
+                            </div>
+                          ) : 'Unknown'}
+                        </TableCell>
+                        <TableCell>{checkin.class?.name || 'Class'}</TableCell>
+                        <TableCell>{checkinDate ? checkinDate.toLocaleDateString() : '-'}</TableCell>
+                        <TableCell>{checkinDate ? checkinDate.toLocaleTimeString() : '-'}</TableCell>
+                        <TableCell>
+                          {checkin.checkin_time ? (
+                            <Badge variant="default">Checked In</Badge>
+                          ) : (
+                            <Badge variant="secondary">Not Checked In</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const qrCode = checkin.registration?.qr_code || checkin.registration?.qrCode || '';
+                              if (qrCode) {
+                                window.open(`/checkin/qr/${qrCode}`, '_blank');
+                              } else {
+                                toast({
+                                  title: "Error",
+                                  description: "QR code not found for this check-in",
+                                  variant: "destructive"
+                                });
+                              }
+                            }}
+                          >
+                            <Eye className="w-4 h-4 mr-1" /> View
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* QR Code Generation and Instructions (collapsible/secondary) */}
+      <details className="mt-8">
+        <summary className="cursor-pointer font-medium text-primary">Show QR Code Generator & Instructions</summary>
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-8">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <QrCode className="w-5 h-5" />
-                QR Code Check-in
+                QR Code Generator
               </CardTitle>
               <CardDescription>
-                Generate QR codes for members or manually process check-ins
+                Generate QR codes for members or test check-ins
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -129,11 +278,9 @@ export default function AdminCheckins() {
                     </Button>
                   </div>
                 </div>
-                
                 <div className="flex justify-center">
                   <QRGenerator value={testQRCode} size={150} />
                 </div>
-                
                 <div className="text-center">
                   <p className="text-sm text-muted-foreground">
                     Scan this QR code to test the check-in process
@@ -143,39 +290,8 @@ export default function AdminCheckins() {
                   </p>
                 </div>
               </div>
-
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">Or enter manually</span>
-                </div>
-              </div>
-
-              {/* Manual Check-in */}
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="manualQRCode">QR Code</Label>
-                  <Input
-                    id="manualQRCode"
-                    value={manualQRCode}
-                    onChange={(e) => setManualQRCode(e.target.value)}
-                    placeholder="Enter QR code to process check-in"
-                  />
-                </div>
-                <Button 
-                  onClick={handleManualCheckin} 
-                  className="w-full"
-                  disabled={!manualQRCode.trim()}
-                >
-                  Process Check-in
-                </Button>
-              </div>
             </CardContent>
           </Card>
-
-          {/* Instructions */}
           <Card>
             <CardHeader>
               <CardTitle>How it works</CardTitle>
@@ -198,66 +314,7 @@ export default function AdminCheckins() {
             </CardContent>
           </Card>
         </div>
-
-        {/* Today's Check-ins */}
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="w-5 h-5" />
-                Today's Check-ins
-              </CardTitle>
-              <CardDescription>
-                {formatDateTime(new Date(today))}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-                  <p className="text-muted-foreground mt-2">Loading check-ins...</p>
-                </div>
-              ) : mappedCheckins.length === 0 ? (
-                <div className="text-center py-8">
-                  <Clock className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">No check-ins today</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {mappedCheckins.map((checkin: any) => (
-                    <div key={checkin.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                          <span className="text-sm font-medium text-primary">
-                            {getInitials(checkin.member?.firstName || '', checkin.member?.lastName || '')}
-                          </span>
-                        </div>
-                        <div>
-                          <p className="font-medium">
-                            {checkin.member?.firstName || ''} {checkin.member?.lastName || ''}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            {checkin.class?.name || 'Class'}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <Badge variant="secondary" className="mb-1">
-                          <CheckCircle className="w-3 h-3 mr-1" />
-                          Checked in
-                        </Badge>
-                        <p className="text-xs text-muted-foreground">
-                          {formatDateTime(new Date(checkin.checkin_time))}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      </details>
     </div>
   );
 }
