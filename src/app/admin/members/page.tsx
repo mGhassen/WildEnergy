@@ -604,22 +604,31 @@ export default function MembersPage() {
                   <CardContent>
                     {(memberData.registrations || []).length > 0 ? (
                       <div className="space-y-4">
-                        {(memberData.registrations || []).map((registration: Registration) => (
+                        {(memberData.registrations || []).map((registration: any) => (
                           <div key={registration.id} className="border rounded-lg p-4">
                             <div className="flex justify-between items-start">
                               <div>
-                                <h4 className="font-medium">Class ID: {registration.course_id}</h4>
+                                <h4 className="font-medium">
+                                  {registration.course?.class?.name || `Class ID: ${registration.course_id}`}
+                                </h4>
                                 <p className="text-sm text-muted-foreground">
-                                  {formatDate(registration.registration_date || "")} 
-                                  {/* Assuming registration_date is the date of registration */}
+                                  {registration.course?.course_date ? 
+                                    new Date(registration.course.course_date).toLocaleDateString() : 
+                                    formatDate(registration.registration_date || "")
+                                  }
                                 </p>
+                                {registration.course?.start_time && registration.course?.end_time && (
+                                  <p className="text-sm text-muted-foreground">
+                                    {registration.course.start_time} - {registration.course.end_time}
+                                  </p>
+                                )}
                               </div>
                               <div className="text-right">
                                 <Badge variant={registration.status === 'confirmed' ? 'default' : 'secondary'}>
                                   {registration.status}
                                 </Badge>
                                 <p className="text-sm text-muted-foreground mt-1">
-                                  Registered: {formatDate(registration.registration_date || "")}
+                                  QR: {registration.qr_code?.substring(0, 8)}...
                                 </p>
                               </div>
                             </div>
@@ -646,14 +655,33 @@ export default function MembersPage() {
                   <CardContent>
                     {(memberData.checkins || []).length > 0 ? (
                       <div className="space-y-4">
-                        {(memberData.checkins || []).map((checkin: Checkin) => (
+                        {(memberData.checkins || []).map((checkin: any) => (
                           <div key={checkin.id} className="border rounded-lg p-4">
                             <div className="flex justify-between items-start">
                               <div>
-                                <h4 className="font-medium">Check-in ID: {checkin.id}</h4>
+                                <h4 className="font-medium">
+                                  {checkin.course?.class?.name || `Check-in #${checkin.id}`}
+                                </h4>
+                                <p className="text-sm text-muted-foreground">
+                                  {checkin.course?.course_date ? 
+                                    new Date(checkin.course.course_date).toLocaleDateString() : 
+                                    formatDateTime(checkin.checkin_time || "")
+                                  }
+                                </p>
+                                {checkin.course?.start_time && checkin.course?.end_time && (
+                                  <p className="text-sm text-muted-foreground">
+                                    {checkin.course.start_time} - {checkin.course.end_time}
+                                  </p>
+                                )}
                                 <p className="text-sm text-muted-foreground">
                                   Check-in: {formatDateTime(checkin.checkin_time || "")}
                                 </p>
+                              </div>
+                              <div className="text-right">
+                                <Badge variant="default" className="bg-green-100 text-green-800">
+                                  <CheckCircle className="w-3 h-3 mr-1" />
+                                  Checked In
+                                </Badge>
                               </div>
                             </div>
                           </div>
