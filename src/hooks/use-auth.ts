@@ -48,6 +48,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Fetch user session
   const fetchSession = async (token: string) => {
     try {
+      console.log('Fetching session with token:', token ? 'present' : 'missing');
+      
       const response = await fetch('/api/auth/session', {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -57,8 +59,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
         credentials: 'include'
       });
 
+      console.log('Session API response status:', response.status);
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        console.log('Session API error response:', errorData);
         
         // Handle specific status codes
         if (response.status === 403) {
@@ -72,6 +77,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
         
         if (response.status === 401) {
+          console.log('401 error - clearing tokens and redirecting to login');
           // Clear invalid token
           localStorage.removeItem('access_token');
           localStorage.removeItem('refresh_token');
@@ -87,6 +93,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
 
       const data = await response.json();
+      console.log('Session API success response:', data);
+      
       if (data.success && data.user) {
         setUser(data.user);
         return data.user;
@@ -148,6 +156,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       const data = await response.json();
       
+      console.log('Login API response:', data);
+      console.log('Session object:', data.session);
+      
       if (!response.ok || !data.success) {
         // Handle specific status codes
         if (response.status === 403) {
@@ -160,6 +171,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
 
       if (!data.session || !data.session.access_token) {
+        console.log('Session structure:', JSON.stringify(data.session, null, 2));
         throw new Error('No access token received');
       }
 
