@@ -7,16 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import dynamic from 'next/dynamic';
-
-// Disable SSR for this component to avoid Supabase client issues
-const RegisterComponent = dynamic(() => Promise.resolve(Register), { ssr: false });
 
 export default function RegisterPage() {
-  return <RegisterComponent />;
-}
-
-function Register() {
   const router = useRouter();
   const { toast } = useToast();
   const [email, setEmail] = useState('');
@@ -79,7 +71,6 @@ function Register() {
 
   const handleGoogleSignUp = async () => {
     if (!isClient) return;
-    
     setIsLoading(true);
     setError("");
 
@@ -88,11 +79,11 @@ function Register() {
       if (!supabase) {
         throw new Error('Supabase client not available');
       }
-      
+      const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}/auth/onhold` : undefined;
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/onhold`,
+          redirectTo,
         }
       });
 
