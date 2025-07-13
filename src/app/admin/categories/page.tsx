@@ -53,14 +53,30 @@ const categoryFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
   color: z.string().optional(),
-  isActive: z.boolean().default(true),
+  isActive: z.boolean(),
 });
 
 type CategoryFormData = z.infer<typeof categoryFormSchema>;
 
+interface Category {
+  id: number;
+  name: string;
+  description?: string;
+  color?: string;
+  is_active: boolean;
+  isActive: boolean;
+}
+
+interface Class {
+  id: number;
+  category_id: number;
+  categoryId: number;
+  name: string;
+}
+
 export default function AdminCategories() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<any>(null);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const { toast } = useToast();
 
   const { data: rawCategories = [], isLoading } = useQuery({
@@ -69,7 +85,7 @@ export default function AdminCategories() {
   });
 
   // Map is_active (from API) to isActive (for UI)
-  const categories = (rawCategories || []).map((cat: any) => ({
+  const categories = (rawCategories || []).map((cat: Category) => ({
     ...cat,
     isActive: cat.is_active,
   }));
@@ -78,13 +94,13 @@ export default function AdminCategories() {
     queryKey: ["/api/admin/classes"],
     queryFn: () => apiRequest("GET", "/api/admin/classes"),
   });
-  const classes = (rawClasses || []).map((cls: any) => ({
+  const classes = (rawClasses || []).map((cls: Class) => ({
     ...cls,
     categoryId: cls.category_id,
   }));
 
   const getClassCount = (categoryId: number) =>
-    classes.filter((cls) => cls.categoryId === categoryId).length;
+    classes.filter((cls: Class) => cls.categoryId === categoryId).length;
 
   const form = useForm<CategoryFormData>({
     resolver: zodResolver(categoryFormSchema),
@@ -110,7 +126,7 @@ export default function AdminCategories() {
         description: "Category created successfully",
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
         description: error.message || "Failed to create category",
@@ -132,7 +148,7 @@ export default function AdminCategories() {
         description: "Category updated successfully",
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
         description: error.message || "Failed to update category",
@@ -153,7 +169,7 @@ export default function AdminCategories() {
         description: "Category deleted successfully",
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
         description: error.message || "Failed to delete category",
@@ -170,7 +186,7 @@ export default function AdminCategories() {
     }
   };
 
-  const handleEdit = (category: any) => {
+  const handleEdit = (category: Category) => {
     setEditingCategory(category);
     form.reset({
       name: category.name,
@@ -351,7 +367,7 @@ export default function AdminCategories() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {categories.map((category: any) => (
+              {categories.map((category: Category) => (
                 <TableRow key={category.id}>
                   <TableCell className="font-medium">{category.name}</TableCell>
                   <TableCell>{category.description || "—"}</TableCell>
@@ -397,7 +413,7 @@ export default function AdminCategories() {
                           <AlertDialogHeader>
                             <AlertDialogTitle>Delete Category</AlertDialogTitle>
                             <AlertDialogDescription>
-                              Are you sure you want to delete "{category.name}"? This action cannot be undone.
+                              Are you sure you want to delete &quot;{category.name}&quot;? This action cannot be undone.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>

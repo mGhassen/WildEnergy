@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
       }
       return NextResponse.json(registrations);
     }
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to create registration' }, { status: 500 });
     }
     return NextResponse.json({ success: true, registration });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Failed to create registration' }, { status: 500 });
   }
 } 

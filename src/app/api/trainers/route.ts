@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch trainers' }, { status: 500 });
     }
     return NextResponse.json(trainers);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
     if (!adminCheck?.is_admin) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
-    const { firstName, lastName, email, phone, bio, status } = await req.json();
+    const { firstName, lastName, email, phone, status } = await req.json();
     if (!firstName || !lastName || !email) {
       return NextResponse.json({ error: 'First name, last name, and email are required' }, { status: 400 });
     }
@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
     // Create trainer profile (optional, if you have a trainers table)
     // ...
     return NextResponse.json({ success: true, trainer: user });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Failed to create trainer' }, { status: 500 });
   }
 }
@@ -140,7 +140,7 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to update trainer' }, { status: 500 });
     }
     return NextResponse.json({ success: true, trainer });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Failed to update trainer' }, { status: 500 });
   }
 }
@@ -185,7 +185,7 @@ export async function DELETE(req: NextRequest) {
       .eq('id', id);
     if (deleteError) throw deleteError;
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Failed to delete trainer' }, { status: 500 });
   }
 } 

@@ -30,7 +30,7 @@ export default function AdminPlans() {
 
   const { data: plans, isLoading } = useQuery({
     queryKey: ["/api/plans"],
-    queryFn: () => apiFetch("GET", "/api/plans"),
+    queryFn: () => apiFetch("/api/plans"),
   });
 
   const form = useForm<PlanFormData>({

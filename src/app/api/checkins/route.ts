@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabaseServer } from '@/lib/supabase';
 
 export async function GET(req: NextRequest) {
   try {
@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
     const token = authHeader.substring(7);
     
     // Verify the token
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    const { data: { user }, error: authError } = await supabaseServer.auth.getUser(token);
     if (authError || !user) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
     const date = searchParams.get('date');
 
     // Build the query
-    let query = supabase
+    let query = supabaseServer
       .from('checkins')
       .select(`
         *,
@@ -75,7 +75,6 @@ export async function GET(req: NextRequest) {
     const { data: checkins, error } = await query;
 
     if (error) {
-      console.error('Error fetching checkins:', error);
       return NextResponse.json({ error: 'Failed to fetch checkins' }, { status: 500 });
     }
 
@@ -125,8 +124,7 @@ export async function GET(req: NextRequest) {
     }));
 
     return NextResponse.json(formattedCheckins);
-  } catch (error) {
-    console.error('Error in checkins API:', error);
+  } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -146,7 +144,7 @@ export async function POST(req: NextRequest) {
     console.log('Processing QR code check-in:', qr_code);
 
     // Get registration by QR code
-    const { data: registration, error: regError } = await supabase
+    const { data: registration, error: regError } = await supabaseServer
       .from('class_registrations')
       .select('*')
       .eq('qr_code', qr_code)
@@ -160,7 +158,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Check if already checked in
-    const { data: existingCheckins } = await supabase
+    const { data: existingCheckins } = await supabaseServer
       .from('checkins')
       .select('*')
       .eq('registration_id', registration.id);
@@ -173,7 +171,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Get user and course details
-    const { data: user } = await supabase
+    const { data: user } = await supabaseServer
       .from('users')
       .select('*')
       .eq('id', registration.user_id)
@@ -186,7 +184,7 @@ export async function POST(req: NextRequest) {
       }, { status: 404 });
     }
 
-    const { data: course } = await supabase
+    const { data: course } = await supabaseServer
       .from('courses')
       .select('*')
       .eq('id', registration.course_id)
@@ -208,14 +206,13 @@ export async function POST(req: NextRequest) {
       checkin_time: new Date().toISOString()
     };
 
-    const { data: checkin, error: checkinError } = await supabase
+    const { data: checkin, error: checkinError } = await supabaseServer
       .from('checkins')
       .insert(checkinData)
       .select()
       .single();
 
     if (checkinError) {
-      console.error('Error creating checkin:', checkinError);
       return NextResponse.json({ 
         success: false, 
         message: 'Failed to create check-in' 
@@ -223,7 +220,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Update registration status to checked in
-    await supabase
+    await supabaseServer
       .from('class_registrations')
       .update({ notes: 'Checked in' })
       .eq('id', registration.id);
@@ -238,12 +235,10 @@ export async function POST(req: NextRequest) {
       }
     });
 
-  } catch (error) {
-    console.error("Error processing check-in:", error);
+  } catch {
     return NextResponse.json({ 
       success: false, 
-      message: 'Failed to process check-in',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      message: 'Failed to process check-in'
     }, { status: 500 });
   }
 } 

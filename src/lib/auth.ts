@@ -13,8 +13,10 @@ export function formatPhoneNumber(phone: string): string {
   return phone;
 }
 
-export function formatDate(date: string | Date): string {
+export function formatDate(date: string | undefined | Date): string {
+  if (!date) return '';
   const d = new Date(date);
+  if (isNaN(d.getTime())) return '';
   return d.toLocaleDateString('fr-FR', {
     day: '2-digit',
     month: '2-digit',
@@ -22,8 +24,10 @@ export function formatDate(date: string | Date): string {
   });
 }
 
-export function formatDateTime(date: string | Date): string {
+export function formatDateTime(date: string | undefined | Date): string {
+  if (!date) return '';
   const d = new Date(date);
+  if (isNaN(d.getTime())) return '';
   const dateStr = d.toLocaleDateString('fr-FR', {
     day: '2-digit',
     month: '2-digit',

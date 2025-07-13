@@ -45,18 +45,18 @@ export const insertPlanSchema = z.object({
   price: z.number().min(0, 'Price must be a positive number'),
   durationDays: z.number().min(1, 'Duration must be at least 1 day'),
   maxSessions: z.number().min(1, 'Must allow at least 1 session'),
-  isActive: z.boolean().default(true)
+  isActive: z.boolean(),
 });
 
 export const insertClassSchema = z.object({
   name: z.string().min(1, 'Class name is required'),
   description: z.string().optional(),
   categoryId: z.number().min(1, 'Category is required'),
-  difficulty: z.enum(['beginner', 'intermediate', 'advanced']).default('beginner'),
+  difficulty: z.enum(['beginner', 'intermediate', 'advanced']),
   durationMinutes: z.number().min(1, 'Duration must be at least 1 minute'),
   maxCapacity: z.number().min(1, 'Max capacity is required'),
   equipment: z.string().optional(),
-  isActive: z.boolean().default(true),
+  isActive: z.boolean(),
 });
 
 export const insertScheduleSchema = z.object({
@@ -101,10 +101,10 @@ export const insertCheckinSchema = z.object({
 export const insertSubscriptionSchema = z.object({
   userId: z.string().uuid(),
   planId: z.number().min(1, "Plan is required"),
-  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD'),
-  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD'),
+  startDate: z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/, 'Must be YYYY-MM-DD'),
+  endDate: z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/, 'Must be YYYY-MM-DD'),
   sessionsRemaining: z.number().min(0).default(0),
-  status: z.enum(['active', 'expired', 'cancelled']).default('active'),
+  status: z.enum(['active', 'cancelled', 'pending', 'expired']),
   notes: z.string().optional(),
 });
 

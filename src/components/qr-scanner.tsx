@@ -116,7 +116,6 @@ export default function QRScanner({ onScan, isProcessing = false }: QRScannerPro
         if (qrCode && qrCode.data) {
           console.log("✅ QR Code detected:", qrCode.data);
           console.log("QR Code location:", qrCode.location);
-          console.log("QR Code format:", qrCode.format);
           setStatus("🎯 QR Code Found!");
           setDebugInfo(`Found: ${qrCode.data.substring(0, 20)}...`);
           setIsDetecting(true);

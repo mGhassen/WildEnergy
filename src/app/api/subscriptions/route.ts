@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch subscriptions' }, { status: 500 });
     }
     return NextResponse.json(subscriptions);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to create subscription' }, { status: 500 });
     }
     return NextResponse.json({ success: true, subscription });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Failed to create subscription' }, { status: 500 });
   }
 }
@@ -106,7 +106,7 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to update subscription' }, { status: 500 });
     }
     return NextResponse.json({ success: true, subscription });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Failed to update subscription' }, { status: 500 });
   }
 }
@@ -140,7 +140,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to delete subscription' }, { status: 500 });
     }
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Failed to delete subscription' }, { status: 500 });
   }
 } 

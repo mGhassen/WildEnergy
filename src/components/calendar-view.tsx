@@ -192,7 +192,7 @@ export default function CalendarView({ schedules, registrations, onBookClass, su
                               {userRegistered ? (
                                 <div className="flex items-center text-green-600 text-sm font-medium">
                                   <CheckCircle className="w-4 h-4 mr-2" />
-                                  You're registered
+                                  You&apos;re registered
                                 </div>
                               ) : isPast ? (
                                 <div className="text-sm text-muted-foreground">

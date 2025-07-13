@@ -284,7 +284,7 @@ export default function MemberHistory() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-blue-600">{registeredClasses.length}</div>
-            <p className="text-sm text-muted-foreground">Classes you're registered for</p>
+            <p className="text-sm text-muted-foreground">Classes you&apos;re registered for</p>
           </CardContent>
         </Card>
         
@@ -294,7 +294,7 @@ export default function MemberHistory() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-red-600">{cancelledClasses.length}</div>
-            <p className="text-sm text-muted-foreground">Classes you've cancelled</p>
+            <p className="text-sm text-muted-foreground">Classes you&apos;ve cancelled</p>
           </CardContent>
         </Card>
 

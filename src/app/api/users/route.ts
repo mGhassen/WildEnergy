@@ -6,7 +6,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const { data: users, error } = await supabase
       .from('users')
@@ -17,9 +17,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
     }
 
-    const usersWithCredit = (users || []).map((u: any) => ({ ...u, credit: u.credit ?? 0 }));
+    const usersWithCredit = (users || []).map((u: Record<string, unknown>) => ({ ...u, credit: u.credit ?? 0 }));
     return NextResponse.json(usersWithCredit);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: userError.message || 'Failed to create user profile' }, { status: 500 });
     }
     return NextResponse.json(user, { status: 201 });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
   }
 }
@@ -104,7 +104,7 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
     const { id, firstName, lastName, email, phone, dateOfBirth, memberNotes, isAdmin, isMember, isTrainer, status } = await req.json();
-    const updates: any = {};
+    const updates: Record<string, unknown> = {};
     if (firstName !== undefined) updates.first_name = firstName;
     if (lastName !== undefined) updates.last_name = lastName;
     if (email !== undefined) updates.email = email;
@@ -125,7 +125,7 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to update user' }, { status: 500 });
     }
     return NextResponse.json(user);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Failed to update user' }, { status: 500 });
   }
 }
@@ -170,7 +170,7 @@ export async function DELETE(req: NextRequest) {
       .eq('id', id);
     if (deleteError) throw deleteError;
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Failed to delete user' }, { status: 500 });
   }
 } 

@@ -153,7 +153,7 @@ export default function MemberSubscriptions() {
               <CardContent className="p-12 text-center">
                 <h3 className="text-lg font-medium text-foreground mb-2">No Active Subscriptions</h3>
                 <p className="text-muted-foreground mb-4">
-                  You don't have any active subscriptions. Contact the gym to set up your membership.
+                  You don&apos;t have any active subscriptions. Contact the gym to set up your membership.
                 </p>
               </CardContent>
             </Card>
