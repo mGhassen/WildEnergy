@@ -79,10 +79,21 @@ export default function AdminCategories() {
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const { toast } = useToast();
 
-  const { data: rawCategories = [], isLoading } = useQuery({
-    queryKey: ["/api/admin/categories"],
-    queryFn: () => apiRequest("GET", "/api/admin/categories"),
+  const { data: rawCategories = [], isLoading, refetch } = useQuery({
+    queryKey: ["admin", "categories"],
+    queryFn: async () => {
+      console.log('Categories queryFn called');
+      const result = await apiRequest("GET", "/api/admin/categories");
+      console.log('Categories queryFn result:', result);
+      return result;
+    },
+    staleTime: 0, // Always consider data stale
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
+
+  console.log('Raw categories from API:', rawCategories);
+  console.log('Query loading state:', isLoading);
 
   // Map is_active (from API) to isActive (for UI)
   const categories = (rawCategories || []).map((cat: Category) => ({
@@ -90,8 +101,10 @@ export default function AdminCategories() {
     isActive: cat.is_active,
   }));
 
+  console.log('Transformed categories:', categories);
+
   const { data: rawClasses = [] } = useQuery({
-    queryKey: ["/api/admin/classes"],
+    queryKey: ["admin", "classes"],
     queryFn: () => apiRequest("GET", "/api/admin/classes"),
   });
   const classes = (rawClasses || []).map((cls: Class) => ({
@@ -114,11 +127,18 @@ export default function AdminCategories() {
 
   const createMutation = useMutation({
     mutationFn: async (data: CategoryFormData) => {
+      console.log('Creating category:', data);
       const response = await apiRequest("POST", "/api/admin/categories", data);
+      console.log('Create response:', response);
       return response;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/categories"] });
+    onSuccess: (data) => {
+      console.log('Create mutation succeeded, invalidating queries...');
+      // Clear all queries and refetch
+      queryClient.clear();
+      queryClient.invalidateQueries({ queryKey: ["admin", "categories"] });
+      // Force a refetch to ensure we get the latest data
+      setTimeout(() => refetch(), 100);
       setIsCreateDialogOpen(false);
       form.reset();
       toast({
@@ -127,6 +147,7 @@ export default function AdminCategories() {
       });
     },
     onError: (error: Error) => {
+      console.error('Create mutation error:', error);
       toast({
         title: "Error",
         description: error.message || "Failed to create category",
@@ -137,11 +158,18 @@ export default function AdminCategories() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Partial<CategoryFormData> }) => {
+      console.log('Updating category:', { id, data });
       const response = await apiRequest("PATCH", `/api/admin/categories/${id}`, data);
+      console.log('Update response:', response);
       return response;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/categories"] });
+    onSuccess: (data) => {
+      console.log('Update mutation succeeded, invalidating queries...');
+      // Clear all queries and refetch
+      queryClient.clear();
+      queryClient.invalidateQueries({ queryKey: ["admin", "categories"] });
+      // Force a refetch to ensure we get the latest data
+      setTimeout(() => refetch(), 100);
       setEditingCategory(null);
       toast({
         title: "Success",
@@ -149,6 +177,7 @@ export default function AdminCategories() {
       });
     },
     onError: (error: Error) => {
+      console.error('Update mutation error:', error);
       toast({
         title: "Error",
         description: error.message || "Failed to update category",
@@ -159,17 +188,25 @@ export default function AdminCategories() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
+      console.log('Deleting category:', id);
       const response = await apiRequest("DELETE", `/api/admin/categories/${id}`);
+      console.log('Delete response:', response);
       return response;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/categories"] });
+    onSuccess: (data) => {
+      console.log('Delete mutation succeeded, invalidating queries...');
+      // Clear all queries and refetch
+      queryClient.clear();
+      queryClient.invalidateQueries({ queryKey: ["admin", "categories"] });
+      // Force a refetch to ensure we get the latest data
+      setTimeout(() => refetch(), 100);
       toast({
         title: "Success",
         description: "Category deleted successfully",
       });
     },
     onError: (error: Error) => {
+      console.error('Delete mutation error:', error);
       toast({
         title: "Error",
         description: error.message || "Failed to delete category",
@@ -179,7 +216,9 @@ export default function AdminCategories() {
   });
 
   const onSubmit = (data: CategoryFormData) => {
+    console.log('Form submitted:', { data, editingCategory });
     if (editingCategory) {
+      console.log('Calling update mutation with:', { id: editingCategory.id, data });
       updateMutation.mutate({ id: editingCategory.id, data });
     } else {
       createMutation.mutate(data);
