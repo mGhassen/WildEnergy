@@ -84,20 +84,7 @@ export async function GET(
           start_time,
           end_time,
           class_id,
-          trainer_id,
-          classes (
-            id,
-            name,
-            trainers (
-              id,
-              user_id,
-              users (
-                id,
-                first_name,
-                last_name
-              )
-            )
-          )
+          trainer_id
         )
       `)
       .eq('qr_code', qrCode)
@@ -130,14 +117,42 @@ export async function GET(
 
     console.log('Check-in QR API - Registration found:', registration.id);
 
+    // Get class information
+    const { data: classInfo } = await supabaseServer
+      .from('classes')
+      .select('id, name')
+      .eq('id', registration.courses.class_id)
+      .single();
+
+    // Get trainer information
+    const { data: trainerInfo } = await supabaseServer
+      .from('trainers')
+      .select(`
+        id,
+        users (
+          id,
+          first_name,
+          last_name
+        )
+      `)
+      .eq('id', registration.courses.trainer_id)
+      .single();
+
     // Get registered and checked-in counts for this course
     const { data: courseRegistrations } = await supabaseServer
       .from('class_registrations')
-      .select('id, user_id, checkins(id)')
+      .select('id, user_id')
       .eq('course_id', registration.course_id);
 
     const registeredCount = courseRegistrations?.length || 0;
-    const checkedInCount = courseRegistrations?.filter(r => r.checkins && r.checkins.length > 0).length || 0;
+
+    // Get check-ins for this course
+    const { data: courseCheckins } = await supabaseServer
+      .from('checkins')
+      .select('registration_id')
+      .in('registration_id', courseRegistrations?.map(r => r.id) || []);
+
+    const checkedInCount = courseCheckins?.length || 0;
 
     // Check if this member is already checked in
     const { data: existingCheckin } = await supabaseServer
@@ -165,7 +180,7 @@ export async function GET(
     const { data: attendantMembers } = await supabaseServer
       .from('checkins')
       .select(`
-        class_registrations (
+        class_registrations!inner (
           users (
             id,
             first_name,
@@ -180,8 +195,8 @@ export async function GET(
       member: registration.users,
       course: {
         ...registration.courses,
-        class: registration.courses.classes,
-        trainer: registration.courses.classes.trainers
+        class: classInfo,
+        trainer: trainerInfo
       },
       registration: {
         id: registration.id,
