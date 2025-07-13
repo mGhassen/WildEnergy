@@ -1,14 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { supabaseServer } from '@/lib/supabase';
 
 export async function GET() {
   try {
-    const { data: users, error } = await supabase
+    const { data: users, error } = await supabaseServer
       .from('users')
       .select('*')
       .order('created_at', { ascending: false });
@@ -32,11 +27,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
     // Verify admin
-    const { data: { user: adminUser }, error: authError } = await supabase.auth.getUser(token);
+    const { data: { user: adminUser }, error: authError } = await supabaseServer.auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-    const { data: adminCheck } = await supabase
+    const { data: adminCheck } = await supabaseServer
       .from('users')
       .select('is_admin')
       .eq('auth_user_id', adminUser.id)
@@ -48,21 +43,21 @@ export async function POST(req: NextRequest) {
     let authUserId;
     if (!password) {
       // Use Supabase invite flow
-      const { data: inviteData, error: inviteError } = await supabase.auth.admin.inviteUserByEmail(email);
+      const { data: inviteData, error: inviteError } = await supabaseServer.auth.admin.inviteUserByEmail(email);
       if (inviteError || !inviteData?.user) {
         return NextResponse.json({ error: inviteError?.message || 'Failed to invite user' }, { status: 400 });
       }
       authUserId = inviteData.user.id;
     } else {
       // Create auth user with password
-      const { data: authData, error: signUpError } = await supabase.auth.signUp({ email, password });
+      const { data: authData, error: signUpError } = await supabaseServer.auth.signUp({ email, password });
       if (signUpError || !authData.user) {
         return NextResponse.json({ error: signUpError?.message || 'Failed to create user' }, { status: 400 });
       }
       authUserId = authData.user.id;
     }
     // Create user profile
-    const { data: user, error: userError } = await supabase
+    const { data: user, error: userError } = await supabaseServer
       .from('users')
       .insert([{
         auth_user_id: authUserId,
@@ -91,11 +86,11 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
     // Verify admin
-    const { data: { user: adminUser }, error: authError } = await supabase.auth.getUser(token);
+    const { data: { user: adminUser }, error: authError } = await supabaseServer.auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-    const { data: adminCheck } = await supabase
+    const { data: adminCheck } = await supabaseServer
       .from('users')
       .select('is_admin')
       .eq('auth_user_id', adminUser.id)
@@ -115,7 +110,7 @@ export async function PUT(req: NextRequest) {
     if (isMember !== undefined) updates.is_member = isMember;
     if (isTrainer !== undefined) updates.is_trainer = isTrainer;
     if (status !== undefined) updates.status = status;
-    const { data: user, error } = await supabase
+    const { data: user, error } = await supabaseServer
       .from('users')
       .update(updates)
       .eq('id', id)
@@ -138,11 +133,11 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
     // Verify admin
-    const { data: { user: adminUser }, error: authError } = await supabase.auth.getUser(token);
+    const { data: { user: adminUser }, error: authError } = await supabaseServer.auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-    const { data: adminCheck } = await supabase
+    const { data: adminCheck } = await supabaseServer
       .from('users')
       .select('is_admin')
       .eq('auth_user_id', adminUser.id)
@@ -152,7 +147,7 @@ export async function DELETE(req: NextRequest) {
     }
     const { id } = await req.json();
     // Get user to delete
-    const { data: userToDelete, error: userError } = await supabase
+    const { data: userToDelete, error: userError } = await supabaseServer
       .from('users')
       .select('auth_user_id')
       .eq('id', id)
@@ -160,11 +155,11 @@ export async function DELETE(req: NextRequest) {
     if (userError) throw userError;
     // First delete from auth
     if (userToDelete?.auth_user_id) {
-      const { error: deleteAuthError } = await supabase.auth.admin.deleteUser(userToDelete.auth_user_id);
+      const { error: deleteAuthError } = await supabaseServer.auth.admin.deleteUser(userToDelete.auth_user_id);
       if (deleteAuthError) throw deleteAuthError;
     }
     // Then delete from users table
-    const { error: deleteError } = await supabase
+    const { error: deleteError } = await supabaseServer
       .from('users')
       .delete()
       .eq('id', id);

@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { supabaseServer } from '@/lib/supabase';
 
 export async function GET(req: NextRequest) {
   try {
@@ -14,11 +9,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
     // Verify admin
-    const { data: { user: adminUser }, error: authError } = await supabase.auth.getUser(token);
+    const { data: { user: adminUser }, error: authError } = await supabaseServer.auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-    const { data: adminCheck } = await supabase
+    const { data: adminCheck } = await supabaseServer
       .from('users')
       .select('is_admin')
       .eq('auth_user_id', adminUser.id)
@@ -27,7 +22,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
     // Fetch all courses with related class and trainer data
-    const { data: courses, error } = await supabase
+    const { data: courses, error } = await supabaseServer
       .from('courses')
       .select(`
         *,
@@ -64,11 +59,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
     // Verify admin
-    const { data: { user: adminUser }, error: authError } = await supabase.auth.getUser(token);
+    const { data: { user: adminUser }, error: authError } = await supabaseServer.auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-    const { data: adminCheck } = await supabase
+    const { data: adminCheck } = await supabaseServer
       .from('users')
       .select('is_admin')
       .eq('auth_user_id', adminUser.id)
@@ -77,7 +72,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
     const courseData = await req.json();
-    const { data: course, error } = await supabase
+    const { data: course, error } = await supabaseServer
       .from('courses')
       .insert(courseData)
       .select('*')

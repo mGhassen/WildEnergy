@@ -1,15 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { supabaseServer } from '@/lib/supabase';
 
 async function getUserFromToken(token: string) {
-  const { data: { user }, error } = await supabase.auth.getUser(token);
+  const { data: { user }, error } = await supabaseServer.auth.getUser(token);
   if (error || !user) return null;
-  const { data: userProfile } = await supabase
+  const { data: userProfile } = await supabaseServer
     .from('users')
     .select('*')
     .eq('auth_user_id', user.id)
@@ -30,7 +25,7 @@ export async function GET(req: NextRequest) {
     }
     if (userProfile.is_admin) {
       // Admin: return all registrations
-      const { data: registrations, error } = await supabase
+      const { data: registrations, error } = await supabaseServer
         .from('class_registrations')
         .select('*');
       if (error) {
@@ -39,7 +34,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(registrations);
     } else {
       // User: return own registrations
-      const { data: registrations, error } = await supabase
+      const { data: registrations, error } = await supabaseServer
         .from('class_registrations')
         .select('*')
         .eq('user_id', userProfile.id);
@@ -69,7 +64,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Course ID is required' }, { status: 400 });
     }
     // Check if already registered
-    const { data: existing } = await supabase
+    const { data: existing } = await supabaseServer
       .from('class_registrations')
       .select('*')
       .eq('user_id', userProfile.id)
@@ -79,7 +74,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Already registered for this course' }, { status: 400 });
     }
     // Create registration
-    const { data: registration, error } = await supabase
+    const { data: registration, error } = await supabaseServer
       .from('class_registrations')
       .insert({ user_id: userProfile.id, course_id: courseId })
       .select('*')
