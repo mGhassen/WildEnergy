@@ -143,7 +143,7 @@ export class DatabaseStorage implements IStorage {
       is_admin: insertUser.isAdmin,
       is_member: insertUser.isMember,
       // status, subscriptionStatus, credit are all valid
-      status: insertUser.status || 'active',
+      status: insertUser.status || 'onhold',
       subscription_status: insertUser.subscriptionStatus || 'inactive',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
