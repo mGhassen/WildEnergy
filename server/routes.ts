@@ -103,12 +103,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .from('users')
         .insert([
           {
-            id: authData.user.id,
+            auth_user_id: authData.user.id,
             email,
             first_name: firstName,
             last_name: lastName || '',
             is_admin: false,
-            status: 'active',
+            is_member: true,
+            status: 'onhold',
+            subscription_status: 'inactive',
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           }
@@ -184,6 +186,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ 
           success: false,
           error: 'User account not found. Please sign up first.'
+        });
+      }
+
+      // Check user status
+      if (userProfile.status === 'onhold') {
+        return res.status(403).json({ 
+          success: false,
+          error: 'Account is pending approval. Please wait for admin approval.'
+        });
+      }
+
+      if (userProfile.status === 'suspended') {
+        return res.status(403).json({ 
+          success: false,
+          error: 'Account has been suspended. Please contact support.'
+        });
+      }
+
+      if (userProfile.status === 'inactive') {
+        return res.status(403).json({ 
+          success: false,
+          error: 'Account is inactive. Please contact support.'
         });
       }
 
@@ -269,6 +293,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
             success: false,
             error: 'User profile not found',
             userId: user.id
+          });
+        }
+
+        // Check user status - don't allow access for onhold, suspended, or inactive users
+        if (userData.status === 'onhold') {
+          return res.status(403).json({ 
+            success: false,
+            error: 'Account is pending approval. Please wait for admin approval.',
+            status: 'onhold'
+          });
+        }
+
+        if (userData.status === 'suspended') {
+          return res.status(403).json({ 
+            success: false,
+            error: 'Account has been suspended. Please contact support.',
+            status: 'suspended'
+          });
+        }
+
+        if (userData.status === 'inactive') {
+          return res.status(403).json({ 
+            success: false,
+            error: 'Account is inactive. Please contact support.',
+            status: 'inactive'
           });
         }
 

@@ -56,7 +56,32 @@ export function AuthProvider({ children }: AuthProviderProps) {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch session');
+        const errorData = await response.json().catch(() => ({}));
+        
+        // Handle specific status codes
+        if (response.status === 403) {
+          // User is onhold, suspended, or inactive
+          if (errorData.status === 'onhold') {
+            // Redirect to onhold page
+            setLocation('/auth/onhold');
+            return null;
+          }
+          throw new Error(errorData.error || 'Account access denied');
+        }
+        
+        if (response.status === 401) {
+          // Clear invalid token
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('refresh_token');
+          if (typeof window !== 'undefined') {
+            delete window.__authToken;
+          }
+          setUser(null);
+          setLocation('/login');
+          return null;
+        }
+        
+        throw new Error(errorData.error || 'Failed to fetch session');
       }
 
       const data = await response.json();
@@ -122,6 +147,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const data = await response.json();
       
       if (!response.ok) {
+        // Handle specific status codes
+        if (response.status === 403) {
+          // User is onhold, suspended, or inactive
+          if (data.status === 'onhold') {
+            // Redirect to onhold page
+            setLocation('/auth/onhold');
+            throw new Error(data.error || 'Account is pending approval');
+          }
+          throw new Error(data.error || 'Account access denied');
+        }
+        
         throw new Error(data.error || 'Login failed');
       }
 
