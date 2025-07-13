@@ -15,12 +15,13 @@ import {
   CreditCard, 
   QrCode, 
   LogOut,
-  Bell,
-  BookOpen,
   Menu,
   Sun,
   Moon,
-  User
+  User,
+  ChevronLeft,
+  ChevronRight,
+  BookOpen
 } from "lucide-react";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -34,6 +35,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -43,7 +45,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const pathname = usePathname();
   const { logout, user } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { theme, toggleTheme } = useTheme();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const { theme, setTheme } = useTheme();
   
   const handleLogout = async () => {
     try {
@@ -82,16 +85,19 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   return (
     <div className="flex h-screen bg-background">
       {/* Desktop Sidebar */}
-      <div className="hidden md:flex w-64 bg-card border-r border-border flex-col">
+      <div className={`hidden md:flex bg-card border-r border-border flex-col transition-all duration-300 ${
+        sidebarCollapsed ? 'w-16' : 'w-64'
+      }`}>
         <div className="p-6 border-b border-border">
           <Link href="/admin" className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
               <Dumbbell className="w-4 h-4 text-primary-foreground" />
             </div>
-            <div>
-              <h1 className="text-lg font-semibold text-foreground">Wild Energy</h1>
-              {/* <p className="text-sm text-muted-foreground">Management Portal</p> */}
-            </div>
+            {!sidebarCollapsed && (
+              <div>
+                <h1 className="text-lg font-semibold text-foreground">Wild Energy</h1>
+              </div>
+            )}
           </Link>
         </div>
 
@@ -106,47 +112,32 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:text-foreground hover:bg-accent"
                   }`}
+                  title={sidebarCollapsed ? item.name : undefined}
                 >
-                  <Icon className="w-5 h-5" />
-                  <span>{item.name}</span>
+                  <Icon className={sidebarCollapsed ? "w-7 h-7" : "w-5 h-5"} />
+                  {!sidebarCollapsed && <span>{item.name}</span>}
                 </div>
               </Link>
             );
           })}
         </nav>
-        {/* User menu at the very bottom of the sidebar */}
-        <div className="p-4 border-t border-border">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="flex items-center w-full gap-2 p-2 rounded hover:bg-muted transition-colors focus:outline-none">
-                <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-                  <span className="text-xs font-medium text-primary-foreground">
-                    {user?.firstName?.[0] || user?.email?.[0] || "U"}
-                  </span>
-                </div>
-                <span className="text-sm font-medium text-foreground truncate">
-                  {user?.firstName || user?.email || "User"}
-                </span>
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56">
-              <DropdownMenuLabel className="flex items-center gap-2">
-                <User className="w-4 h-4" />
-                {user?.firstName || user?.email || "User"}
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={toggleTheme} className="flex items-center gap-2 cursor-pointer">
-                {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-                <span>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 cursor-pointer text-destructive">
-                <LogOut className="w-4 h-4" />
-                <span>Logout</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+        {/* Collapse/expand button at the bottom of the sidebar */}
+        <div className="p-2 border-t border-border flex items-center justify-center">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {sidebarCollapsed ? (
+              <ChevronRight className="w-7 h-7" />
+            ) : (
+              <ChevronLeft className="w-7 h-7" />
+            )}
+          </Button>
         </div>
+        {/* No user info or menu at the bottom of the sidebar */}
       </div>
 
       {/* Main content */}
@@ -168,11 +159,34 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             {/* Spacer to push right content */}
             <div className="flex-1" />
 
-            {/* Desktop notification only (no user menu here) */}
+            {/* Desktop theme toggle and user menu */}
             <div className="hidden md:flex items-center space-x-4 ml-auto">
-              <Button variant="ghost" size="icon">
-                <Bell className="w-5 h-5" />
-              </Button>
+              {/* Theme toggle */}
+              <ToggleGroup type="single" value={theme} onValueChange={(value) => value && setTheme(value as "light" | "dark")}>
+                <ToggleGroupItem value="light" size="sm" className="px-3">
+                  <Sun className="w-4 h-4" />
+                </ToggleGroupItem>
+                <ToggleGroupItem value="dark" size="sm" className="px-3">
+                  <Moon className="w-4 h-4" />
+                </ToggleGroupItem>
+              </ToggleGroup>
+
+              {/* User dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <User className="w-5 h-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>{user?.firstName || user?.email || "Account"}</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout}>
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
             {/* Mobile menu button (right side on mobile only) */}
