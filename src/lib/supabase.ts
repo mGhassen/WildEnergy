@@ -1,11 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Use Next.js public environment variables for Supabase
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 // Server-side Supabase client (for API routes)
-export const supabaseServer = createClient(supabaseUrl, supabaseAnonKey);
+export const supabaseServer = createClient(supabaseUrl, supabaseServiceRoleKey);
 
 // Client-side Supabase client (for browser)
 let supabase: ReturnType<typeof createClient> | null = null;
