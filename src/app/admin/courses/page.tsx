@@ -93,8 +93,8 @@ export default function AdminCourses() {
 
   // Fetch classes for dropdown
   const { data: classes } = useQuery({
-    queryKey: ["/api/classes"],
-    queryFn: () => apiRequest("GET", "/api/classes"),
+    queryKey: ["/api/admin/classes"],
+    queryFn: () => apiRequest("GET", "/api/admin/classes"),
   });
 
   // Fetch trainers for dropdown
