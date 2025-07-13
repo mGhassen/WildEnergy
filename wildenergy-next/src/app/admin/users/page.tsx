@@ -67,12 +67,27 @@ const getStatusColor = (status: string) => {
     }
 };
 
+interface User {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  dateOfBirth?: string;
+  memberNotes?: string;
+  status: string;
+  isAdmin: boolean;
+  isMember: boolean;
+  isTrainer: boolean;
+  createdAt?: string;
+}
+
 export default function UsersPage() {
     const [searchTerm, setSearchTerm] = useState("");
     const [showCreateDialog, setShowCreateDialog] = useState(false);
-    const [editingUser, setEditingUser] = useState<any>(null);
-    const [viewingUser, setViewingUser] = useState<any>(null);
-    const [deletingUser, setDeletingUser] = useState<any>(null);
+    const [editingUser, setEditingUser] = useState<User | null>(null);
+    const [viewingUser, setViewingUser] = useState<User | null>(null);
+    const [deletingUser, setDeletingUser] = useState<User | null>(null);
     const queryClient = useQueryClient();
     const { toast } = useToast();
 
@@ -109,18 +124,18 @@ export default function UsersPage() {
             isMember: u.isMember || u.is_member || false,
             isTrainer: u.isTrainer || u.is_trainer || false,
             createdAt: u.createdAt || u.created_at,
-        }))
+        })) as User[]
         : [];
 
     // Filter users
-    const filteredUsers = Array.isArray(mappedUsers) ? mappedUsers.filter((user: any) =>
+    const filteredUsers = Array.isArray(mappedUsers) ? mappedUsers.filter((user: User) =>
         user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.lastName?.toLowerCase().includes(searchTerm.toLowerCase())
     ) : [];
 
     // Map fields to camelCase for role rendering
-    const usersMapped = filteredUsers.map((user: any) => ({
+    const usersMapped = filteredUsers.map((user: User) => ({
         ...user,
         isAdmin: user.isAdmin,
         isMember: user.isMember,
@@ -285,7 +300,7 @@ export default function UsersPage() {
     };
 
     // Open edit dialog
-    const openEditDialog = (user: any) => {
+    const openEditDialog = (user: User) => {
         setEditingUser(user);
         editForm.reset({
             firstName: user.firstName || "",
@@ -302,12 +317,12 @@ export default function UsersPage() {
     };
 
     // Open view dialog
-    const openViewDialog = (user: any) => {
+    const openViewDialog = (user: User) => {
         setViewingUser(user);
     };
 
     // Handle row click (but not on menu)
-    const handleRowClick = (event: React.MouseEvent, user: any) => {
+    const handleRowClick = (event: React.MouseEvent, user: User) => {
         // Don't trigger if clicking on dropdown menu or buttons
         const target = event.target as HTMLElement;
         if (target.closest('[role="menuitem"]') || target.closest('button')) {
@@ -530,7 +545,7 @@ export default function UsersPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {usersMapped.map((user: any) => (
+                            {usersMapped.map((user: User) => (
                                 <TableRow 
                                     key={user.id} 
                                     className="cursor-pointer hover:bg-muted/50"

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +11,7 @@ import { Dumbbell, AlertCircle } from "lucide-react";
 import { Link } from "wouter";
 
 export default function Register() {
-  const [, setLocation] = useLocation();
+  const router = useRouter();
   const [credentials, setCredentials] = useState({
     email: "",
     password: "",
@@ -45,7 +45,7 @@ export default function Register() {
       }
 
       // Redirect to login after successful registration
-      setLocation('/login?registered=true');
+      router.push('/login?registered=true');
     } catch (err) {
       console.error('Registration error:', err);
       setError(err instanceof Error ? err.message : 'Registration failed');

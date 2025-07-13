@@ -65,6 +65,7 @@ export default function AdminCategories() {
 
   const { data: rawCategories = [], isLoading } = useQuery({
     queryKey: ["/api/admin/categories"],
+    queryFn: () => apiRequest("GET", "/api/admin/categories"),
   });
 
   // Map is_active (from API) to isActive (for UI)
@@ -75,6 +76,7 @@ export default function AdminCategories() {
 
   const { data: rawClasses = [] } = useQuery({
     queryKey: ["/api/admin/classes"],
+    queryFn: () => apiRequest("GET", "/api/admin/classes"),
   });
   const classes = (rawClasses || []).map((cls: any) => ({
     ...cls,

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,10 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dumbbell, AlertCircle } from "lucide-react";
-import { Link } from "wouter";
 
 export default function Login() {
-  const [, setLocation] = useLocation();
+  const router = useRouter();
   const { user, login, isLoggingIn, loginError } = useAuth();
   const [credentials, setCredentials] = useState({ email: "", password: "" });
 
@@ -20,9 +20,9 @@ export default function Login() {
   useEffect(() => {
     if (user) {
       const redirectPath = user.role === 'admin' ? '/admin' : '/member';
-      setLocation(redirectPath);
+      router.push(redirectPath);
     }
-  }, [user, setLocation]);
+  }, [user, router]);
 
   if (user) {
     return null;

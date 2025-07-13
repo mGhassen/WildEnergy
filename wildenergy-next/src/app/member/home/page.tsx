@@ -10,33 +10,80 @@ import { Calendar, Clock, Users, MapPin, QrCode, ArrowRight, Sparkles } from "lu
 import { formatTime, getDayName, formatDate } from "@/lib/auth";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { apiFetch } from "@/lib/api";
+
+// Types for member home page
+interface Trainer {
+  id: number;
+  firstName: string;
+  lastName: string;
+}
+
+interface Class {
+  id: number;
+  name: string;
+  category?: {
+    name: string;
+  };
+}
+
+interface Schedule {
+  id: number;
+  dayOfWeek: number;
+  startTime: string;
+  endTime?: string; // Make optional if sometimes missing
+}
+
+interface Course {
+  id: number;
+  class: Class;
+  trainer: Trainer;
+  schedule: Schedule;
+  courseDate?: string;
+}
+
+interface Registration {
+  id: number;
+  course: Course;
+  status: string;
+  qrCode?: string; // Make optional if sometimes missing
+}
+
+interface Subscription {
+  id: number;
+  status: string;
+  sessions_remaining: number;
+}
 
 export default function MemberHome() {
   const { user } = useAuth();
-  const [selectedQR, setSelectedQR] = useState<any>(null);
+  const [selectedQR, setSelectedQR] = useState<Registration | null>(null);
   const [tab, setTab] = useState<'today' | 'upcoming'>('today');
 
   const { data: registrations, isLoading: registrationsLoading } = useQuery({
     queryKey: ["/api/registrations"],
+    queryFn: () => apiFetch("/api/registrations"),
   });
 
   const { data: schedules } = useQuery({
     queryKey: ["/api/schedules"],
+    queryFn: () => apiFetch("/api/schedules"),
   });
 
   const { data: subscriptions, isLoading: subscriptionsLoading } = useQuery({
     queryKey: ["/api/member/subscriptions"],
+    queryFn: () => apiFetch("/api/member/subscriptions"),
   });
 
   // Calculate insights
-  const activeSubs = Array.isArray(subscriptions) ? subscriptions.filter((s: any) => s.status === "active") : [];
-  const totalSessionsRemaining = activeSubs.reduce((sum: number, s: any) => sum + (s.sessions_remaining || 0), 0);
+  const activeSubs = Array.isArray(subscriptions) ? subscriptions.filter((s: Subscription) => s.status === "active") : [];
+  const totalSessionsRemaining = activeSubs.reduce((sum: number, s: Subscription) => sum + (s.sessions_remaining || 0), 0);
   const totalActive = activeSubs.length;
 
   const registrationsArr = Array.isArray(registrations) ? registrations : [];
   const schedulesArr = Array.isArray(schedules) ? schedules : [];
 
-  const upcomingRegistrations = registrationsArr.filter((reg: any) => {
+  const upcomingRegistrations = registrationsArr.filter((reg: Registration) => {
     const today = new Date();
     const classDate = new Date();
     classDate.setDate(today.getDate() + (reg.course?.schedule?.dayOfWeek - today.getDay() + 7) % 7);
@@ -44,7 +91,7 @@ export default function MemberHome() {
   });
 
   const todayDay = new Date().getDay();
-  const registrationsToday = registrationsArr.filter((reg: any) => 
+  const registrationsToday = registrationsArr.filter((reg: Registration) => 
     reg.course?.schedule?.dayOfWeek === todayDay && reg.status === 'registered'
   );
 
@@ -184,7 +231,7 @@ export default function MemberHome() {
               {tab === 'today' ? (
                 registrationsToday.length > 0 ? (
                   <div className="space-y-4">
-                    {registrationsToday.map((reg: any) => (
+                    {registrationsToday.map((reg: Registration) => (
                       <div key={reg.id} className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors">
                         <div className="flex items-center gap-4">
                           <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
@@ -197,7 +244,7 @@ export default function MemberHome() {
                             <div className="flex items-center gap-4 text-sm text-muted-foreground">
                               <span className="flex items-center gap-1">
                                 <Clock className="w-3 h-3" />
-                                {formatTime(reg.course?.schedule?.startTime)} - {formatTime(reg.course?.schedule?.endTime)}
+                                {formatTime(reg.course?.schedule?.startTime)} - {formatTime(reg.course?.schedule?.endTime || reg.course?.schedule?.startTime)}
                               </span>
                               <span className="flex items-center gap-1">
                                 <Users className="w-3 h-3" />
@@ -232,7 +279,7 @@ export default function MemberHome() {
               ) : (
                 upcomingRegistrations.length > 0 ? (
                   <div className="space-y-4">
-                    {upcomingRegistrations.map((registration: any) => (
+                    {upcomingRegistrations.map((registration: Registration) => (
                       <div key={registration.id} className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors">
                         <div className="flex items-center gap-4">
                           <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center">
@@ -364,9 +411,9 @@ export default function MemberHome() {
                 <p className="text-muted-foreground mb-4">
                   {selectedQR.course?.courseDate ? formatDate(selectedQR.course.courseDate) : getDayName(selectedQR.course?.schedule?.dayOfWeek)} • {formatTime(selectedQR.course?.schedule?.startTime)}
                 </p>
-                <QRGenerator value={selectedQR.qrCode} size={200} />
+                <QRGenerator value={selectedQR.qrCode || ''} size={200} />
                 <p className="text-sm text-muted-foreground mt-4">
-                  Code: {selectedQR.qrCode}
+                  Code: {selectedQR.qrCode || 'N/A'}
                 </p>
               </div>
             </div>

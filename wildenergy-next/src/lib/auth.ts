@@ -41,7 +41,8 @@ export function getDayName(dayOfWeek: number): string {
   return days[dayOfWeek] || '';
 }
 
-export function formatTime(time: string): string {
+export function formatTime(time: string | undefined): string {
+  if (!time) return '';
   const [hours, minutes] = time.split(':');
   return `${hours}:${minutes}`;
 }

@@ -76,11 +76,8 @@ export default function AdminCourses() {
   console.log('Courses query date range:', startOfMonth.toISOString().split('T')[0], endOfMonth.toISOString().split('T')[0]);
 
   const { data: courses, isLoading: coursesLoading, error: coursesError } = useQuery({
-    queryKey: ['courses'],
-    queryFn: async () => {
-      const response = await apiRequest('GET', `/api/courses?startDate=${startOfMonth.toISOString().split('T')[0]}&endDate=${endOfMonth.toISOString().split('T')[0]}`);
-      return response as Course[];
-    },
+    queryKey: ["/api/courses"],
+    queryFn: () => apiRequest("GET", "/api/courses"),
   });
 
   // Debug: Log loading and error state
@@ -91,37 +88,25 @@ export default function AdminCourses() {
 
   // Fetch classes for dropdown
   const { data: classes } = useQuery({
-    queryKey: ['classes'],
-    queryFn: async () => {
-      const response = await apiRequest('GET', '/api/classes');
-      return response as Class[];
-    },
+    queryKey: ["/api/classes"],
+    queryFn: () => apiRequest("GET", "/api/classes"),
   });
 
   // Fetch trainers for dropdown
   const { data: trainers } = useQuery({
-    queryKey: ['trainers'],
-    queryFn: async () => {
-      const response = await apiRequest('GET', '/api/trainers');
-      return response as Trainer[];
-    },
+    queryKey: ["/api/trainers"],
+    queryFn: () => apiRequest("GET", "/api/trainers"),
   });
 
   // Fetch registrations and checkins for the calendar
   const { data: registrations = [] } = useQuery({
-    queryKey: ['registrations'],
-    queryFn: async () => {
-      const response = await apiRequest('GET', '/api/registrations');
-      return response;
-    },
+    queryKey: ["/api/registrations"],
+    queryFn: () => apiRequest("GET", "/api/registrations"),
   });
 
   const { data: checkins = [] } = useQuery({
-    queryKey: ['checkins'],
-    queryFn: async () => {
-      const response = await apiRequest('GET', '/api/checkins');
-      return response;
-    },
+    queryKey: ["/api/checkins"],
+    queryFn: () => apiRequest("GET", "/api/checkins"),
   });
 
   // Update course mutation

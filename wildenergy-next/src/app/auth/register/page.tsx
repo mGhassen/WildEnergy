@@ -1,5 +1,7 @@
+"use client";
+
 import { useState } from 'react';
-import { useLocation } from 'wouter';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
 
 export default function Register() {
-  const [, setLocation] = useLocation();
+  const router = useRouter();
   const { toast } = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -55,7 +57,7 @@ export default function Register() {
         description: "Please wait for admin approval before signing in.",
       });
 
-      setLocation('/auth/onhold');
+      router.push('/auth/onhold');
     } catch (err: any) {
       setError(err.message || "An error occurred during registration");
     } finally {
@@ -216,7 +218,7 @@ export default function Register() {
           <p className="text-sm text-muted-foreground">
             Already have an account?{' '}
             <button
-              onClick={() => setLocation('/login')}
+              onClick={() => router.push('/login')}
               className="font-medium text-primary hover:underline"
             >
               Sign in

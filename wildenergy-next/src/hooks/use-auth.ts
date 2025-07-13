@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, createContext, useContext, ReactNode } from 'react';
-import { useLocation } from 'wouter';
+// Remove: import { useLocation } from 'wouter';
 
 export interface User {
   id: string;
@@ -43,7 +43,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [loginError, setLoginError] = useState<Error | null>(null);
-  const [, setLocation] = useLocation();
+  // Remove: const [, setLocation] = useLocation();
 
   // Fetch user session
   const fetchSession = async (token: string) => {
@@ -65,8 +65,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // User is onhold, suspended, or inactive
           if (errorData.status === 'onhold') {
             // Redirect to onhold page
-            setLocation('/auth/onhold');
-            return null;
+            // setLocation('/auth/onhold'); // This line is removed
+            throw new Error(errorData.error || 'Account access denied');
           }
           throw new Error(errorData.error || 'Account access denied');
         }
@@ -79,8 +79,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
             delete window.__authToken;
           }
           setUser(null);
-          setLocation('/login');
-          return null;
+          // setLocation('/login'); // This line is removed
+          throw new Error('Session expired or invalid token');
         }
         
         throw new Error(errorData.error || 'Failed to fetch session');
@@ -148,49 +148,37 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       const data = await response.json();
       
-      if (!response.ok) {
+      if (!response.ok || !data.success) {
         // Handle specific status codes
         if (response.status === 403) {
-          // User is onhold, suspended, or inactive
-          if (data.status === 'onhold') {
-            // Redirect to onhold page
-            setLocation('/auth/onhold');
+          if (data.error && data.error.toLowerCase().includes('onhold')) {
             throw new Error(data.error || 'Account is pending approval');
           }
           throw new Error(data.error || 'Account access denied');
         }
-        
         throw new Error(data.error || 'Login failed');
       }
 
-      if (!data.access_token) {
+      if (!data.session || !data.session.access_token) {
         throw new Error('No access token received');
       }
 
       // 2. Store tokens
-      localStorage.setItem('access_token', data.access_token);
-      if (data.refresh_token) {
-        localStorage.setItem('refresh_token', data.refresh_token);
+      localStorage.setItem('access_token', data.session.access_token);
+      if (data.session.refresh_token) {
+        localStorage.setItem('refresh_token', data.session.refresh_token);
       }
-      // Set token in window object for API utility
       if (typeof window !== 'undefined') {
-        window.__authToken = data.access_token;
+        window.__authToken = data.session.access_token;
       }
 
-      // 3. Get and set user data
-      const userData = await fetchSession(data.access_token);
-      
-      if (!userData) {
+      // 3. Set user data from response
+      if (!data.user) {
         throw new Error('Failed to load user profile');
       }
-
-      // 4. Set user state (App component will handle redirection)
-      setUser(userData);
-      
-      // Let the App component handle redirection based on user state
+      setUser(data.user);
     } catch (error) {
       console.error('Login error:', error);
-      // Clear any partial auth state
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
       if (typeof window !== 'undefined') {
@@ -231,7 +219,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setUser(null);
       
       // Redirect to login page
-      setLocation('/login');
+      // setLocation('/login'); // This line is removed
     }
   };
 

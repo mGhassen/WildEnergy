@@ -1,17 +1,20 @@
-import { Link, useLocation } from "wouter";
+"use client";
+
+import { usePathname } from 'next/navigation';
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Dumbbell, LayoutDashboard, Calendar, CreditCard, LogOut, History, Menu, X } from "lucide-react";
 import { getInitials } from "@/lib/auth";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import Link from "next/link";
 
 interface MemberLayoutProps {
   children: React.ReactNode;
 }
 
 export default function MemberLayout({ children }: MemberLayoutProps) {
-  const [location] = useLocation();
+  const pathname = usePathname();
   const { user, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
@@ -33,9 +36,9 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
 
   const isActive = (href: string) => {
     if (href === "/member") {
-      return location === "/member";
+      return pathname === "/member";
     }
-    return location.startsWith(href);
+    return pathname.startsWith(href);
   };
 
   const handleNavigationClick = () => {
