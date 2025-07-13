@@ -1,16 +1,24 @@
 "use client";
 
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/lib/supabase';
 import { Clock, CheckCircle } from 'lucide-react';
 
-export default function OnHold() {
+export default function OnHoldPage() {
   const router = useRouter();
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    if (isClient && supabase) {
+      await supabase.auth.signOut();
+    }
     router.push('/login');
   };
 
