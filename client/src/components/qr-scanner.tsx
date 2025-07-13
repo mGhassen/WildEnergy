@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Camera, QrCode, AlertCircle, X } from "lucide-react";
 import jsQR from "jsqr";
+import QRGenerator from "./qr-generator";
 
 interface QRScannerProps {
   onScan: (qrCode: string) => void;
@@ -17,11 +18,13 @@ export default function QRScanner({ onScan, isProcessing = false }: QRScannerPro
   const [manualCode, setManualCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string>("Ready");
+  const [debugInfo, setDebugInfo] = useState<string>("");
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastScanTimeRef = useRef<number>(0);
 
   // Clean up function
   const cleanup = () => {
@@ -45,6 +48,7 @@ export default function QRScanner({ onScan, isProcessing = false }: QRScannerPro
     
     setIsActive(false);
     setStatus("Ready");
+    setDebugInfo("");
   };
 
   // QR scanning function
@@ -61,6 +65,12 @@ export default function QRScanner({ onScan, isProcessing = false }: QRScannerPro
       return;
     }
 
+    // Prevent multiple scans of the same QR code
+    const now = Date.now();
+    if (now - lastScanTimeRef.current < 2000) {
+      return;
+    }
+
     if (video.readyState === video.HAVE_ENOUGH_DATA) {
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
@@ -68,14 +78,36 @@ export default function QRScanner({ onScan, isProcessing = false }: QRScannerPro
 
       try {
         const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-        const qrCode = jsQR(imageData.data, imageData.width, imageData.height, {
+        
+        // Update debug info
+        setDebugInfo(`Scanning: ${canvas.width}x${canvas.height} | Data length: ${imageData.data.length}`);
+        
+        // Try different scanning approaches
+        let qrCode = jsQR(imageData.data, imageData.width, imageData.height, {
           inversionAttempts: "attemptBoth"
         });
+        
+        // If no QR found, try with different settings
+        if (!qrCode) {
+          // Try with different inversion settings
+          qrCode = jsQR(imageData.data, imageData.width, imageData.height, {
+            inversionAttempts: "dontInvert"
+          });
+        }
+        
+        if (!qrCode) {
+          // Try with different inversion settings
+          qrCode = jsQR(imageData.data, imageData.width, imageData.height, {
+            inversionAttempts: "onlyInvert"
+          });
+        }
         
         if (qrCode && qrCode.data) {
           console.log("✅ QR Code detected:", qrCode.data);
           console.log("QR Code location:", qrCode.location);
+          console.log("QR Code format:", qrCode.format);
           setStatus("🎯 QR Code Found!");
+          setDebugInfo(`Found: ${qrCode.data.substring(0, 20)}...`);
           
           // Flash the border green to indicate detection
           const videoContainer = document.querySelector('.qr-scanner-border');
@@ -85,6 +117,9 @@ export default function QRScanner({ onScan, isProcessing = false }: QRScannerPro
               videoContainer.classList.remove('qr-detected');
             }, 500);
           }
+          
+          // Prevent multiple scans
+          lastScanTimeRef.current = now;
           
           // Stop scanning and process
           cleanup();
@@ -99,6 +134,7 @@ export default function QRScanner({ onScan, isProcessing = false }: QRScannerPro
       } catch (err) {
         console.error("QR scan error:", err);
         setStatus("⚠️ Scan error");
+        setDebugInfo(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
       }
     } else {
       setStatus("📷 Loading camera...");
@@ -110,6 +146,7 @@ export default function QRScanner({ onScan, isProcessing = false }: QRScannerPro
     try {
       setError(null);
       setStatus("Starting camera...");
+      setDebugInfo("Initializing...");
 
       // Clean up any existing streams
       cleanup();
@@ -123,8 +160,9 @@ export default function QRScanner({ onScan, isProcessing = false }: QRScannerPro
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { 
           facingMode: { ideal: "environment" },
-          width: { ideal: 640 },
-          height: { ideal: 480 }
+          width: { ideal: 1280, min: 640 },
+          height: { ideal: 720, min: 480 },
+          frameRate: { ideal: 30 }
         }
       });
 
@@ -145,6 +183,7 @@ export default function QRScanner({ onScan, isProcessing = false }: QRScannerPro
         const onLoadedData = () => {
           video.removeEventListener('loadeddata', onLoadedData);
           console.log("Video ready:", video.videoWidth, "x", video.videoHeight);
+          setDebugInfo(`Camera: ${video.videoWidth}x${video.videoHeight}`);
           resolve(true);
         };
         
@@ -162,11 +201,12 @@ export default function QRScanner({ onScan, isProcessing = false }: QRScannerPro
       setStatus("Camera ready");
       
       // Start scanning with faster interval for better detection
-      intervalRef.current = setInterval(scanQRCode, 50);
+      intervalRef.current = setInterval(scanQRCode, 100);
       
     } catch (err: any) {
       console.error("Camera error:", err);
       setIsActive(false);
+      setDebugInfo(`Camera error: ${err.message}`);
       
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
@@ -276,6 +316,13 @@ export default function QRScanner({ onScan, isProcessing = false }: QRScannerPro
                 <div className="absolute top-2 left-2 bg-green-500 text-white px-3 py-1 rounded-md text-sm font-medium shadow-lg">
                   {status}
                 </div>
+                
+                {/* Debug info */}
+                {debugInfo && (
+                  <div className="absolute bottom-2 left-2 bg-black bg-opacity-75 text-white px-2 py-1 rounded text-xs">
+                    {debugInfo}
+                  </div>
+                )}
               </div>
               
               <div className="text-center">
@@ -294,6 +341,17 @@ export default function QRScanner({ onScan, isProcessing = false }: QRScannerPro
           </div>
           <div className="relative flex justify-center text-xs uppercase">
             <span className="bg-white px-2 text-gray-500">Or enter manually</span>
+          </div>
+        </div>
+
+        {/* Test QR Code for debugging */}
+        <div className="p-4 bg-gray-50 rounded-lg">
+          <h4 className="text-sm font-medium mb-2">Test QR Code</h4>
+          <p className="text-xs text-gray-600 mb-3">
+            Use this QR code to test the scanner: <code className="bg-white px-1 rounded">QR-TEST-123456</code>
+          </p>
+          <div className="flex justify-center">
+            <QRGenerator value="QR-TEST-123456" size={100} />
           </div>
         </div>
 
