@@ -22,6 +22,17 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { Sun, Moon, User as UserIcon, LogOut } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
+import { useTheme } from "@/components/theme-provider";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
@@ -259,6 +270,7 @@ const Sidebar = React.forwardRef<
             className="flex h-full w-full flex-col bg-sidebar group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=floating]:shadow"
           >
             {children}
+            <SidebarUserMenu />
           </div>
         </div>
       </div>
@@ -742,6 +754,45 @@ const SidebarMenuSubButton = React.forwardRef<
   )
 })
 SidebarMenuSubButton.displayName = "SidebarMenuSubButton"
+
+function SidebarUserMenu() {
+  const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
+  return (
+    <div className="p-4 border-t border-border mt-auto">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className="flex items-center w-full gap-2 p-2 rounded hover:bg-muted transition-colors focus:outline-none">
+            <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+              <span className="text-xs font-medium text-primary-foreground">
+                {user?.firstName?.[0] || user?.email?.[0] || "U"}
+              </span>
+            </div>
+            <span className="text-sm font-medium text-foreground truncate">
+              {user?.firstName || user?.email || "User"}
+            </span>
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-56">
+          <DropdownMenuLabel className="flex items-center gap-2">
+            <UserIcon className="w-4 h-4" />
+            {user?.firstName || user?.email || "User"}
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={toggleTheme} className="flex items-center gap-2 cursor-pointer">
+            {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            <span>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={logout} className="flex items-center gap-2 cursor-pointer text-destructive">
+            <LogOut className="w-4 h-4" />
+            <span>Logout</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
 
 export {
   Sidebar,

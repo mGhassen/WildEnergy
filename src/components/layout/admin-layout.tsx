@@ -17,11 +17,23 @@ import {
   LogOut,
   Bell,
   BookOpen,
-  Menu
+  Menu,
+  Sun,
+  Moon,
+  User
 } from "lucide-react";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import Link from "next/link";
+import { useTheme } from "@/components/theme-provider";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -29,8 +41,9 @@ interface AdminLayoutProps {
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const pathname = usePathname();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { theme, toggleTheme } = useTheme();
   
   const handleLogout = async () => {
     try {
@@ -101,16 +114,38 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             );
           })}
         </nav>
-
+        {/* User menu at the very bottom of the sidebar */}
         <div className="p-4 border-t border-border">
-          <Button
-            variant="ghost"
-            className="w-full justify-start"
-            onClick={handleLogout}
-          >
-            <LogOut className="w-4 h-4 mr-3" />
-            Logout
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex items-center w-full gap-2 p-2 rounded hover:bg-muted transition-colors focus:outline-none">
+                <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+                  <span className="text-xs font-medium text-primary-foreground">
+                    {user?.firstName?.[0] || user?.email?.[0] || "U"}
+                  </span>
+                </div>
+                <span className="text-sm font-medium text-foreground truncate">
+                  {user?.firstName || user?.email || "User"}
+                </span>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56">
+              <DropdownMenuLabel className="flex items-center gap-2">
+                <User className="w-4 h-4" />
+                {user?.firstName || user?.email || "User"}
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={toggleTheme} className="flex items-center gap-2 cursor-pointer">
+                {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                <span>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 cursor-pointer text-destructive">
+                <LogOut className="w-4 h-4" />
+                <span>Logout</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -133,17 +168,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             {/* Spacer to push right content */}
             <div className="flex-1" />
 
-            {/* Desktop notification and user info (right side) */}
+            {/* Desktop notification only (no user menu here) */}
             <div className="hidden md:flex items-center space-x-4 ml-auto">
               <Button variant="ghost" size="icon">
                 <Bell className="w-5 h-5" />
               </Button>
-              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-                  <span className="text-xs font-medium text-primary-foreground">A</span>
-                </div>
-                <span className="text-sm font-medium text-foreground">Admin User</span>
-              </div>
             </div>
 
             {/* Mobile menu button (right side on mobile only) */}
