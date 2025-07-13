@@ -113,20 +113,24 @@ export default function AdminSubscriptions() {
   const { toast } = useToast();
 
   // Queries
-  const { data: subscriptions = [], isLoading } = useQuery<Subscription[]>({
+  const { data: subscriptions } = useQuery({
     queryKey: ["/api/subscriptions"],
+    queryFn: () => apiRequest("GET", "/api/subscriptions"),
   });
 
   const { data: members = [] } = useQuery<Member[]>({
     queryKey: ["/api/members"],
+    queryFn: () => apiRequest("GET", "/api/members"),
   });
 
   const { data: plans = [] } = useQuery<Plan[]>({
     queryKey: ["/api/plans"],
+    queryFn: () => apiRequest("GET", "/api/plans"),
   });
 
   const { data: payments = [] } = useQuery<Payment[]>({
     queryKey: ["/api/payments"],
+    queryFn: () => apiRequest("GET", "/api/payments"),
   });
 
   // Map members from snake_case to camelCase for UI
@@ -487,7 +491,7 @@ export default function AdminSubscriptions() {
   };
 
   // Loading and empty states
-  const isLoadingAny = isLoading || !mappedMembers.length || !plans.length;
+  const isLoadingAny = !subscriptions || !mappedMembers.length || !plans.length;
 
   if (isLoadingAny) {
     return (

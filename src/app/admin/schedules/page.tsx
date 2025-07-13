@@ -97,8 +97,8 @@ export default function AdminSchedules() {
   });
 
   const { data: classes } = useQuery({
-    queryKey: ["/api/classes"],
-    queryFn: () => apiRequest("GET", "/api/classes"),
+    queryKey: ["/api/admin/classes"],
+    queryFn: () => apiRequest("GET", "/api/admin/classes"),
   });
 
   const { data: plans = [] } = useQuery({
