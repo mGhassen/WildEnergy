@@ -180,14 +180,27 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateUser(id: string, updates: Partial<InsertUser>): Promise<User> {
+    // Convert camelCase to snake_case and filter out invalid values
+    const dbUpdates: any = {};
+    
+    if (updates.email !== undefined && updates.email !== '') dbUpdates.email = updates.email;
+    if (updates.firstName !== undefined && updates.firstName !== '') dbUpdates.first_name = updates.firstName;
+    if (updates.lastName !== undefined && updates.lastName !== '') dbUpdates.last_name = updates.lastName;
+    if (updates.phone !== undefined) dbUpdates.phone = updates.phone;
+    if (updates.dateOfBirth !== undefined && updates.dateOfBirth) dbUpdates.date_of_birth = updates.dateOfBirth;
+    if (updates.isAdmin !== undefined) dbUpdates.is_admin = updates.isAdmin;
+    if (updates.isMember !== undefined) dbUpdates.is_member = updates.isMember;
+    if (updates.status !== undefined) dbUpdates.status = updates.status;
+    if (updates.subscriptionStatus !== undefined && updates.subscriptionStatus !== '') dbUpdates.subscription_status = updates.subscriptionStatus;
+    if (updates.profileImageUrl !== undefined) dbUpdates.profile_image_url = updates.profileImageUrl;
+    if (updates.memberNotes !== undefined) dbUpdates.member_notes = updates.memberNotes;
+    if (updates.credit !== undefined) dbUpdates.credit = updates.credit;
+    
+    dbUpdates.updated_at = new Date().toISOString();
+
     const { data: user, error } = await supabase
       .from('users')
-      .update({
-        ...updates,
-        // Add credit if present
-        ...(updates.credit !== undefined ? { credit: updates.credit } : {}),
-        updated_at: new Date().toISOString()
-      })
+      .update(dbUpdates)
       .eq('id', id)
       .select()
       .single();
@@ -201,12 +214,27 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateUserByEmail(email: string, updates: Partial<InsertUser>): Promise<User> {
+    // Convert camelCase to snake_case and filter out invalid values
+    const dbUpdates: any = {};
+    
+    if (updates.email !== undefined && updates.email !== '') dbUpdates.email = updates.email;
+    if (updates.firstName !== undefined && updates.firstName !== '') dbUpdates.first_name = updates.firstName;
+    if (updates.lastName !== undefined && updates.lastName !== '') dbUpdates.last_name = updates.lastName;
+    if (updates.phone !== undefined) dbUpdates.phone = updates.phone;
+    if (updates.dateOfBirth !== undefined && updates.dateOfBirth) dbUpdates.date_of_birth = updates.dateOfBirth;
+    if (updates.isAdmin !== undefined) dbUpdates.is_admin = updates.isAdmin;
+    if (updates.isMember !== undefined) dbUpdates.is_member = updates.isMember;
+    if (updates.status !== undefined) dbUpdates.status = updates.status;
+    if (updates.subscriptionStatus !== undefined && updates.subscriptionStatus !== '') dbUpdates.subscription_status = updates.subscriptionStatus;
+    if (updates.profileImageUrl !== undefined) dbUpdates.profile_image_url = updates.profileImageUrl;
+    if (updates.memberNotes !== undefined) dbUpdates.member_notes = updates.memberNotes;
+    if (updates.credit !== undefined) dbUpdates.credit = updates.credit;
+    
+    dbUpdates.updated_at = new Date().toISOString();
+
     const { data: user, error } = await supabase
       .from('users')
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString()
-      })
+      .update(dbUpdates)
       .eq('email', email)
       .select()
       .single();
@@ -1234,13 +1262,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createSubscription(subscription: InsertSubscription): Promise<Subscription> {
+    // Convert camelCase properties to snake_case for Supabase
+    const subscriptionData = {
+      user_id: subscription.userId,
+      plan_id: subscription.planId,
+      start_date: subscription.startDate,
+      end_date: subscription.endDate,
+      sessions_remaining: subscription.sessionsRemaining,
+      status: subscription.status,
+      notes: subscription.notes,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
     const { data: newSubscription, error } = await supabase
       .from('subscriptions')
-      .insert({
-        ...subscription,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
+      .insert(subscriptionData)
       .select()
       .single();
 
@@ -1383,13 +1420,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createPayment(payment: InsertPayment): Promise<Payment> {
+    // Convert camelCase properties to snake_case for Supabase
+    const paymentData = {
+      subscription_id: payment.subscriptionId,
+      user_id: payment.userId,
+      amount: payment.amount,
+      payment_type: payment.paymentType,
+      payment_status: payment.paymentStatus,
+      transaction_id: payment.transactionId,
+      payment_date: payment.paymentDate || new Date().toISOString(),
+      due_date: payment.dueDate,
+      discount: payment.discount,
+      notes: payment.notes,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
     const { data: newPayment, error } = await supabase
       .from('payments')
-      .insert({
-        ...payment,
-        payment_date: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
+      .insert(paymentData)
       .select()
       .single();
 
@@ -1402,12 +1451,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updatePayment(id: number, updates: Partial<InsertPayment>): Promise<Payment> {
+    // Convert camelCase properties to snake_case for Supabase
+    const dbUpdates: any = {};
+    if (updates.subscriptionId !== undefined) dbUpdates.subscription_id = updates.subscriptionId;
+    if (updates.userId !== undefined) dbUpdates.user_id = updates.userId;
+    if (updates.amount !== undefined) dbUpdates.amount = updates.amount;
+    if (updates.paymentType !== undefined) dbUpdates.payment_type = updates.paymentType;
+    if (updates.paymentStatus !== undefined) dbUpdates.payment_status = updates.paymentStatus;
+    if (updates.transactionId !== undefined) dbUpdates.transaction_id = updates.transactionId;
+    if (updates.paymentDate !== undefined) dbUpdates.payment_date = updates.paymentDate;
+    if (updates.dueDate !== undefined) dbUpdates.due_date = updates.dueDate;
+    if (updates.discount !== undefined) dbUpdates.discount = updates.discount;
+    if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
+    dbUpdates.updated_at = new Date().toISOString();
+
     const { data: payment, error } = await supabase
       .from('payments')
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString()
-      })
+      .update(dbUpdates)
       .eq('id', id)
       .select()
       .single();
@@ -1526,9 +1586,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateClassRegistration(id: number, updates: Partial<InsertClassRegistration>): Promise<ClassRegistration> {
+    // Convert camelCase properties to snake_case for Supabase
+    const dbUpdates: any = {};
+    if (updates.userId !== undefined) dbUpdates.user_id = updates.userId;
+    if (updates.courseId !== undefined) dbUpdates.course_id = updates.courseId;
+    if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
+
     const { data: registration, error } = await supabase
       .from('class_registrations')
-      .update(updates)
+      .update(dbUpdates)
       .eq('id', id)
       .select()
       .single();
@@ -1580,7 +1646,15 @@ export class DatabaseStorage implements IStorage {
       throw new Error(error.message || 'Failed to fetch checkins');
     }
 
-    return checkins || [];
+    // Convert snake_case to camelCase for consistency with TypeScript types
+    return (checkins || []).map(checkin => ({
+      id: checkin.id,
+      userId: checkin.user_id,
+      registrationId: checkin.registration_id,
+      checkinTime: checkin.checkin_time,
+      sessionConsumed: checkin.session_consumed,
+      notes: checkin.notes
+    })) as Checkin[];
   }
 
   async getUserCheckins(userId: string): Promise<Checkin[]> {
@@ -1595,16 +1669,30 @@ export class DatabaseStorage implements IStorage {
       throw new Error(error.message || 'Failed to fetch user checkins');
     }
 
-    return checkins || [];
+    // Convert snake_case to camelCase for consistency with TypeScript types
+    return (checkins || []).map(checkin => ({
+      id: checkin.id,
+      userId: checkin.user_id,
+      registrationId: checkin.registration_id,
+      checkinTime: checkin.checkin_time,
+      sessionConsumed: checkin.session_consumed,
+      notes: checkin.notes
+    })) as Checkin[];
   }
 
   async createCheckin(checkin: InsertCheckin): Promise<Checkin> {
+    // Convert camelCase properties to snake_case for Supabase
+    const checkinData = {
+      user_id: checkin.userId,
+      registration_id: checkin.registrationId,
+      session_consumed: checkin.sessionConsumed,
+      notes: checkin.notes,
+      checkin_time: new Date().toISOString()
+    };
+
     const { data: newCheckin, error } = await supabase
       .from('checkins')
-      .insert({
-        ...checkin,
-        checkin_time: new Date().toISOString()
-      })
+      .insert(checkinData)
       .select()
       .single();
 

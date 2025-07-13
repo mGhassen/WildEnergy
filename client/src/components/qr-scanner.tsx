@@ -19,6 +19,7 @@ export default function QRScanner({ onScan, isProcessing = false }: QRScannerPro
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string>("Ready");
   const [debugInfo, setDebugInfo] = useState<string>("");
+  const [isDetecting, setIsDetecting] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -47,6 +48,7 @@ export default function QRScanner({ onScan, isProcessing = false }: QRScannerPro
     }
     
     setIsActive(false);
+    setIsDetecting(false);
     setStatus("Ready");
     setDebugInfo("");
   };
@@ -62,6 +64,7 @@ export default function QRScanner({ onScan, isProcessing = false }: QRScannerPro
 
     const context = canvas.getContext("2d");
     if (!context) {
+      console.error("Failed to get canvas context");
       return;
     }
 
@@ -79,8 +82,16 @@ export default function QRScanner({ onScan, isProcessing = false }: QRScannerPro
       try {
         const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
         
-        // Update debug info
-        setDebugInfo(`Scanning: ${canvas.width}x${canvas.height} | Data length: ${imageData.data.length}`);
+        // Update debug info with more details
+        setDebugInfo(`Scanning: ${canvas.width}x${canvas.height} | Data: ${imageData.data.length} bytes | Time: ${new Date().toLocaleTimeString()}`);
+        
+        // Log first few pixels to check if we're getting image data
+        if (imageData.data.length > 0) {
+          const r = imageData.data[0];
+          const g = imageData.data[1];
+          const b = imageData.data[2];
+          console.log(`Frame data: ${canvas.width}x${canvas.height}, first pixel: RGB(${r},${g},${b})`);
+        }
         
         // Try different scanning approaches
         let qrCode = jsQR(imageData.data, imageData.width, imageData.height, {
@@ -89,14 +100,14 @@ export default function QRScanner({ onScan, isProcessing = false }: QRScannerPro
         
         // If no QR found, try with different settings
         if (!qrCode) {
-          // Try with different inversion settings
+          console.log("No QR found with attemptBoth, trying dontInvert...");
           qrCode = jsQR(imageData.data, imageData.width, imageData.height, {
             inversionAttempts: "dontInvert"
           });
         }
         
         if (!qrCode) {
-          // Try with different inversion settings
+          console.log("No QR found with dontInvert, trying onlyInvert...");
           qrCode = jsQR(imageData.data, imageData.width, imageData.height, {
             inversionAttempts: "onlyInvert"
           });
@@ -108,28 +119,23 @@ export default function QRScanner({ onScan, isProcessing = false }: QRScannerPro
           console.log("QR Code format:", qrCode.format);
           setStatus("🎯 QR Code Found!");
           setDebugInfo(`Found: ${qrCode.data.substring(0, 20)}...`);
-          
-          // Flash the border green to indicate detection
-          const videoContainer = document.querySelector('.qr-scanner-border');
-          if (videoContainer) {
-            videoContainer.classList.add('qr-detected');
-            setTimeout(() => {
-              videoContainer.classList.remove('qr-detected');
-            }, 500);
-          }
+          setIsDetecting(true);
           
           // Prevent multiple scans
           lastScanTimeRef.current = now;
           
-          // Stop scanning and process
-          cleanup();
-          onScan(qrCode.data);
+          // Stop scanning and process after a brief delay to show detection
+          setTimeout(() => {
+            cleanup();
+            onScan(qrCode.data);
+          }, 500);
         } else {
           // Log scanning attempt for debugging
           if (canvas.width > 0 && canvas.height > 0) {
             console.log("Scanning frame:", canvas.width + "x" + canvas.height, "No QR found");
           }
           setStatus("🔍 Scanning...");
+          setIsDetecting(false);
         }
       } catch (err) {
         console.error("QR scan error:", err);
@@ -138,6 +144,7 @@ export default function QRScanner({ onScan, isProcessing = false }: QRScannerPro
       }
     } else {
       setStatus("📷 Loading camera...");
+      console.log("Video not ready, state:", video.readyState);
     }
   };
 
@@ -157,14 +164,18 @@ export default function QRScanner({ onScan, isProcessing = false }: QRScannerPro
       // Wait for React to render the video element
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      const stream = await navigator.mediaDevices.getUserMedia({
+      // Try to get camera with better constraints
+      const constraints = {
         video: { 
           facingMode: { ideal: "environment" },
           width: { ideal: 1280, min: 640 },
           height: { ideal: 720, min: 480 },
-          frameRate: { ideal: 30 }
+          frameRate: { ideal: 30, min: 15 }
         }
-      });
+      };
+
+      console.log("Requesting camera with constraints:", constraints);
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
 
       // Check if video element is now available
       if (!videoRef.current) {
@@ -200,6 +211,24 @@ export default function QRScanner({ onScan, isProcessing = false }: QRScannerPro
 
       setStatus("Camera ready");
       
+      // Test QR detection with a simple test
+      console.log("Testing QR detection library...");
+      const testCanvas = document.createElement('canvas');
+      testCanvas.width = 100;
+      testCanvas.height = 100;
+      const testCtx = testCanvas.getContext('2d');
+      if (testCtx) {
+        // Create a simple test pattern
+        testCtx.fillStyle = 'white';
+        testCtx.fillRect(0, 0, 100, 100);
+        testCtx.fillStyle = 'black';
+        testCtx.fillRect(10, 10, 80, 80);
+        
+        const testImageData = testCtx.getImageData(0, 0, 100, 100);
+        const testResult = jsQR(testImageData.data, testImageData.width, testImageData.height);
+        console.log("QR library test result:", testResult ? "Working" : "No QR found (expected)");
+      }
+      
       // Start scanning with faster interval for better detection
       intervalRef.current = setInterval(scanQRCode, 100);
       
@@ -232,6 +261,51 @@ export default function QRScanner({ onScan, isProcessing = false }: QRScannerPro
     }
   };
 
+  // Test QR detection with generated QR code
+  const testQRDetection = async () => {
+    try {
+      console.log("Testing QR detection with generated QR code...");
+      
+      // Create a test QR code using the QRGenerator component
+      const testValue = "TEST-QR-CODE-123";
+      
+      // Create a temporary canvas to generate QR code
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = 200;
+      tempCanvas.height = 200;
+      
+      // Import QRCode dynamically to avoid SSR issues
+      const QRCode = (await import('qrcode')).default;
+      
+      await QRCode.toCanvas(tempCanvas, testValue, {
+        width: 200,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#ffffff'
+        }
+      });
+      
+      // Now try to detect the QR code
+      const ctx = tempCanvas.getContext('2d');
+      if (ctx) {
+        const imageData = ctx.getImageData(0, 0, 200, 200);
+        const result = jsQR(imageData.data, imageData.width, imageData.height);
+        
+        if (result && result.data === testValue) {
+          console.log("✅ QR detection test PASSED - Generated and detected QR code successfully");
+          setDebugInfo("QR detection working - test passed");
+        } else {
+          console.log("❌ QR detection test FAILED - Could not detect generated QR code");
+          setDebugInfo("QR detection failed - test failed");
+        }
+      }
+    } catch (error) {
+      console.error("QR detection test error:", error);
+      setDebugInfo(`QR test error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
   // Cleanup on unmount
   useEffect(() => {
     return cleanup;
@@ -257,18 +331,6 @@ export default function QRScanner({ onScan, isProcessing = false }: QRScannerPro
         )}
 
         <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
-          <style jsx>{`
-            .qr-detected {
-              border-color: #10b981 !important;
-              box-shadow: 0 0 20px rgba(16, 185, 129, 0.5) !important;
-              animation: flash 0.5s ease-in-out;
-            }
-            
-            @keyframes flash {
-              0%, 100% { opacity: 1; }
-              50% { opacity: 0.7; }
-            }
-          `}</style>
           {!isActive ? (
             <div className="text-center space-y-4">
               <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto">
@@ -299,7 +361,13 @@ export default function QRScanner({ onScan, isProcessing = false }: QRScannerPro
                   <canvas ref={canvasRef} className="hidden" />
                 </div>
                 
-                <div className="qr-scanner-border absolute inset-0 border-2 border-green-400 rounded-lg pointer-events-none transition-all duration-300">
+                <div 
+                  className={`absolute inset-0 border-2 rounded-lg pointer-events-none transition-all duration-300 ${
+                    isDetecting 
+                      ? 'border-green-500 shadow-lg shadow-green-500/50 animate-pulse' 
+                      : 'border-green-400'
+                  }`}
+                >
                   <div className="absolute top-2 left-2 w-6 h-6 border-t-4 border-l-4 border-green-400 animate-pulse"></div>
                   <div className="absolute top-2 right-2 w-6 h-6 border-t-4 border-r-4 border-green-400 animate-pulse"></div>
                   <div className="absolute bottom-2 left-2 w-6 h-6 border-b-4 border-l-4 border-green-400 animate-pulse"></div>
@@ -330,6 +398,29 @@ export default function QRScanner({ onScan, isProcessing = false }: QRScannerPro
                   <X className="w-4 h-4 mr-2" />
                   Stop Camera
                 </Button>
+                
+                {/* Test scan button for debugging */}
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    console.log("Manual test scan triggered");
+                    scanQRCode();
+                  }} 
+                  size="sm"
+                  className="ml-2"
+                >
+                  Test Scan
+                </Button>
+                
+                {/* Test QR detection button */}
+                <Button 
+                  variant="outline" 
+                  onClick={testQRDetection} 
+                  size="sm"
+                  className="ml-2"
+                >
+                  Test QR Lib
+                </Button>
               </div>
             </div>
           )}
@@ -349,6 +440,9 @@ export default function QRScanner({ onScan, isProcessing = false }: QRScannerPro
           <h4 className="text-sm font-medium mb-2">Test QR Code</h4>
           <p className="text-xs text-gray-600 mb-3">
             Use this QR code to test the scanner: <code className="bg-white px-1 rounded">QR-TEST-123456</code>
+          </p>
+          <p className="text-xs text-gray-600 mb-3">
+            URL format: <code className="bg-white px-1 rounded">{window.location.origin}/checkin/QR-TEST-123456</code>
           </p>
           <div className="flex justify-center">
             <QRGenerator value="QR-TEST-123456" size={100} />

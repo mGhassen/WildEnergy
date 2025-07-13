@@ -8,6 +8,7 @@ import { useAuth, AuthProvider } from "@/hooks/use-auth";
 import LoginPage from "@/pages/auth/login";
 import RegisterPage from "@/pages/auth/register";
 import OnHoldPage from "@/pages/auth/onhold";
+import CheckinPage from "@/pages/checkin";
 import AdminDashboard from "@/pages/admin/dashboard";
 import AdminUsers from "@/pages/admin/users";
 import AdminMembers from "@/pages/admin/members";
@@ -20,7 +21,6 @@ import AdminPlans from "@/pages/admin/plans";
 import AdminSubscriptions from "@/pages/admin/subscriptions";
 import AdminPayments from "@/pages/admin/payments";
 import AdminCheckins from "@/pages/admin/checkins";
-import MemberDashboard from "@/pages/member/dashboard";
 import MemberClasses from "@/pages/member/classes";
 import MemberHistory from "@/pages/member/history";
 import MemberSubscriptions from "@/pages/member/subscriptions";
@@ -79,6 +79,7 @@ function AppRouter() {
       <Route path="/register" component={!user ? RegisterPage : () => <Redirect to={user?.isAdmin ? '/admin' : '/member'} />} />
       <Route path="/auth/onhold" component={OnHoldPage} />
       <Route path="/plans" component={PlansPage} />
+      <Route path="/checkin/*" component={CheckinPage} />
 
       {/* Admin routes */}
       <Route path="/admin">
