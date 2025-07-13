@@ -1,15 +1,17 @@
-import { useLocation } from 'wouter';
+"use client";
+
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/lib/supabase';
 import { Clock, CheckCircle } from 'lucide-react';
 
 export default function OnHold() {
-  const [, setLocation] = useLocation();
+  const router = useRouter();
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    setLocation('/login');
+    router.push('/login');
   };
 
   return (

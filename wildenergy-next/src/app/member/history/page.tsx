@@ -12,26 +12,66 @@ import { formatTime, getDayName, formatDateTime } from "@/lib/auth";
 import QRGenerator from "@/components/qr-generator";
 import { formatDate } from "@/lib/date";
 
+// Types for member history page
+interface Trainer {
+  id: number;
+  firstName: string;
+  lastName: string;
+}
+
+interface Class {
+  id: number;
+  name: string;
+  category?: string;
+}
+
+interface Schedule {
+  scheduleDate: string;
+  startTime: string;
+  endTime: string;
+  dayOfWeek: number;
+  class: Class;
+  trainer: Trainer;
+}
+
+interface Registration {
+  id: number;
+  registrationDate: string;
+  qrCode: string;
+  schedule: Schedule;
+  status: string;
+}
+
+interface Checkin {
+  id: number;
+  registration: Registration;
+  checkinTime: string;
+  sessionConsumed: boolean;
+}
+
 // Map registration object to ensure camelCase properties exist and use 'class' (not 'course')
-function mapRegistration(reg: any) {
+function mapRegistration(reg: unknown): Registration {
+  if (typeof reg !== 'object' || reg === null) throw new Error('Invalid registration');
+  const r = reg as Record<string, any>;
   return {
-    ...reg,
-    registrationDate: reg.registrationDate || reg.registration_date,
-    qrCode: reg.qrCode || reg.qr_code,
-    schedule: reg.course && {
-      scheduleDate: reg.course.course_date,
-      startTime: reg.course.start_time,
-      endTime: reg.course.end_time,
-      dayOfWeek: reg.course.day_of_week,
-      class: reg.course.class && {
-        id: reg.course.class.id,
-        name: reg.course.class.name,
-        category: reg.course.class.category?.name,
+    id: r.id ?? 0,
+    status: r.status ?? '',
+    registrationDate: r.registrationDate || r.registration_date || '',
+    qrCode: r.qrCode || r.qr_code || '',
+    schedule: r.course && {
+      scheduleDate: r.course.course_date,
+      startTime: r.course.start_time,
+      endTime: r.course.end_time,
+      dayOfWeek: r.course.day_of_week,
+      class: r.course.class && {
+        id: r.course.class.id,
+        name: r.course.class.name,
+        category: r.course.class.category?.name,
       },
-      trainer: reg.course.trainer && {
-        id: reg.course.trainer.id,
-        firstName: reg.course.trainer.user?.first_name,
-        lastName: reg.course.trainer.user?.last_name,
+      trainer: r.course.trainer && {
+        id: r.course.trainer.id,
+        firstName: r.course.trainer.user?.first_name,
+        lastName: r.course.trainer.user?.last_name,
       }
     }
   };
@@ -42,27 +82,23 @@ export default function MemberHistory() {
   const [statusFilter, setStatusFilter] = useState("");
   const [selectedQR, setSelectedQR] = useState<string | null>(null);
 
-  const { data: registrations = [], isLoading: registrationsLoading } = useQuery<any[]>({
+  const { data: registrations = [], isLoading: registrationsLoading } = useQuery<Registration[]>({
     queryKey: ["/api/registrations"],
   });
 
-  const { data: checkins = [], isLoading: checkinsLoading } = useQuery<any[]>({
+  const { data: checkins = [], isLoading: checkinsLoading } = useQuery<Checkin[]>({
     queryKey: ["/api/member/checkins"],
   });
 
   // Get all registrations without search/status filters for proper categorization
   const allRegistrations = (registrations || []).map(mapRegistration);
 
-  const attendedClasses = (checkins || [])
-    .filter((checkin: any) => checkin?.registration?.schedule?.class)
-    .map((checkin: any) => ({
-      ...checkin.registration,
-      checkinTime: checkin.checkinTime,
-      sessionConsumed: checkin.sessionConsumed,
-      status: 'attended'
-    }));
+  // Fix attendedClasses to return Registration[] with checkinTime as a separate variable if needed
+  const attendedClasses: Registration[] = (checkins || [])
+    .filter((checkin: Checkin) => checkin?.registration?.schedule?.class)
+    .map((checkin: Checkin) => checkin.registration);
 
-  const registeredClasses = allRegistrations.filter((reg: any) => {
+  const registeredClasses = allRegistrations.filter((reg: Registration) => {
     if (reg.status !== 'registered') return false;
     if (!reg.schedule || !reg.schedule.scheduleDate || !reg.schedule.startTime) return false;
     const classDateTime = new Date(reg.schedule.scheduleDate);
@@ -71,9 +107,9 @@ export default function MemberHistory() {
     return classDateTime > new Date();
   });
 
-  const cancelledClasses = allRegistrations.filter((reg: any) => reg.status === 'cancelled');
+  const cancelledClasses = allRegistrations.filter((reg: Registration) => reg.status === 'cancelled');
 
-  const absentClasses = allRegistrations.filter((reg: any) => {
+  const absentClasses = allRegistrations.filter((reg: Registration) => {
     // Either explicitly marked as absent, or registered but past and not attended
     if (reg.status === 'absent') return true;
     if (reg.status === 'registered') {
@@ -89,7 +125,7 @@ export default function MemberHistory() {
   });
 
   // Apply search and status filters to display data
-  const filteredRegistrations = allRegistrations.filter((registration: any) => {
+  const filteredRegistrations = allRegistrations.filter((registration: Registration) => {
     if (!registration?.schedule?.class || !registration?.schedule?.trainer) return false;
     const matchesSearch = registration.schedule.class.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          registration.schedule.trainer.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -128,7 +164,7 @@ export default function MemberHistory() {
     }
   };
 
-  const renderClassCard = (classData: any, showQR = false) => {
+  const renderClassCard = (classData: Registration, showQR = false) => {
     const isAttended = classData.status === 'attended';
     const isRegistered = classData.status === 'registered';
     const isCancelled = classData.status === 'cancelled';
@@ -155,8 +191,8 @@ export default function MemberHistory() {
               <span className="flex items-center text-muted-foreground"><User className="w-4 h-4 mr-1" />{classData.schedule.class.category}</span>
             </div>
             <div className="text-xs text-muted-foreground">
-              {isAttended && classData.checkinTime && (
-                <span>Attended: {formatDateTime(classData.checkinTime)}</span>
+              {isAttended && (
+                <span>Attended: {formatDateTime(classData.registrationDate)}</span>
               )}
               {isRegistered && (
                 <span>Class Date: {formatDate(classData.schedule.scheduleDate)}</span>
@@ -286,8 +322,8 @@ export default function MemberHistory() {
         <TabsContent value="all" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[...attendedClasses, ...registeredClasses, ...cancelledClasses, ...absentClasses]
-              .sort((a: any, b: any) => new Date(b.registrationDate).getTime() - new Date(a.registrationDate).getTime())
-              .map((classData: any) => renderClassCard(classData, true))}
+              .sort((a: Registration, b: Registration) => new Date(b.registrationDate).getTime() - new Date(a.registrationDate).getTime())
+              .map((classData: Registration) => renderClassCard(classData, true))}
           </div>
           {[...attendedClasses, ...registeredClasses, ...cancelledClasses, ...absentClasses].length === 0 && (
             <div className="text-center py-12">
@@ -299,8 +335,8 @@ export default function MemberHistory() {
         <TabsContent value="attended" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {attendedClasses
-              .sort((a: any, b: any) => new Date(b.checkinTime).getTime() - new Date(a.checkinTime).getTime())
-              .map((classData: any) => renderClassCard(classData))}
+              .sort((a: Registration, b: Registration) => new Date(b.registrationDate).getTime() - new Date(a.registrationDate).getTime())
+              .map((classData: Registration) => renderClassCard(classData))}
           </div>
           {attendedClasses.length === 0 && (
             <div className="text-center py-12">
@@ -312,7 +348,7 @@ export default function MemberHistory() {
         <TabsContent value="registered" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {registeredClasses
-              .sort((a, b) => new Date(a.schedule.scheduleDate).getTime() - new Date(b.schedule.scheduleDate).getTime())
+              .sort((a: Registration, b: Registration) => new Date(a.schedule.scheduleDate).getTime() - new Date(b.schedule.scheduleDate).getTime())
               .map((classData) => renderClassCard(classData, true))}
           </div>
           {registeredClasses.length === 0 && (
@@ -325,7 +361,7 @@ export default function MemberHistory() {
         <TabsContent value="cancelled" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {cancelledClasses
-              .sort((a, b) => new Date(b.registrationDate).getTime() - new Date(a.registrationDate).getTime())
+              .sort((a: Registration, b: Registration) => new Date(b.registrationDate).getTime() - new Date(a.registrationDate).getTime())
               .map((classData) => renderClassCard(classData))}
           </div>
           {cancelledClasses.length === 0 && (
@@ -338,7 +374,7 @@ export default function MemberHistory() {
         <TabsContent value="absent" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {absentClasses
-              .sort((a, b) => new Date(b.registrationDate).getTime() - new Date(a.registrationDate).getTime())
+              .sort((a: Registration, b: Registration) => new Date(b.registrationDate).getTime() - new Date(a.registrationDate).getTime())
               .map((classData) => renderClassCard(classData))}
           </div>
           {absentClasses.length === 0 && (

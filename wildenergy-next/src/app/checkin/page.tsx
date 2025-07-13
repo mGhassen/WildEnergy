@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRoute, useLocation } from "wouter";
+import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -47,7 +47,7 @@ interface CheckinInfo {
 }
 
 export default function CheckinPage() {
-  const [, setLocation] = useLocation();
+  const router = useRouter();
   const { toast } = useToast();
   
   const [status, setStatus] = useState<'loading' | 'info' | 'success' | 'error' | 'invalid'>('loading');
@@ -176,7 +176,7 @@ export default function CheckinPage() {
   };
 
   const handleBack = () => {
-    setLocation('/admin/checkins');
+    router.push('/admin/checkins');
   };
 
   if (!qrCode) {

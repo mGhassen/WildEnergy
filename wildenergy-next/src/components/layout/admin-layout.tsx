@@ -1,4 +1,6 @@
-import { Link, useLocation } from "wouter";
+"use client";
+
+import { usePathname } from 'next/navigation';
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { 
@@ -19,13 +21,14 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import Link from "next/link";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
 }
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
-  const [location] = useLocation();
+  const pathname = usePathname();
   const { logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
@@ -54,9 +57,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
   const isActive = (href: string) => {
     if (href === "/admin") {
-      return location === "/admin";
+      return pathname === "/admin";
     }
-    return location.startsWith(href);
+    return pathname.startsWith(href);
   };
 
   const handleNavigationClick = () => {

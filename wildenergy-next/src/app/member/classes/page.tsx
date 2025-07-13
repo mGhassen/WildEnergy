@@ -13,6 +13,55 @@ import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "@/lib/api";
 import { formatDate } from "@/lib/date";
 
+// Types for member classes page
+interface Category {
+  id: number;
+  name: string;
+}
+
+interface Trainer {
+  id: number;
+  user: {
+    first_name: string;
+    last_name: string;
+  };
+}
+
+interface Class {
+  id: number;
+  name: string;
+  description?: string;
+  category?: Category;
+  difficulty?: string;
+}
+
+interface Course {
+  id: number;
+  class: Class;
+  trainer: Trainer;
+  courseDate: string;
+  startTime: string;
+  endTime: string;
+  isActive: boolean;
+  scheduleId: number;
+}
+
+interface Subscription {
+  id: number;
+  status: string;
+  sessions_remaining: number;
+}
+
+interface Registration {
+  id: number;
+  course_id: number;
+  user_id: string;
+  status: string;
+  registration_date: string;
+  qr_code: string;
+  notes?: string;
+}
+
 export default function MemberClasses() {
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
@@ -22,6 +71,7 @@ export default function MemberClasses() {
 
   const { data: courses, isLoading } = useQuery({
     queryKey: ["/api/courses"],
+    queryFn: () => apiFetch("/api/courses"),
   });
 
   // Fetch categories from API
@@ -35,11 +85,12 @@ export default function MemberClasses() {
     queryFn: () => apiFetch("/api/member/subscriptions"),
   });
   const subscriptions = Array.isArray(subscriptionsRaw) ? subscriptionsRaw : [];
-  const activeSubscriptions = subscriptions.filter((sub: any) => sub.status === 'active');
-  const totalSessionsRemaining = activeSubscriptions.reduce((sum: number, sub: any) => sum + (sub.sessions_remaining || 0), 0);
+  const activeSubscriptions = subscriptions.filter((sub: Subscription) => sub.status === 'active');
+  const totalSessionsRemaining = activeSubscriptions.reduce((sum: number, sub: Subscription) => sum + (sub.sessions_remaining || 0), 0);
 
   const { data: registrations = [] } = useQuery({
     queryKey: ["/api/registrations"],
+    queryFn: () => apiFetch("/api/registrations"),
   });
 
   const registerMutation = useMutation({
@@ -53,7 +104,7 @@ export default function MemberClasses() {
       const previousRegistrations = queryClient.getQueryData(["/api/registrations"]);
       
       // Optimistically add the new registration
-      queryClient.setQueryData(["/api/registrations"], (old: any) => {
+      queryClient.setQueryData(["/api/registrations"], (old: Registration[]) => {
         const newRegistration = {
           id: Date.now(), // temporary ID
           course_id: courseId,
@@ -68,23 +119,25 @@ export default function MemberClasses() {
       
       return { previousRegistrations };
     },
-    onError: (error: any, courseId: number, context: any) => {
+    onError: (error: unknown, courseId: number, context: unknown) => {
       // Rollback on error
-      if (context?.previousRegistrations) {
+      if (context && typeof context === 'object' && 'previousRegistrations' in context) {
         queryClient.setQueryData(["/api/registrations"], context.previousRegistrations);
       }
       
       let errorMessage = "Failed to book course";
       
       // Handle specific error messages from the backend
-      if (error.message?.includes("Already registered")) {
-        errorMessage = "You are already registered for this course";
-      } else if (error.message?.includes("No active subscription")) {
-        errorMessage = "No active subscription with sessions remaining";
-      } else if (error.message?.includes("Course is full")) {
-        errorMessage = "This course is full";
-      } else if (error.message) {
-        errorMessage = error.message;
+      if (typeof error === 'object' && error && 'message' in error && typeof error.message === 'string') {
+        if (error.message?.includes("Already registered")) {
+          errorMessage = "You are already registered for this course";
+        } else if (error.message?.includes("No active subscription")) {
+          errorMessage = "No active subscription with sessions remaining";
+        } else if (error.message?.includes("Course is full")) {
+          errorMessage = "This course is full";
+        } else {
+          errorMessage = error.message;
+        }
       }
       
       toast({
@@ -116,9 +169,9 @@ export default function MemberClasses() {
       const previousRegistrations = queryClient.getQueryData(["/api/registrations"]);
       
       // Optimistically update to remove the registration
-      queryClient.setQueryData(["/api/registrations"], (old: any) => {
+      queryClient.setQueryData(["/api/registrations"], (old: Registration[]) => {
         if (!old) return old;
-        return old.map((reg: any) => 
+        return old.map((reg: Registration) => 
           reg.id === registrationId ? { ...reg, status: 'cancelled' } : reg
         );
       });
@@ -143,15 +196,18 @@ export default function MemberClasses() {
         });
       }
     },
-    onError: (error: any, registrationId, context) => {
+    onError: (error: unknown, registrationId: number, context: unknown) => {
       // Rollback on error
-      if (context?.previousRegistrations) {
+      if (context && typeof context === 'object' && 'previousRegistrations' in context) {
         queryClient.setQueryData(["/api/registrations"], context.previousRegistrations);
       }
-      
+      let errorMessage = "Failed to cancel registration";
+      if (typeof error === 'object' && error && 'message' in error && typeof error.message === 'string') {
+        errorMessage = error.message;
+      }
       toast({
         title: "Cannot cancel registration",
-        description: error.message || "Failed to cancel registration",
+        description: errorMessage,
         variant: "destructive",
       });
     },
@@ -161,43 +217,43 @@ export default function MemberClasses() {
   const registrationsArray = Array.isArray(registrations) ? registrations : [];
   const registeredCourseIds = new Set(
     registrationsArray
-      .filter((reg: any) => reg.status === 'registered')
-      .map((reg: any) => reg.course_id)
+      .filter((reg: Registration) => reg.status === 'registered')
+      .map((reg: Registration) => reg.course_id)
   );
 
   // Helper function to get registration for a course
   const getRegistrationForCourse = (courseId: number) => {
-    return registrationsArray.find((reg: any) => reg.course_id === courseId && reg.status === 'registered');
+    return registrationsArray.find((reg: Registration) => reg.course_id === courseId && reg.status === 'registered');
   };
 
   // Debug logging
   console.log('All registrations:', registrationsArray);
-  console.log('Active registrations:', registrationsArray.filter((reg: any) => reg.status === 'registered'));
+  console.log('Active registrations:', registrationsArray.filter((reg: Registration) => reg.status === 'registered'));
   console.log('Registered course IDs:', Array.from(registeredCourseIds));
 
   // Helper function to check if cancellation is allowed
-  const canCancelRegistration = (course: any) => {
+  const canCancelRegistration = (course: Course) => {
     const courseDateTime = new Date(`${course.courseDate}T${course.startTime}`);
     const now = new Date();
     return now < courseDateTime;
   };
 
   // Helper function to check if course is in the past
-  const isCourseInPast = (course: any) => {
+  const isCourseInPast = (course: Course) => {
     const courseDateTime = new Date(`${course.courseDate}T${course.startTime}`);
     const now = new Date();
     return now >= courseDateTime;
   };
 
   // Helper function to check if within 24 hours
-  const isWithin24Hours = (course: any) => {
+  const isWithin24Hours = (course: Course) => {
     const courseDateTime = new Date(`${course.courseDate}T${course.startTime}`);
     const cutoffTime = new Date(courseDateTime.getTime() - (24 * 60 * 60 * 1000));
     const now = new Date();
     return now >= cutoffTime && now < courseDateTime;
   };
 
-  const handleCancel = (course: any) => {
+  const handleCancel = (course: Course) => {
     const registration = getRegistrationForCourse(course.id);
     if (!registration) return;
 
@@ -213,10 +269,10 @@ export default function MemberClasses() {
 
   const coursesArray = Array.isArray(courses) ? courses : [];
   // Helper: get unique categories from courses
-  const uniqueCategories = Array.from(new Set(coursesArray.map((c: any) => c.class?.category?.name).filter(Boolean)));
+  const uniqueCategories = Array.from(new Set(coursesArray.map((c: Course) => c.class?.category?.name ?? '').filter(Boolean)));
   // Helper: day names
   const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  const filteredCourses = coursesArray.filter((course: any) => {
+  const filteredCourses = coursesArray.filter((course: Course) => {
     const className = course.class?.name?.toLowerCase() || "";
     const trainerName = `${course.trainer?.user?.first_name || ''} ${course.trainer?.user?.last_name || ''}`.toLowerCase();
     const categoryName = course.class?.category?.name?.toLowerCase() || "";
@@ -235,7 +291,7 @@ export default function MemberClasses() {
 
   const handleRegister = (courseId: number, scheduleId: number) => {
     // Find the course to check if it's in the past
-    const course = coursesArray.find((c: any) => c.id === courseId);
+    const course = coursesArray.find((c: Course) => c.id === courseId);
     
     // Check if course is in the past
     if (course && isCourseInPast(course)) {
@@ -359,7 +415,7 @@ export default function MemberClasses() {
                 {categoriesLoading ? (
                   <SelectItem disabled value="loading">Loading...</SelectItem>
                 ) : (
-                  Array.isArray(categories) && categories.map((cat: any) => (
+                  Array.isArray(categories) && categories.map((cat: Category) => (
                     <SelectItem key={cat.id} value={cat.name}>{cat.name.charAt(0).toUpperCase() + cat.name.slice(1)}</SelectItem>
                   ))
                 )}
@@ -404,7 +460,7 @@ export default function MemberClasses() {
             </Card>
           ))
         ) : filteredCourses.length > 0 ? (
-          filteredCourses.map((course: any) => {
+          filteredCourses.map((course: Course) => {
             const isRegistered = registeredCourseIds.has(course.id);
             
             return (
@@ -433,18 +489,7 @@ export default function MemberClasses() {
                       {/* Duration pill */}
                       <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-800 text-xs font-medium flex items-center">
                         <Clock className="w-4 h-4 mr-1 text-gray-500" />
-                        {course.durationMinutes && course.durationMinutes > 0
-                          ? `${course.durationMinutes} min`
-                          : (() => {
-                              if (!course.startTime || !course.endTime) return '—';
-                              const [sh, sm] = course.startTime.split(":").map(Number);
-                              const [eh, em] = course.endTime.split(":").map(Number);
-                              const start = sh * 60 + sm;
-                              const end = eh * 60 + em;
-                              const diff = end - start;
-                              return diff > 0 ? `${diff} min` : '—';
-                            })()
-                        }
+                        {formatTime(course.startTime || "")} - {formatTime(course.endTime || "")}
                       </span>
                       {/* Date */}
                       <span className="flex items-center font-semibold text-primary"><Calendar className="w-4 h-4 mr-1" />{formatDate(course.courseDate)}</span>

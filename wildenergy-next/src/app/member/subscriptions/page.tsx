@@ -35,13 +35,19 @@ interface Subscription {
   status: string;
 }
 
+interface Profile {
+  user?: {
+    credit?: number;
+  };
+}
+
 export default function MemberSubscriptions() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [mainTab, setMainTab] = useState<'active' | 'history'>('active');
   const [subTabs, setSubTabs] = useState<{ [subId: number]: 'details' | 'payments' }>({});
 
   // Fetch user credit
-  const { data: profile, isLoading: loadingProfile, error: errorProfile } = useQuery<any>({
+  const { data: profile, isLoading: loadingProfile, error: errorProfile } = useQuery<Profile>({
     queryKey: ["/api/auth/session"],
     queryFn: () => apiFetch("/api/auth/session"),
     enabled: isAuthenticated && !authLoading,

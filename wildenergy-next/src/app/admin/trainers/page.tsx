@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertTrainerSchema } from "@shared/schema";
+import { insertTrainerSchema } from "@/shared/zod-schemas";
 import { apiRequest } from "@/lib/queryClient";
 import { Plus, Search, Edit, Trash2 } from "lucide-react";
 import { getInitials } from "@/lib/auth";

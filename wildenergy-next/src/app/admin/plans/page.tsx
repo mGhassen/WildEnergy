@@ -11,7 +11,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertPlanSchema } from "@shared/schema";
+import { insertPlanSchema } from "@/shared/zod-schemas";
 // Removed broken apiRequest imports
 import { Plus, Search, Edit, Trash2, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -30,6 +30,7 @@ export default function AdminPlans() {
 
   const { data: plans, isLoading } = useQuery({
     queryKey: ["/api/plans"],
+    queryFn: () => apiFetch("GET", "/api/plans"),
   });
 
   const form = useForm<PlanFormData>({

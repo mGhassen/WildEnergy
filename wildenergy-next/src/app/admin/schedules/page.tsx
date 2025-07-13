@@ -62,6 +62,7 @@ export default function AdminSchedules() {
 
   const { data: rawSchedules = [], isLoading } = useQuery({
     queryKey: ["/api/schedules"],
+    queryFn: () => apiRequest("GET", "/api/schedules"),
   });
 
   // Map snake_case fields to camelCase for UI
@@ -87,26 +88,32 @@ export default function AdminSchedules() {
 
   const { data: registrations = [] } = useQuery({
     queryKey: ["/api/registrations"],
+    queryFn: () => apiRequest("GET", "/api/registrations"),
   });
 
   const { data: checkins = [] } = useQuery({
     queryKey: ["/api/checkins"],
+    queryFn: () => apiRequest("GET", "/api/checkins"),
   });
 
   const { data: classes } = useQuery({
     queryKey: ["/api/classes"],
+    queryFn: () => apiRequest("GET", "/api/classes"),
   });
 
   const { data: plans = [] } = useQuery({
     queryKey: ["/api/plans"],
+    queryFn: () => apiRequest("GET", "/api/plans"),
   });
 
   const { data: subscriptions = [] } = useQuery({
     queryKey: ["/api/subscriptions"],
+    queryFn: () => apiRequest("GET", "/api/subscriptions"),
   });
 
   const { data: trainers } = useQuery({
     queryKey: ["/api/trainers"],
+    queryFn: () => apiRequest("GET", "/api/trainers"),
   });
 
   // Flatten trainers to expose firstName and lastName at the top level

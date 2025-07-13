@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertClassSchema } from "@shared/schema";
+import { insertClassSchema } from "@/shared/zod-schemas";
 import { apiRequest } from "@/lib/queryClient";
 import { Plus, Search, Edit, Trash2, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -45,6 +45,7 @@ export default function AdminClasses() {
 
   const { data: rawClasses = [], isLoading } = useQuery({
     queryKey: ["/api/admin/classes"],
+    queryFn: () => apiRequest("GET", "/api/admin/classes"),
   });
 
   // Map snake_case fields to camelCase for UI
@@ -60,6 +61,7 @@ export default function AdminClasses() {
 
   const { data: rawCategories = [], isLoading: categoriesLoading } = useQuery({
     queryKey: ["/api/admin/categories"],
+    queryFn: () => apiRequest("GET", "/api/admin/categories"),
   });
 
   // Ensure categories is always an array
