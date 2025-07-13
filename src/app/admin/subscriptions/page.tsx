@@ -1235,32 +1235,7 @@ export default function AdminSubscriptions() {
       <Dialog open={isDetailsModalOpen} onOpenChange={setIsDetailsModalOpen}>
         <DialogContent className="sm:max-w-4xl">
           <DialogHeader>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b">
-              <div className="flex items-center gap-4">
-                <Avatar className="h-14 w-14">
-                  <span className="text-2xl font-bold bg-muted rounded-full w-full h-full flex items-center justify-center">
-                    {selectedSubscription?.member?.firstName?.[0]}
-                  </span>
-                </Avatar>
-                <div>
-                  <div className="font-semibold text-lg flex items-center gap-2">
-                    {selectedSubscription?.member?.firstName} {selectedSubscription?.member?.lastName}
-                  </div>
-                  <div className="text-muted-foreground text-sm">{selectedSubscription?.member?.email}</div>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="font-medium text-primary">{selectedSubscription?.plan?.name}</span>
-                    {selectedSubscription && (
-                      <Badge variant={getStatusBadgeVariant(selectedSubscription.status)}>
-                        {selectedSubscription.status.charAt(0).toUpperCase() + selectedSubscription.status.slice(1)}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              </div>
-              {/* Only one close button here */}
-              <DialogClose asChild>
-              </DialogClose>
-            </div>
+            <DialogTitle>Subscription Details</DialogTitle>
           </DialogHeader>
           <Tabs defaultValue="overview" className="w-full">
             <TabsList className="mb-0 px-6 pt-4 bg-transparent">
