@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { supabaseServer } from '@/lib/supabase';
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,7 +13,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Sign in with Supabase
-    const { data: { session, user }, error } = await supabase.auth.signInWithPassword({
+    const { data: { session, user }, error } = await supabaseServer.auth.signInWithPassword({
       email,
       password,
     });
@@ -32,7 +27,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Get user profile
-    const { data: userProfile, error: profileError } = await supabase
+    const { data: userProfile, error: profileError } = await supabaseServer
       .from('users')
       .select('*')
       .eq('auth_user_id', user.id)
