@@ -135,19 +135,19 @@ export default function MembersPage() {
   });
 
   // Map members from snake_case to camelCase for UI
-  const mappedMembers = Array.isArray(members)
-    ? members.map((m: any) => ({
+  const mappedMembers: Member[] = Array.isArray(members)
+    ? members.map((m: Record<string, unknown>) => ({
         ...m,
-        firstName: m.firstName || m.first_name || '',
-        lastName: m.lastName || m.last_name || '',
-        email: m.email,
-        status: m.status,
-        subscriptionStatus: m.subscriptionStatus || m.subscription_status || 'inactive',
-        phone: m.phone,
-        dateOfBirth: m.dateOfBirth || m.date_of_birth,
-        createdAt: m.createdAt || m.created_at,
-        credit: m.credit ?? 0,
-      })) as Member[]
+        firstName: typeof m.firstName === 'string' ? m.firstName : (typeof m.first_name === 'string' ? m.first_name : ''),
+        lastName: typeof m.lastName === 'string' ? m.lastName : (typeof m.last_name === 'string' ? m.last_name : ''),
+        email: typeof m.email === 'string' ? m.email : '',
+        status: typeof m.status === 'string' ? m.status : '',
+        subscriptionStatus: typeof m.subscriptionStatus === 'string' ? m.subscriptionStatus : (typeof m.subscription_status === 'string' ? m.subscription_status : 'inactive'),
+        phone: typeof m.phone === 'string' ? m.phone : undefined,
+        dateOfBirth: typeof m.dateOfBirth === 'string' ? m.dateOfBirth : (typeof m.date_of_birth === 'string' ? m.date_of_birth : undefined),
+        createdAt: typeof m.createdAt === 'string' ? m.createdAt : (typeof m.created_at === 'string' ? m.created_at : undefined),
+        credit: typeof m.credit === 'number' ? m.credit : 0,
+      }))
     : [];
 
   // Fetch member details when selected
@@ -171,17 +171,17 @@ export default function MembersPage() {
   const memberData = getMemberDetails();
 
   // Map subscriptions to camelCase fields for status logic
-  const mappedSubscriptions = (memberData.subscriptions || []).map((sub: any) => ({
+  const mappedSubscriptions: Subscription[] = (memberData.subscriptions || []).map((sub: Record<string, unknown>) => ({
     ...sub,
-    startDate: sub.startDate || sub.start_date,
-    endDate: sub.endDate || sub.end_date,
-    sessionsRemaining: sub.sessionsRemaining ?? sub.sessions_remaining,
-    status: sub.status,
-    plan: sub.plan ? {
+    startDate: typeof sub.startDate === 'string' ? sub.startDate : (typeof sub.start_date === 'string' ? sub.start_date : ''),
+    endDate: typeof sub.endDate === 'string' ? sub.endDate : (typeof sub.end_date === 'string' ? sub.end_date : ''),
+    sessionsRemaining: typeof sub.sessionsRemaining === 'number' ? sub.sessionsRemaining : (typeof sub.sessions_remaining === 'number' ? sub.sessions_remaining : 0),
+    status: typeof sub.status === 'string' ? sub.status : '',
+    plan: sub.plan && typeof sub.plan === 'object' ? {
       ...sub.plan,
-      sessionsIncluded: sub.plan.sessionsIncluded ?? sub.plan.max_sessions,
-      price: sub.plan.price,
-      name: sub.plan.name,
+      sessionsIncluded: (sub.plan as any).sessionsIncluded ?? (sub.plan as any).max_sessions ?? 0,
+      price: (sub.plan as any).price ?? 0,
+      name: (sub.plan as any).name ?? '',
     } : undefined,
   }));
 
