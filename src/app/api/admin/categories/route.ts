@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { supabaseServer } from '@/lib/supabase';
 
 export async function GET(req: NextRequest) {
   try {
@@ -14,11 +9,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
     // Verify admin
-    const { data: { user: adminUser }, error: authError } = await supabase.auth.getUser(token);
+    const { data: { user: adminUser }, error: authError } = await supabaseServer.auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-    const { data: adminCheck } = await supabase
+    const { data: adminCheck } = await supabaseServer
       .from('users')
       .select('is_admin')
       .eq('auth_user_id', adminUser.id)
@@ -27,13 +22,20 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
     // Fetch all categories
-    const { data: categories, error } = await supabase
+    console.log('Fetching categories from database...');
+    const { data: categories, error } = await supabaseServer
       .from('categories')
       .select('*')
       .order('created_at', { ascending: false });
+    
+    console.log('Categories query result:', { categories, error });
+    
     if (error) {
+      console.error('Categories fetch error:', error);
       return NextResponse.json({ error: 'Failed to fetch categories' }, { status: 500 });
     }
+    
+    console.log('Returning categories:', categories);
     return NextResponse.json(categories);
   } catch (error) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -48,11 +50,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
     // Verify admin
-    const { data: { user: adminUser }, error: authError } = await supabase.auth.getUser(token);
+    const { data: { user: adminUser }, error: authError } = await supabaseServer.auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-    const { data: adminCheck } = await supabase
+    const { data: adminCheck } = await supabaseServer
       .from('users')
       .select('is_admin')
       .eq('auth_user_id', adminUser.id)
@@ -64,7 +66,7 @@ export async function POST(req: NextRequest) {
     if (!name) {
       return NextResponse.json({ error: 'Category name is required' }, { status: 400 });
     }
-    const { data: category, error } = await supabase
+    const { data: category, error } = await supabaseServer
       .from('categories')
       .insert({ name, description })
       .select('*')
@@ -86,11 +88,11 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
     // Verify admin
-    const { data: { user: adminUser }, error: authError } = await supabase.auth.getUser(token);
+    const { data: { user: adminUser }, error: authError } = await supabaseServer.auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-    const { data: adminCheck } = await supabase
+    const { data: adminCheck } = await supabaseServer
       .from('users')
       .select('is_admin')
       .eq('auth_user_id', adminUser.id)
@@ -99,7 +101,7 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
     const { id, ...updates } = await req.json();
-    const { data: category, error } = await supabase
+    const { data: category, error } = await supabaseServer
       .from('categories')
       .update(updates)
       .eq('id', id)
@@ -122,11 +124,11 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
     // Verify admin
-    const { data: { user: adminUser }, error: authError } = await supabase.auth.getUser(token);
+    const { data: { user: adminUser }, error: authError } = await supabaseServer.auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-    const { data: adminCheck } = await supabase
+    const { data: adminCheck } = await supabaseServer
       .from('users')
       .select('is_admin')
       .eq('auth_user_id', adminUser.id)
@@ -135,7 +137,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
     const { id } = await req.json();
-    const { error } = await supabase
+    const { error } = await supabaseServer
       .from('categories')
       .delete()
       .eq('id', id);

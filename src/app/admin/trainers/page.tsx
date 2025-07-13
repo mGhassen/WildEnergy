@@ -44,26 +44,16 @@ export default function AdminTrainers() {
     queryFn: async () => {
       try {
         const data = await apiRequest("GET", "/api/trainers");
+        console.log('Raw trainers data:', data);
         
         // Transform the data to match the expected structure
-        return data.map((trainer: any) => {
-          console.log('Raw trainer data:', trainer); // Debug log
-          console.log('User object:', trainer.user); // Debug user object
-          console.log('First name from user:', trainer.user?.first_name); // Debug first name
-          console.log('Last name from user:', trainer.user?.last_name); // Debug last name
-          
-          const firstName = trainer.user?.first_name || trainer.firstName || trainer.user?.firstName || "";
-          const lastName = trainer.user?.last_name || trainer.lastName || trainer.user?.lastName || "";
-          
-          console.log('Extracted firstName:', firstName); // Debug extracted first name
-          console.log('Extracted lastName:', lastName); // Debug extracted last name
-          
+        const transformedData = data.map((trainer: any) => {
           return {
             id: trainer.id,
-            firstName: firstName,
-            lastName: lastName,
-            email: trainer.user?.email || trainer.email || "",
-            phone: trainer.user?.phone || trainer.phone || "",
+            firstName: trainer.first_name || trainer.firstName || "",
+            lastName: trainer.last_name || trainer.lastName || "",
+            email: trainer.email || "",
+            phone: trainer.phone || "",
             bio: trainer.bio || "",
             status: trainer.status || "active",
             specialization: trainer.specialization || "",
@@ -73,6 +63,9 @@ export default function AdminTrainers() {
             updated_at: trainer.updated_at
           };
         });
+        
+        console.log('Transformed trainers data:', transformedData);
+        return transformedData;
       } catch (err) {
         console.error('Error fetching trainers:', err);
         toast({
@@ -121,7 +114,7 @@ export default function AdminTrainers() {
       form.reset();
       toast({ 
         title: "Trainer created successfully",
-        description: `${data.trainer.firstName} ${data.trainer.lastName} has been added.`
+        description: `${data.trainer.first_name} ${data.trainer.last_name} has been added.`
       });
       // The page will automatically refresh the trainers list due to the query invalidation
     },
@@ -136,7 +129,17 @@ export default function AdminTrainers() {
 
   const updateTrainerMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Partial<TrainerFormData> }) => {
-      const response = await apiRequest("PUT", `/api/trainers/${id}`, data);
+      // Convert camelCase to snake_case for the API
+      const apiData = {
+        id,
+        first_name: data.firstName,
+        last_name: data.lastName,
+        email: data.email,
+        phone: data.phone,
+        bio: data.bio,
+        status: data.status,
+      };
+      const response = await apiRequest("PUT", "/api/trainers", apiData);
       return response;
     },
     onSuccess: () => {
@@ -157,7 +160,7 @@ export default function AdminTrainers() {
 
   const deleteTrainerMutation = useMutation({
     mutationFn: async (id: number) => {
-      const response = await apiRequest("DELETE", `/api/trainers/${id}`);
+      const response = await apiRequest("DELETE", "/api/trainers", { id });
       return response;
     },
     onSuccess: () => {
@@ -204,7 +207,14 @@ export default function AdminTrainers() {
 
   const openCreateModal = () => {
     setEditingTrainer(null);
-    form.reset();
+    form.reset({
+      firstName: "",
+      lastName: "",
+      email: "",
+      phone: "",
+      bio: "",
+      status: "active",
+    });
     setIsModalOpen(true);
   };
 
