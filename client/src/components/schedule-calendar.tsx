@@ -49,7 +49,31 @@ interface Registration {
     lastName: string;
     email: string;
   };
-  schedule: Schedule;
+  course: {
+    id: number;
+    courseDate: string;
+    startTime: string;
+    endTime: string;
+    scheduleId: number;
+    classId: number;
+    trainerId: number;
+    schedule?: {
+      id: number;
+      dayOfWeek: number;
+      startTime: string;
+      endTime: string;
+    };
+    class?: {
+      id: number;
+      name: string;
+      category: string;
+    };
+    trainer?: {
+      id: number;
+      firstName: string;
+      lastName: string;
+    };
+  };
 }
 
 interface Checkin {
@@ -61,7 +85,34 @@ interface Checkin {
     firstName: string;
     lastName: string;
   };
-  registration: Registration;
+  registration: {
+    id: number;
+    course: {
+      id: number;
+      courseDate: string;
+      startTime: string;
+      endTime: string;
+      scheduleId: number;
+      classId: number;
+      trainerId: number;
+      schedule?: {
+        id: number;
+        dayOfWeek: number;
+        startTime: string;
+        endTime: string;
+      };
+      class?: {
+        id: number;
+        name: string;
+        category: string;
+      };
+      trainer?: {
+        id: number;
+        firstName: string;
+        lastName: string;
+      };
+    };
+  };
 }
 
 interface ScheduleCalendarProps {
@@ -83,11 +134,23 @@ export default function ScheduleCalendar({
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
 
   const getScheduleRegistrations = (scheduleId: number) => {
-    return registrations.filter(reg => reg.schedule?.id === scheduleId);
+    return registrations.filter(reg => 
+      reg.course?.id === scheduleId && 
+      reg.status === 'registered'
+    );
   };
 
   const getScheduleCheckins = (scheduleId: number) => {
-    return checkins.filter(checkin => checkin.registration?.schedule?.id === scheduleId);
+    return checkins.filter(checkin => 
+      checkin.registration?.course?.id === scheduleId
+    );
+  };
+
+  const isCourseInPast = (schedule: Schedule) => {
+    if (!schedule.scheduleDate) return false;
+    const courseDateTime = new Date(`${schedule.scheduleDate}T${schedule.endTime}`);
+    const now = new Date();
+    return courseDateTime < now;
   };
 
   const navigateDate = (direction: number) => {
@@ -207,15 +270,16 @@ export default function ScheduleCalendar({
           daySchedules.map((schedule) => {
             const registeredMembers = getScheduleRegistrations(schedule.id);
             const attendedMembers = getScheduleCheckins(schedule.id);
+            const isPast = isCourseInPast(schedule);
             
             return (
-              <Card key={schedule.id} className="cursor-pointer hover:shadow-md transition-shadow"
+              <Card key={schedule.id} className={`cursor-pointer hover:shadow-md transition-shadow ${isPast ? 'opacity-60 bg-gray-50' : ''}`}
                     onClick={() => setSelectedSchedule(schedule)}>
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
-                      <h3 className="font-semibold text-lg">{schedule.class.name}</h3>
-                      <p className="text-muted-foreground">
+                      <h3 className={`font-semibold text-lg ${isPast ? 'text-gray-500' : ''}`}>{schedule.class.name}</h3>
+                      <p className={`${isPast ? 'text-gray-400' : 'text-muted-foreground'}`}>
                         {schedule.trainer.firstName} {schedule.trainer.lastName}
                       </p>
                       <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
@@ -225,12 +289,16 @@ export default function ScheduleCalendar({
                         </div>
                         <div className="flex items-center gap-1">
                           <Users className="w-4 h-4" />
-                          {attendedMembers.length}/{schedule.class.maxCapacity}
+                          {registeredMembers.length}/{schedule.class.maxCapacity} registered
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Users className="w-4 h-4" />
+                          {attendedMembers.length} attended
                         </div>
                       </div>
                     </div>
                     <div className="text-right space-y-2">
-                      <Badge variant="secondary">
+                      <Badge variant={isPast ? "outline" : "secondary"}>
                         {schedule.class.category}
                       </Badge>
                     </div>
@@ -282,16 +350,21 @@ export default function ScheduleCalendar({
                 {daySchedules.map((schedule) => {
                   const registeredMembers = getScheduleRegistrations(schedule.id);
                   const attendedMembers = getScheduleCheckins(schedule.id);
+                  const isPast = isCourseInPast(schedule);
                   
                   return (
                     <div key={schedule.id} 
-                         className="p-2 bg-primary/10 rounded text-xs cursor-pointer hover:bg-primary/20"
+                         className={`p-2 rounded text-xs cursor-pointer ${
+                           isPast 
+                             ? 'bg-gray-100 text-gray-500 hover:bg-gray-200' 
+                             : 'bg-primary/10 hover:bg-primary/20'
+                         }`}
                          onClick={() => setSelectedSchedule(schedule)}>
-                      <div className="font-medium truncate">{schedule.class.name}</div>
-                      <div className="text-muted-foreground">{formatTime(schedule.startTime)}</div>
+                      <div className={`font-medium truncate ${isPast ? 'text-gray-500' : ''}`}>{schedule.class.name}</div>
+                      <div className={isPast ? 'text-gray-400' : 'text-muted-foreground'}>{formatTime(schedule.startTime)}</div>
                       <div className="flex justify-between mt-1">
-                        <span>{registeredMembers.length}/{schedule.class.maxCapacity}</span>
-                        <span className="text-green-600">{attendedMembers.length}</span>
+                        <span className={isPast ? 'text-gray-400' : ''}>{registeredMembers.length}/{schedule.class.maxCapacity}</span>
+                        <span className={isPast ? 'text-gray-400' : 'text-green-600'}>{attendedMembers.length}</span>
                       </div>
                     </div>
                   );
@@ -359,16 +432,25 @@ export default function ScheduleCalendar({
                   </div>
                   <div className="space-y-1">
                     {day.schedules.slice(0, 2).map((schedule) => {
+                      const registeredMembers = getScheduleRegistrations(schedule.id);
                       const attendedMembers = getScheduleCheckins(schedule.id);
+                      const isPast = isCourseInPast(schedule);
                       
                       return (
                         <div key={schedule.id} 
-                             className="text-xs p-1 bg-primary/10 rounded cursor-pointer hover:bg-primary/20"
+                             className={`text-xs p-1 rounded cursor-pointer ${
+                               isPast 
+                                 ? 'bg-gray-100 text-gray-500 hover:bg-gray-200' 
+                                 : 'bg-primary/10 hover:bg-primary/20'
+                             }`}
                              onClick={() => setSelectedSchedule(schedule)}>
-                          <div className="truncate font-medium">{schedule.class.name}</div>
+                          <div className={`truncate font-medium ${isPast ? 'text-gray-500' : ''}`}>{schedule.class.name}</div>
                           <div className="flex justify-between">
-                            <span>{formatTime(schedule.startTime)}</span>
-                            <span>{attendedMembers.length}/{schedule.class.maxCapacity}</span>
+                            <span className={isPast ? 'text-gray-400' : ''}>{formatTime(schedule.startTime)}</span>
+                            <span className={isPast ? 'text-gray-400' : ''}>{registeredMembers.length}/{schedule.class.maxCapacity}</span>
+                          </div>
+                          <div className={`text-xs ${isPast ? 'text-gray-400' : 'text-green-600'}`}>
+                            {attendedMembers.length} attended
                           </div>
                         </div>
                       );

@@ -13,18 +13,18 @@ import ScheduleCalendar from '@/components/schedule-calendar';
 
 interface Course {
   id: number;
-  schedule_id: number;
-  class_id: number;
-  trainer_id: number;
-  course_date: string;
-  start_time: string;
-  end_time: string;
-  max_participants: number;
-  current_participants: number;
+  scheduleId: number;
+  classId: number;
+  trainerId: number;
+  courseDate: string;
+  startTime: string;
+  endTime: string;
+  maxParticipants: number;
+  currentParticipants: number;
   status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
   class?: {
     id: number;
     name: string;
@@ -159,18 +159,18 @@ export default function AdminCourses() {
   // Convert courses to the format expected by ScheduleCalendar
   const coursesAsSchedules = courses?.map((course) => ({
     id: course.id,
-    dayOfWeek: new Date(course.course_date).getDay(),
-    startTime: course.start_time,
-    endTime: course.end_time,
-    scheduleDate: course.course_date,
+    dayOfWeek: new Date(course.courseDate).getDay(),
+    startTime: course.startTime,
+    endTime: course.endTime,
+    scheduleDate: course.courseDate,
     repetitionType: 'once',
-    isActive: course.is_active,
+    isActive: course.isActive,
     class: {
       id: course.class?.id || 0,
       name: course.class?.name || 'Unknown Class',
       category: course.class?.name || 'Unknown',
       duration: 60,
-      maxCapacity: course.max_participants,
+      maxCapacity: course.maxParticipants,
     },
     trainer: {
       id: course.trainer?.id || 0,
@@ -186,7 +186,7 @@ export default function AdminCourses() {
     if (!selectedCourse) return;
 
     const updateData = {
-      schedule_id: selectedCourse.schedule_id,
+      schedule_id: selectedCourse.scheduleId,
       class_id: formData.class_id,
       trainer_id: formData.trainer_id,
       course_date: formData.course_date,
@@ -300,15 +300,15 @@ interface CourseEditFormProps {
 
 function CourseEditForm({ course, classes, trainers, onSubmit, onCancel }: CourseEditFormProps) {
   const [formData, setFormData] = useState({
-    class_id: course.class_id,
-    trainer_id: course.trainer_id,
-    course_date: course.course_date,
-    start_time: course.start_time,
-    end_time: course.end_time,
-    max_participants: course.max_participants,
-    current_participants: course.current_participants,
+    class_id: course.classId,
+    trainer_id: course.trainerId,
+    course_date: course.courseDate,
+    start_time: course.startTime,
+    end_time: course.endTime,
+    max_participants: course.maxParticipants,
+    current_participants: course.currentParticipants,
     status: course.status,
-    is_active: course.is_active,
+    is_active: course.isActive,
   });
 
   const handleSubmit = (e: React.FormEvent) => {

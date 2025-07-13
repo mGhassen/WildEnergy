@@ -1599,8 +1599,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   console.log('Registering route: GET /api/registrations');
   app.get("/api/registrations", asyncHandler(requireAuth), async (req: any, res) => {
     try {
-              const userId = req.user?.isAdmin ? undefined : req.user?.id;
-      if (userId) {
+      const userId = req.user?.isAdmin ? undefined : req.user?.id;
+      if (req.user?.isAdmin) {
+        // For admins, return all registrations
+        const registrations = await storage.getAllClassRegistrations();
+        res.json(registrations);
+      } else if (userId) {
+        // For regular users, return only their registrations
         const registrations = await storage.getClassRegistrations(userId);
         res.json(registrations);
       } else {
