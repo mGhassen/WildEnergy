@@ -2,7 +2,7 @@ import type {
   User, InsertUser, Trainer, InsertTrainer, Category, InsertCategory,
   Plan, InsertPlan, Class, InsertClass, Schedule, InsertSchedule, 
   Course, InsertCourse, Subscription, InsertSubscription, ClassRegistration, InsertClassRegistration, 
-  Checkin, InsertCheckin, Payment, InsertPayment
+  Checkin, InsertCheckin, EnhancedCheckin, Payment, InsertPayment
 } from "@shared/schema";
 import { supabase } from "./supabase";
 
@@ -92,8 +92,8 @@ export interface IStorage {
   getRegistrationByQRCode(qrCode: string): Promise<ClassRegistration | undefined>;
 
   // Check-ins
-  getCheckins(date?: string): Promise<Checkin[]>;
-  getUserCheckins(userId: string): Promise<Checkin[]>;
+  getCheckins(date?: string): Promise<EnhancedCheckin[]>;
+  getUserCheckins(userId: string): Promise<EnhancedCheckin[]>;
   createCheckin(checkin: InsertCheckin): Promise<Checkin>;
 
   // Dashboard stats
@@ -1514,6 +1514,12 @@ export class DatabaseStorage implements IStorage {
           ),
           class:class_id (id, name, category_id, category:category_id (id, name)),
           trainer:trainer_id (id, user:user_id (first_name, last_name))
+        ),
+        member:user_id (
+          id,
+          first_name,
+          last_name,
+          email
         )
       `);
 
@@ -1532,6 +1538,12 @@ export class DatabaseStorage implements IStorage {
     const mappedRegistrations = (registrations || []).map((reg: any) => ({
       ...reg,
       qrCode: reg.qr_code, // Map qr_code to qrCode
+      member: reg.member ? {
+        id: reg.member.id,
+        firstName: reg.member.first_name,
+        lastName: reg.member.last_name,
+        email: reg.member.email
+      } : undefined,
       course: reg.course ? {
         ...reg.course,
         courseDate: reg.course.course_date,
@@ -1627,10 +1639,43 @@ export class DatabaseStorage implements IStorage {
     return registration as ClassRegistration | undefined;
   }
 
-  async getCheckins(date?: string): Promise<Checkin[]> {
+  async getCheckins(date?: string): Promise<EnhancedCheckin[]> {
     let query = supabase
       .from('checkins')
-      .select('*')
+      .select(`
+        *,
+        registration:registration_id (
+          id,
+          user_id,
+          course_id,
+          status,
+          qr_code,
+          registration_date,
+          course:course_id (
+            id,
+            course_date,
+            start_time,
+            end_time,
+            schedule_id,
+            class_id,
+            trainer_id,
+            schedule:schedule_id (
+              id,
+              day_of_week,
+              start_time,
+              end_time
+            ),
+            class:class_id (id, name, category_id, category:category_id (id, name)),
+            trainer:trainer_id (id, user:user_id (first_name, last_name))
+          )
+        ),
+        member:user_id (
+          id,
+          first_name,
+          last_name,
+          email
+        )
+      `)
       .order('checkin_time', { ascending: false });
 
     if (date) {
@@ -1651,21 +1696,88 @@ export class DatabaseStorage implements IStorage {
       throw new Error(error.message || 'Failed to fetch checkins');
     }
 
-    // Convert snake_case to camelCase for consistency with TypeScript types
+    // Convert snake_case to camelCase and structure the data properly
     return (checkins || []).map(checkin => ({
       id: checkin.id,
       userId: checkin.user_id,
       registrationId: checkin.registration_id,
       checkinTime: checkin.checkin_time,
       sessionConsumed: checkin.session_consumed,
-      notes: checkin.notes
-    })) as Checkin[];
+      notes: checkin.notes,
+      member: checkin.member ? {
+        id: checkin.member.id,
+        firstName: checkin.member.first_name,
+        lastName: checkin.member.last_name,
+        email: checkin.member.email
+      } : undefined,
+      registration: checkin.registration ? {
+        id: checkin.registration.id,
+        course: checkin.registration.course ? {
+          id: checkin.registration.course.id,
+          courseDate: checkin.registration.course.course_date,
+          startTime: checkin.registration.course.start_time,
+          endTime: checkin.registration.course.end_time,
+          scheduleId: checkin.registration.course.schedule_id,
+          classId: checkin.registration.course.class_id,
+          trainerId: checkin.registration.course.trainer_id,
+          schedule: checkin.registration.course.schedule ? {
+            id: checkin.registration.course.schedule.id,
+            dayOfWeek: checkin.registration.course.schedule.day_of_week,
+            startTime: checkin.registration.course.schedule.start_time,
+            endTime: checkin.registration.course.schedule.end_time
+          } : undefined,
+          class: checkin.registration.course.class ? {
+            id: checkin.registration.course.class.id,
+            name: checkin.registration.course.class.name,
+            category: checkin.registration.course.class.category?.name || 'Unknown'
+          } : undefined,
+          trainer: checkin.registration.course.trainer ? {
+            id: checkin.registration.course.trainer.id,
+            firstName: checkin.registration.course.trainer.user?.first_name || 'Unknown',
+            lastName: checkin.registration.course.trainer.user?.last_name || ''
+          } : undefined
+        } : undefined
+      } : undefined
+    })) as EnhancedCheckin[];
   }
 
-  async getUserCheckins(userId: string): Promise<Checkin[]> {
+  async getUserCheckins(userId: string): Promise<EnhancedCheckin[]> {
     const { data: checkins, error } = await supabase
       .from('checkins')
-      .select('*')
+      .select(`
+        *,
+        registration:registration_id (
+          id,
+          user_id,
+          course_id,
+          status,
+          qr_code,
+          registration_date,
+          course:course_id (
+            id,
+            course_date,
+            start_time,
+            end_time,
+            schedule_id,
+            class_id,
+            trainer_id,
+            schedule:schedule_id (
+              id,
+              day_of_week,
+              start_time,
+              end_time
+            ),
+            class:class_id (id, name, category_id, category:category_id (id, name)),
+            trainer:trainer_id (id, user:user_id (first_name, last_name))
+          )
+        ),
+        member:user_id (
+          id,
+          first_name,
+          last_name,
+          email
+        )
+      `)
       .eq('user_id', userId)
       .order('checkin_time', { ascending: false });
 
@@ -1674,15 +1786,49 @@ export class DatabaseStorage implements IStorage {
       throw new Error(error.message || 'Failed to fetch user checkins');
     }
 
-    // Convert snake_case to camelCase for consistency with TypeScript types
+    // Convert snake_case to camelCase and structure the data properly
     return (checkins || []).map(checkin => ({
       id: checkin.id,
       userId: checkin.user_id,
       registrationId: checkin.registration_id,
       checkinTime: checkin.checkin_time,
       sessionConsumed: checkin.session_consumed,
-      notes: checkin.notes
-    })) as Checkin[];
+      notes: checkin.notes,
+      member: checkin.member ? {
+        id: checkin.member.id,
+        firstName: checkin.member.first_name,
+        lastName: checkin.member.last_name,
+        email: checkin.member.email
+      } : undefined,
+      registration: checkin.registration ? {
+        id: checkin.registration.id,
+        course: checkin.registration.course ? {
+          id: checkin.registration.course.id,
+          courseDate: checkin.registration.course.course_date,
+          startTime: checkin.registration.course.start_time,
+          endTime: checkin.registration.course.end_time,
+          scheduleId: checkin.registration.course.schedule_id,
+          classId: checkin.registration.course.class_id,
+          trainerId: checkin.registration.course.trainer_id,
+          schedule: checkin.registration.course.schedule ? {
+            id: checkin.registration.course.schedule.id,
+            dayOfWeek: checkin.registration.course.schedule.day_of_week,
+            startTime: checkin.registration.course.schedule.start_time,
+            endTime: checkin.registration.course.schedule.end_time
+          } : undefined,
+          class: checkin.registration.course.class ? {
+            id: checkin.registration.course.class.id,
+            name: checkin.registration.course.class.name,
+            category: checkin.registration.course.class.category?.name || 'Unknown'
+          } : undefined,
+          trainer: checkin.registration.course.trainer ? {
+            id: checkin.registration.course.trainer.id,
+            firstName: checkin.registration.course.trainer.user?.first_name || 'Unknown',
+            lastName: checkin.registration.course.trainer.user?.last_name || ''
+          } : undefined
+        } : undefined
+      } : undefined
+    })) as EnhancedCheckin[];
   }
 
   async createCheckin(checkin: InsertCheckin): Promise<Checkin> {
