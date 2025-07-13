@@ -137,7 +137,7 @@ export default function MembersPage() {
   // Map members from snake_case to camelCase for UI
   const mappedMembers: Member[] = Array.isArray(members)
     ? members.map((m: Record<string, unknown>) => ({
-        ...m,
+        id: typeof m.id === 'string' ? m.id : (typeof m.id === 'number' ? m.id.toString() : ''),
         firstName: typeof m.firstName === 'string' ? m.firstName : (typeof m.first_name === 'string' ? m.first_name : ''),
         lastName: typeof m.lastName === 'string' ? m.lastName : (typeof m.last_name === 'string' ? m.last_name : ''),
         email: typeof m.email === 'string' ? m.email : '',
@@ -171,14 +171,16 @@ export default function MembersPage() {
   const memberData = getMemberDetails();
 
   // Map subscriptions to camelCase fields for status logic
-  const mappedSubscriptions: Subscription[] = (memberData.subscriptions || []).map((sub: Record<string, unknown>) => ({
-    ...sub,
+  const mappedSubscriptions: Subscription[] = (memberData.subscriptions || []).map((sub: any) => ({
+    id: typeof sub.id === 'number' ? sub.id : 0,
+    user_id: typeof sub.user_id === 'string' ? sub.user_id : '',
+    plan_id: typeof sub.plan_id === 'number' ? sub.plan_id : 0,
     startDate: typeof sub.startDate === 'string' ? sub.startDate : (typeof sub.start_date === 'string' ? sub.start_date : ''),
     endDate: typeof sub.endDate === 'string' ? sub.endDate : (typeof sub.end_date === 'string' ? sub.end_date : ''),
     sessionsRemaining: typeof sub.sessionsRemaining === 'number' ? sub.sessionsRemaining : (typeof sub.sessions_remaining === 'number' ? sub.sessions_remaining : 0),
     status: typeof sub.status === 'string' ? sub.status : '',
     plan: sub.plan && typeof sub.plan === 'object' ? {
-      ...sub.plan,
+      id: typeof (sub.plan as any)?.id === 'number' ? (sub.plan as any).id : 0,
       sessionsIncluded: (sub.plan as any).sessionsIncluded ?? (sub.plan as any).max_sessions ?? 0,
       price: (sub.plan as any).price ?? 0,
       name: (sub.plan as any).name ?? '',
@@ -354,7 +356,7 @@ export default function MembersPage() {
                   </TableCell>
                   <TableCell>
                     <p className="text-sm text-muted-foreground">
-                      {formatDate(member.createdAt)}
+                      {formatDate(member.createdAt || "")}
                     </p>
                   </TableCell>
                   <TableCell>
@@ -457,12 +459,12 @@ export default function MembersPage() {
                         <div className="flex justify-between">
                           <span className="text-sm font-medium">Date of Birth:</span>
                           <span className="text-sm">
-                            {selectedMember?.dateOfBirth ? formatDate(selectedMember.dateOfBirth) : 'Not provided'}
+                            {formatDate((selectedMember?.dateOfBirth as string) || '')}
                           </span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-sm font-medium">Member Since:</span>
-                          <span className="text-sm">{formatDate(selectedMember?.createdAt)}</span>
+                          <span className="text-sm">{formatDate(selectedMember?.createdAt || "")}</span>
                         </div>
                       </CardContent>
                     </Card>
@@ -474,7 +476,7 @@ export default function MembersPage() {
                       <CardContent className="space-y-3">
                         <div className="flex justify-between items-center">
                           <span className="text-sm font-medium">Account Status:</span>
-                          <Badge className={getMemberStatusColor(selectedMember?.status)}>
+                          <Badge className={getMemberStatusColor(selectedMember?.status || 'inactive')}>
                             {selectedMember?.status}
                           </Badge>
                         </div>
@@ -490,31 +492,11 @@ export default function MembersPage() {
                             </Badge>
                           )}
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm font-medium">Admin Access:</span>
-                          <span className="text-sm">{selectedMember?.is_admin ? 'Yes' : 'No'}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm font-medium">Member Access:</span>
-                          <span className="text-sm">{selectedMember?.is_member ? 'Yes' : 'No'}</span>
-                        </div>
                       </CardContent>
                     </Card>
                   </div>
                 )}
 
-                {selectedMember?.memberNotes && !isLoadingDetails && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg">Notes</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                        {selectedMember.memberNotes}
-                      </p>
-                    </CardContent>
-                  </Card>
-                )}
               </TabsContent>
 
               <TabsContent value="subscriptions" className="space-y-4">
@@ -532,12 +514,12 @@ export default function MembersPage() {
                           <div key={subscription.id} className="border rounded-lg p-4">
                             <div className="flex justify-between items-start">
                               <div>
-                                <h4 className="font-medium">{subscription.plan?.name}</h4>
+                                <h4 className="font-medium">{subscription.plan?.name || '—'}</h4>
                                 <p className="text-sm text-muted-foreground">
-                                  {subscription.plan?.sessionsIncluded} sessions included
+                                  {subscription.plan?.sessionsIncluded ?? 0} sessions included
                                 </p>
                                 <p className="text-sm text-muted-foreground">
-                                  {formatDate(subscription.startDate)} - {formatDate(subscription.endDate)}
+                                  {formatDate(subscription.startDate || "")} - {formatDate(subscription.endDate || "")}
                                 </p>
                               </div>
                               <div className="text-right">
@@ -588,7 +570,7 @@ export default function MembersPage() {
                           <tbody>
                             {(memberData.payments || []).map((payment: Payment) => (
                               <tr key={payment.id} className="border-b last:border-b-0">
-                                <td className="px-2 py-1">{formatDate(payment.payment_date)}</td>
+                                <td className="px-2 py-1">{formatDate(payment.payment_date || "")}</td>
                                 <td className="px-2 py-1 font-medium">${payment.amount}</td>
                                 <td className="px-2 py-1">{payment.payment_type || '-'}</td>
                                 <td className="px-2 py-1">
@@ -626,12 +608,9 @@ export default function MembersPage() {
                           <div key={registration.id} className="border rounded-lg p-4">
                             <div className="flex justify-between items-start">
                               <div>
-                                <h4 className="font-medium">{registration.course_id?.name}</h4>
+                                <h4 className="font-medium">Class ID: {registration.course_id}</h4>
                                 <p className="text-sm text-muted-foreground">
-                                  with {registration.course_id?.trainer?.firstName} {registration.course_id?.trainer?.lastName}
-                                </p>
-                                <p className="text-sm text-muted-foreground">
-                                  {formatDateTime(registration.registration_date)} 
+                                  {formatDate(registration.registration_date || "")} 
                                   {/* Assuming registration_date is the date of registration */}
                                 </p>
                               </div>
@@ -640,7 +619,7 @@ export default function MembersPage() {
                                   {registration.status}
                                 </Badge>
                                 <p className="text-sm text-muted-foreground mt-1">
-                                  Registered: {formatDate(registration.registration_date)}
+                                  Registered: {formatDate(registration.registration_date || "")}
                                 </p>
                               </div>
                             </div>
@@ -671,18 +650,10 @@ export default function MembersPage() {
                           <div key={checkin.id} className="border rounded-lg p-4">
                             <div className="flex justify-between items-start">
                               <div>
-                                <h4 className="font-medium">{checkin.course_id?.name ?? 'Unknown Class'}</h4>
+                                <h4 className="font-medium">Check-in ID: {checkin.id}</h4>
                                 <p className="text-sm text-muted-foreground">
-                                  Check-in: {formatDateTime(checkin.checkin_time)}
+                                  Check-in: {formatDateTime(checkin.checkin_time || "")}
                                 </p>
-                                <p className="text-sm text-muted-foreground">
-                                  Class: {formatDateTime(checkin.course_id?.scheduleDate)}
-                                </p>
-                              </div>
-                              <div className="text-right">
-                                <Badge variant={checkin.sessionConsumed ? 'default' : 'secondary'}>
-                                  {checkin.sessionConsumed ? 'Session Used' : 'Free Entry'}
-                                </Badge>
                               </div>
                             </div>
                           </div>

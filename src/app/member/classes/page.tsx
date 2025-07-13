@@ -283,7 +283,7 @@ export default function MemberClasses() {
     const courseDate = new Date(course.courseDate);
     const matchesDay = !dayFilter || dayFilter === "all" || courseDate.getDay().toString() === dayFilter;
 
-    // Only show active courses that haven't ended yet
+    // Only show active courses that haven&apos;t ended yet
     const isNotPast = !isCourseInPast(course);
 
     return matchesSearch && matchesCategory && matchesDay && course.isActive && isNotPast;
@@ -470,12 +470,12 @@ export default function MemberClasses() {
                     <div className="flex items-center justify-between mb-1">
                       <CardTitle className="text-base font-semibold leading-tight">{course.class?.name}</CardTitle>
                       <div className="flex items-center gap-2">
-                        <Badge className={getCategoryColor(course.class?.category?.name)}>
+                        <Badge className={getCategoryColor(course.class?.category?.name || "unknown")}>
                           {course.class?.category?.name
                             ? course.class.category.name.charAt(0).toUpperCase() + course.class.category.name.slice(1)
                             : "Unknown"}
                         </Badge>
-                        {renderDifficultyStars(course.class?.difficulty)}
+                        {renderDifficultyStars(course.class?.difficulty || "beginner")}
                       </div>
                     </div>
                     <CardDescription className="line-clamp-1 text-sm mb-2">
@@ -507,7 +507,7 @@ export default function MemberClasses() {
                     <>
                       <div className="text-green-600 text-sm mb-1 flex items-center">
                         <Check className="w-4 h-4 mr-1" />
-                        You're registered for this course
+                        You&apos;re registered for this course
                       </div>
                       <Button
                         variant="outline"

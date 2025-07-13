@@ -78,7 +78,7 @@ const subscriptionFormSchema = z.object({
   planId: z.string().min(1, "Plan is required"),
   startDate: z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/, "Invalid date"),
   notes: z.string().optional(),
-  status: z.enum(['active', 'pending', 'expired', 'cancelled']).default('pending'),
+  status: z.enum(['active', 'pending', 'expired', 'cancelled']).optional(),
 });
 
 // Payment form schema
@@ -87,7 +87,7 @@ const paymentFormSchema = z.object({
   user_id: z.string(),
   amount: z.number().min(0.01, "Amount must be greater than 0"),
   payment_type: z.enum(['credit', 'cash', 'card', 'bank_transfer', 'check', 'other']),
-  payment_status: z.enum(['pending', 'completed', 'failed', 'refunded', 'cancelled']).default('completed'),
+  payment_status: z.enum(['pending', 'completed', 'failed', 'refunded', 'cancelled']).optional(),
   payment_date: z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/, "Invalid date"),
   transaction_id: z.string().optional(),
   notes: z.string().optional(),

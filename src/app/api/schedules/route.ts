@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch schedules' }, { status: 500 });
     }
     return NextResponse.json(schedules);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to create schedule' }, { status: 500 });
     }
     return NextResponse.json({ success: true, schedule });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Failed to create schedule' }, { status: 500 });
   }
 }
@@ -104,7 +104,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to delete schedule' }, { status: 500 });
     }
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Failed to delete schedule' }, { status: 500 });
   }
 } 

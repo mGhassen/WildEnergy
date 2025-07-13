@@ -1,15 +1,22 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/lib/supabase';
+import dynamic from 'next/dynamic';
 
-export default function Register() {
+// Disable SSR for this component to avoid Supabase client issues
+const RegisterComponent = dynamic(() => Promise.resolve(Register), { ssr: false });
+
+export default function RegisterPage() {
+  return <RegisterComponent />;
+}
+
+function Register() {
   const router = useRouter();
   const { toast } = useToast();
   const [email, setEmail] = useState('');
@@ -19,6 +26,11 @@ export default function Register() {
   const [lastName, setLastName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,10 +78,17 @@ export default function Register() {
   };
 
   const handleGoogleSignUp = async () => {
+    if (!isClient) return;
+    
     setIsLoading(true);
     setError("");
 
     try {
+      const { supabase } = await import('@/lib/supabase');
+      if (!supabase) {
+        throw new Error('Supabase client not available');
+      }
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {

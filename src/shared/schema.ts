@@ -87,7 +87,7 @@ export const schedules = pgTable("schedules", {
   repetitionType: text("repetition_type").notNull(), // 'weekly', 'biweekly', 'monthly', 'once'
   scheduleDate: date("schedule_date"), // For one-time schedules
   isActive: boolean("is_active").notNull().default(true),
-  parentScheduleId: integer("parent_schedule_id").references(() => schedules.id), // For recurring schedules
+  // parentScheduleId: integer("parent_schedule_id").references(() => schedules.id), // For recurring schedules
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

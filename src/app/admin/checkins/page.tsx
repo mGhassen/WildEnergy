@@ -99,6 +99,7 @@ export default function AdminCheckins() {
   };
 
   const copyQRUrl = (qrCode: string) => {
+    if (typeof window === 'undefined') return;
     const url = `${window.location.origin}/checkin/${qrCode}`;
     navigator.clipboard.writeText(url);
     toast({
@@ -220,7 +221,7 @@ export default function AdminCheckins() {
                             size="sm"
                             onClick={() => {
                               const qrCode = checkin.registration?.qr_code || checkin.registration?.qrCode || '';
-                              if (qrCode) {
+                              if (qrCode && typeof window !== 'undefined') {
                                 window.open(`/checkin/qr/${qrCode}`, '_blank');
                               } else {
                                 toast({
@@ -287,7 +288,7 @@ export default function AdminCheckins() {
                     Scan this QR code to test the check-in process
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    URL: {window.location.origin}/checkin/{testQRCode}
+                    URL: {typeof window !== 'undefined' ? `${window.location.origin}/checkin/${testQRCode}` : `/checkin/${testQRCode}`}
                   </p>
                 </div>
               </div>

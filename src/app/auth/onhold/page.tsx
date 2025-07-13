@@ -52,7 +52,7 @@ export default function OnHold() {
             <p className="text-sm text-blue-800">
               <strong>What happens next?</strong>
               <br />
-              Our team will review your account within 24 hours. You'll receive an email notification once your account is approved and you can start using all gym features.
+              Our team will review your account within 24 hours. You&apos;ll receive an email notification once your account is approved and you can start using all gym features.
             </p>
           </div>
 

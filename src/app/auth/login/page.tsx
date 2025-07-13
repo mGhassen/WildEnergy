@@ -44,18 +44,20 @@ export default function Login() {
       
       // Note: The actual redirection is handled in the useAuth hook after successful login
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Login error:', err);
       
       // Handle specific error cases
       let errorMessage = 'An error occurred during login';
       
-      if (err.message.includes('Invalid login credentials')) {
-        errorMessage = 'Invalid email or password';
-      } else if (err.message.includes('Email not confirmed')) {
-        errorMessage = 'Please verify your email before logging in';
-      } else if (err.message) {
-        errorMessage = err.message;
+      if (err instanceof Error) {
+        if (err.message.includes('Invalid login credentials')) {
+          errorMessage = 'Invalid email or password';
+        } else if (err.message.includes('Email not confirmed')) {
+          errorMessage = 'Please verify your email before logging in';
+        } else {
+          errorMessage = err.message;
+        }
       }
       
       setError(errorMessage);
@@ -81,8 +83,12 @@ export default function Login() {
         title: "Google Login",
         description: "Google login is not yet available. Please use email and password.",
       });
-    } catch (err: any) {
-      setError(err.message || "Failed to sign in with Google");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message || "Failed to sign in with Google");
+      } else {
+        setError("Failed to sign in with Google");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -176,7 +182,7 @@ export default function Login() {
             </Button>
           </form>
 
-          {import.meta.env.DEV && (
+          {process.env.NODE_ENV === "development" && (
             <div className="mt-6 space-y-4">
               <Separator />
               <div className="space-y-2">
@@ -213,7 +219,7 @@ export default function Login() {
 
           <div className="text-center mt-4">
             <p className="text-sm text-muted-foreground">
-              Don't have an account?{" "}
+              Don&apos;t have an account?{" "}
               <Button
                 variant="link"
                 className="p-0 font-normal"

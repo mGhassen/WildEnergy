@@ -20,7 +20,15 @@ import { getInitials } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 
-const trainerFormSchema = insertTrainerSchema;
+const trainerFormSchema = z.object({
+  firstName: z.string().min(1, 'First name is required'),
+  lastName: z.string().min(1, 'Last name is required'),
+  email: z.string().email('Invalid email format'),
+  phone: z.string().optional(),
+  specialties: z.array(z.string()).optional(),
+  bio: z.string().optional(),
+  status: z.string().optional(),
+});
 
 type TrainerFormData = z.infer<typeof trainerFormSchema>;
 

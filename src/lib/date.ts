@@ -1,4 +1,4 @@
-export function formatDate(dateString: string | Date): string {
+export function formatDate(dateString: string | undefined | Date): string {
   if (!dateString) return '';
   const d = new Date(dateString);
   if (isNaN(d.getTime())) return '';

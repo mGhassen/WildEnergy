@@ -31,9 +31,9 @@ const createUserSchema = z.object({
       .min(8, "Password must be at least 8 characters")
       .optional()
       .or(z.literal('')),
-    isAdmin: z.boolean().default(false),
-    isMember: z.boolean().default(true),
-    isTrainer: z.boolean().default(false),
+    isAdmin: z.boolean().optional(),
+    isMember: z.boolean().optional(),
+    isTrainer: z.boolean().optional(),
 });
 
 const editUserSchema = z.object({
@@ -307,12 +307,12 @@ export default function UsersPage() {
             lastName: user.lastName || "",
             email: user.email || "",
             phone: user.phone || "",
-            dateOfBirth: user.dateOfBirth || user.date_of_birth || "",
-            memberNotes: user.memberNotes || user.member_notes || "",
+            dateOfBirth: user.dateOfBirth || "",
+            memberNotes: user.memberNotes || "",
             isAdmin: user.isAdmin || false,
             isMember: user.isMember || false,
             isTrainer: user.isTrainer || false,
-            status: user.status || "active",
+            status: (user.status as "active" | "onhold" | "inactive" | "suspended") || "active",
         });
     };
 

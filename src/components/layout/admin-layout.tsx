@@ -76,8 +76,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               <Dumbbell className="w-4 h-4 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-lg font-semibold text-foreground">GymFlow Admin</h1>
-              <p className="text-sm text-muted-foreground">Management Portal</p>
+              <h1 className="text-lg font-semibold text-foreground">Wild Energy</h1>
+              {/* <p className="text-sm text-muted-foreground">Management Portal</p> */}
             </div>
           </Link>
         </div>
