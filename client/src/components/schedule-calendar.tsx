@@ -278,9 +278,9 @@ export default function ScheduleCalendar({
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
-                      <h3 className={`font-semibold text-lg ${isPast ? 'text-gray-500' : ''}`}>{schedule.class.name}</h3>
+                      <h3 className={`font-semibold text-lg ${isPast ? 'text-gray-500' : ''}`}>{schedule.class?.name || 'Unknown Class'}</h3>
                       <p className={`${isPast ? 'text-gray-400' : 'text-muted-foreground'}`}>
-                        {schedule.trainer.firstName} {schedule.trainer.lastName}
+                        {schedule.trainer?.firstName || 'Unknown'} {schedule.trainer?.lastName || ''}
                       </p>
                       <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
                         <div className="flex items-center gap-1">
@@ -289,7 +289,7 @@ export default function ScheduleCalendar({
                         </div>
                         <div className="flex items-center gap-1">
                           <Users className="w-4 h-4" />
-                          {registeredMembers.length}/{schedule.class.maxCapacity} registered
+                          {registeredMembers.length}/{schedule.class?.maxCapacity || 0} registered
                         </div>
                         <div className="flex items-center gap-1">
                           <Users className="w-4 h-4" />
@@ -360,10 +360,10 @@ export default function ScheduleCalendar({
                              : 'bg-primary/10 hover:bg-primary/20'
                          }`}
                          onClick={() => setSelectedSchedule(schedule)}>
-                      <div className={`font-medium truncate ${isPast ? 'text-gray-500' : ''}`}>{schedule.class.name}</div>
+                      <div className={`font-medium truncate ${isPast ? 'text-gray-500' : ''}`}>{schedule.class?.name || 'Unknown Class'}</div>
                       <div className={isPast ? 'text-gray-400' : 'text-muted-foreground'}>{formatTime(schedule.startTime)}</div>
                       <div className="flex justify-between mt-1">
-                        <span className={isPast ? 'text-gray-400' : ''}>{registeredMembers.length}/{schedule.class.maxCapacity}</span>
+                        <span className={isPast ? 'text-gray-400' : ''}>{registeredMembers.length}/{schedule.class?.maxCapacity || 0}</span>
                         <span className={isPast ? 'text-gray-400' : 'text-green-600'}>{attendedMembers.length}</span>
                       </div>
                     </div>
@@ -444,10 +444,10 @@ export default function ScheduleCalendar({
                                  : 'bg-primary/10 hover:bg-primary/20'
                              }`}
                              onClick={() => setSelectedSchedule(schedule)}>
-                          <div className={`truncate font-medium ${isPast ? 'text-gray-500' : ''}`}>{schedule.class.name}</div>
+                          <div className={`truncate font-medium ${isPast ? 'text-gray-500' : ''}`}>{schedule.class?.name || 'Unknown Class'}</div>
                           <div className="flex justify-between">
                             <span className={isPast ? 'text-gray-400' : ''}>{formatTime(schedule.startTime)}</span>
-                            <span className={isPast ? 'text-gray-400' : ''}>{registeredMembers.length}/{schedule.class.maxCapacity}</span>
+                            <span className={isPast ? 'text-gray-400' : ''}>{registeredMembers.length}/{schedule.class?.maxCapacity || 0}</span>
                           </div>
                           <div className={`text-xs ${isPast ? 'text-gray-400' : 'text-green-600'}`}>
                             {attendedMembers.length} attended
@@ -510,7 +510,7 @@ export default function ScheduleCalendar({
         <Dialog open={!!selectedSchedule} onOpenChange={() => setSelectedSchedule(null)}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>{selectedSchedule.class.name}</DialogTitle>
+              <DialogTitle>{selectedSchedule.class?.name || 'Unknown Class'}</DialogTitle>
               <DialogDescription>
                 {new Date(selectedSchedule.scheduleDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} • {formatTime(selectedSchedule.startTime)} - {formatTime(selectedSchedule.endTime)}
               </DialogDescription>
@@ -521,10 +521,10 @@ export default function ScheduleCalendar({
                 <div>
                   <h4 className="font-medium mb-2">Class Details</h4>
                   <div className="space-y-2 text-sm">
-                    <div>Trainer: {selectedSchedule.trainer.firstName} {selectedSchedule.trainer.lastName}</div>
-                    <div>Category: {selectedSchedule.class.category}</div>
-                    <div>Duration: {selectedSchedule.class.duration} minutes</div>
-                    <div>Capacity: {selectedSchedule.class.maxCapacity} members</div>
+                    <div>Trainer: {selectedSchedule.trainer?.firstName || 'Unknown'} {selectedSchedule.trainer?.lastName || ''}</div>
+                    <div>Category: {selectedSchedule.class?.category || 'Unknown'}</div>
+                    <div>Duration: {selectedSchedule.class?.duration || 60} minutes</div>
+                    <div>Capacity: {selectedSchedule.class?.maxCapacity || 0} members</div>
                   </div>
                 </div>
                 
@@ -552,8 +552,8 @@ export default function ScheduleCalendar({
                     {getScheduleRegistrations(selectedSchedule.id).map((registration) => (
                       <div key={registration.id} className="flex items-center justify-between p-2 bg-muted rounded">
                         <div>
-                          <div className="font-medium">{registration.member.firstName} {registration.member.lastName}</div>
-                          <div className="text-xs text-muted-foreground">{registration.member.email}</div>
+                          <div className="font-medium">{registration.member?.firstName || 'Unknown'} {registration.member?.lastName || ''}</div>
+                          <div className="text-xs text-muted-foreground">{registration.member?.email || 'No email'}</div>
                         </div>
                         <Badge variant={registration.status === 'registered' ? 'secondary' : 'default'}>
                           {registration.status}
@@ -575,7 +575,7 @@ export default function ScheduleCalendar({
                     {getScheduleCheckins(selectedSchedule.id).map((checkin) => (
                       <div key={checkin.id} className="flex items-center justify-between p-2 bg-green-50 border border-green-200 rounded">
                         <div>
-                          <div className="font-medium">{checkin.member.firstName} {checkin.member.lastName}</div>
+                          <div className="font-medium">{checkin.member?.firstName || 'Unknown'} {checkin.member?.lastName || ''}</div>
                           <div className="text-xs text-muted-foreground">
                             {new Date(checkin.checkinTime).toLocaleTimeString()}
                           </div>

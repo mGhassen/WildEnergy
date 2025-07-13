@@ -412,6 +412,44 @@ export type InsertClassRegistration = z.infer<typeof insertClassRegistrationSche
 export type Checkin = typeof checkins.$inferSelect;
 export type InsertCheckin = z.infer<typeof insertCheckinSchema>;
 
+// Enhanced Checkin type with related data for frontend use
+export interface EnhancedCheckin extends Checkin {
+  member?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+  registration?: {
+    id: number;
+    course?: {
+      id: number;
+      courseDate: string;
+      startTime: string;
+      endTime: string;
+      scheduleId: number;
+      classId: number;
+      trainerId: number;
+      schedule?: {
+        id: number;
+        dayOfWeek: number;
+        startTime: string;
+        endTime: string;
+      };
+      class?: {
+        id: number;
+        name: string;
+        category: string;
+      };
+      trainer?: {
+        id: number;
+        firstName: string;
+        lastName: string;
+      };
+    };
+  };
+}
+
 // Payment schemas
 export const insertPaymentSchema = createInsertSchema(payments, {
   paymentType: z.enum(['cash', 'card', 'bank_transfer', 'check', 'other']),
