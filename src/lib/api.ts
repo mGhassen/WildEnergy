@@ -110,13 +110,12 @@ export const authApi = {
       throw error;
     }
     
-    if (data.success && data.access_token) {
-      // Store both tokens in localStorage
-      localStorage.setItem('access_token', data.access_token);
-      if (data.refresh_token) {
-        localStorage.setItem('refresh_token', data.refresh_token);
+    if (data.success && data.session?.access_token) {
+      localStorage.setItem('access_token', data.session.access_token);
+      if (data.session.refresh_token) {
+        localStorage.setItem('refresh_token', data.session.refresh_token);
       }
-      window.__authToken = data.access_token;
+      window.__authToken = data.session.access_token;
     }
     
     return data;

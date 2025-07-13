@@ -12,9 +12,20 @@ export async function GET(req: NextRequest) {
     const token = authHeader.substring(7);
     
     // Verify the token
-    const { data: { user }, error: authError } = await supabaseServer.auth.getUser(token);
-    if (authError || !user) {
+    const { data: { user: authUser }, error: authError } = await supabaseServer.auth.getUser(token);
+    if (authError || !authUser) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    }
+
+    // Check if the user is an admin
+    const { data: profile } = await supabaseServer
+      .from('users')
+      .select('is_admin')
+      .eq('auth_user_id', authUser.id)
+      .single();
+
+    if (!profile || !profile.is_admin) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     // Get query parameters
@@ -131,6 +142,31 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    // Get the authorization header
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const token = authHeader.substring(7);
+    
+    // Verify the token
+    const { data: { user: authUser }, error: authError } = await supabaseServer.auth.getUser(token);
+    if (authError || !authUser) {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    }
+
+    // Check if the user is an admin
+    const { data: profile } = await supabaseServer
+      .from('users')
+      .select('is_admin')
+      .eq('auth_user_id', authUser.id)
+      .single();
+
+    if (!profile || !profile.is_admin) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const body = await req.json();
     const { qr_code } = body;
     
@@ -171,13 +207,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Get user and course details
-    const { data: user } = await supabaseServer
+    const { data: memberUser } = await supabaseServer
       .from('users')
       .select('*')
       .eq('id', registration.user_id)
       .single();
 
-    if (!user) {
+    if (!memberUser) {
       return NextResponse.json({ 
         success: false, 
         message: 'User not found' 
@@ -229,7 +265,7 @@ export async function POST(req: NextRequest) {
       success: true,
       message: 'Check-in successful',
       data: {
-        member_name: `${user.first_name} ${user.last_name}`,
+        member_name: `${memberUser.first_name} ${memberUser.last_name}`,
         class_name: course.class_id || 'Class',
         checkin_time: checkin.checkin_time
       }
