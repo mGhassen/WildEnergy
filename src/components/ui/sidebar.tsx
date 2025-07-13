@@ -22,7 +22,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Sun, Moon, User as UserIcon, LogOut } from "lucide-react";
+import { Sun, Moon, User as UserIcon, LogOut, ChevronLeft, ChevronRight } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/components/theme-provider";
 import {
@@ -33,6 +33,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
@@ -271,6 +272,7 @@ const Sidebar = React.forwardRef<
           >
             {children}
             <SidebarUserMenu />
+            <SidebarCollapseButton />
           </div>
         </div>
       </div>
@@ -757,39 +759,105 @@ SidebarMenuSubButton.displayName = "SidebarMenuSubButton"
 
 function SidebarUserMenu() {
   const { user, logout } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
+  const { state } = useSidebar();
+  const collapsed = state === "collapsed";
   return (
-    <div className="p-4 border-t border-border mt-auto">
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button className="flex items-center w-full gap-2 p-2 rounded hover:bg-muted transition-colors focus:outline-none">
-            <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-              <span className="text-xs font-medium text-primary-foreground">
-                {user?.firstName?.[0] || user?.email?.[0] || "U"}
-              </span>
-            </div>
-            <span className="text-sm font-medium text-foreground truncate">
-              {user?.firstName || user?.email || "User"}
-            </span>
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-56">
-          <DropdownMenuLabel className="flex items-center gap-2">
-            <UserIcon className="w-4 h-4" />
+    <div className={cn(
+      "flex flex-col items-center gap-2 w-full",
+      collapsed ? "py-2" : "p-2"
+    )}>
+      {/* User info and logout */}
+      <div className={cn(
+        "flex items-center w-full gap-2",
+        collapsed ? "justify-center" : "justify-between"
+      )}>
+        <div className="w-7 h-7 bg-primary rounded-full flex items-center justify-center">
+          <span className="text-xs font-medium text-primary-foreground">
+            {user?.firstName?.[0] || user?.email?.[0] || "U"}
+          </span>
+        </div>
+        {!collapsed && (
+          <span className="text-xs font-medium text-foreground truncate">
             {user?.firstName || user?.email || "User"}
-          </DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={toggleTheme} className="flex items-center gap-2 cursor-pointer">
-            {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            <span>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={logout} className="flex items-center gap-2 cursor-pointer text-destructive">
-            <LogOut className="w-4 h-4" />
-            <span>Logout</span>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+          </span>
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          className={collapsed ? "" : "ml-auto"}
+          onClick={logout}
+          title="Logout"
+        >
+          <LogOut className="w-4 h-4" />
+        </Button>
+      </div>
+      {/* Theme segmented control */}
+      <ToggleGroup
+        type="single"
+        value={theme}
+        onValueChange={(val) => val && setTheme(val as "light" | "dark")}
+        className={cn(
+          "w-full flex items-center justify-center bg-muted rounded-full border border-border p-0.5",
+          collapsed ? "w-auto h-7 p-0 justify-center" : "mt-1"
+        )}
+        aria-label="Theme switcher"
+      >
+        <ToggleGroupItem value="light" aria-label="Light mode" className={cn("h-7 w-7 p-0 flex items-center justify-center", collapsed && "h-7 w-7") }>
+          <Sun className="w-3 h-3" />
+        </ToggleGroupItem>
+        <ToggleGroupItem value="dark" aria-label="Dark mode" className={cn("h-7 w-7 p-0 flex items-center justify-center", collapsed && "h-7 w-7") }>
+          <Moon className="w-3 h-3" />
+        </ToggleGroupItem>
+      </ToggleGroup>
+    </div>
+  );
+}
+
+function SidebarCollapseButton() {
+  const { state, toggleSidebar } = useSidebar();
+  const collapsed = state === "collapsed";
+  return (
+    <div className="w-full flex justify-center pb-2 pt-1 border-t border-border bg-card">
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={toggleSidebar}
+        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        className="w-7 h-7"
+      >
+        {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+      </Button>
+    </div>
+  );
+}
+
+function SidebarThemeSwitcher() {
+  const { theme, setTheme } = useTheme();
+  return (
+    <div className="w-full flex justify-center pb-4">
+      <ToggleGroup
+        type="single"
+        value={theme}
+        onValueChange={val => val && setTheme(val as "light" | "dark")}
+        className="bg-muted rounded-full h-10 px-2 flex items-center gap-0 border border-border"
+        aria-label="Theme switcher"
+      >
+        <ToggleGroupItem
+          value="light"
+          aria-label="Light mode"
+          className="h-8 w-8 rounded-full flex items-center justify-center data-[state=on]:bg-background"
+        >
+          <Sun className="w-5 h-5" />
+        </ToggleGroupItem>
+        <ToggleGroupItem
+          value="dark"
+          aria-label="Dark mode"
+          className="h-8 w-8 rounded-full flex items-center justify-center data-[state=on]:bg-background"
+        >
+          <Moon className="w-5 h-5" />
+        </ToggleGroupItem>
+      </ToggleGroup>
     </div>
   );
 }
@@ -819,4 +887,5 @@ export {
   SidebarSeparator,
   SidebarTrigger,
   useSidebar,
+  SidebarThemeSwitcher,
 }
