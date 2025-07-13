@@ -31,7 +31,7 @@ export default function Register() {
 
     try {
       // First create user account via backend API
-      const response = await fetch('/api/auth/signup', {
+      const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
