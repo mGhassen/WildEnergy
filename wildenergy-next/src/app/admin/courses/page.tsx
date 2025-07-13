@@ -144,7 +144,7 @@ export default function AdminCourses() {
   });
 
   // Convert courses to the format expected by ScheduleCalendar
-  const coursesAsSchedules = courses?.map((course) => ({
+  const coursesAsSchedules = courses?.map((course: any) => ({
     id: course.id,
     dayOfWeek: new Date(course.courseDate).getDay(),
     startTime: course.startTime,
