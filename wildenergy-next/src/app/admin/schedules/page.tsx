@@ -202,7 +202,11 @@ export default function AdminSchedules() {
 
 
   const getScheduleCheckins = (scheduleId: number) => {
-    return ((checkins as any[]) || []).filter((checkin: any) => checkin.registration?.schedule?.id === scheduleId);
+    // Ensure checkins is an array before filtering
+    if (!Array.isArray(checkins)) {
+      return [];
+    }
+    return checkins.filter((checkin: any) => checkin.registration?.schedule?.id === scheduleId);
   };
 
   const getRepetitionLabel = (type: string) => {
