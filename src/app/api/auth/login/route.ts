@@ -55,6 +55,12 @@ export async function POST(req: NextRequest) {
     }
 
     // Return session and user info
+    console.log('Login API returning session:', {
+      access_token: session?.access_token ? 'present' : 'missing',
+      refresh_token: session?.refresh_token ? 'present' : 'missing',
+      expires_at: session?.expires_at,
+    });
+    
     return NextResponse.json({
       success: true,
       session,
