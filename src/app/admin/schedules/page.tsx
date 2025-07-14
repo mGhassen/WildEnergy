@@ -49,6 +49,8 @@ function mapScheduleToApi(data: any) {
     end_time: data.endTime,
     repetition_type: data.repetitionType,
     schedule_date: data.scheduleDate,
+    start_date: data.startDate,
+    end_date: data.endDate,
     is_active: data.isActive,
   };
 }
