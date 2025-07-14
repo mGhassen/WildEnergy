@@ -9,10 +9,6 @@ import { CheckCircle, XCircle, Loader2, ArrowLeft, User, Calendar, Clock, Users 
 import { apiFetch } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
-interface CheckinPageProps {
-  qrCode?: string;
-}
-
 interface CheckinInfo {
   member: {
     id: string;
@@ -50,24 +46,19 @@ interface CheckinInfo {
   attendantMembers?: { id: string; firstName: string; lastName: string; email: string }[];
 }
 
-export default function CheckinPage({ qrCode: qrCodeProp }: CheckinPageProps) {
+export default function CheckinPage() {
   const router = useRouter();
   const { toast } = useToast();
   
   const [status, setStatus] = useState<'loading' | 'info' | 'success' | 'error' | 'invalid'>('loading');
   const [message, setMessage] = useState('');
   const [checkinInfo, setCheckinInfo] = useState<CheckinInfo | null>(null);
-  const [qrCode, setQrCode] = useState<string>(qrCodeProp || '');
+  const [qrCode, setQrCode] = useState<string>('');
   const [isValidating, setIsValidating] = useState(false);
   const [isUnvalidating, setIsUnvalidating] = useState(false);
 
   useEffect(() => {
-    if (qrCodeProp) {
-      setQrCode(qrCodeProp);
-      fetchCheckinInfo(qrCodeProp);
-      return;
-    }
-    // Extract QR code from URL path if not provided as prop
+    // Extract QR code from URL path
     const path = window.location.pathname;
     let qrCodeFromPath = path.replace('/checkin/', '');
     if (qrCodeFromPath.startsWith('qr/')) {
@@ -80,7 +71,7 @@ export default function CheckinPage({ qrCode: qrCodeProp }: CheckinPageProps) {
     }
     setQrCode(qrCodeFromPath);
     fetchCheckinInfo(qrCodeFromPath);
-  }, [qrCodeProp]);
+  }, []);
 
   const fetchCheckinInfo = async (qrCodeValue: string) => {
     try {

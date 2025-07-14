@@ -121,7 +121,7 @@ export async function GET(
     const { data: classInfo } = await supabaseServer
       .from('classes')
       .select('id, name')
-      .eq('id', registration.courses.class_id)
+      .eq('id', registration.courses[0]?.class_id)
       .single();
 
     // Get trainer information
@@ -135,7 +135,7 @@ export async function GET(
           last_name
         )
       `)
-      .eq('id', registration.courses.trainer_id)
+      .eq('id', registration.courses[0]?.trainer_id)
       .single();
 
     // Get registered and checked-in counts for this course
@@ -207,7 +207,14 @@ export async function GET(
       checkedInCount,
       alreadyCheckedIn,
       registeredMembers: registeredMembers?.map(r => r.users) || [],
-      attendantMembers: attendantMembers?.map(c => c.class_registrations.users) || []
+      attendantMembers: attendantMembers
+        ? attendantMembers.flatMap(c =>
+            Array.isArray(c.class_registrations)
+              ? c.class_registrations.map(reg => reg.users)
+           
+              : []
+          )
+        : []
     };
 
     return NextResponse.json({
