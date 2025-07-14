@@ -21,17 +21,63 @@ export async function GET(req: NextRequest) {
     if (!adminCheck?.is_admin) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
-    // Fetch all schedules
+    
+    // Fixed query: trainers table has user_id that references users table
     const { data: schedules, error } = await supabaseServer
       .from('schedules')
-      .select('*')
+      .select(`
+        *,
+        classes (
+          id, name, max_capacity, duration, category_id
+        ),
+        trainers!trainer_id (
+          id, user_id, specialization, experience_years, bio, certification
+        )
+      `)
       .order('created_at', { ascending: false });
+      
     if (error) {
-      return NextResponse.json({ error: 'Failed to fetch schedules' }, { status: 500 });
+      console.error('Schedules API error:', error);
+      return NextResponse.json({ error: 'Failed to fetch schedules', details: error }, { status: 500 });
     }
-    return NextResponse.json(schedules);
-  } catch {
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    
+    // Get trainer user details separately
+    const trainerUserIds = schedules
+      ?.filter(schedule => schedule.trainers?.user_id)
+      .map(schedule => schedule.trainers.user_id) || [];
+    
+    let trainerUsers: Record<string, any> = {};
+    if (trainerUserIds.length > 0) {
+      const { data: users } = await supabaseServer
+        .from('users')
+        .select('id, first_name, last_name, email, phone')
+        .in('id', trainerUserIds);
+      
+      if (users) {
+        trainerUsers = users.reduce((acc: Record<string, any>, user: any) => {
+          acc[user.id] = user;
+          return acc;
+        }, {});
+      }
+    }
+    
+    // Transform the data to flatten the nested structure
+    const transformedSchedules = schedules?.map(schedule => ({
+      ...schedule,
+      trainer: schedule.trainers ? {
+        id: schedule.trainers.id,
+        specialization: schedule.trainers.specialization,
+        experience_years: schedule.trainers.experience_years,
+        bio: schedule.trainers.bio,
+        certification: schedule.trainers.certification,
+        ...trainerUsers[schedule.trainers.user_id]
+      } : null
+    })) || [];
+    
+    return NextResponse.json(transformedSchedules);
+  } catch (e) {
+    console.error('Schedules API exception:', e);
+    return NextResponse.json({ error: 'Internal server error', details: String(e) }, { status: 500 });
   }
 }
 

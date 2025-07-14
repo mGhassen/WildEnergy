@@ -21,18 +21,30 @@ export async function GET(req: NextRequest) {
     if (!adminCheck?.is_admin) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
-    // Fetch all trainers
+    // Fetch all trainers from trainers table, join users for names
     const { data: trainers, error } = await supabaseServer
-      .from('users')
-      .select('*')
-      .eq('is_trainer', true)
-      .order('created_at', { ascending: false });
+      .from('trainers')
+      .select(`
+        id,
+        user_id,
+        specialization,
+        experience_years,
+        bio,
+        certification,
+        users:user_id (
+          first_name,
+          last_name,
+          email,
+          phone
+        )
+      `)
+      .order('id', { ascending: true });
     if (error) {
-      return NextResponse.json({ error: 'Failed to fetch trainers' }, { status: 500 });
+      return NextResponse.json({ error: 'Failed to fetch trainers', details: error }, { status: 500 });
     }
     return NextResponse.json(trainers);
-  } catch {
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  } catch (e) {
+    return NextResponse.json({ error: 'Internal server error', details: String(e) }, { status: 500 });
   }
 }
 

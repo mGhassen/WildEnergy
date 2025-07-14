@@ -60,68 +60,84 @@ export default function AdminSchedules() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: rawSchedules = [], isLoading } = useQuery({
-    queryKey: ["/api/schedules"],
-    queryFn: () => apiRequest("GET", "/api/schedules"),
+  const { data: rawSchedules = [], isLoading, refetch } = useQuery({
+    queryKey: ["schedules"],
+    queryFn: async () => {
+      console.log('Schedules queryFn called');
+      const result = await apiRequest("GET", "/api/schedules");
+      console.log('Schedules queryFn result:', result);
+      return result;
+    },
+    staleTime: 0, // Always consider data stale
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
+
+  console.log('Raw schedules from API:', rawSchedules);
 
   // Map snake_case fields to camelCase for UI
   const schedules = ((rawSchedules as any[]) || []).map((sch: any) => ({
     ...sch,
+    classId: Number(sch.class?.id ?? sch.class_id),
+    trainerId: Number(sch.trainer?.user_id ?? sch.trainer_id),
     startTime: sch.start_time,
     endTime: sch.end_time,
-    scheduleDate: sch.schedule_date,
-    dayOfWeek: sch.day_of_week,
+    scheduleDate: sch.schedule_date ? sch.schedule_date.split('T')[0] : "",
+    startDate: sch.start_date ? sch.start_date.split('T')[0] : "",
+    endDate: sch.end_date ? sch.end_date.split('T')[0] : "",
+    dayOfWeek: Number(sch.day_of_week),
     repetitionType: sch.repetition_type,
     isActive: sch.is_active,
     class: sch.class,
     trainer: sch.trainer ? {
       id: sch.trainer.id,
-      firstName: sch.trainer.user?.first_name || "",
-      lastName: sch.trainer.user?.last_name || "",
+      firstName: sch.trainer.first_name || "",
+      lastName: sch.trainer.last_name || "",
     } : {
       id: sch.trainer_id,
       firstName: "",
       lastName: "",
     },
   }));
+  console.log('Transformed schedules:', schedules);
 
   const { data: registrations = [] } = useQuery({
-    queryKey: ["/api/registrations"],
+    queryKey: ["registrations"],
     queryFn: () => apiRequest("GET", "/api/registrations"),
   });
 
   const { data: checkins = [] } = useQuery({
-    queryKey: ["/api/checkins"],
+    queryKey: ["checkins"],
     queryFn: () => apiRequest("GET", "/api/checkins"),
   });
 
   const { data: classes } = useQuery({
-    queryKey: ["/api/admin/classes"],
+    queryKey: ["admin", "classes"],
     queryFn: () => apiRequest("GET", "/api/admin/classes"),
   });
 
   const { data: plans = [] } = useQuery({
-    queryKey: ["/api/plans"],
+    queryKey: ["plans"],
     queryFn: () => apiRequest("GET", "/api/plans"),
   });
 
   const { data: subscriptions = [] } = useQuery({
-    queryKey: ["/api/subscriptions"],
+    queryKey: ["subscriptions"],
     queryFn: () => apiRequest("GET", "/api/subscriptions"),
   });
 
   const { data: trainers } = useQuery({
-    queryKey: ["/api/trainers"],
+    queryKey: ["trainers"],
     queryFn: () => apiRequest("GET", "/api/trainers"),
   });
 
-  // Flatten trainers to expose firstName and lastName at the top level
+  // Flatten trainers to expose firstName and lastName at the top level, using trainers.id and trainers.users for names
   const trainersList = ((trainers as any[]) || []).map((trainer: any) => ({
-    ...trainer,
-    firstName: trainer.user?.firstName || "",
-    lastName: trainer.user?.lastName || "",
+    id: trainer.id,
+    firstName: trainer.users?.first_name || "",
+    lastName: trainer.users?.last_name || "",
   }));
+  console.log('Trainers list:', trainersList);
 
   const form = useForm<ScheduleFormData>({
     defaultValues: {
@@ -140,15 +156,44 @@ export default function AdminSchedules() {
 
   const createScheduleMutation = useMutation({
     mutationFn: async (data: ScheduleFormData) => {
-      return await apiRequest("POST", "/api/schedules", mapScheduleToApi(data));
+      console.log('Creating schedule:', data);
+      const result = await apiRequest("POST", "/api/schedules", mapScheduleToApi(data));
+      console.log('Create schedule response:', result);
+      return result;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/schedules"] });
+    onSuccess: async (data) => {
+      console.log('Create schedule mutation succeeded, invalidating queries...');
+      // Generate courses for the new schedule
+      if (data?.schedule?.id) {
+        try {
+          const genResult = await apiRequest("POST", `/api/schedules/${data.schedule.id}`);
+          console.log('Course generation result:', genResult);
+        } catch (err) {
+          toast({ title: "Failed to generate courses for schedule", variant: "destructive" });
+        }
+      }
+      // Clear all queries and refetch
+      queryClient.clear();
+      queryClient.invalidateQueries({ queryKey: ["schedules"] });
+      // Force a refetch to ensure we get the latest data
+      setTimeout(() => refetch(), 100);
       setIsModalOpen(false);
-      form.reset();
+      form.reset({
+        classId: 0,
+        trainerId: 0,
+        dayOfWeek: 1,
+        startTime: "",
+        endTime: "",
+        repetitionType: "once",
+        scheduleDate: new Date().toISOString().split('T')[0],
+        startDate: new Date().toISOString().split('T')[0],
+        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        isActive: true,
+      });
       toast({ title: "Schedule created successfully" });
     },
     onError: (error) => {
+      console.error('Create schedule mutation error:', error);
       toast({ 
         title: "Error creating schedule", 
         description: error.message,
@@ -159,16 +204,25 @@ export default function AdminSchedules() {
 
   const updateScheduleMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: ScheduleFormData }) => {
-      return await apiRequest("PUT", `/api/schedules/${id}`, mapScheduleToApi(data));
+      console.log('Updating schedule:', { id, data });
+      const result = await apiRequest("PUT", `/api/schedules/${id}`, mapScheduleToApi(data));
+      console.log('Update schedule response:', result);
+      return result;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/schedules"] });
+    onSuccess: (data) => {
+      console.log('Update schedule mutation succeeded, invalidating queries...');
+      // Clear all queries and refetch
+      queryClient.clear();
+      queryClient.invalidateQueries({ queryKey: ["schedules"] });
+      // Force a refetch to ensure we get the latest data
+      setTimeout(() => refetch(), 100);
       setIsModalOpen(false);
       setEditingSchedule(null);
       form.reset();
       toast({ title: "Schedule updated successfully" });
     },
     onError: (error) => {
+      console.error('Update schedule mutation error:', error);
       toast({ 
         title: "Error updating schedule", 
         description: error.message,
@@ -179,13 +233,22 @@ export default function AdminSchedules() {
 
   const deleteScheduleMutation = useMutation({
     mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/schedules/${id}`);
+      console.log('Deleting schedule:', id);
+      const result = await apiRequest("DELETE", `/api/schedules/${id}`);
+      console.log('Delete schedule response:', result);
+      return result;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/schedules"] });
+    onSuccess: (data) => {
+      console.log('Delete schedule mutation succeeded, invalidating queries...');
+      // Clear all queries and refetch
+      queryClient.clear();
+      queryClient.invalidateQueries({ queryKey: ["schedules"] });
+      // Force a refetch to ensure we get the latest data
+      setTimeout(() => refetch(), 100);
       toast({ title: "Schedule deleted successfully" });
     },
     onError: (error) => {
+      console.error('Delete schedule mutation error:', error);
       toast({ 
         title: "Error deleting schedule", 
         description: error.message,
@@ -228,17 +291,18 @@ export default function AdminSchedules() {
   };
 
   const handleEdit = (schedule: any) => {
+    console.log('Editing schedule:', schedule);
     setEditingSchedule(schedule);
     form.reset({
-      classId: schedule.class?.id || 0,
-      trainerId: schedule.trainer?.id || 0,
+      classId: schedule.classId || 0,
+      trainerId: schedule.trainerId || 0,
       dayOfWeek: schedule.dayOfWeek,
       startTime: schedule.startTime,
       endTime: schedule.endTime,
       repetitionType: schedule.repetitionType || "once",
-      scheduleDate: schedule.scheduleDate ? new Date(schedule.scheduleDate).toISOString().split('T')[0] : "",
-      startDate: "",
-      endDate: "",
+      scheduleDate: schedule.scheduleDate || "",
+      startDate: schedule.startDate || "",
+      endDate: schedule.endDate || "",
       isActive: schedule.isActive,
     });
     setIsModalOpen(true);
@@ -252,7 +316,18 @@ export default function AdminSchedules() {
 
   const openCreateModal = () => {
     setEditingSchedule(null);
-    form.reset();
+    form.reset({
+      classId: 0,
+      trainerId: 0,
+      dayOfWeek: 1,
+      startTime: "",
+      endTime: "",
+      repetitionType: "once",
+      scheduleDate: new Date().toISOString().split('T')[0],
+      startDate: new Date().toISOString().split('T')[0],
+      endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      isActive: true,
+    });
     setIsModalOpen(true);
   };
 
@@ -285,7 +360,7 @@ export default function AdminSchedules() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Class</FormLabel>
-                      <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
+                      <Select onValueChange={value => field.onChange(Number(value))} value={String(field.value)}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select class" />
@@ -293,7 +368,7 @@ export default function AdminSchedules() {
                         </FormControl>
                         <SelectContent>
                           {((classes as any[]) || []).map((classItem: any) => (
-                            <SelectItem key={classItem.id} value={classItem.id.toString()}>
+                            <SelectItem key={classItem.id} value={String(classItem.id)}>
                               {classItem.name}
                             </SelectItem>
                           ))}
@@ -310,7 +385,7 @@ export default function AdminSchedules() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Trainer</FormLabel>
-                      <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
+                      <Select onValueChange={value => field.onChange(Number(value))} value={String(field.value)}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select trainer" />
@@ -318,7 +393,7 @@ export default function AdminSchedules() {
                         </FormControl>
                         <SelectContent>
                           {trainersList.map((trainer: any) => (
-                            <SelectItem key={trainer.id} value={trainer.id.toString()}>
+                            <SelectItem key={trainer.id} value={String(trainer.id)}>
                               {trainer.firstName} {trainer.lastName}
                             </SelectItem>
                           ))}
@@ -438,7 +513,7 @@ export default function AdminSchedules() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Day of Week</FormLabel>
-                        <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
+                        <Select onValueChange={value => field.onChange(Number(value))} value={String(field.value)}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Select day of week" />
