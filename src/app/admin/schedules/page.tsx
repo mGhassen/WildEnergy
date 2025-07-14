@@ -80,7 +80,8 @@ export default function AdminSchedules() {
   // Map snake_case fields to camelCase for UI
   const schedules = ((rawSchedules as any[]) || []).map((sch: any) => ({
     ...sch,
-    classId: Number(sch.class?.id ?? sch.class_id),
+    class: sch.class || sch.classes || {}, // Ensure .class is always present
+    classId: Number((sch.class?.id ?? sch.classes?.id ?? sch.class_id)),
     trainerId: Number(sch.trainer?.user_id ?? sch.trainer_id),
     startTime: sch.start_time,
     endTime: sch.end_time,
@@ -90,7 +91,6 @@ export default function AdminSchedules() {
     dayOfWeek: Number(sch.day_of_week),
     repetitionType: sch.repetition_type,
     isActive: sch.is_active,
-    class: sch.class,
     trainer: sch.trainer ? {
       id: sch.trainer.id,
       firstName: sch.trainer.first_name || "",
@@ -131,6 +131,18 @@ export default function AdminSchedules() {
   const { data: trainers } = useQuery({
     queryKey: ["trainers"],
     queryFn: () => apiRequest("GET", "/api/trainers"),
+  });
+
+  const { data: courses = [] } = useQuery({
+    queryKey: ["courses"],
+    queryFn: () => apiRequest("GET", "/api/courses"),
+  });
+
+  const coursesCountBySchedule: Record<number, number> = {};
+  ((courses as any[]) || []).forEach((course) => {
+    if (course.schedule_id) {
+      coursesCountBySchedule[course.schedule_id] = (coursesCountBySchedule[course.schedule_id] || 0) + 1;
+    }
   });
 
   // Flatten trainers to expose firstName and lastName at the top level, using trainers.id and trainers.users for names
@@ -622,7 +634,7 @@ export default function AdminSchedules() {
                                 </Badge>
                               </div>
                               
-                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
                                 <div>
                                   <p className="text-muted-foreground">Trainer</p>
                                   <p className="font-medium">{schedule.trainer?.firstName} {schedule.trainer?.lastName}</p>
@@ -656,6 +668,14 @@ export default function AdminSchedules() {
                                     <TrendingUp className="w-4 h-4 text-green-600" />
                                     <span className="font-medium text-green-600">
                                       {totalAttendance}/{adjustedCapacity} ({attendanceRate}%)
+                                    </span>
+                                  </div>
+                                </div>
+                                <div>
+                                  <p className="text-muted-foreground">Courses</p>
+                                  <div className="flex items-center gap-1">
+                                    <span className="font-medium">
+                                      {coursesCountBySchedule[schedule.id] || 0}
                                     </span>
                                   </div>
                                 </div>
