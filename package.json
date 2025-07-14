@@ -1,5 +1,5 @@
 {
-  "name": "wildenergy-next",
+  "name": "wildenergy",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -69,7 +69,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "3.3.1",
     "@tailwindcss/typography": "^0.5.16",
-    "@types/node": "24.0.13",
+    "@types/node": "22.16.3",
     "@types/qrcode": "^1.5.5",
     "@types/react": "19.1.8",
     "@types/react-dom": "19.1.6",
