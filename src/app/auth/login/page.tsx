@@ -182,7 +182,7 @@ export default function Login() {
             </Button>
           </form>
 
-          {process.env.NODE_ENV === "development" && (
+          {process.env.NEXT_PUBLIC_ENV === "development" && (
             <div className="mt-6 space-y-4">
               <Separator />
               <div className="space-y-2">
