@@ -44,19 +44,23 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch trainers', details: error }, { status: 500 });
     }
     // Flatten the joined user fields for frontend compatibility
-    const trainersFlat = (trainers ?? []).map((trainer) => ({
-      id: trainer.id,
-      user_id: trainer.user_id,
-      specialization: trainer.specialization,
-      experience_years: trainer.experience_years,
-      bio: trainer.bio,
-      certification: trainer.certification,
-      status: trainer.status ?? "",
-      first_name: trainer.users?.first_name ?? "",
-      last_name: trainer.users?.last_name ?? "",
-      email: trainer.users?.email ?? "",
-      phone: trainer.users?.phone ?? "",
-    }));
+    const trainersFlat = (trainers ?? []).map((trainer) => {
+      // Supabase join may return users as array or object
+      const user = Array.isArray(trainer.users) ? trainer.users[0] : trainer.users;
+      return {
+        id: trainer.id,
+        user_id: trainer.user_id,
+        specialization: trainer.specialization,
+        experience_years: trainer.experience_years,
+        bio: trainer.bio,
+        certification: trainer.certification,
+        status: trainer.status ?? "",
+        first_name: user?.first_name ?? "",
+        last_name: user?.last_name ?? "",
+        email: user?.email ?? "",
+        phone: user?.phone ?? "",
+      };
+    });
     return NextResponse.json(trainersFlat);
   } catch (e) {
     return NextResponse.json({ error: 'Internal server error', details: String(e) }, { status: 500 });
@@ -217,7 +221,8 @@ export async function PUT(req: NextRequest) {
       console.error('[PUT /api/trainers] Fetch error:', fetchError);
       return NextResponse.json({ error: 'Failed to fetch updated trainer', details: fetchError }, { status: 500 });
     }
-    // Flatten for frontend
+    // Flatten for frontend (PUT handler)
+    const user = Array.isArray(trainers.users) ? trainers.users[0] : trainers.users;
     const trainerFlat = {
       id: trainers.id,
       user_id: trainers.user_id,
@@ -226,10 +231,10 @@ export async function PUT(req: NextRequest) {
       bio: trainers.bio,
       certification: trainers.certification,
       status: trainers.status ?? "",
-      first_name: trainers.users?.first_name ?? "",
-      last_name: trainers.users?.last_name ?? "",
-      email: trainers.users?.email ?? "",
-      phone: trainers.users?.phone ?? "",
+      first_name: user?.first_name ?? "",
+      last_name: user?.last_name ?? "",
+      email: user?.email ?? "",
+      phone: user?.phone ?? "",
     };
     return NextResponse.json({ success: true, trainer: trainerFlat });
   } catch (e) {
