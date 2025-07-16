@@ -28,6 +28,9 @@ const trainerFormSchema = z.object({
   specialties: z.array(z.string()).optional(),
   bio: z.string().optional(),
   status: z.string().optional(),
+  specialization: z.string().optional(),
+  experience_years: z.number().optional(),
+  certification: z.string().optional(),
 });
 
 type TrainerFormData = z.infer<typeof trainerFormSchema>;
@@ -50,6 +53,7 @@ export default function AdminTrainers() {
         const transformedData = data.map((trainer: any) => {
           return {
             id: trainer.id,
+            user_id: trainer.user_id, // always present
             firstName: trainer.first_name || trainer.firstName || "",
             lastName: trainer.last_name || trainer.lastName || "",
             email: trainer.email || "",
@@ -128,16 +132,20 @@ export default function AdminTrainers() {
   });
 
   const updateTrainerMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: Partial<TrainerFormData> }) => {
+    mutationFn: async ({ id, user_id, data }: { id: number; user_id: number; data: Partial<TrainerFormData> }) => {
       // Convert camelCase to snake_case for the API
       const apiData = {
         id,
-        first_name: data.firstName,
-        last_name: data.lastName,
+        user_id,
+        firstName: data.firstName,
+        lastName: data.lastName,
         email: data.email,
         phone: data.phone,
         bio: data.bio,
-        status: data.status,
+        status: data.status, // trainer's status
+        specialization: data.specialization,
+        experience_years: data.experience_years,
+        certification: data.certification,
       };
       const response = await apiRequest("PUT", "/api/trainers", apiData);
       return response;
@@ -180,7 +188,7 @@ export default function AdminTrainers() {
 
   const handleSubmit = (data: TrainerFormData) => {
     if (editingTrainer) {
-      updateTrainerMutation.mutate({ id: editingTrainer.id, data });
+      updateTrainerMutation.mutate({ id: editingTrainer.id, user_id: editingTrainer.user_id, data });
     } else {
       createTrainerMutation.mutate(data);
     }
@@ -195,6 +203,9 @@ export default function AdminTrainers() {
       phone: trainer.phone,
       bio: trainer.bio,
       status: trainer.status,
+      specialization: trainer.specialization,
+      experience_years: trainer.experience_years,
+      certification: trainer.certification,
     });
     setIsModalOpen(true);
   };
