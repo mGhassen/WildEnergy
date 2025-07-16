@@ -31,6 +31,7 @@ export async function GET(req: NextRequest) {
         experience_years,
         bio,
         certification,
+        status,
         users:user_id (
           first_name,
           last_name,
@@ -42,7 +43,21 @@ export async function GET(req: NextRequest) {
     if (error) {
       return NextResponse.json({ error: 'Failed to fetch trainers', details: error }, { status: 500 });
     }
-    return NextResponse.json(trainers);
+    // Flatten the joined user fields for frontend compatibility
+    const trainersFlat = (trainers ?? []).map((trainer) => ({
+      id: trainer.id,
+      user_id: trainer.user_id,
+      specialization: trainer.specialization,
+      experience_years: trainer.experience_years,
+      bio: trainer.bio,
+      certification: trainer.certification,
+      status: trainer.status ?? "",
+      first_name: trainer.users?.first_name ?? "",
+      last_name: trainer.users?.last_name ?? "",
+      email: trainer.users?.email ?? "",
+      phone: trainer.users?.phone ?? "",
+    }));
+    return NextResponse.json(trainersFlat);
   } catch (e) {
     return NextResponse.json({ error: 'Internal server error', details: String(e) }, { status: 500 });
   }
@@ -136,19 +151,90 @@ export async function PUT(req: NextRequest) {
     if (!adminCheck?.is_admin) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
-    const { id, ...updates } = await req.json();
-    const { data: trainer, error } = await supabaseServer
-      .from('users')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) {
-      return NextResponse.json({ error: 'Failed to update trainer' }, { status: 500 });
+    const body = await req.json();
+    const { id, user_id, firstName, lastName, email, phone, status, specialization, experience_years, bio, certification } = body;
+    console.log('[PUT /api/trainers] Received:', { id, user_id, firstName, lastName, email, phone, status, specialization, experience_years, bio, certification });
+    // Update users table
+    const userUpdates: any = {};
+    if (firstName !== undefined) userUpdates.first_name = firstName;
+    if (lastName !== undefined) userUpdates.last_name = lastName;
+    if (email !== undefined) userUpdates.email = email;
+    if (phone !== undefined) userUpdates.phone = phone;
+    if (status !== undefined) userUpdates.status = status;
+    let userUpdateError = null;
+    if (Object.keys(userUpdates).length > 0 && user_id) {
+      const { error: uErr } = await supabaseServer
+        .from('users')
+        .update(userUpdates)
+        .eq('id', user_id);
+      if (uErr) {
+        userUpdateError = uErr;
+        console.error('[PUT /api/trainers] User update error:', uErr);
+      }
     }
-    return NextResponse.json({ success: true, trainer });
-  } catch {
-    return NextResponse.json({ error: 'Failed to update trainer' }, { status: 500 });
+    // Update trainers table
+    const trainerUpdates: any = {};
+    if (specialization !== undefined) trainerUpdates.specialization = specialization;
+    if (experience_years !== undefined) trainerUpdates.experience_years = experience_years;
+    if (bio !== undefined) trainerUpdates.bio = bio;
+    if (certification !== undefined) trainerUpdates.certification = certification;
+    if (status !== undefined) trainerUpdates.status = status;
+    let trainerUpdateError = null;
+    if (Object.keys(trainerUpdates).length > 0 && id) {
+      const { error: tErr } = await supabaseServer
+        .from('trainers')
+        .update(trainerUpdates)
+        .eq('id', id);
+      if (tErr) {
+        trainerUpdateError = tErr;
+        console.error('[PUT /api/trainers] Trainer update error:', tErr);
+      }
+    }
+    if (userUpdateError || trainerUpdateError) {
+      return NextResponse.json({ error: 'Failed to update trainer', userUpdateError, trainerUpdateError }, { status: 500 });
+    }
+    // Fetch updated trainer with joined user info
+    const { data: trainers, error: fetchError } = await supabaseServer
+      .from('trainers')
+      .select(`
+        id,
+        user_id,
+        specialization,
+        experience_years,
+        bio,
+        certification,
+        status,
+        users:user_id (
+          first_name,
+          last_name,
+          email,
+          phone
+        )
+      `)
+      .eq('id', id)
+      .single();
+    if (fetchError || !trainers) {
+      console.error('[PUT /api/trainers] Fetch error:', fetchError);
+      return NextResponse.json({ error: 'Failed to fetch updated trainer', details: fetchError }, { status: 500 });
+    }
+    // Flatten for frontend
+    const trainerFlat = {
+      id: trainers.id,
+      user_id: trainers.user_id,
+      specialization: trainers.specialization,
+      experience_years: trainers.experience_years,
+      bio: trainers.bio,
+      certification: trainers.certification,
+      status: trainers.status ?? "",
+      first_name: trainers.users?.first_name ?? "",
+      last_name: trainers.users?.last_name ?? "",
+      email: trainers.users?.email ?? "",
+      phone: trainers.users?.phone ?? "",
+    };
+    return NextResponse.json({ success: true, trainer: trainerFlat });
+  } catch (e) {
+    console.error('[PUT /api/trainers] Exception:', e);
+    return NextResponse.json({ error: 'Failed to update trainer', details: String(e) }, { status: 500 });
   }
 }
 
