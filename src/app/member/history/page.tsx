@@ -11,6 +11,7 @@ import { Calendar, Clock, User, Search, CheckCircle, XCircle, AlertCircle, QrCod
 import { formatTime, getDayName, formatDateTime } from "@/lib/auth";
 import QRGenerator from "@/components/qr-generator";
 import { formatDate } from "@/lib/date";
+import { apiRequest } from "@/lib/queryClient";
 
 // Types for member history page
 interface Trainer {
@@ -84,6 +85,7 @@ export default function MemberHistory() {
 
   const { data: registrations = [], isLoading: registrationsLoading } = useQuery<Registration[]>({
     queryKey: ["/api/registrations"],
+    queryFn: () => apiRequest("GET", "/api/registrations"),
   });
 
   const { data: checkins = [], isLoading: checkinsLoading } = useQuery<Checkin[]>({
