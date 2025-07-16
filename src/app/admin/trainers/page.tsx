@@ -167,8 +167,8 @@ export default function AdminTrainers() {
   });
 
   const deleteTrainerMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const response = await apiRequest("DELETE", "/api/trainers", { id });
+    mutationFn: async (user_id: number) => {
+      const response = await apiRequest("DELETE", "/api/trainers", { id: user_id });
       return response;
     },
     onSuccess: () => {
@@ -210,9 +210,9 @@ export default function AdminTrainers() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id: number) => {
+  const handleDelete = (user_id: number) => {
     if (confirm("Are you sure you want to delete this trainer?")) {
-      deleteTrainerMutation.mutate(id);
+      deleteTrainerMutation.mutate(user_id);
     }
   };
 
@@ -409,41 +409,27 @@ export default function AdminTrainers() {
                           <p className="font-medium text-foreground">
                             {trainer.firstName} {trainer.lastName}
                           </p>
+                          <p className="text-xs text-muted-foreground">
+                            {trainer.specialization}
+                          </p>
                         </div>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div>
-                        <p className="text-foreground">{trainer.email}</p>
-                        {trainer.phone && (
-                          <p className="text-sm text-muted-foreground">{trainer.phone}</p>
-                        )}
+                      <div className="space-y-1">
+                        <p>{trainer.email}</p>
+                        <p className="text-xs text-muted-foreground">{trainer.phone}</p>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge 
-                        variant={trainer.status === 'active' ? 'default' : 'secondary'}
-                      >
+                      <Badge variant={trainer.status === "active" ? "default" : "secondary"}>
                         {trainer.status}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <div className="flex space-x-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEdit(trainer)}
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(trainer.id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
+                      <Button variant="outline" size="icon" onClick={() => handleEdit(trainer)}>
+                        <Edit className="w-4 h-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}

@@ -259,26 +259,28 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
     const { id } = await req.json();
-    // Get trainer to delete
-    const { data: trainerToDelete, error: trainerError } = await supabaseServer
-      .from('users')
-      .select('auth_user_id')
-      .eq('id', id)
-      .single();
-    if (trainerError) throw trainerError;
-    // Delete from auth
-    if (trainerToDelete?.auth_user_id) {
-      const { error: deleteAuthError } = await supabaseServer.auth.admin.deleteUser(trainerToDelete.auth_user_id);
-      if (deleteAuthError) throw deleteAuthError;
+    console.log('[DELETE /api/trainers] Received id:', id);
+    // Delete from trainers table first to avoid FK constraint
+    const { error: trainerDeleteError } = await supabaseServer
+      .from('trainers')
+      .delete()
+      .eq('user_id', id);
+    if (trainerDeleteError) {
+      console.error('[DELETE /api/trainers] Trainers delete error:', trainerDeleteError);
+      throw trainerDeleteError;
     }
     // Delete from users table
     const { error: deleteError } = await supabaseServer
       .from('users')
       .delete()
       .eq('id', id);
-    if (deleteError) throw deleteError;
+    if (deleteError) {
+      console.error('[DELETE /api/trainers] Users delete error:', deleteError);
+      throw deleteError;
+    }
     return NextResponse.json({ success: true });
-  } catch {
-    return NextResponse.json({ error: 'Failed to delete trainer' }, { status: 500 });
+  } catch (e) {
+    console.error('[DELETE /api/trainers] Exception:', e);
+    return NextResponse.json({ error: 'Failed to delete trainer', details: String(e) }, { status: 500 });
   }
 } 
