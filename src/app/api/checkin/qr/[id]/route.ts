@@ -118,12 +118,17 @@ export async function GET(
 
     console.log('Check-in QR API - Registration found:', registration.id);
 
+    // --- FIX: Handle both array and object for registration.courses ---
+    const courseObj = Array.isArray(registration.courses) ? registration.courses[0] : registration.courses;
+    console.log('courseObj:', courseObj);
+
     // Get class information (with max_capacity, category, difficulty)
     const { data: classInfo } = await supabaseServer
       .from('classes')
       .select('id, name, max_capacity, category_id, difficulty, category:category_id (id, name)')
-      .eq('id', registration.courses[0]?.class_id)
+      .eq('id', courseObj?.class_id)
       .single();
+    console.log('classInfo:', classInfo);
 
     // Get trainer information
     const { data: trainerInfo } = await supabaseServer
@@ -136,7 +141,7 @@ export async function GET(
           last_name
         )
       `)
-      .eq('id', registration.courses[0]?.trainer_id)
+      .eq('id', courseObj?.trainer_id)
       .single();
 
     // Get member's active subscription info
@@ -156,29 +161,14 @@ export async function GET(
       .eq('course_id', registration.course_id);
 
     const registeredCount = (courseRegistrations?.filter(r => r.status === 'registered') || []).length;
-    const maxCapacity = classInfo?.max_capacity || null;
-
-    // Get check-ins for this course
-    const { data: courseCheckins } = await supabaseServer
-      .from('checkins')
-      .select('registration_id')
-      .in('registration_id', courseRegistrations?.map(r => r.id) || []);
-
-    const checkedInCount = courseCheckins?.length || 0;
-
-    // Check if this member is already checked in
-    const { data: existingCheckin } = await supabaseServer
-      .from('checkins')
-      .select('id')
-      .eq('registration_id', registration.id)
-      .single();
-
-    const alreadyCheckedIn = !!existingCheckin;
+    // Always use max_capacity from classInfo for maxCapacity
+    const maxCapacity = classInfo?.max_capacity ?? null;
 
     // Get all registered members for this course (status = 'registered')
     const { data: registeredMembers } = await supabaseServer
       .from('class_registrations')
       .select(`
+        id,
         users (
           id,
           first_name,
@@ -189,6 +179,23 @@ export async function GET(
       `)
       .eq('course_id', registration.course_id)
       .eq('status', 'registered');
+
+    // Get all check-ins for this course
+    const { data: courseCheckins } = await supabaseServer
+      .from('checkins')
+      .select('registration_id')
+      .in('registration_id', (registeredMembers || []).map(r => r.id));
+
+    // Calculate checkedInCount
+    const checkedInCount = (courseCheckins || []).length;
+
+    const checkedInIds = new Set((courseCheckins || []).map(c => c.registration_id));
+
+    // Build unified list
+    const unifiedMembers = (registeredMembers || []).map(r => ({
+      ...(r.users || {}),
+      status: checkedInIds.has(r.id) ? 'checked_in' : 'registered'
+    }));
 
     // Get all checked-in members for this course
     const { data: attendantMembers } = await supabaseServer
@@ -204,6 +211,16 @@ export async function GET(
         )
       `)
       .eq('class_registrations.course_id', registration.course_id);
+
+    // Check if this member is already checked in
+    const { data: existingCheckin } = await supabaseServer
+      .from('checkins')
+      .select('id')
+      .eq('registration_id', registration.id)
+      .single();
+
+    // Calculate alreadyCheckedIn
+    const alreadyCheckedIn = !!existingCheckin;
 
     const checkinInfo = {
       member: {
@@ -232,6 +249,7 @@ export async function GET(
             }
             return '-';
           })(),
+          maxCapacity: classInfo?.max_capacity ?? null,
         },
         trainer: trainerInfo,
         maxCapacity,
@@ -245,9 +263,7 @@ export async function GET(
       checkedInCount,
       maxCapacity,
       alreadyCheckedIn,
-      registeredMembers: Array.isArray(registeredMembers)
-        ? registeredMembers.map(r => ({ ...(r.users || {}), status: typeof r.status === 'string' ? r.status : '-' }))
-        : [],
+      members: unifiedMembers,
       attendantMembers: Array.isArray(attendantMembers)
         ? attendantMembers.flatMap(c =>
             Array.isArray(c.class_registrations)
