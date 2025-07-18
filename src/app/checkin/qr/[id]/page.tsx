@@ -16,6 +16,12 @@ interface CheckinInfo {
     last_name: string;
     email: string;
     phone?: string;
+    status?: string;
+    activeSubscription?: {
+      planName: string;
+      status: string;
+      sessionsRemaining: number;
+    };
   };
   course: {
     id: string;
@@ -27,6 +33,9 @@ interface CheckinInfo {
     class: {
       id: number;
       name: string;
+      category?: string;
+      difficulty?: string;
+      maxCapacity?: number;
     };
     trainer: {
       id: number;
@@ -45,7 +54,7 @@ interface CheckinInfo {
   registeredCount: number;
   checkedInCount: number;
   alreadyCheckedIn: boolean;
-  registeredMembers?: { id: string; first_name: string; last_name: string; email: string }[];
+  registeredMembers?: { id: string; first_name: string; last_name: string; email: string; status?: string }[];
   attendantMembers?: { id: string; first_name: string; last_name: string; email: string }[];
 }
 
@@ -174,6 +183,20 @@ export default function CheckinQRPage() {
     router.push('/admin/checkins');
   };
 
+  // Utility for consistent date/time formatting
+  function formatDateTime(date: Date | string | null | undefined) {
+    if (!date) return '-';
+    const d = typeof date === 'string' ? new Date(date) : date;
+    if (isNaN(d.getTime())) return '-';
+    // Format: YYYY-MM-DD HH:mm
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day} ${hours}:${minutes}`;
+  }
+
   if (!qrCode) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -259,6 +282,10 @@ export default function CheckinQRPage() {
                   {checkinInfo.member?.phone && (
                     <p><strong>Phone:</strong> {checkinInfo.member.phone}</p>
                   )}
+                  <p><strong>Status:</strong> {checkinInfo.member?.status || '-'}</p>
+                  {checkinInfo.member?.activeSubscription && (
+                    <p className="col-span-2"><strong>Active Subscription:</strong> <span className="font-semibold text-green-800">{checkinInfo.member.activeSubscription.planName}</span> <span className="ml-2 px-2 py-1 rounded bg-green-100 text-green-800 text-xs">{checkinInfo.member.activeSubscription.status}</span> <span className="ml-2 text-xs text-green-700">{checkinInfo.member.activeSubscription.sessionsRemaining} sessions left</span></p>
+                  )}
                 </div>
               </div>
 
@@ -269,33 +296,22 @@ export default function CheckinQRPage() {
                   Course Information
                 </h3>
                 <div className="space-y-2 text-sm text-green-700">
-                  <p><strong>Course:</strong> {checkinInfo.course?.class?.name || 'Unknown'}</p>
                   <p><strong>Class:</strong> {checkinInfo.course?.class?.name || 'Unknown'}</p>
                   <p><strong>Trainer:</strong> {checkinInfo.course?.trainer?.users ? `${checkinInfo.course.trainer.users.first_name} ${checkinInfo.course.trainer.users.last_name}` : 'Unknown'}</p>
-                  <p><strong>Date:</strong> {checkinInfo.course?.course_date ? new Date(checkinInfo.course.course_date).toLocaleDateString() : 'Unknown'}</p>
+                  <p><strong>Date:</strong> {formatDateTime(checkinInfo.course?.course_date)}</p>
                   <p><strong>Time:</strong> {checkinInfo.course?.start_time && checkinInfo.course?.end_time ? `${checkinInfo.course.start_time} - ${checkinInfo.course.end_time}` : 'Unknown'}</p>
-                </div>
-              </div>
-
-              {/* Registration Information */}
-              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                <h3 className="font-medium text-purple-800 mb-3 flex items-center">
-                  <Clock className="w-4 h-4 mr-2" />
-                  Registration Information
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-purple-700">
-                  <p><strong>Status:</strong> 
-                    <span className={`ml-1 px-2 py-1 rounded text-xs ${
-                      checkinInfo.registration.status === 'confirmed' 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {checkinInfo.registration.status}
-                    </span>
-                  </p>
-                  <p><strong>Registered:</strong> {checkinInfo.course?.course_date ? new Date(checkinInfo.course.course_date).toLocaleDateString() : 'Unknown'}</p>
-                  <p><strong>Registered Members:</strong> {checkinInfo.registeredCount}</p>
-                  <p><strong>Checked In:</strong> {checkinInfo.checkedInCount}</p>
+                  <p><strong>Category:</strong> {checkinInfo.course?.class?.category || '-'}</p>
+                  <p><strong>Difficulty:</strong> {checkinInfo.course?.class?.difficulty || '-'}</p>
+                  <p><strong>Max Capacity:</strong> {checkinInfo.course?.class?.maxCapacity || '-'}</p>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    <span className="px-2 py-1 rounded bg-blue-100 text-blue-800 text-xs">Registered: {checkinInfo.registeredCount}</span>
+                    <span className="px-2 py-1 rounded bg-green-100 text-green-800 text-xs">Checked In: {checkinInfo.checkedInCount}</span>
+                    <span className="px-2 py-1 rounded bg-gray-100 text-gray-800 text-xs">Max: {checkinInfo.course?.class?.maxCapacity || '-'}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    <span className={`px-2 py-1 rounded text-xs ${checkinInfo.registration.status === 'confirmed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>{checkinInfo.registration.status}</span>
+                    <span className="px-2 py-1 rounded bg-purple-100 text-purple-800 text-xs">Registered At: {formatDateTime(checkinInfo.registration.registeredAt)}</span>
+                  </div>
                 </div>
               </div>
 
@@ -308,7 +324,7 @@ export default function CheckinQRPage() {
                 <ul className="text-sm text-gray-700 list-disc pl-5">
                   {checkinInfo.registeredMembers && checkinInfo.registeredMembers.length > 0 ? (
                     checkinInfo.registeredMembers.map((m: any) => (
-                      <li key={m.id}>{m.first_name} {m.last_name} ({m.email})</li>
+                      <li key={m.id}>{m.first_name} {m.last_name} ({m.email}) <span className="ml-2 px-2 py-1 rounded bg-blue-100 text-blue-800 text-xs">{m.status}</span></li>
                     ))
                   ) : (
                     <li>No registered members</li>

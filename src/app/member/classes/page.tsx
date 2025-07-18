@@ -12,6 +12,7 @@ import { formatTime, getDayName } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "@/lib/api";
 import { formatDate } from "@/lib/date";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 // Types for member classes page
 interface Category {
@@ -445,6 +446,7 @@ export default function MemberClasses() {
       </Card>
 
       {/* Courses Grid */}
+      <TooltipProvider>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {isLoading ? (
           [...Array(6)].map((_, i) => (
@@ -462,19 +464,28 @@ export default function MemberClasses() {
         ) : filteredCourses.length > 0 ? (
           filteredCourses.map((course: Course) => {
             const isRegistered = registeredCourseIds.has(course.id);
-            
             return (
               <Card key={course.id}>
                 <div className="flex-1 flex flex-col">
                   <CardHeader className="pb-2 px-4 pt-4">
                     <div className="flex items-center justify-between mb-1">
-                      <CardTitle className="text-base font-semibold leading-tight">{course.class?.name}</CardTitle>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <CardTitle className="text-base font-semibold leading-tight cursor-pointer underline underline-offset-2">
+                            {course.class?.name}
+                          </CardTitle>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <div className="font-semibold mb-1">{course.class?.name}</div>
+                          <div className="text-xs text-muted-foreground mb-1">{course.class?.description}</div>
+                          <div className="text-xs text-muted-foreground mb-1">Date: {formatDate(course.courseDate)}</div>
+                          <div className="text-xs text-muted-foreground mb-1">Time: {formatTime(course.startTime)} - {formatTime(course.endTime)}</div>
+                          <div className="text-xs text-muted-foreground mb-1">Category: {course.class?.category?.name || '-'}</div>
+                          <div className="text-xs text-muted-foreground mb-1">Difficulty: {course.class?.difficulty || '-'}</div>
+                        </TooltipContent>
+                      </Tooltip>
                       <div className="flex items-center gap-2">
-                        <Badge className={getCategoryColor(course.class?.category?.name || "unknown")}>
-                          {course.class?.category?.name
-                            ? course.class.category.name.charAt(0).toUpperCase() + course.class.category.name.slice(1)
-                            : "Unknown"}
-                        </Badge>
+                        <Badge className={getCategoryColor(course.class?.category?.name || "unknown")}>{course.class?.category?.name ? course.class.category.name.charAt(0).toUpperCase() + course.class.category.name.slice(1) : "Unknown"}</Badge>
                         {renderDifficultyStars(course.class?.difficulty || "beginner")}
                       </div>
                     </div>
@@ -485,7 +496,16 @@ export default function MemberClasses() {
                     {/* Centered info bar */}
                     <div className="flex flex-row flex-wrap justify-center items-center gap-6 py-1">
                       {/* Trainer */}
-                      <span className="flex items-center text-gray-700"><Users className="w-4 h-4 mr-1" />{course.trainer?.user?.first_name} {course.trainer?.user?.last_name}</span>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="flex items-center text-gray-700 cursor-pointer underline underline-offset-2">
+                            <Users className="w-4 h-4 mr-1" />{course.trainer?.user?.first_name} {course.trainer?.user?.last_name}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <div className="font-semibold mb-1">{course.trainer?.user?.first_name} {course.trainer?.user?.last_name}</div>
+                        </TooltipContent>
+                      </Tooltip>
                       {/* Duration pill */}
                       <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-800 text-xs font-medium flex items-center">
                         <Clock className="w-4 h-4 mr-1 text-gray-500" />
@@ -545,6 +565,7 @@ export default function MemberClasses() {
           </div>
         )}
       </div>
+      </TooltipProvider>
     </div>
   );
 }
