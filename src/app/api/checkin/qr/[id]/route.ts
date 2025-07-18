@@ -160,7 +160,15 @@ export async function GET(
       .select('id, user_id, status')
       .eq('course_id', registration.course_id);
 
-    const registeredCount = (courseRegistrations?.filter(r => r.status === 'registered') || []).length;
+    // Get all check-ins for this course to determine who has checked in
+    const { data: allCourseCheckins } = await supabaseServer
+      .from('checkins')
+      .select('registration_id')
+      .in('registration_id', courseRegistrations?.map(r => r.id) || []);
+
+    // Count check-ins
+    const checkedInCount = (allCourseCheckins || []).length;
+
     // Always use max_capacity from classInfo for maxCapacity
     const maxCapacity = classInfo?.max_capacity ?? null;
 
@@ -180,16 +188,12 @@ export async function GET(
       .eq('course_id', registration.course_id)
       .eq('status', 'registered');
 
-    // Get all check-ins for this course
-    const { data: courseCheckins } = await supabaseServer
-      .from('checkins')
-      .select('registration_id')
-      .in('registration_id', (registeredMembers || []).map(r => r.id));
+    const checkedInIds = new Set((allCourseCheckins || []).map(c => c.registration_id));
 
-    // Calculate checkedInCount
-    const checkedInCount = (courseCheckins || []).length;
-
-    const checkedInIds = new Set((courseCheckins || []).map(c => c.registration_id));
+    // Count only registrations that are registered AND not checked in
+    const registeredCount = (courseRegistrations?.filter(r => 
+      r.status === 'registered' && !checkedInIds.has(r.id)
+    ) || []).length;
 
     // Build unified list
     const unifiedMembers = (registeredMembers || []).map(r => ({

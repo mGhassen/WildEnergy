@@ -56,6 +56,7 @@ interface CheckinInfo {
   alreadyCheckedIn: boolean;
   registeredMembers?: { id: string; first_name: string; last_name: string; email: string; status?: string }[];
   attendantMembers?: { id: string; first_name: string; last_name: string; email: string }[];
+  members?: { id: string; first_name: string; last_name: string; email: string; status?: string }[];
 }
 
 export default function CheckinQRPage() {
@@ -315,38 +316,33 @@ export default function CheckinQRPage() {
                 </div>
               </div>
 
-              {/* Registered Members List */}
+              {/* Unified Members List */}
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                 <h3 className="font-medium text-gray-800 mb-3 flex items-center">
                   <Users className="w-4 h-4 mr-2" />
-                  Registered Members
+                  Course Members
                 </h3>
-                <ul className="text-sm text-gray-700 list-disc pl-5">
-                  {checkinInfo.registeredMembers && checkinInfo.registeredMembers.length > 0 ? (
-                    checkinInfo.registeredMembers.map((m: any) => (
-                      <li key={m.id}>{m.first_name} {m.last_name} ({m.email}) <span className="ml-2 px-2 py-1 rounded bg-blue-100 text-blue-800 text-xs">{m.status}</span></li>
-                    ))
-                  ) : (
-                    <li>No registered members</li>
-                  )}
-                </ul>
-              </div>
-
-              {/* Attendant Members List */}
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <h3 className="font-medium text-green-800 mb-3 flex items-center">
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  Attendant Members (Checked In)
-                </h3>
-                <ul className="text-sm text-green-700 list-disc pl-5">
-                  {checkinInfo.attendantMembers && checkinInfo.attendantMembers.length > 0 ? (
-                    checkinInfo.attendantMembers.map((m: any) => (
-                      <li key={m.id}>{m.first_name} {m.last_name} ({m.email})</li>
-                    ))
-                  ) : (
-                    <li>No attendants yet</li>
-                  )}
-                </ul>
+                {checkinInfo.members && checkinInfo.members.length > 0 ? (
+                  <div className="space-y-2">
+                    {checkinInfo.members.map((member: any) => (
+                      <div key={member.id} className="flex items-center justify-between p-2 bg-white rounded border">
+                        <div className="flex-1">
+                          <span className="font-medium">{member.first_name} {member.last_name}</span>
+                          <span className="text-xs text-gray-500 ml-2">({member.email})</span>
+                        </div>
+                        <span className={`px-2 py-1 rounded text-xs ${
+                          member.status === 'checked_in'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {member.status === 'checked_in' ? 'Checked In' : 'Registered'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-600">No registered members</p>
+                )}
               </div>
             </div>
           )}
