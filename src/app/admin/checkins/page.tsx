@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -24,6 +24,11 @@ export default function AdminCheckins() {
   const [filterStatus, setFilterStatus] = useState("");
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [fullTestQRUrl, setFullTestQRUrl] = useState("");
+
+  useEffect(() => {
+    setFullTestQRUrl(`${window.location.origin}/checkin/${testQRCode}`);
+  }, [testQRCode]);
 
   // Fetch all check-ins (not just today)
   const { data: allCheckins = [], isLoading } = useQuery({
@@ -62,7 +67,7 @@ export default function AdminCheckins() {
     });
   }, [mappedCheckins, filterDate, filterCourse, filterMember, filterStatus]);
 
-  const handleManualCheckin = async () => {
+  const handleManualCheckin = () => {
     if (!manualQRCode.trim()) {
       toast({
         title: "Error",
@@ -71,32 +76,8 @@ export default function AdminCheckins() {
       });
       return;
     }
-    try {
-      const response = await apiRequest("POST", "/api/checkins", { qr_code: manualQRCode.trim() });
-      const data = await response.json();
-      if (data.success) {
-        toast({
-          title: "Check-in successful!",
-          description: `${data.data.member_name} checked in successfully.`
-        });
-        queryClient.invalidateQueries({ queryKey: ["/api/checkins"] });
-        setManualQRCode("");
-      } else {
-        toast({
-          title: "Check-in failed",
-          description: data.message,
-          variant: "destructive"
-        });
-      }
-    } catch (error: any) {
-      console.error("Manual check-in error:", error);
-      const errorMessage = error.response?.data?.message || "Check-in failed";
-      toast({
-        title: "Check-in failed",
-        description: errorMessage,
-        variant: "destructive"
-      });
-    }
+    // Open the QR check-in review page
+    window.open(`/checkin/qr/${manualQRCode.trim()}`, "_blank");
   };
 
   const copyQRUrl = (qrCode: string) => {
@@ -316,7 +297,7 @@ export default function AdminCheckins() {
                     Scan this QR code to test the check-in process
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    URL: {typeof window !== 'undefined' ? `${window.location.origin}/checkin/${testQRCode}` : `/checkin/${testQRCode}`}
+                    URL: {fullTestQRUrl || `/checkin/${testQRCode}`}
                   </p>
                 </div>
               </div>
