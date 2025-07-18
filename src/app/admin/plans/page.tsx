@@ -21,6 +21,16 @@ import { apiFetch } from "@/lib/api";
 const planFormSchema = insertPlanSchema;
 type PlanFormData = z.infer<typeof planFormSchema>;
 
+// UI-only type for the form
+type PlanFormUi = {
+  name: string;
+  description?: string;
+  price: number;
+  durationDays: number;
+  maxSessions: number;
+  isActive: boolean;
+};
+
 export default function AdminPlans() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<any>(null);
@@ -33,8 +43,7 @@ export default function AdminPlans() {
     queryFn: () => apiFetch("/api/plans"),
   });
 
-  const form = useForm<PlanFormData>({
-    resolver: zodResolver(planFormSchema),
+  const form = useForm<PlanFormUi>({
     defaultValues: {
       name: "",
       description: "",
@@ -46,7 +55,7 @@ export default function AdminPlans() {
   });
 
   const createPlanMutation = useMutation({
-    mutationFn: async (data: PlanFormData) => {
+    mutationFn: async (data: any) => {
       return await apiFetch("/api/plans", {
         method: "POST",
         body: JSON.stringify(data),
@@ -68,7 +77,7 @@ export default function AdminPlans() {
   });
 
   const updatePlanMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: Partial<PlanFormData> }) => {
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
       return await apiFetch(`/api/plans/${id}`, {
         method: "PUT",
         body: JSON.stringify(data),
@@ -123,8 +132,16 @@ export default function AdminPlans() {
     isActive: plan.is_active ?? plan.isActive,
   }));
 
-  const handleSubmit = (data: PlanFormData) => {
-    const submitData = { ...data, price: Number(data.price) };
+  const handleSubmit = (data: PlanFormUi) => {
+    // Map camelCase to snake_case for API
+    const submitData = {
+      name: data.name,
+      description: data.description,
+      price: Number(data.price),
+      duration_days: data.durationDays,
+      max_sessions: data.maxSessions,
+      is_active: data.isActive,
+    };
     if (editingPlan) {
       updatePlanMutation.mutate({ id: editingPlan.id, data: submitData });
     } else {
@@ -138,9 +155,9 @@ export default function AdminPlans() {
       name: plan.name,
       description: plan.description,
       price: plan.price,
-      durationDays: plan.durationDays,
-      maxSessions: plan.maxSessions,
-      isActive: plan.isActive,
+      durationDays: plan.duration_days ?? plan.durationDays,
+      maxSessions: plan.max_sessions ?? plan.maxSessions,
+      isActive: plan.is_active ?? plan.isActive,
     });
     setIsModalOpen(true);
   };
