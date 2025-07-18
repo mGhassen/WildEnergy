@@ -11,7 +11,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import QRGenerator from "@/components/qr-generator";
 import { apiRequest } from "@/lib/queryClient";
 import { CheckCircle, Clock, Users, QrCode, Copy, Eye } from "lucide-react";
-import { getInitials, formatDateTime } from "@/lib/auth";
+import { getInitials } from "@/lib/auth";
+import { formatDateTime } from "@/lib/date";
 import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 

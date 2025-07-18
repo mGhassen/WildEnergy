@@ -1,19 +1,11 @@
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight, Calendar, Users, Clock } from "lucide-react";
-import { formatTime } from "@/lib/auth";
-
-// Utility function for European date formatting (DD/MM/YYYY)
-const formatEuropeanDate = (date: Date) => {
-  return date.toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  });
-};
+import React, { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ChevronLeft, ChevronRight, Calendar, Users, Clock } from 'lucide-react';
+import { formatDate, formatTime, formatLongDate, getDayName, getShortDayName } from '@/lib/date';
 
 interface Schedule {
   id: number;
@@ -134,10 +126,24 @@ export default function ScheduleCalendar({
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
 
   const getScheduleRegistrations = (scheduleId: number) => {
-    return registrations.filter(reg => 
+    // Get all registrations for this schedule
+    const scheduleRegistrations = registrations.filter(reg => 
       reg.course?.id === scheduleId && 
       reg.status === 'registered'
     );
+    
+    // Get all check-ins for this schedule
+    const scheduleCheckins = checkins.filter(checkin => 
+      checkin.registration?.course?.id === scheduleId
+    );
+    
+    // Create a set of registration IDs that have been checked in
+    const checkedInRegistrationIds = new Set(
+      scheduleCheckins.map(checkin => checkin.registration?.id).filter(Boolean)
+    );
+    
+    // Return only registrations that are NOT checked in
+    return scheduleRegistrations.filter(reg => !checkedInRegistrationIds.has(reg.id));
   };
 
   const getScheduleCheckins = (scheduleId: number) => {
@@ -167,15 +173,15 @@ export default function ScheduleCalendar({
 
   const getDateRange = () => {
     if (viewMode === "daily") {
-      return formatEuropeanDate(currentDate);
+      return formatDate(currentDate);
     } else if (viewMode === "weekly") {
       const startOfWeek = new Date(currentDate);
       startOfWeek.setDate(currentDate.getDate() - currentDate.getDay());
       const endOfWeek = new Date(startOfWeek);
       endOfWeek.setDate(startOfWeek.getDate() + 6);
-      return `${formatEuropeanDate(startOfWeek)} - ${formatEuropeanDate(endOfWeek)}`;
+      return `${formatDate(startOfWeek)} - ${formatDate(endOfWeek)}`;
     } else {
-      return currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      return formatLongDate(currentDate);
     }
   };
 
@@ -336,7 +342,7 @@ export default function ScheduleCalendar({
             return scheduleDate === dayStr;
           });
           
-          const dayName = day.toLocaleDateString('fr-FR', { weekday: 'short' });
+          const dayName = getShortDayName(day.getDay());
           const dayNumber = day.getDate();
           
           return (
@@ -416,9 +422,9 @@ export default function ScheduleCalendar({
     return (
       <div className="space-y-2">
         <div className="grid grid-cols-7 gap-1 mb-2">
-          {['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'].map(day => (
-            <div key={day} className="p-2 text-center font-medium text-muted-foreground">
-              {day}
+          {[0, 1, 2, 3, 4, 5, 6].map(dayIndex => (
+            <div key={dayIndex} className="p-2 text-center font-medium text-muted-foreground">
+              {getShortDayName(dayIndex)}
             </div>
           ))}
         </div>
@@ -512,7 +518,7 @@ export default function ScheduleCalendar({
             <DialogHeader>
               <DialogTitle>{selectedSchedule.class?.name || 'Unknown Class'}</DialogTitle>
               <DialogDescription>
-                {new Date(selectedSchedule.scheduleDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} • {formatTime(selectedSchedule.startTime)} - {formatTime(selectedSchedule.endTime)}
+                {formatLongDate(selectedSchedule.scheduleDate)} • {formatTime(selectedSchedule.startTime)} - {formatTime(selectedSchedule.endTime)}
               </DialogDescription>
             </DialogHeader>
             
@@ -534,10 +540,17 @@ export default function ScheduleCalendar({
                     <div>Registered: {getScheduleRegistrations(selectedSchedule.id).length}</div>
                     <div>Attended: {getScheduleCheckins(selectedSchedule.id).length}</div>
                     <div>Attendance Rate: {
-                      getScheduleRegistrations(selectedSchedule.id).length > 0 
-                        ? Math.round((getScheduleCheckins(selectedSchedule.id).length / getScheduleRegistrations(selectedSchedule.id).length) * 100)
-                        : 0
-                    }%</div>
+                      (() => {
+                        const attended = getScheduleCheckins(selectedSchedule.id).length;
+                        const registered = getScheduleRegistrations(selectedSchedule.id).length;
+                        const maxCapacity = selectedSchedule.class?.maxCapacity || 0;
+                        
+                        const capacityRate = maxCapacity > 0 ? Math.round((attended / maxCapacity) * 100) : 0;
+                        const registeredRate = registered > 0 ? Math.round((attended / registered) * 100) : 0;
+                        
+                        return `${capacityRate}% / ${registeredRate}%`;
+                      })()
+                    }</div>
                   </div>
                 </div>
               </div>
@@ -577,7 +590,7 @@ export default function ScheduleCalendar({
                         <div>
                           <div className="font-medium">{checkin.member?.firstName || 'Unknown'} {checkin.member?.lastName || ''}</div>
                           <div className="text-xs text-muted-foreground">
-                            {new Date(checkin.checkinTime).toLocaleTimeString()}
+                            {formatTime(checkin.checkinTime)}
                           </div>
                         </div>
                         <Badge variant="default" className="bg-green-600">

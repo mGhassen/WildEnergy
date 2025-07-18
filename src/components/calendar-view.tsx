@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, ChevronRight, Clock, Users, CheckCircle, MapPin } from "lucide-react";
-import { formatTime, getDayName, formatDate } from "@/lib/auth";
+import { formatTime, getDayName, formatDate, formatShortDate } from "@/lib/date";
 
 interface CalendarViewProps {
   schedules: any[];
@@ -78,7 +78,7 @@ export default function CalendarView({ schedules, registrations, onBookClass, su
   };
 
   const formatDateShort = (date: Date) => {
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return formatShortDate(date);
   };
 
   return (
@@ -87,7 +87,7 @@ export default function CalendarView({ schedules, registrations, onBookClass, su
       <div className="flex items-center justify-between p-6 bg-gradient-to-r from-primary/10 to-secondary/10 rounded-lg">
         <div className="flex items-center gap-4">
           <h2 className="text-3xl font-bold text-foreground">
-            {currentWeek.toLocaleString('default', { month: 'long', year: 'numeric' })}
+            {currentWeek.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
           </h2>
           <Button variant="outline" size="sm" onClick={goToToday} className="bg-background">
             Today

@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { formatTime } from "@/lib/auth";
+import { formatTime } from "@/lib/date";
 import QRGenerator from "@/components/qr-generator";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/date";

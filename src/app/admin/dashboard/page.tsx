@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Users, UserCheck, TrendingUp, Calendar, Clock, ChevronLeft, ChevronRight } from "lucide-react";
-import { formatDateTime, formatTime, formatDate } from "@/lib/auth";
+import { formatDateTime, formatTime, formatDate } from "@/lib/date";
 import { useState } from "react";
 import { apiRequest } from "@/lib/queryClient";
 import { Sidebar } from "@/components/ui/sidebar";
