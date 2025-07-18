@@ -13,7 +13,7 @@ import { useForm } from "react-hook-form";
 
 import { apiRequest } from "@/lib/queryClient";
 import { Plus, Search, Edit, Trash2, Calendar, Users, TrendingUp, RepeatIcon } from "lucide-react";
-import { getDayName, formatTime } from "@/lib/auth";
+import { getDayName, formatTime } from "@/lib/date";
 
 // Utility function for European date formatting (DD/MM/YYYY)
 const formatEuropeanDate = (dateString: string) => {

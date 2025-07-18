@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar, Clock, User, Search, CheckCircle, XCircle, AlertCircle, QrCode } from "lucide-react";
-import { formatTime, getDayName, formatDateTime } from "@/lib/auth";
+import { formatTime, getDayName, formatDateTime } from "@/lib/date";
 import QRGenerator from "@/components/qr-generator";
 import { formatDate } from "@/lib/date";
 import { apiRequest } from "@/lib/queryClient";

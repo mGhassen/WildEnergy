@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiRequest } from "@/lib/queryClient";
 import { Search, Clock, Users, Calendar, Star, Check } from "lucide-react";
-import { formatTime, getDayName } from "@/lib/auth";
+import { formatTime, getDayName } from "@/lib/date";
 import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "@/lib/api";
 import { formatDate } from "@/lib/date";

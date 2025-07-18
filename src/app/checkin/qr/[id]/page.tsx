@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle, XCircle, Loader2, ArrowLeft, User, Calendar, Clock, Users } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { formatDateTime } from "@/lib/date";
 
 interface CheckinInfo {
   member: {
@@ -183,20 +184,6 @@ export default function CheckinQRPage() {
   const handleBack = () => {
     router.push('/admin/checkins');
   };
-
-  // Utility for consistent date/time formatting
-  function formatDateTime(date: Date | string | null | undefined) {
-    if (!date) return '-';
-    const d = typeof date === 'string' ? new Date(date) : date;
-    if (isNaN(d.getTime())) return '-';
-    // Format: YYYY-MM-DD HH:mm
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    const hours = String(d.getHours()).padStart(2, '0');
-    const minutes = String(d.getMinutes()).padStart(2, '0');
-    return `${year}-${month}-${day} ${hours}:${minutes}`;
-  }
 
   if (!qrCode) {
     return (

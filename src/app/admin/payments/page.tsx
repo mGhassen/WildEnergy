@@ -9,7 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, DollarSign, Filter, Calendar, TrendingUp, CreditCard } from "lucide-react";
-import { getInitials, formatDate } from "@/lib/auth";
+import { getInitials } from "@/lib/auth";
+import { formatDate } from "@/lib/date";
 import { apiRequest } from "@/lib/queryClient";
 
 type Payment = {
