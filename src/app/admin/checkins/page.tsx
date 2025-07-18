@@ -13,6 +13,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { CheckCircle, Clock, Users, QrCode, Copy, Eye } from "lucide-react";
 import { getInitials, formatDateTime } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export default function AdminCheckins() {
   const [manualQRCode, setManualQRCode] = useState("");
@@ -40,7 +41,7 @@ export default function AdminCheckins() {
           lastName: checkin.member.lastName || checkin.member.last_name || '',
           email: checkin.member.email,
         } : null,
-        class: checkin.class || checkin.registration?.schedule?.class,
+        class: checkin.registration?.course?.class || null, // fixed mapping for class
       }))
     : [];
 
@@ -169,79 +170,106 @@ export default function AdminCheckins() {
           <CardTitle>All Check-ins</CardTitle>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
-            <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-              <p className="text-muted-foreground mt-2">Loading check-ins...</p>
-            </div>
-          ) : filteredCheckins.length === 0 ? (
-            <div className="text-center py-8">
-              <Clock className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">No check-ins found</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Member</TableHead>
-                    <TableHead>Course/Class</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Time</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredCheckins.map((checkin: any) => {
-                    const checkinDate = checkin.checkin_time ? new Date(checkin.checkin_time) : null;
-                    return (
-                      <TableRow key={checkin.id}>
-                        <TableCell>
-                          {checkin.member ? (
-                            <div>
-                              <div className="font-medium">{checkin.member.firstName} {checkin.member.lastName}</div>
-                              <div className="text-xs text-muted-foreground">{checkin.member.email}</div>
-                            </div>
-                          ) : 'Unknown'}
-                        </TableCell>
-                        <TableCell>{checkin.class?.name || 'Class'}</TableCell>
-                        <TableCell>{checkinDate ? checkinDate.toLocaleDateString() : '-'}</TableCell>
-                        <TableCell>{checkinDate ? checkinDate.toLocaleTimeString() : '-'}</TableCell>
-                        <TableCell>
-                          {checkin.checkin_time ? (
-                            <Badge variant="default">Checked In</Badge>
-                          ) : (
-                            <Badge variant="secondary">Not Checked In</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              const qrCode = checkin.registration?.qr_code || checkin.registration?.qrCode || '';
-                              if (qrCode && typeof window !== 'undefined') {
-                                window.open(`/checkin/qr/${qrCode}`, '_blank');
-                              } else {
-                                toast({
-                                  title: "Error",
-                                  description: "QR code not found for this check-in",
-                                  variant: "destructive"
-                                });
-                              }
-                            }}
-                          >
-                            <Eye className="w-4 h-4 mr-1" /> View
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+          <TooltipProvider>
+            {isLoading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                <p className="text-muted-foreground mt-2">Loading check-ins...</p>
+              </div>
+            ) : filteredCheckins.length === 0 ? (
+              <div className="text-center py-8">
+                <Clock className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">No check-ins found</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Member</TableHead>
+                      <TableHead>Course/Class</TableHead>
+                      <TableHead>Date & Time</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredCheckins.map((checkin: any) => {
+                      const checkinDate = checkin.checkinTime ? new Date(checkin.checkinTime) : null;
+                      const course = checkin.registration?.course;
+                      const member = checkin.member;
+                      return (
+                        <TableRow key={checkin.id}>
+                          <TableCell>
+                            {member ? (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="cursor-pointer">
+                                    <div className="font-medium">{member.firstName} {member.lastName}</div>
+                                    <div className="text-xs text-muted-foreground">{member.email}</div>
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs">
+                                  <div className="font-semibold mb-1">{member.firstName} {member.lastName}</div>
+                                  <div className="text-xs text-muted-foreground mb-1">{member.email}</div>
+                                </TooltipContent>
+                              </Tooltip>
+                            ) : 'Unknown'}
+                          </TableCell>
+                          <TableCell>
+                            {course?.class?.name ? (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="cursor-pointer underline underline-offset-2">{course.class.name}</span>
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs">
+                                  <div className="font-semibold mb-1">{course.class.name}</div>
+                                  <div className="text-xs text-muted-foreground mb-1">Date: {course.courseDate ? formatDateTime(course.courseDate) : '-'}</div>
+                                  <div className="text-xs text-muted-foreground mb-1">Time: {course.startTime && course.endTime ? `${course.startTime} - ${course.endTime}` : '-'}</div>
+                                  <div className="text-xs text-muted-foreground mb-1">Trainer: {course.trainer?.firstName} {course.trainer?.lastName}</div>
+                                  <div className="text-xs text-muted-foreground mb-1">Category: {course.class.category || '-'}</div>
+                                </TooltipContent>
+                              </Tooltip>
+                            ) : 'Class'}
+                          </TableCell>
+                          <TableCell>
+                            {formatDateTime(checkin.checkinTime)}
+                          </TableCell>
+                          <TableCell>
+                            {checkin.checkinTime ? (
+                              <Badge variant="default">Checked In</Badge>
+                            ) : (
+                              <Badge variant="secondary">Not Checked In</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const qrCode = checkin.registration?.qr_code || checkin.registration?.qrCode || '';
+                                if (qrCode && typeof window !== 'undefined') {
+                                  window.open(`/checkin/qr/${qrCode}`, '_blank');
+                                } else {
+                                  toast({
+                                    title: "Error",
+                                    description: "QR code not found for this check-in",
+                                    variant: "destructive"
+                                  });
+                                }
+                              }}
+                            >
+                              <Eye className="w-4 h-4 mr-1" /> View
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </TooltipProvider>
         </CardContent>
       </Card>
 
