@@ -43,9 +43,9 @@ export const insertPlanSchema = z.object({
   name: z.string().min(1, 'Plan name is required'),
   description: z.string().optional(),
   price: z.number().min(0, 'Price must be a positive number'),
-  durationDays: z.number().min(1, 'Duration must be at least 1 day'),
-  maxSessions: z.number().min(1, 'Must allow at least 1 session'),
-  isActive: z.boolean(),
+  duration_days: z.number().min(1, 'Duration must be at least 1 day'),
+  max_sessions: z.number().min(1, 'Must allow at least 1 session'),
+  is_active: z.boolean(),
 });
 
 export const insertClassSchema = z.object({

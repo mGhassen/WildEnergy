@@ -16,11 +16,11 @@ export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
   const token = authHeader?.split(' ')[1];
   if (!token) {
-    return NextResponse.json({ error: 'No token provided' }, { status: 401 });
+    return NextResponse.json({ message: 'No token provided' }, { status: 401 });
   }
   const { data: { user }, error: authError } = await supabase.auth.getUser(token);
   if (authError || !user) {
-    return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+    return NextResponse.json({ message: 'Invalid or expired token' }, { status: 401 });
   }
   const { data: plan, error } = await supabase
     .from('plans')
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     .eq('id', id)
     .single();
   if (error || !plan) {
-    return NextResponse.json({ error: 'Plan not found' }, { status: 404 });
+    return NextResponse.json({ message: 'Plan not found', details: error }, { status: 404 });
   }
   return NextResponse.json(plan);
 }
@@ -38,11 +38,11 @@ export async function PUT(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
   const token = authHeader?.split(' ')[1];
   if (!token) {
-    return NextResponse.json({ error: 'No token provided' }, { status: 401 });
+    return NextResponse.json({ message: 'No token provided' }, { status: 401 });
   }
   const { data: { user: adminUser }, error: authError } = await supabase.auth.getUser(token);
   if (authError || !adminUser) {
-    return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+    return NextResponse.json({ message: 'Invalid or expired token' }, { status: 401 });
   }
   const { data: adminCheck } = await supabase
     .from('users')
@@ -50,17 +50,18 @@ export async function PUT(request: NextRequest) {
     .eq('auth_user_id', adminUser.id)
     .single();
   if (!adminCheck?.is_admin) {
-    return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    return NextResponse.json({ message: 'Admin access required' }, { status: 403 });
   }
   const updates = await request.json();
+  if ('id' in updates) delete updates.id;
   const { data: plan, error } = await supabase
     .from('plans')
     .update(updates)
-    .eq('id', id)
+    .eq('id', Number(id))
     .select('*')
     .single();
   if (error || !plan) {
-    return NextResponse.json({ error: 'Failed to update plan' }, { status: 500 });
+    return NextResponse.json({ message: error?.message || 'Failed to update plan', details: error }, { status: 500 });
   }
   return NextResponse.json({ success: true, plan });
 }
@@ -70,11 +71,11 @@ export async function DELETE(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
   const token = authHeader?.split(' ')[1];
   if (!token) {
-    return NextResponse.json({ error: 'No token provided' }, { status: 401 });
+    return NextResponse.json({ message: 'No token provided' }, { status: 401 });
   }
   const { data: { user: adminUser }, error: authError } = await supabase.auth.getUser(token);
   if (authError || !adminUser) {
-    return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+    return NextResponse.json({ message: 'Invalid or expired token' }, { status: 401 });
   }
   const { data: adminCheck } = await supabase
     .from('users')
@@ -82,14 +83,14 @@ export async function DELETE(request: NextRequest) {
     .eq('auth_user_id', adminUser.id)
     .single();
   if (!adminCheck?.is_admin) {
-    return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    return NextResponse.json({ message: 'Admin access required' }, { status: 403 });
   }
   const { error } = await supabase
     .from('plans')
     .delete()
     .eq('id', id);
   if (error) {
-    return NextResponse.json({ error: 'Failed to delete plan' }, { status: 500 });
+    return NextResponse.json({ message: error?.message || 'Failed to delete plan', details: error }, { status: 500 });
   }
   return NextResponse.json({ success: true });
 } 
