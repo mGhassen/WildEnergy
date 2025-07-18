@@ -375,7 +375,7 @@ export default function MemberClasses() {
 
       {/* Current Plan Summary */}
       {activeSubscriptions.length > 0 && (
-        <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-primary/10">
+        <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -464,7 +464,7 @@ export default function MemberClasses() {
             const isRegistered = registeredCourseIds.has(course.id);
             
             return (
-              <Card key={course.id} className="flex flex-col justify-between overflow-hidden hover:shadow-md transition-shadow border border-border bg-white rounded-lg min-h-[240px]">
+              <Card key={course.id}>
                 <div className="flex-1 flex flex-col">
                   <CardHeader className="pb-2 px-4 pt-4">
                     <div className="flex items-center justify-between mb-1">

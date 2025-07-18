@@ -29,10 +29,7 @@ export default function PlansPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {plans?.map((plan) => (
-              <Card
-                key={plan.id}
-                className="flex flex-col justify-between shadow-lg border border-border/60 hover:border-primary transition-all hover:scale-[1.025]"
-              >
+              <Card key={plan.id}>
                 <CardHeader>
                   <div className="flex items-center justify-between mb-2">
                     <CardTitle className="text-2xl font-bold">{plan.name}</CardTitle>

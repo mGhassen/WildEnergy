@@ -21,6 +21,7 @@ import {
   CheckCircle,
   XCircle} from "lucide-react";
 import { formatDate } from "@/lib/date";
+import "./member-details-dialog.css";
 
 // Types for member details
 interface Member {
@@ -387,7 +388,7 @@ export default function MembersPage() {
 
       {/* Member Details Dialog */}
       <Dialog open={showMemberDetails} onOpenChange={setShowMemberDetails}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto hide-dialog-close">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between w-full">
               <div className="flex items-center space-x-2">
@@ -399,7 +400,7 @@ export default function MembersPage() {
                 <span>{selectedMember?.firstName} {selectedMember?.lastName}</span>
               </div>
               {/* Credit Tag aligned with title, only if credit > 0 */}
-              {selectedMember?.credit && selectedMember.credit > 0 && (
+              {typeof selectedMember?.credit === 'number' && selectedMember.credit > 0 && (
                 <Card className="flex items-center gap-3 px-4 py-2 bg-gradient-to-r from-green-100 to-green-50 border-green-200 shadow-none">
                   <span className="inline-flex items-center gap-1 text-green-700 font-semibold text-lg">
                     <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3-1.343-3-3-3zm0 0V4m0 16v-4m8-4a8 8 0 11-16 0 8 8 0 0116 0z" /></svg>

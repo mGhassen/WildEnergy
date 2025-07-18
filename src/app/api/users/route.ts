@@ -1,17 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const authHeader = req.headers.get('authorization');
+    const token = authHeader?.split(' ')[1];
+    if (!token) {
+      return NextResponse.json({ error: 'No token provided' }, { status: 401 });
+    }
+    // Verify user (member or admin)
+    const { data: { user }, error: authError } = await supabaseServer.auth.getUser(token);
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+    }
     const { data: users, error } = await supabaseServer
       .from('users')
       .select('*')
       .order('created_at', { ascending: false });
-
     if (error) {
       return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
     }
-
     const usersWithCredit = (users || []).map((u: Record<string, unknown>) => ({ ...u, credit: u.credit ?? 0 }));
     return NextResponse.json(usersWithCredit);
   } catch {
