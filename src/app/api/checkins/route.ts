@@ -8,12 +8,10 @@ export async function GET(req: NextRequest) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
     const token = authHeader.substring(7);
-    
     // Verify the token
-    const { data: { user: authUser }, error: authError } = await supabaseServer.auth.getUser(token);
-    if (authError || !authUser) {
+    const { data: { user }, error: authError } = await supabaseServer.auth.getUser(token);
+    if (authError || !user) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
@@ -21,7 +19,7 @@ export async function GET(req: NextRequest) {
     const { data: profile } = await supabaseServer
       .from('users')
       .select('is_admin')
-      .eq('auth_user_id', authUser.id)
+      .eq('auth_user_id', user.id)
       .single();
 
     if (!profile || !profile.is_admin) {

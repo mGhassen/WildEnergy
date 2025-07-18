@@ -230,7 +230,7 @@ export default function AdminTrainers() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 mt-2 md:mt-6"> {/* Added top margin for alignment with logo/top bar */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-foreground mb-2">Trainers</h1>

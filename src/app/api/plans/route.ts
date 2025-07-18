@@ -13,18 +13,10 @@ export async function GET(req: NextRequest) {
     if (!token) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
-    // Verify admin
-    const { data: { user: adminUser }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !adminUser) {
+    // Verify user (member or admin)
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
-    }
-    const { data: adminCheck } = await supabase
-      .from('users')
-      .select('is_admin')
-      .eq('auth_user_id', adminUser.id)
-      .single();
-    if (!adminCheck?.is_admin) {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
     // Fetch all plans
     const { data: plans, error } = await supabase

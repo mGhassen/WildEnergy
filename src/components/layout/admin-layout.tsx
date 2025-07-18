@@ -88,7 +88,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       <div className={`hidden md:flex bg-card border-r border-border flex-col transition-all duration-300 ${
         sidebarCollapsed ? 'w-16' : 'w-64'
       }`}>
-        <div className="p-6 border-b border-border">
+        <div className="p-6">
           <Link href="/admin" className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
               <Dumbbell className="w-4 h-4 text-primary-foreground" />
