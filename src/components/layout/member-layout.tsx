@@ -14,12 +14,15 @@ import {
   History, 
   Menu, 
   X,
-  ChevronDown
+  ChevronDown,
+  Sun,
+  Moon
 } from "lucide-react";
 import { getInitials } from "@/lib/auth";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useTheme } from "@/components/theme-provider";
 import Link from "next/link";
 
 interface MemberLayoutProps {
@@ -29,6 +32,7 @@ interface MemberLayoutProps {
 export default function MemberLayout({ children }: MemberLayoutProps) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   const handleLogout = async () => {
@@ -231,6 +235,20 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
                         <CreditCard className="w-4 h-4 mr-3" />
                         Plans
                       </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={toggleTheme}>
+                      {theme === "light" ? (
+                        <>
+                          <Moon className="w-4 h-4 mr-3" />
+                          Dark Mode
+                        </>
+                      ) : (
+                        <>
+                          <Sun className="w-4 h-4 mr-3" />
+                          Light Mode
+                        </>
+                      )}
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleLogout} className="text-red-600">

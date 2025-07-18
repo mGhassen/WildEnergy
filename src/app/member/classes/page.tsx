@@ -34,6 +34,7 @@ interface Class {
   description?: string;
   category?: Category;
   difficulty?: string;
+  duration?: number;
 }
 
 interface Course {
@@ -71,8 +72,8 @@ export default function MemberClasses() {
   const { toast } = useToast();
 
   const { data: courses, isLoading } = useQuery({
-    queryKey: ["/api/courses"],
-    queryFn: () => apiFetch("/api/courses"),
+    queryKey: ["/api/member/courses"],
+    queryFn: () => apiFetch("/api/member/courses"),
   });
 
   // Fetch categories from API
@@ -149,7 +150,7 @@ export default function MemberClasses() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/registrations"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/member/courses"] });
       queryClient.invalidateQueries({ queryKey: ["/api/member/subscriptions"] });
       toast({
         title: "Registration successful!",
@@ -183,7 +184,7 @@ export default function MemberClasses() {
       // Invalidate and refetch
       queryClient.invalidateQueries({ queryKey: ["/api/registrations"] });
       queryClient.invalidateQueries({ queryKey: ["/api/member/subscriptions"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/member/courses"] });
       
       if (data.isWithin24Hours) {
         toast({
@@ -269,6 +270,11 @@ export default function MemberClasses() {
   };
 
   const coursesArray = Array.isArray(courses) ? courses : [];
+  
+  // Debug logging
+  console.log('Total courses received:', coursesArray.length);
+  console.log('Course IDs:', coursesArray.map((c: Course) => c.id));
+  
   // Helper: get unique categories from courses
   const uniqueCategories = Array.from(new Set(coursesArray.map((c: Course) => c.class?.category?.name ?? '').filter(Boolean)));
   // Helper: day names
@@ -465,67 +471,74 @@ export default function MemberClasses() {
           filteredCourses.map((course: Course) => {
             const isRegistered = registeredCourseIds.has(course.id);
             return (
-              <Card key={course.id}>
-                <div className="flex-1 flex flex-col">
-                  <CardHeader className="pb-2 px-4 pt-4">
-                    <div className="flex items-center justify-between mb-1">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <CardTitle className="text-base font-semibold leading-tight cursor-pointer underline underline-offset-2">
-                            {course.class?.name}
-                          </CardTitle>
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs">
-                          <div className="font-semibold mb-1">{course.class?.name}</div>
-                          <div className="text-xs text-muted-foreground mb-1">{course.class?.description}</div>
-                          <div className="text-xs text-muted-foreground mb-1">Date: {formatDate(course.courseDate)}</div>
-                          <div className="text-xs text-muted-foreground mb-1">Time: {formatTime(course.startTime)} - {formatTime(course.endTime)}</div>
-                          <div className="text-xs text-muted-foreground mb-1">Category: {course.class?.category?.name || '-'}</div>
-                          <div className="text-xs text-muted-foreground mb-1">Difficulty: {course.class?.difficulty || '-'}</div>
-                        </TooltipContent>
-                      </Tooltip>
-                      <div className="flex items-center gap-2">
-                        <Badge className={getCategoryColor(course.class?.category?.name || "unknown")}>{course.class?.category?.name ? course.class.category.name.charAt(0).toUpperCase() + course.class.category.name.slice(1) : "Unknown"}</Badge>
-                        {renderDifficultyStars(course.class?.difficulty || "beginner")}
-                      </div>
+              <Card key={course.id} className="flex flex-col h-full">
+                <CardHeader className="pb-2 px-4 pt-4 flex-shrink-0">
+                  <div className="flex items-center justify-between mb-1">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <CardTitle className="text-base font-semibold leading-tight cursor-pointer underline underline-offset-2">
+                          {course.class?.name}
+                        </CardTitle>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <div className="font-semibold mb-1">{course.class?.name}</div>
+                        <div className="text-xs text-muted-foreground mb-1">{course.class?.description}</div>
+                        <div className="text-xs text-muted-foreground mb-1">Date: {formatDate(course.courseDate)}</div>
+                        <div className="text-xs text-muted-foreground mb-1">Time: {formatTime(course.startTime)} - {formatTime(course.endTime)}</div>
+                        <div className="text-xs text-muted-foreground mb-1">Category: {course.class?.category?.name || '-'}</div>
+                        <div className="text-xs text-muted-foreground mb-1">Difficulty: {course.class?.difficulty || '-'}</div>
+                      </TooltipContent>
+                    </Tooltip>
+                    <div className="flex items-center gap-2">
+                      <Badge className={getCategoryColor(course.class?.category?.name || "unknown")}>{course.class?.category?.name ? course.class.category.name.charAt(0).toUpperCase() + course.class.category.name.slice(1) : "Unknown"}</Badge>
+                      {renderDifficultyStars(course.class?.difficulty || "beginner")}
                     </div>
-                    <CardDescription className="line-clamp-1 text-sm mb-2">
-                      {course.class?.description || "Join this exciting fitness class and challenge yourself!"}
-                    </CardDescription>
-                    <div className="border-b border-gray-200 my-2" />
-                    {/* Centered info bar */}
-                    <div className="flex flex-row flex-wrap justify-center items-center gap-6 py-1">
-                      {/* Trainer */}
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="flex items-center text-gray-700 cursor-pointer underline underline-offset-2">
-                            <Users className="w-4 h-4 mr-1" />{course.trainer?.user?.first_name} {course.trainer?.user?.last_name}
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs">
-                          <div className="font-semibold mb-1">{course.trainer?.user?.first_name} {course.trainer?.user?.last_name}</div>
-                        </TooltipContent>
-                      </Tooltip>
-                      {/* Duration pill */}
-                      <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-800 text-xs font-medium flex items-center">
-                        <Clock className="w-4 h-4 mr-1 text-gray-500" />
-                        {formatTime(course.startTime || "")} - {formatTime(course.endTime || "")}
+                  </div>
+                  <CardDescription className="line-clamp-2 text-sm mb-3">
+                    {course.class?.description || "Join this exciting fitness class and challenge yourself!"}
+                  </CardDescription>
+                  
+                  {/* Course Details Grid */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Trainer */}
+                    <div className="flex items-center text-sm text-muted-foreground">
+                      <Users className="w-4 h-4 mr-2 text-primary" />
+                      <span className="font-medium text-foreground">
+                        {course.trainer?.user?.first_name} {course.trainer?.user?.last_name}
                       </span>
-                      {/* Date */}
-                      <span className="flex items-center font-semibold text-primary"><Calendar className="w-4 h-4 mr-1" />{formatDate(course.courseDate)}</span>
-                      {/* Time */}
-                      <span className="flex items-center font-semibold text-primary">
-                        <Clock className="w-4 h-4 mr-1" />
+                    </div>
+                    
+                    {/* Date */}
+                    <div className="flex items-center text-sm text-muted-foreground">
+                      <Calendar className="w-4 h-4 mr-2 text-primary" />
+                      <span className="font-medium text-foreground">
+                        {formatDate(course.courseDate)}
+                      </span>
+                    </div>
+                    
+                    {/* Time */}
+                    <div className="flex items-center text-sm text-muted-foreground">
+                      <Clock className="w-4 h-4 mr-2 text-primary" />
+                      <span className="font-medium text-foreground">
                         {formatTime(course.startTime)} - {formatTime(course.endTime)}
                       </span>
                     </div>
-                  </CardHeader>
-                </div>
+                    
+                    {/* Duration */}
+                    <div className="flex items-center text-sm text-muted-foreground">
+                      <Clock className="w-4 h-4 mr-2 text-primary" />
+                      <span className="font-medium text-foreground">
+                        {course.class?.duration || 60} min
+                      </span>
+                    </div>
+                  </div>
+                </CardHeader>
+                
                 {/* Action buttons always at the bottom */}
-                <div className="px-4 pt-2 pb-4">
+                <div className="px-4 pb-4 mt-auto">
                   {isRegistered ? (
                     <>
-                      <div className="text-green-600 text-sm mb-1 flex items-center">
+                      <div className="text-green-600 text-sm mb-2 flex items-center">
                         <Check className="w-4 h-4 mr-1" />
                         You&apos;re registered for this course
                       </div>
