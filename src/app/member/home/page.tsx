@@ -6,9 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/use-auth";
 import QRGenerator from "@/components/qr-generator";
-import { Calendar, Clock, Users, MapPin, QrCode, ArrowRight, Sparkles } from "lucide-react";
+import { Calendar, Clock, Users, MapPin, QrCode, ArrowRight, Sparkles, Crown, Star, Zap, ChevronLeft, ChevronRight } from "lucide-react";
 import { formatTime, getDayName, formatDate } from "@/lib/date";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { apiFetch } from "@/lib/api";
 
@@ -55,10 +55,23 @@ interface Subscription {
   sessions_remaining: number;
 }
 
+interface Plan {
+  id: number;
+  name: string;
+  description: string;
+  price: number;
+  max_sessions: number;
+  duration_days: number;
+  features: string[];
+  is_popular?: boolean;
+  is_premium?: boolean;
+}
+
 export default function MemberHome() {
   const { user } = useAuth();
   const [selectedQR, setSelectedQR] = useState<Registration | null>(null);
   const [tab, setTab] = useState<'today' | 'upcoming'>('today');
+  const [currentPlanIndex, setCurrentPlanIndex] = useState(0);
 
   const { data: registrations, isLoading: registrationsLoading } = useQuery({
     queryKey: ["/api/registrations"],
@@ -75,6 +88,11 @@ export default function MemberHome() {
     queryFn: () => apiFetch("/api/member/subscriptions"),
   });
 
+  const { data: plans, isLoading: plansLoading } = useQuery({
+    queryKey: ["/api/plans"],
+    queryFn: () => apiFetch("/api/plans"),
+  });
+
   // Calculate insights
   const activeSubs = Array.isArray(subscriptions) ? subscriptions.filter((s: Subscription) => s.status === "active") : [];
   const totalSessionsRemaining = activeSubs.reduce((sum: number, s: Subscription) => sum + (s.sessions_remaining || 0), 0);
@@ -82,6 +100,19 @@ export default function MemberHome() {
 
   const registrationsArr = Array.isArray(registrations) ? registrations : [];
   const schedulesArr = Array.isArray(schedules) ? schedules : [];
+  const plansArr = Array.isArray(plans) ? plans : [];
+  const currentPlan = plansArr[currentPlanIndex];
+
+  // Auto-slide functionality with gentle animation
+  useEffect(() => {
+    if (plansArr.length <= 1) return;
+    
+    const interval = setInterval(() => {
+      setCurrentPlanIndex((prev) => (prev + 1) % plansArr.length);
+    }, 4000); // Change plan every 4 seconds
+
+    return () => clearInterval(interval);
+  }, [plansArr.length]);
 
   const upcomingRegistrations = registrationsArr.filter((reg: Registration) => {
     const today = new Date();
@@ -127,48 +158,6 @@ export default function MemberHome() {
           Ready for your next workout? Here's what's happening today and this week.
         </p>
       </div>
-
-      {/* Next Class Highlight */}
-      {/* {nextClass && (
-        <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20 mb-8">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Badge variant="default" className="bg-primary text-primary-foreground">
-                    Next Class
-                  </Badge>
-                  <span className="text-sm text-muted-foreground">
-                    {getDayName(nextClass.course?.schedule?.dayOfWeek)} • {formatTime(nextClass.course?.schedule?.startTime)}
-                  </span>
-                </div>
-                <h3 className="text-xl font-semibold text-foreground">
-                  {nextClass.course?.class?.name}
-                </h3>
-                <p className="text-muted-foreground">
-                  with {nextClass.course?.trainer?.firstName} {nextClass.course?.trainer?.lastName}
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => setSelectedQR(nextClass)}
-                  className="border-primary/30 text-primary hover:bg-primary/10"
-                >
-                  <QrCode className="w-4 h-4 mr-2" />
-                  QR Code
-                </Button>
-                <Button asChild>
-                  <a href="/member/classes">
-                    View All Classes
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </a>
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )} */}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Main Content */}
@@ -335,6 +324,101 @@ export default function MemberHome() {
 
         {/* Sidebar */}
         <div className="space-y-6">
+          {/* Available Plans */}
+          <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <Crown className="w-5 h-5 text-primary" />
+                <CardTitle className="text-lg">Available Plans</CardTitle>
+              </div>
+              <CardDescription>Discover our fitness plans</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {plansLoading ? (
+                <div className="animate-pulse">
+                  <div className="h-32 bg-muted rounded-lg"></div>
+                </div>
+              ) : plansArr.length > 0 ? (
+                <div className="space-y-4">
+                  {/* Plan Card with Gentle Fade Animation */}
+                  <div className="relative">
+                    <div 
+                      key={currentPlanIndex}
+                      className="p-4 bg-card rounded-lg border border-border hover:border-primary/30 transition-all duration-700 ease-out animate-fadeIn"
+                      style={{
+                        animation: 'fadeIn 0.7s ease-out'
+                      }}
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h4 className="font-semibold text-foreground">{currentPlan.name}</h4>
+                            {currentPlan.is_popular && (
+                              <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-700">
+                                <Star className="w-3 h-3 mr-1" />
+                                Popular
+                              </Badge>
+                            )}
+                            {currentPlan.is_premium && (
+                              <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700">
+                                <Crown className="w-3 h-3 mr-1" />
+                                Premium
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground mb-3">{currentPlan.description}</p>
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Zap className="w-4 h-4" />
+                                {currentPlan.max_sessions} sessions
+                              </span>
+                              <span>{currentPlan.duration_days} days</span>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-lg font-bold text-foreground">${currentPlan.price}</p>
+                              <p className="text-xs text-muted-foreground">per month</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Gentle Dot Indicators */}
+                  {plansArr.length > 1 && (
+                    <div className="flex items-center justify-center gap-2">
+                      {plansArr.map((_, index) => (
+                        <div
+                          key={index}
+                          className={`transition-all duration-700 ease-out ${
+                            index === currentPlanIndex
+                              ? 'w-3 h-3 bg-primary rounded-full'
+                              : 'w-2 h-2 bg-muted rounded-full'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  <Button variant="outline" className="w-full" asChild>
+                    <a href="/plans">
+                      View All Plans
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </a>
+                  </Button>
+                </div>
+              ) : (
+                <div className="text-center py-4">
+                  <p className="text-sm text-muted-foreground mb-3">No plans available</p>
+                  <Button size="sm" variant="outline" asChild>
+                    <a href="/plans">Check Plans</a>
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Quick Actions */}
           <Card>
             <CardHeader>
@@ -420,6 +504,24 @@ export default function MemberHome() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Gentle CSS Animations */}
+      <style jsx>{`
+        @keyframes fadeIn {
+          0% {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        .animate-fadeIn {
+          animation: fadeIn 0.7s ease-out;
+        }
+      `}</style>
     </div>
   );
 } 

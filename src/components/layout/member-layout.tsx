@@ -14,9 +14,6 @@ import {
   History, 
   Menu, 
   X,
-  User,
-  Settings,
-  Bell,
   ChevronDown
 } from "lucide-react";
 import { getInitials } from "@/lib/auth";
@@ -56,22 +53,10 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
       description: "Find and book classes"
     },
     { 
-      name: "Class History", 
-      href: "/member/history", 
-      icon: History,
-      description: "View past activities"
-    },
-    { 
       name: "My Subscriptions", 
       href: "/member/subscriptions", 
       icon: CreditCard,
       description: "Manage your plans"
-    },
-    { 
-      name: "Plans", 
-      href: "/plans", 
-      icon: CreditCard,
-      description: "View available plans"
     },
   ];
 
@@ -128,14 +113,6 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
             
             {/* User Section */}
             <div className="flex items-center space-x-3">
-              {/* Notifications */}
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="w-5 h-5" />
-                <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
-                  2
-                </span>
-              </Button>
-
               {/* Mobile menu button */}
               <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
                 <SheetTrigger asChild>
@@ -199,10 +176,6 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
                   </div>
                   
                   <div className="absolute bottom-4 left-4 right-4 space-y-2">
-                    <Button variant="outline" className="w-full justify-start">
-                      <Settings className="w-4 h-4 mr-3" />
-                      Settings
-                    </Button>
                     <Button
                       variant="outline"
                       className="w-full justify-start text-red-600 hover:text-red-700"
@@ -247,13 +220,17 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
                       <p className="text-xs text-muted-foreground">{user?.email || "member@example.com"}</p>
                     </div>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem>
-                      <User className="w-4 h-4 mr-3" />
-                      Profile
+                    <DropdownMenuItem asChild>
+                      <Link href="/member/history">
+                        <History className="w-4 h-4 mr-3" />
+                        Class History
+                      </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Settings className="w-4 h-4 mr-3" />
-                      Settings
+                    <DropdownMenuItem asChild>
+                      <Link href="/plans">
+                        <CreditCard className="w-4 h-4 mr-3" />
+                        Plans
+                      </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleLogout} className="text-red-600">
