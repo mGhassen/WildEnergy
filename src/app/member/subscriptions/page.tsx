@@ -159,6 +159,33 @@ export default function MemberSubscriptions() {
       {/* Active Subscriptions Tab */}
       {mainTab === 'active' && (
         <div className="space-y-6">
+          {/* Sessions Used Summary Card */}
+          {activeSubscriptions.length > 0 && (
+            <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <Calendar className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-blue-900">Total Sessions Used</h3>
+                      <p className="text-sm text-blue-700">Across all your active subscriptions</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-3xl font-bold text-blue-900">
+                      {allRegistrations.filter(reg => 
+                        reg.status === 'registered' || reg.status === 'attended'
+                      ).length}
+                    </div>
+                    <p className="text-sm text-blue-700">sessions</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {activeSubscriptions.length === 0 && (
             <Card>
               <CardContent className="p-12 text-center">
@@ -177,11 +204,6 @@ export default function MemberSubscriptions() {
             const totalSessions = plan.max_sessions ?? 0;
             
             console.log('Total sessions calculated:', totalSessions);
-            
-            // Calculate actual sessions used from registrations
-            const sessionsUsed = allRegistrations.filter(reg => 
-              reg.status === 'registered' || reg.status === 'attended'
-            ).length;
             
             // Bonus sessions (always 0 in this system)
             const bonusSessions = 0;
@@ -214,7 +236,7 @@ export default function MemberSubscriptions() {
                   </div>
                   {subTab === 'details' ? (
                     <>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="text-center p-3 bg-primary/5 rounded-lg">
                           <p className="text-sm text-muted-foreground">Sessions Remaining</p>
                           <p className="text-2xl font-bold text-primary">{sub.sessions_remaining}</p>
@@ -223,10 +245,6 @@ export default function MemberSubscriptions() {
                               +{bonusSessions} bonus
                             </p>
                           )}
-                        </div>
-                        <div className="text-center p-3 bg-muted/50 rounded-lg">
-                          <p className="text-sm font-medium text-muted-foreground">Sessions Used</p>
-                          <p className="text-2xl font-bold text-foreground">{sessionsUsed}</p>
                         </div>
                         <div className="text-center p-3 bg-muted/50 rounded-lg">
                           <p className="text-sm font-medium text-muted-foreground">Total Sessions</p>
