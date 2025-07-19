@@ -57,7 +57,8 @@ export async function GET(
   console.log('Check-in QR API - Admin access confirmed for user:', user.id);
 
   try {
-    const { id: qrCode } = await params;
+    const resolvedParams = await params;
+    const qrCode = resolvedParams.id;
     console.log('Check-in QR API - Looking for QR code:', qrCode);
 
     // Find the registration by QR code
