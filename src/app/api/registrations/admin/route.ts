@@ -229,13 +229,16 @@ export async function POST(req: NextRequest) {
         }
 
         // Use the stored procedure to handle registration with session deduction
-        const { data: result, error: procedureError } = await supabaseServer
+        const rpcResult: any = await supabaseServer
           .rpc('create_registration_with_updates', {
             p_user_id: memberId,
             p_course_id: courseId,
             p_current_participants: course.current_participants + registrationResults.length,
             p_subscription_id: activeSubscription.id
-          }) as { data: any; error: any };
+          });
+        
+        const result: any = rpcResult.data;
+        const procedureError: any = rpcResult.error;
 
         if (procedureError) {
           console.error('Registration procedure error for member:', memberId, procedureError);
