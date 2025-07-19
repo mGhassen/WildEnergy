@@ -121,6 +121,8 @@ interface ScheduleCalendarProps {
   checkins: Checkin[];
   viewMode: "daily" | "weekly" | "monthly";
   onViewModeChange: (mode: "daily" | "weekly" | "monthly") => void;
+  onNavigateToDate?: (date: Date) => void;
+  currentDate?: Date;
 }
 
 export default function ScheduleCalendar({ 
@@ -128,9 +130,12 @@ export default function ScheduleCalendar({
   registrations, 
   checkins, 
   viewMode, 
-  onViewModeChange 
+  onViewModeChange,
+  onNavigateToDate,
+  currentDate: externalCurrentDate
 }: ScheduleCalendarProps) {
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [internalCurrentDate, setInternalCurrentDate] = useState(new Date());
+  const currentDate = externalCurrentDate || internalCurrentDate;
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
   const [isRegistrationModalOpen, setIsRegistrationModalOpen] = useState(false);
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
@@ -343,7 +348,11 @@ export default function ScheduleCalendar({
     } else {
       newDate.setMonth(newDate.getMonth() + direction);
     }
-    setCurrentDate(newDate);
+    if (externalCurrentDate && onNavigateToDate) {
+      onNavigateToDate(newDate);
+    } else {
+      setInternalCurrentDate(newDate);
+    }
   };
 
   const getDateRange = () => {
@@ -470,7 +479,7 @@ export default function ScheduleCalendar({
                         </div>
                         <div className="flex items-center gap-1">
                           <Users className="w-4 h-4" />
-                          {registeredMembers.length}/{schedule.class?.maxCapacity || 0} registered
+                          {getAllScheduleRegistrations(schedule.id).length}/{schedule.class?.maxCapacity || 0} registered
                         </div>
                         <div className="flex items-center gap-1">
                           <Users className="w-4 h-4" />
@@ -544,7 +553,7 @@ export default function ScheduleCalendar({
                       <div className={`font-medium truncate ${isPast ? 'text-gray-500' : ''}`}>{schedule.class?.name || 'Unknown Class'}</div>
                       <div className={isPast ? 'text-gray-400' : 'text-muted-foreground'}>{formatTime(schedule.startTime)}</div>
                       <div className="flex justify-between mt-1">
-                        <span className={isPast ? 'text-gray-400' : ''}>{registeredMembers.length}/{schedule.class?.maxCapacity || 0}</span>
+                        <span className={isPast ? 'text-gray-400' : ''}>{getAllScheduleRegistrations(schedule.id).length}/{schedule.class?.maxCapacity || 0}</span>
                         <span className={isPast ? 'text-gray-400' : 'text-green-600'}>{attendedMembers.length}</span>
                       </div>
                     </div>
@@ -628,7 +637,7 @@ export default function ScheduleCalendar({
                           <div className={`truncate font-medium ${isPast ? 'text-gray-500' : ''}`}>{schedule.class?.name || 'Unknown Class'}</div>
                           <div className="flex justify-between">
                             <span className={isPast ? 'text-gray-400' : ''}>{formatTime(schedule.startTime)}</span>
-                            <span className={isPast ? 'text-gray-400' : ''}>{registeredMembers.length}/{schedule.class?.maxCapacity || 0}</span>
+                            <span className={isPast ? 'text-gray-400' : ''}>{getAllScheduleRegistrations(schedule.id).length}/{schedule.class?.maxCapacity || 0}</span>
                           </div>
                           <div className={`text-xs ${isPast ? 'text-gray-400' : 'text-green-600'}`}>
                             {attendedMembers.length} attended
@@ -637,7 +646,16 @@ export default function ScheduleCalendar({
                       );
                     })}
                     {day.schedules.length > 2 && (
-                      <div className="text-xs text-muted-foreground">
+                      <div 
+                        className="text-xs text-muted-foreground cursor-pointer hover:text-primary hover:underline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onNavigateToDate) {
+                            onNavigateToDate(day.date);
+                            onViewModeChange('daily');
+                          }
+                        }}
+                      >
                         +{day.schedules.length - 2} more
                       </div>
                     )}
