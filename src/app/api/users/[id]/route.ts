@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 
 function extractIdFromUrl(request: NextRequest): string | null {
-  const match = request.nextUrl.pathname.match(/\/users\/(.+?)(\/|$)/);
-  return match ? match[1] : null;
+  const pathname = request.nextUrl.pathname;
+  const parts = pathname.split('/');
+  const idIndex = parts.findIndex(part => part === 'users') + 1;
+  return idIndex < parts.length ? parts[idIndex] : null;
 }
 
 export async function GET(request: NextRequest) {
@@ -78,7 +80,9 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  console.log('DELETE /api/users/[id] called');
   const id = extractIdFromUrl(request);
+  console.log('Extracted ID:', id);
   if (!id) {
     return NextResponse.json({ error: 'Missing user id' }, { status: 400 });
   }
@@ -99,18 +103,46 @@ export async function DELETE(request: NextRequest) {
   if (!adminCheck?.is_admin) {
     return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
   }
-  // Delete from users table
+  // First get the auth_user_id before deleting anything
+  console.log('Looking up user with ID:', id);
+  const { data: userToDelete, error: userError } = await supabaseServer
+    .from('users')
+    .select('auth_user_id')
+    .eq('id', id)
+    .single();
+  
+  if (userError) {
+    console.error('User lookup error:', userError);
+    return NextResponse.json({ error: 'User not found' }, { status: 404 });
+  }
+  
+  console.log('Found user with auth_user_id:', userToDelete?.auth_user_id);
+
+  // Delete from Supabase Auth FIRST (before deleting from database)
+  if (userToDelete?.auth_user_id) {
+    console.log('Deleting user from Supabase Auth with auth_user_id:', userToDelete.auth_user_id);
+    const { error: authError2 } = await supabaseServer.auth.admin.deleteUser(userToDelete.auth_user_id);
+    if (authError2) {
+      console.error('Failed to delete from Supabase Auth:', authError2);
+      return NextResponse.json({ 
+        error: `Failed to delete user from authentication: ${authError2.message}` 
+      }, { status: 500 });
+    }
+    console.log('Successfully deleted user from Supabase Auth');
+  } else {
+    console.warn('No auth_user_id found for user:', id);
+  }
+
+  // Then delete from users table
+  console.log('Deleting user from database with ID:', id);
   const { error: dbError } = await supabaseServer
     .from('users')
     .delete()
     .eq('id', id);
   if (dbError) {
+    console.error('Database deletion error:', dbError);
     return NextResponse.json({ error: dbError.message }, { status: 500 });
   }
-  // Delete from Supabase Auth
-  const { error: authError2 } = await supabaseServer.auth.admin.deleteUser(id);
-  if (authError2) {
-    return NextResponse.json({ error: authError2.message }, { status: 500 });
-  }
+  console.log('Successfully deleted user from database');
   return NextResponse.json({ message: `User ${id} deleted` });
 } 
