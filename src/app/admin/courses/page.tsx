@@ -66,7 +66,12 @@ export default function AdminCourses() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [calendarView, setCalendarView] = useState<"daily" | "weekly" | "monthly">("monthly");
+  const [currentDate, setCurrentDate] = useState(new Date());
   const queryClient = useQueryClient();
+
+  const handleNavigateToDate = (date: Date) => {
+    setCurrentDate(date);
+  };
 
   const today = new Date();
   const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -249,6 +254,8 @@ export default function AdminCourses() {
             checkins={checkins || []}
             viewMode={calendarView}
             onViewModeChange={setCalendarView}
+            onNavigateToDate={handleNavigateToDate}
+            currentDate={currentDate}
           />
         </CardContent>
       </Card>
