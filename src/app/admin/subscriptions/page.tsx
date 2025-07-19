@@ -253,6 +253,7 @@ export default function AdminSubscriptions() {
       queryClient.invalidateQueries({ queryKey: ["/api/subscriptions"] });
       setIsEditModalOpen(false);
       setEditingSubscription(null);
+      subscriptionForm.reset();
       toast({ title: "Subscription updated successfully" });
     },
     onError: (error) => {
