@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ChevronLeft, ChevronRight, Calendar, Users, Clock, Plus, Search, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Users, Clock, Plus, Search, X, Check, XCircle } from 'lucide-react';
 import { formatDate, formatTime, formatLongDate, getDayName, getShortDayName } from '@/lib/date';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
@@ -213,6 +213,50 @@ export default function ScheduleCalendar({
     onError: (error: any) => {
       console.error('Registration error:', error);
       let errorMessage = 'Failed to register members';
+      if (error?.message) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      toast.error(errorMessage);
+    },
+  });
+
+  // Validate check-in mutation
+  const validateCheckinMutation = useMutation({
+    mutationFn: async ({ registrationId }: { registrationId: number }) => {
+      return await apiRequest('POST', `/api/checkins/validate/${registrationId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/checkins"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/registrations"] });
+      toast.success('Check-in validated successfully');
+    },
+    onError: (error: any) => {
+      console.error('Validation error:', error);
+      let errorMessage = 'Failed to validate check-in';
+      if (error?.message) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      toast.error(errorMessage);
+    },
+  });
+
+  // Unvalidate check-in mutation
+  const unvalidateCheckinMutation = useMutation({
+    mutationFn: async ({ registrationId }: { registrationId: number }) => {
+      return await apiRequest('POST', `/api/checkins/unvalidate/${registrationId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/checkins"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/registrations"] });
+      toast.success('Check-in unvalidated successfully');
+    },
+    onError: (error: any) => {
+      console.error('Unvalidation error:', error);
+      let errorMessage = 'Failed to unvalidate check-in';
       if (error?.message) {
         errorMessage = error.message;
       } else if (typeof error === 'string') {
@@ -708,26 +752,51 @@ export default function ScheduleCalendar({
                       checkin.registration?.id === registration.id
                     );
                     
-                    return (
-                      <div key={registration.id} className={`flex items-center justify-between p-2 rounded ${
-                        isCheckedIn ? 'bg-green-50 border border-green-200' : 'bg-muted'
-                      }`}>
-                        <div>
-                          <div className="font-medium">
-                            {registration.member?.first_name || registration.member?.firstName || 'Unknown'} {registration.member?.last_name || registration.member?.lastName || ''}
-                          </div>
-                          <div className="text-xs text-muted-foreground">{registration.member?.email || 'No email'}</div>
-                          {isCheckedIn && (
-                            <div className="text-xs text-green-600">
-                              Checked in at {formatTime(checkins.find(c => c.registration?.id === registration.id)?.checkinTime || '')}
+                                          return (
+                        <div key={registration.id} className={`flex items-center justify-between p-2 rounded ${
+                          isCheckedIn ? 'bg-green-50 border border-green-200' : 'bg-muted'
+                        }`}>
+                          <div>
+                            <div className="font-medium">
+                              {registration.member?.first_name || registration.member?.firstName || 'Unknown'} {registration.member?.last_name || registration.member?.lastName || ''}
                             </div>
-                          )}
+                            <div className="text-xs text-muted-foreground">{registration.member?.email || 'No email'}</div>
+                            {isCheckedIn && (
+                              <div className="text-xs text-green-600">
+                                Checked in at {formatTime(checkins.find(c => c.registration?.id === registration.id)?.checkinTime || '')}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={isCheckedIn ? 'default' : 'secondary'} className={isCheckedIn ? 'bg-green-600' : ''}>
+                              {isCheckedIn ? 'Checked In' : 'Registered'}
+                            </Badge>
+                            {!isCheckedIn ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => validateCheckinMutation.mutate({ registrationId: registration.id })}
+                                disabled={validateCheckinMutation.isPending}
+                                className="h-7 px-2"
+                              >
+                                <Check className="w-3 h-3 mr-1" />
+                                {validateCheckinMutation.isPending ? 'Validating...' : 'Validate'}
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => unvalidateCheckinMutation.mutate({ registrationId: registration.id })}
+                                disabled={unvalidateCheckinMutation.isPending}
+                                className="h-7 px-2 text-red-600 border-red-300 hover:bg-red-50"
+                              >
+                                <XCircle className="w-3 h-3 mr-1" />
+                                {unvalidateCheckinMutation.isPending ? 'Unvalidating...' : 'Unvalidate'}
+                              </Button>
+                            )}
+                          </div>
                         </div>
-                        <Badge variant={isCheckedIn ? 'default' : 'secondary'} className={isCheckedIn ? 'bg-green-600' : ''}>
-                          {isCheckedIn ? 'Checked In' : 'Registered'}
-                        </Badge>
-                      </div>
-                    );
+                      );
                   })}
                   {getAllScheduleRegistrations(selectedSchedule.id).length === 0 && (
                     <div className="text-muted-foreground text-sm">No members registered</div>
