@@ -381,7 +381,7 @@ export default function MemberClasses() {
       </div>
 
       {/* Current Plan Summary */}
-      {activeSubscriptions.length > 0 && (
+      {/* {activeSubscriptions.length > 0 && (
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -398,7 +398,7 @@ export default function MemberClasses() {
             </div>
           </CardContent>
         </Card>
-      )}
+      )} */}
 
       {/* Filters */}
       <Card>
