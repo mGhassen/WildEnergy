@@ -151,7 +151,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                 <Dumbbell className="w-4 h-4 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="text-lg font-semibold text-foreground">GymFlow Admin</h1>
+                <h1 className="text-lg font-semibold text-foreground">WildEnergy Admin</h1>
                 <p className="text-xs text-muted-foreground">Management Portal</p>
               </div>
             </Link>
@@ -203,7 +203,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                       <Dumbbell className="w-4 h-4 text-primary-foreground" />
                     </div>
                     <div>
-                      <span className="text-lg font-semibold">GymFlow Admin</span>
+                      <span className="text-lg font-semibold">WildEnergy Admin</span>
                       <p className="text-sm text-muted-foreground">Management Portal</p>
                     </div>
                   </SheetTitle>

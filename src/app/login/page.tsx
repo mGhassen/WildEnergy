@@ -57,7 +57,7 @@ export default function Login() {
           <div className="mx-auto w-12 h-12 bg-primary rounded-xl flex items-center justify-center mb-4">
             <Dumbbell className="w-6 h-6 text-primary-foreground" />
           </div>
-          <CardTitle className="text-2xl font-bold">GymFlow</CardTitle>
+          <CardTitle className="text-2xl font-bold">WildEnergy</CardTitle>
           <CardDescription>Gym Management System</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
