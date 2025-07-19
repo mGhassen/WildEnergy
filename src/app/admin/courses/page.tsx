@@ -221,28 +221,6 @@ export default function AdminCourses() {
           <Badge variant="outline">
             {courses?.length || 0} courses
           </Badge>
-          <Button 
-            onClick={() => {
-              // Create a simple test course
-              const testCourse = {
-                schedule_id: 1,
-                class_id: 1,
-                trainer_id: 1,
-                course_date: new Date().toISOString().split('T')[0],
-                start_time: '10:00:00',
-                end_time: '11:00:00',
-                max_participants: 10,
-                current_participants: 0,
-                status: 'scheduled',
-                is_active: true
-              };
-              console.log('Creating test course:', testCourse);
-              // You can implement the actual creation here
-            }}
-            variant="outline"
-          >
-            Create Test Course
-          </Button>
         </div>
       </div>
 

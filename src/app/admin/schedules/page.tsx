@@ -145,11 +145,11 @@ export default function AdminSchedules() {
     }
   });
 
-  // Flatten trainers to expose firstName and lastName at the top level, using trainers.id and trainers.users for names
+  // Flatten trainers to expose firstName and lastName at the top level
   const trainersList = ((trainers as any[]) || []).map((trainer: any) => ({
     id: trainer.id,
-    firstName: trainer.users?.first_name || "",
-    lastName: trainer.users?.last_name || "",
+    firstName: trainer.first_name || "",
+    lastName: trainer.last_name || "",
   }));
   console.log('Trainers list:', trainersList);
 
