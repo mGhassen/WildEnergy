@@ -79,7 +79,18 @@ export default function MemberSubscriptions() {
   });
   const allPayments: Payment[] = Array.isArray(allPaymentsRaw) ? allPaymentsRaw : [];
 
-  if (authLoading || isLoading || loadingProfile || loadingPayments) {
+  // Fetch all registrations to calculate actual sessions used
+  const { data: allRegistrationsRaw, isLoading: loadingRegistrations } = useQuery({
+    queryKey: ["/api/registrations"],
+    queryFn: () => apiFetch("/api/registrations"),
+    enabled: isAuthenticated && !authLoading,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
+  });
+  const allRegistrations = Array.isArray(allRegistrationsRaw) ? allRegistrationsRaw : [];
+
+  if (authLoading || isLoading || loadingProfile || loadingPayments || loadingRegistrations) {
     return (
       <div className="flex items-center justify-center min-h-[40vh]">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -159,12 +170,22 @@ export default function MemberSubscriptions() {
             </Card>
           )}
           {activeSubscriptions.map((sub) => {
+            console.log('Subscription data:', sub);
+            console.log('Plan data:', sub.plan);
+            
             const plan = sub.plan || { name: "", price: "", max_sessions: 0 };
             const totalSessions = plan.max_sessions ?? 0;
-            // Calculate sessions used from the original plan
-            const sessionsUsedFromPlan = Math.max(0, totalSessions - sub.sessions_remaining);
-            // Calculate bonus sessions (if sessions_remaining > totalSessions, user has bonus sessions)
-            const bonusSessions = Math.max(0, sub.sessions_remaining - totalSessions);
+            
+            console.log('Total sessions calculated:', totalSessions);
+            
+            // Calculate actual sessions used from registrations
+            const sessionsUsed = allRegistrations.filter(reg => 
+              reg.status === 'registered' || reg.status === 'attended'
+            ).length;
+            
+            // Bonus sessions (always 0 in this system)
+            const bonusSessions = 0;
+            
             const subTab = subTabs[sub.id] || 'details';
             return (
               <Card key={sub.id} className="border-l-4 border-l-primary">
@@ -205,14 +226,14 @@ export default function MemberSubscriptions() {
                         </div>
                         <div className="text-center p-3 bg-muted/50 rounded-lg">
                           <p className="text-sm font-medium text-muted-foreground">Sessions Used</p>
-                          <p className="text-2xl font-bold text-foreground">{sessionsUsedFromPlan}</p>
+                          <p className="text-2xl font-bold text-foreground">{sessionsUsed}</p>
                         </div>
                         <div className="text-center p-3 bg-muted/50 rounded-lg">
                           <p className="text-sm font-medium text-muted-foreground">Total Sessions</p>
-                          <p className="text-2xl font-bold text-foreground">{totalSessions + bonusSessions}</p>
+                          <p className="text-2xl font-bold text-foreground">{totalSessions}</p>
                           {bonusSessions > 0 && (
-                            <p className="text-xs text-muted-foreground">
-                              {totalSessions} plan + {bonusSessions} bonus
+                            <p className="text-xs text-green-600 font-medium">
+                              +{bonusSessions} bonus available
                             </p>
                           )}
                         </div>

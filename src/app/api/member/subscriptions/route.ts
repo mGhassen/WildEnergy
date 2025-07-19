@@ -30,7 +30,10 @@ export async function GET(req: NextRequest) {
     }
     const { data: subscriptions, error } = await supabase
       .from('subscriptions')
-      .select('*')
+      .select(`
+        *,
+        plan:plans(*)
+      `)
       .eq('user_id', userProfile.id);
     if (error) {
       return NextResponse.json({ error: 'Failed to fetch subscriptions' }, { status: 500 });
