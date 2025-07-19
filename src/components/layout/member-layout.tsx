@@ -89,7 +89,7 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
                 </div>
                 <div>
                   <h1 className="text-xl font-bold text-foreground">Wild Energy</h1>
-                  <p className="text-xs text-muted-foreground -mt-1">Fitness & Wellness</p>
+                  <p className="text-xs text-muted-foreground -mt-1">Pole & Dance</p>
                 </div>
               </Link>
             </div>
@@ -132,7 +132,7 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
                       </div>
                       <div>
                         <span className="text-lg font-bold">Wild Energy</span>
-                        <p className="text-xs text-muted-foreground">Fitness & Wellness</p>
+                        <p className="text-xs text-muted-foreground">Pole & Dance</p>
                       </div>
                     </SheetTitle>
                   </SheetHeader>

@@ -125,6 +125,68 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Already registered for this course' }, { status: 400 });
     }
 
+    // Check for overlapping courses
+    const { data: overlappingCourses, error: overlapError } = await supabaseServer
+      .from('class_registrations')
+      .select(`
+        id,
+        course:courses(
+          id,
+          course_date,
+          start_time,
+          end_time,
+          class:classes(name),
+          trainer:trainers(user:users(first_name, last_name))
+        )
+      `)
+      .eq('user_id', userProfile.id)
+      .eq('status', 'registered')
+      .neq('course_id', courseId);
+
+    if (overlapError) {
+      console.error('Error checking overlapping courses:', overlapError);
+      return NextResponse.json({ error: 'Failed to check for overlapping courses' }, { status: 500 });
+    }
+
+    // Check for time overlaps
+    const overlapping = overlappingCourses?.filter(reg => {
+      const existingCourse = reg.course as any;
+      if (!existingCourse) return false;
+
+      // Check if courses are on the same date
+      if (existingCourse.course_date !== course.course_date) return false;
+
+      // Check for time overlap
+      const existingStart = new Date(`2000-01-01T${existingCourse.start_time}`);
+      const existingEnd = new Date(`2000-01-01T${existingCourse.end_time}`);
+      const newStart = new Date(`2000-01-01T${course.start_time}`);
+      const newEnd = new Date(`2000-01-01T${course.end_time}`);
+
+      // Check if times overlap
+      return (newStart < existingEnd && newEnd > existingStart);
+    });
+
+    if (overlapping && overlapping.length > 0) {
+      const overlapDetails = overlapping.map(reg => {
+        const existingCourse = reg.course as any;
+        return {
+          courseId: existingCourse.id,
+          courseName: existingCourse.class.name,
+          date: existingCourse.course_date,
+          startTime: existingCourse.start_time,
+          endTime: existingCourse.end_time,
+          trainer: `${existingCourse.trainer.user.first_name} ${existingCourse.trainer.user.last_name}`
+        };
+      });
+
+      return NextResponse.json({
+        error: 'Course time conflict detected',
+        type: 'OVERLAP',
+        overlappingCourses: overlapDetails,
+        message: `This course overlaps with ${overlapping.length} other course(s) you're registered for.`
+      }, { status: 409 });
+    }
+
     // Check if course is full
     if (course.current_participants >= course.max_participants) {
       return NextResponse.json({ error: 'Course is full' }, { status: 400 });

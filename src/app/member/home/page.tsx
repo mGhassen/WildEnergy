@@ -331,7 +331,7 @@ export default function MemberHome() {
                 <Crown className="w-5 h-5 text-primary" />
                 <CardTitle className="text-lg">Available Plans</CardTitle>
               </div>
-              <CardDescription>Discover our fitness plans</CardDescription>
+              <CardDescription>Discover our Pole Dance plans</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {plansLoading ? (
