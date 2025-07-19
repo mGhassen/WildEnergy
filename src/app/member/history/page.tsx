@@ -90,6 +90,7 @@ export default function MemberHistory() {
 
   const { data: checkins = [], isLoading: checkinsLoading } = useQuery<Checkin[]>({
     queryKey: ["/api/member/checkins"],
+    queryFn: () => apiRequest("GET", "/api/member/checkins"),
   });
 
   // Get all registrations without search/status filters for proper categorization
@@ -394,6 +395,10 @@ export default function MemberHistory() {
           <div className="bg-white p-6 rounded-lg" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-semibold mb-4">Your QR Code</h3>
             <QRGenerator value={selectedQR} size={300} />
+            <div className="mt-4 text-center">
+              <p className="text-sm text-muted-foreground mb-2">QR Code Value:</p>
+              <p className="text-xs font-mono bg-gray-100 p-2 rounded break-all">{selectedQR}</p>
+            </div>
             <button
               onClick={() => setSelectedQR(null)}
               className="mt-4 w-full bg-primary text-white py-2 px-4 rounded hover:bg-primary/90"

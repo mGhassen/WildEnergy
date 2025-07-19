@@ -7,13 +7,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiRequest } from "@/lib/queryClient";
-import { Search, Clock, Users, Calendar, Star, Check, AlertTriangle } from "lucide-react";
+import { Search, Clock, Users, Calendar, Star, Check, AlertTriangle, QrCode } from "lucide-react";
 import { formatTime, getDayName } from "@/lib/date";
 import { useToast } from "@/hooks/use-toast";
 import { apiFetch, getAuthToken } from "@/lib/api";
 import { formatDate } from "@/lib/date";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import QRGenerator from "@/components/qr-generator";
 
 // Types for member classes page
 interface Category {
@@ -85,6 +86,7 @@ export default function MemberClasses() {
     courseId: null,
     overlappingCourses: []
   });
+  const [selectedQR, setSelectedQR] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -627,15 +629,30 @@ export default function MemberClasses() {
                         <Check className="w-4 h-4 mr-1" />
                         You&apos;re registered for this course
                       </div>
-                      <Button
-                        variant="outline"
-                        className="w-full text-base py-2"
-                        onClick={() => handleCancel(course)}
-                        disabled={cancelMutation.isPending}
-                      >
-                        {cancelMutation.isPending ? "Cancelling..." : 
-                         isWithin24Hours(course) ? "Cancel (Forfeit Session)" : "Cancel Registration"}
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          className="flex-1 text-base py-2"
+                          onClick={() => handleCancel(course)}
+                          disabled={cancelMutation.isPending}
+                        >
+                          {cancelMutation.isPending ? "Cancelling..." : 
+                           isWithin24Hours(course) ? "Cancel (Forfeit Session)" : "Cancel Registration"}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const registration = getRegistrationForCourse(course.id);
+                            if (registration?.qr_code) {
+                              setSelectedQR(registration.qr_code);
+                            }
+                          }}
+                          className="px-3"
+                        >
+                          <QrCode className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </>
                   ) : (
                     <Button
@@ -733,6 +750,26 @@ export default function MemberClasses() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* QR Code Modal */}
+      {selectedQR && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setSelectedQR(null)}>
+          <div className="bg-white p-6 rounded-lg" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold mb-4">Your QR Code</h3>
+            <QRGenerator value={selectedQR} size={300} />
+            <div className="mt-4 text-center">
+              <p className="text-sm text-muted-foreground mb-2">QR Code Value:</p>
+              <p className="text-xs font-mono bg-gray-100 p-2 rounded break-all">{selectedQR}</p>
+            </div>
+            <button
+              onClick={() => setSelectedQR(null)}
+              className="mt-4 w-full bg-primary text-white py-2 px-4 rounded hover:bg-primary/90"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
