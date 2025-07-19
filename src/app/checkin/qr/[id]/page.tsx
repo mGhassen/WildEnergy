@@ -5,10 +5,12 @@ import { useParams, useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle, XCircle, Loader2, ArrowLeft, User, Calendar, Clock, Users } from "lucide-react";
+import { CheckCircle, XCircle, Loader2, ArrowLeft, User, Calendar, Clock, Users, AlertTriangle, Filter } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { formatDateTime } from "@/lib/date";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface CheckinInfo {
   member: {
@@ -54,10 +56,11 @@ interface CheckinInfo {
   };
   registeredCount: number;
   checkedInCount: number;
+  totalMembers: number;
   alreadyCheckedIn: boolean;
   registeredMembers?: { id: string; first_name: string; last_name: string; email: string; status?: string }[];
   attendantMembers?: { id: string; first_name: string; last_name: string; email: string }[];
-  members?: { id: string; first_name: string; last_name: string; email: string; status?: string }[];
+  members?: { id: string; first_name: string; last_name: string; email: string; status?: 'registered' | 'attended' | 'absent' | 'checked_in' }[]; // Excludes cancelled members
 }
 
 export default function CheckinQRPage() {
@@ -73,6 +76,76 @@ export default function CheckinQRPage() {
   const [checkinInfo, setCheckinInfo] = useState<CheckinInfo | null>(null);
   const [isValidating, setIsValidating] = useState(false);
   const [isUnvalidating, setIsUnvalidating] = useState(false);
+  
+  // Status filter state (excluding canceled members)
+  const [statusFilters, setStatusFilters] = useState<Set<string>>(new Set(['registered', 'attended', 'absent', 'checked_in']));
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Function to check if this is a late check-in
+  const isLateCheckin = (): boolean => {
+    if (!checkinInfo?.course) return false;
+    
+    const now = new Date();
+    const courseDate = new Date(checkinInfo.course.course_date);
+    const [startHours, startMinutes] = checkinInfo.course.start_time.split(':').map(Number);
+    
+    // Set the course start time
+    const courseStartTime = new Date(courseDate);
+    courseStartTime.setHours(startHours, startMinutes, 0, 0);
+    
+    // Check if current time is after course start time
+    return now > courseStartTime;
+  };
+
+  // Function to get late check-in message
+  const getLateCheckinMessage = (): string => {
+    if (!checkinInfo?.course) return '';
+    
+    const now = new Date();
+    const courseDate = new Date(checkinInfo.course.course_date);
+    const [startHours, startMinutes] = checkinInfo.course.start_time.split(':').map(Number);
+    
+    const courseStartTime = new Date(courseDate);
+    courseStartTime.setHours(startHours, startMinutes, 0, 0);
+    
+    const diffMs = now.getTime() - courseStartTime.getTime();
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    
+    if (diffMinutes < 60) {
+      return `${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''} late`;
+    } else {
+      const diffHours = Math.floor(diffMinutes / 60);
+      const remainingMinutes = diffMinutes % 60;
+      return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ${remainingMinutes > 0 ? `${remainingMinutes} minute${remainingMinutes !== 1 ? 's' : ''}` : ''} late`;
+    }
+  };
+
+  // Function to handle status filter toggle
+  const toggleStatusFilter = (status: string) => {
+    const newFilters = new Set(statusFilters);
+    if (newFilters.has(status)) {
+      newFilters.delete(status);
+    } else {
+      newFilters.add(status);
+    }
+    setStatusFilters(newFilters);
+  };
+
+  // Function to select all statuses
+  const selectAllStatuses = () => {
+    setStatusFilters(new Set(['registered', 'attended', 'absent', 'checked_in']));
+  };
+
+  // Function to clear all statuses
+  const clearAllStatuses = () => {
+    setStatusFilters(new Set());
+  };
+
+  // Function to get filtered members
+  const getFilteredMembers = () => {
+    if (!checkinInfo?.members) return [];
+    return checkinInfo.members.filter(member => statusFilters.has(member.status || ''));
+  };
 
   useEffect(() => {
     if (!qrCode) {
@@ -94,6 +167,9 @@ export default function CheckinQRPage() {
       });
 
       if (response.success) {
+        console.log('Frontend Debug - API Response:', response.data);
+        console.log('Frontend Debug - totalMembers:', response.data.totalMembers);
+        console.log('Frontend Debug - members length:', response.data.members?.length);
         setStatus('info');
         setCheckinInfo(response.data);
         setMessage('Please validate the check-in information below');
@@ -246,6 +322,18 @@ export default function CheckinQRPage() {
             <p className="text-lg font-medium">{message}</p>
           </div>
 
+          {/* Late Check-in Alert */}
+          {status === 'info' && checkinInfo && isLateCheckin() && !checkinInfo.alreadyCheckedIn && (
+            <Alert className="border-orange-300 bg-orange-50">
+              <AlertTriangle className="h-4 w-4 text-orange-600" />
+              <AlertDescription className="text-orange-800">
+                <strong>⚠️ Late Check-in Alert!</strong><br/>
+                This member is checking in <strong>{getLateCheckinMessage()}</strong> after the class start time ({checkinInfo.course.start_time}).<br/>
+                <span className="text-sm">The registration status will be updated to 'attended' when validated.</span>
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Check-in Information */}
           {status === 'info' && checkinInfo && (
             <div className="space-y-6">
@@ -278,12 +366,17 @@ export default function CheckinQRPage() {
               </div>
 
               {/* Course Information */}
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <h3 className="font-medium text-green-800 mb-3 flex items-center">
+              <div className={`rounded-lg p-4 ${isLateCheckin() ? 'bg-orange-50 border border-orange-200' : 'bg-green-50 border border-green-200'}`}>
+                <h3 className={`font-medium mb-3 flex items-center ${isLateCheckin() ? 'text-orange-800' : 'text-green-800'}`}>
                   <Calendar className="w-4 h-4 mr-2" />
                   Course Information
+                  {isLateCheckin() && (
+                    <span className="ml-2 px-2 py-1 rounded bg-orange-100 text-orange-800 text-xs font-medium">
+                      ⚠️ Late Check-in
+                    </span>
+                  )}
                 </h3>
-                <div className="space-y-2 text-sm text-green-700">
+                <div className={`space-y-2 text-sm ${isLateCheckin() ? 'text-orange-700' : 'text-green-700'}`}>
                   <p><strong>Class:</strong> {checkinInfo.course?.class?.name || 'Unknown'}</p>
                   <p><strong>Trainer:</strong> {checkinInfo.course?.trainer?.users ? `${checkinInfo.course.trainer.users.first_name} ${checkinInfo.course.trainer.users.last_name}` : 'Unknown'}</p>
                   <p><strong>Date:</strong> {formatDateTime(checkinInfo.course?.course_date)}</p>
@@ -305,13 +398,83 @@ export default function CheckinQRPage() {
 
               {/* Unified Members List */}
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                <h3 className="font-medium text-gray-800 mb-3 flex items-center">
-                  <Users className="w-4 h-4 mr-2" />
-                  Course Members
-                </h3>
-                {checkinInfo.members && checkinInfo.members.length > 0 ? (
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-medium text-gray-800 flex items-center">
+                    <Users className="w-4 h-4 mr-2" />
+                    Course Members
+                    <Badge variant="secondary" className="ml-2">
+                      {(() => {
+                        const filteredCount = getFilteredMembers().length;
+                        const totalCount = checkinInfo?.totalMembers || 0;
+                        console.log('Frontend Debug - Badge values:', { filteredCount, totalCount, totalMembers: checkinInfo?.totalMembers });
+                        return `${filteredCount} of ${totalCount}`;
+                      })()}
+                    </Badge>
+                  </h3>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowFilters(!showFilters)}
+                    className="flex items-center gap-2"
+                  >
+                    <Filter className="w-4 h-4" />
+                    Filter
+                  </Button>
+                </div>
+
+                {/* Status Filter Panel */}
+                {showFilters && (
+                  <div className="mb-4 p-3 bg-white rounded-lg border">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">Filter by Status:</span>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={selectAllStatuses}
+                          className="text-xs"
+                        >
+                          Select All
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={clearAllStatuses}
+                          className="text-xs"
+                        >
+                          Clear All
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { key: 'registered', label: 'Registered', color: 'bg-gray-100 text-gray-800' },
+                        { key: 'attended', label: 'Attended', color: 'bg-blue-100 text-blue-800' },
+                        { key: 'absent', label: 'Absent', color: 'bg-red-100 text-red-800' },
+                        { key: 'checked_in', label: 'Checked In', color: 'bg-green-100 text-green-800' }
+                      ].map(({ key, label, color }) => (
+                        <div key={key} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`filter-${key}`}
+                            checked={statusFilters.has(key)}
+                            onCheckedChange={() => toggleStatusFilter(key)}
+                          />
+                          <label
+                            htmlFor={`filter-${key}`}
+                            className="text-sm flex items-center gap-2 cursor-pointer"
+                          >
+                            <span className={`px-2 py-1 rounded text-xs ${color}`}>
+                              {label}
+                            </span>
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {getFilteredMembers().length > 0 ? (
                   <div className="space-y-2">
-                    {checkinInfo.members.map((member: any) => (
+                    {getFilteredMembers().map((member: any) => (
                       <div key={member.id} className="flex items-center justify-between p-2 bg-white rounded border">
                         <div className="flex-1">
                           <span className="font-medium">{member.first_name} {member.last_name}</span>
@@ -320,15 +483,27 @@ export default function CheckinQRPage() {
                         <span className={`px-2 py-1 rounded text-xs ${
                           member.status === 'checked_in'
                             ? 'bg-green-100 text-green-800'
-                            : 'bg-blue-100 text-blue-800'
+                            : member.status === 'attended'
+                            ? 'bg-blue-100 text-blue-800'
+                            : member.status === 'absent'
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-gray-100 text-gray-800'
                         }`}>
-                          {member.status === 'checked_in' ? 'Checked In' : 'Registered'}
+                          {member.status === 'checked_in' ? 'Checked In' : 
+                           member.status === 'attended' ? 'Attended' :
+                           member.status === 'absent' ? 'Absent' :
+                           member.status === 'registered' ? 'Registered' :
+                           member.status}
                         </span>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-gray-600">No registered members</p>
+                  <p className="text-sm text-gray-600">
+                    {checkinInfo?.members && checkinInfo.members.length > 0 
+                      ? 'No members match the selected filters' 
+                      : 'No registered members'}
+                  </p>
                 )}
               </div>
             </div>

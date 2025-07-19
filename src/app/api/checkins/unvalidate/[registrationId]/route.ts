@@ -88,27 +88,52 @@ export async function POST(
       return NextResponse.json({ error: 'Failed to unvalidate check-in' }, { status: 500 });
     }
 
-    // Revert registration status back to 'registered'
+    // Determine the appropriate status based on whether the class has finished
+    const now = new Date();
+    const currentDate = now.toISOString().split('T')[0];
+    const currentTime = now.toTimeString().split(' ')[0];
+    
+    const courseDate = registration.course.course_date;
+    const courseEndTime = registration.course.end_time;
+    
+    // Check if course has finished
+    const isPastDate = courseDate < currentDate;
+    const isTodayButEnded = courseDate === currentDate && courseEndTime < currentTime;
+    const hasFinished = isPastDate || isTodayButEnded;
+    
+    // Set status based on whether class has finished
+    const newStatus = hasFinished ? 'absent' : 'registered';
+    
+    console.log(`[UNVALIDATE] Registration ${registrationId}: Course finished: ${hasFinished}, Setting status to: ${newStatus}`);
+    console.log(`[UNVALIDATE] Course date: ${courseDate}, end time: ${courseEndTime}, Current: ${currentDate} ${currentTime}`);
+
+    // Update registration status based on class timing
     const { data: updatedRegistration, error: updateError } = await supabaseServer
       .from('class_registrations')
-      .update({ status: 'registered' })
+      .update({ status: newStatus })
       .eq('id', registrationId)
       .select()
       .single();
 
     if (updateError) {
-      console.error('Error reverting registration status:', updateError);
-      return NextResponse.json({ error: 'Failed to revert registration status' }, { status: 500 });
+      console.error('Error updating registration status:', updateError);
+      return NextResponse.json({ error: 'Failed to update registration status' }, { status: 500 });
     }
 
     return NextResponse.json({
       success: true,
-      message: 'Check-in unvalidated successfully',
+      message: `Check-in unvalidated successfully. Registration status set to '${newStatus}'`,
       removedCheckin: {
         id: existingCheckin.id,
         registrationId: registrationId,
         checkinTime: existingCheckin.checkin_time,
         sessionConsumed: existingCheckin.session_consumed
+      },
+      registration: {
+        id: updatedRegistration.id,
+        status: updatedRegistration.status,
+        newStatus: newStatus,
+        courseFinished: hasFinished
       },
       member: {
         id: registration.member.id,

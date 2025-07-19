@@ -5,7 +5,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar, Clock, User, Search, CheckCircle, XCircle, AlertCircle, QrCode } from "lucide-react";
 import { formatTime, getDayName, formatDateTime } from "@/lib/date";
@@ -80,7 +79,6 @@ function mapRegistration(reg: unknown): Registration {
 
 export default function MemberHistory() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
   const [selectedQR, setSelectedQR] = useState<string | null>(null);
 
   const { data: registrations = [], isLoading: registrationsLoading } = useQuery<Registration[]>({
@@ -93,13 +91,18 @@ export default function MemberHistory() {
     queryFn: () => apiRequest("GET", "/api/member/checkins"),
   });
 
-  // Get all registrations without search/status filters for proper categorization
+  // Get all registrations and map them properly
   const allRegistrations = (registrations || []).map(mapRegistration);
 
-  // Fix attendedClasses to return Registration[] with checkinTime as a separate variable if needed
-  const attendedClasses: Registration[] = (checkins || [])
-    .filter((checkin: Checkin) => checkin?.registration?.schedule?.class)
-    .map((checkin: Checkin) => checkin.registration);
+  // Create a set of registration IDs that have check-ins (attended)
+  const attendedRegistrationIds = new Set(
+    (checkins || []).map((checkin: Checkin) => checkin.registration?.id).filter(Boolean)
+  );
+
+  // Categorize registrations by status
+  const attendedClasses = allRegistrations.filter((reg: Registration) => {
+    return reg.status === 'attended' || attendedRegistrationIds.has(reg.id);
+  });
 
   const registeredClasses = allRegistrations.filter((reg: Registration) => {
     if (reg.status !== 'registered') return false;
@@ -113,28 +116,16 @@ export default function MemberHistory() {
   const cancelledClasses = allRegistrations.filter((reg: Registration) => reg.status === 'cancelled');
 
   const absentClasses = allRegistrations.filter((reg: Registration) => {
-    // Either explicitly marked as absent, or registered but past and not attended
-    if (reg.status === 'absent') return true;
-    if (reg.status === 'registered') {
-      if (!reg.schedule || !reg.schedule.scheduleDate || !reg.schedule.startTime) return false;
-      const classDateTime = new Date(reg.schedule.scheduleDate);
-      const [hours, minutes] = reg.schedule.startTime.split(':');
-      classDateTime.setHours(parseInt(hours), parseInt(minutes));
-      const isPast = classDateTime < new Date();
-      const didAttend = attendedClasses.some(attended => attended.id === reg.id);
-      return isPast && !didAttend;
-    }
-    return false;
+    return reg.status === 'absent';
   });
 
-  // Apply search and status filters to display data
+  // Apply search filter to display data
   const filteredRegistrations = allRegistrations.filter((registration: Registration) => {
     if (!registration?.schedule?.class || !registration?.schedule?.trainer) return false;
     const matchesSearch = registration.schedule.class.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          registration.schedule.trainer.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          registration.schedule.trainer.lastName?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = !statusFilter || statusFilter === "all" || registration.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    return matchesSearch;
   });
 
   const getStatusIcon = (status: string) => {
@@ -244,7 +235,7 @@ export default function MemberHistory() {
         </p>
       </div>
 
-      {/* Search and Filter */}
+      {/* Search */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
@@ -255,18 +246,6 @@ export default function MemberHistory() {
             className="pl-10"
           />
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-48">
-            <SelectValue placeholder="All statuses" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            <SelectItem value="attended">Attended</SelectItem>
-            <SelectItem value="registered">Registered</SelectItem>
-            <SelectItem value="cancelled">Cancelled</SelectItem>
-            <SelectItem value="absent">Absent</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
 
       {/* Stats Cards */}
@@ -324,11 +303,11 @@ export default function MemberHistory() {
         
         <TabsContent value="all" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...attendedClasses, ...registeredClasses, ...cancelledClasses, ...absentClasses]
+            {filteredRegistrations
               .sort((a: Registration, b: Registration) => new Date(b.registrationDate).getTime() - new Date(a.registrationDate).getTime())
-              .map((classData: Registration) => renderClassCard(classData, true))}
+              .map((classData: Registration) => renderClassCard(classData, classData.status === 'registered'))}
           </div>
-          {[...attendedClasses, ...registeredClasses, ...cancelledClasses, ...absentClasses].length === 0 && (
+          {filteredRegistrations.length === 0 && (
             <div className="text-center py-12">
               <p className="text-muted-foreground">No class history found.</p>
             </div>
@@ -338,10 +317,21 @@ export default function MemberHistory() {
         <TabsContent value="attended" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {attendedClasses
+              .filter((reg: Registration) => {
+                if (!reg?.schedule?.class || !reg?.schedule?.trainer) return false;
+                return reg.schedule.class.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                       reg.schedule.trainer.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                       reg.schedule.trainer.lastName?.toLowerCase().includes(searchTerm.toLowerCase());
+              })
               .sort((a: Registration, b: Registration) => new Date(b.registrationDate).getTime() - new Date(a.registrationDate).getTime())
               .map((classData: Registration) => renderClassCard(classData))}
           </div>
-          {attendedClasses.length === 0 && (
+          {attendedClasses.filter((reg: Registration) => {
+            if (!reg?.schedule?.class || !reg?.schedule?.trainer) return false;
+            return reg.schedule.class.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                   reg.schedule.trainer.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                   reg.schedule.trainer.lastName?.toLowerCase().includes(searchTerm.toLowerCase());
+          }).length === 0 && (
             <div className="text-center py-12">
               <p className="text-muted-foreground">No attended classes found.</p>
             </div>
@@ -351,10 +341,21 @@ export default function MemberHistory() {
         <TabsContent value="registered" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {registeredClasses
+              .filter((reg: Registration) => {
+                if (!reg?.schedule?.class || !reg?.schedule?.trainer) return false;
+                return reg.schedule.class.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                       reg.schedule.trainer.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                       reg.schedule.trainer.lastName?.toLowerCase().includes(searchTerm.toLowerCase());
+              })
               .sort((a: Registration, b: Registration) => new Date(a.schedule.scheduleDate).getTime() - new Date(b.schedule.scheduleDate).getTime())
               .map((classData) => renderClassCard(classData, true))}
           </div>
-          {registeredClasses.length === 0 && (
+          {registeredClasses.filter((reg: Registration) => {
+            if (!reg?.schedule?.class || !reg?.schedule?.trainer) return false;
+            return reg.schedule.class.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                   reg.schedule.trainer.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                   reg.schedule.trainer.lastName?.toLowerCase().includes(searchTerm.toLowerCase());
+          }).length === 0 && (
             <div className="text-center py-12">
               <p className="text-muted-foreground">No registered classes found.</p>
             </div>
@@ -364,10 +365,21 @@ export default function MemberHistory() {
         <TabsContent value="cancelled" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {cancelledClasses
+              .filter((reg: Registration) => {
+                if (!reg?.schedule?.class || !reg?.schedule?.trainer) return false;
+                return reg.schedule.class.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                       reg.schedule.trainer.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                       reg.schedule.trainer.lastName?.toLowerCase().includes(searchTerm.toLowerCase());
+              })
               .sort((a: Registration, b: Registration) => new Date(b.registrationDate).getTime() - new Date(a.registrationDate).getTime())
               .map((classData) => renderClassCard(classData))}
           </div>
-          {cancelledClasses.length === 0 && (
+          {cancelledClasses.filter((reg: Registration) => {
+            if (!reg?.schedule?.class || !reg?.schedule?.trainer) return false;
+            return reg.schedule.class.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                   reg.schedule.trainer.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                   reg.schedule.trainer.lastName?.toLowerCase().includes(searchTerm.toLowerCase());
+          }).length === 0 && (
             <div className="text-center py-12">
               <p className="text-muted-foreground">No cancelled classes found.</p>
             </div>
@@ -377,10 +389,21 @@ export default function MemberHistory() {
         <TabsContent value="absent" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {absentClasses
+              .filter((reg: Registration) => {
+                if (!reg?.schedule?.class || !reg?.schedule?.trainer) return false;
+                return reg.schedule.class.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                       reg.schedule.trainer.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                       reg.schedule.trainer.lastName?.toLowerCase().includes(searchTerm.toLowerCase());
+              })
               .sort((a: Registration, b: Registration) => new Date(b.registrationDate).getTime() - new Date(a.registrationDate).getTime())
               .map((classData) => renderClassCard(classData))}
           </div>
-          {absentClasses.length === 0 && (
+          {absentClasses.filter((reg: Registration) => {
+            if (!reg?.schedule?.class || !reg?.schedule?.trainer) return false;
+            return reg.schedule.class.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                   reg.schedule.trainer.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                   reg.schedule.trainer.lastName?.toLowerCase().includes(searchTerm.toLowerCase());
+          }).length === 0 && (
             <div className="text-center py-12">
               <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground">No absent classes found.</p>
