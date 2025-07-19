@@ -21,7 +21,7 @@ import { useAuth } from "@/hooks/use-auth";
 export default function Login() {
   const router = useRouter();
   const { toast } = useToast();
-  const { login } = useAuth();
+  const { login, authError } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -104,7 +104,14 @@ export default function Login() {
           <CardDescription>Sign in to your account to continue</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {error && (
+          {/* Show global auth error if present */}
+          {authError && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{authError}</AlertDescription>
+            </Alert>
+          )}
+          {error && !authError && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>{error}</AlertDescription>
