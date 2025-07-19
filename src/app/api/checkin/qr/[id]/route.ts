@@ -154,11 +154,12 @@ export async function GET(
       .limit(1)
       .single();
 
-    // Get registered and checked-in counts for this course
+    // Get registered and checked-in counts for this course (excluding cancelled)
     const { data: courseRegistrations } = await supabaseServer
       .from('class_registrations')
       .select('id, user_id, status')
-      .eq('course_id', registration.course_id);
+      .eq('course_id', courseObj.id)
+      .neq('status', 'cancelled');
 
     // Get all check-ins for this course to determine who has checked in
     const { data: allCourseCheckins } = await supabaseServer
@@ -172,8 +173,9 @@ export async function GET(
     // Always use max_capacity from classInfo for maxCapacity
     const maxCapacity = classInfo?.max_capacity ?? null;
 
-    // Get all registered members for this course (status = 'registered')
-    const { data: registeredMembers } = await supabaseServer
+    // Get all registered members for this course (all statuses except cancelled: registered, attended, absent)
+    console.log('Check-in QR API - Debug: Querying for course_id:', courseObj.id);
+    const { data: allCourseMembers, error: membersError } = await supabaseServer
       .from('class_registrations')
       .select(`
         id,
@@ -185,8 +187,15 @@ export async function GET(
         ),
         status
       `)
-      .eq('course_id', registration.course_id)
-      .eq('status', 'registered');
+      .eq('course_id', courseObj.id)
+      .neq('status', 'cancelled');
+    
+    if (membersError) {
+      console.log('Check-in QR API - Debug: Error fetching members:', membersError);
+    } else {
+      console.log('Check-in QR API - Debug: Members query result:', allCourseMembers?.length, 'members found');
+      console.log('Check-in QR API - Debug: Member statuses:', allCourseMembers?.map(m => ({ id: m.id, status: m.status })));
+    }
 
     const checkedInIds = new Set((allCourseCheckins || []).map(c => c.registration_id));
 
@@ -195,11 +204,26 @@ export async function GET(
       r.status === 'registered' && !checkedInIds.has(r.id)
     ) || []).length;
 
-    // Build unified list
-    const unifiedMembers = (registeredMembers || []).map(r => ({
-      ...(r.users || {}),
-      status: checkedInIds.has(r.id) ? 'checked_in' : 'registered'
-    }));
+    // Build unified list with all members and their actual statuses
+    const unifiedMembers = (allCourseMembers || []).map((r: any) => {
+      let displayStatus = r.status;
+      
+      // If member has checked in, show as 'checked_in' regardless of registration status
+      if (checkedInIds.has(r.id)) {
+        displayStatus = 'checked_in';
+      }
+      
+      return {
+        ...(r.users || {}),
+        status: displayStatus
+      };
+    });
+
+    // Calculate total non-canceled members
+    const totalMembers = (allCourseMembers || []).length;
+    console.log('Check-in QR API - Debug: allCourseMembers length:', allCourseMembers?.length);
+    console.log('Check-in QR API - Debug: totalMembers calculated:', totalMembers);
+    console.log('Check-in QR API - Debug: courseObj.id used for query:', courseObj.id);
 
     // Get all checked-in members for this course
     const { data: attendantMembers } = await supabaseServer
@@ -214,7 +238,7 @@ export async function GET(
           )
         )
       `)
-      .eq('class_registrations.course_id', registration.course_id);
+      .eq('class_registrations.course_id', courseObj.id);
 
     // Check if this member is already checked in
     const { data: existingCheckin } = await supabaseServer
@@ -267,6 +291,7 @@ export async function GET(
       checkedInCount,
       maxCapacity,
       alreadyCheckedIn,
+      totalMembers,
       members: unifiedMembers,
       attendantMembers: Array.isArray(attendantMembers)
         ? attendantMembers.flatMap(c =>
@@ -277,6 +302,9 @@ export async function GET(
         : []
     };
 
+    console.log('Check-in QR API - Debug: Final response totalMembers:', checkinInfo.totalMembers);
+    console.log('Check-in QR API - Debug: Final response members length:', checkinInfo.members?.length);
+    
     return NextResponse.json({
       success: true,
       data: checkinInfo

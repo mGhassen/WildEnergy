@@ -253,11 +253,22 @@ export async function POST(req: NextRequest) {
       }, { status: 500 });
     }
 
-    // Update registration status to checked in
-    await supabaseServer
+    // Update registration status to attended
+    const { error: updateError } = await supabaseServer
       .from('class_registrations')
-      .update({ notes: 'Checked in' })
+      .update({ 
+        status: 'attended',
+        notes: 'Checked in via QR code'
+      })
       .eq('id', registration.id);
+
+    if (updateError) {
+      console.error('Error updating registration status:', updateError);
+      return NextResponse.json({ 
+        success: false, 
+        message: 'Check-in created but failed to update registration status' 
+      }, { status: 500 });
+    }
 
     return NextResponse.json({
       success: true,
