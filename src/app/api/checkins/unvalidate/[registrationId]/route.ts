@@ -39,7 +39,7 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid registration ID' }, { status: 400 });
     }
 
-    // Get the registration details
+    // Get the registration details - allow both 'registered' and 'attended' statuses
     const { data: registration, error: registrationError } = await supabaseServer
       .from('class_registrations')
       .select(`
@@ -54,11 +54,11 @@ export async function POST(
         )
       `)
       .eq('id', registrationId)
-      .eq('status', 'registered')
+      .in('status', ['registered', 'attended'])
       .single();
 
     if (registrationError || !registration) {
-      return NextResponse.json({ error: 'Registration not found or not valid' }, { status: 404 });
+      return NextResponse.json({ error: 'Registration not found or not valid for unvalidation' }, { status: 404 });
     }
 
     // Check if there's an existing check-in to remove
@@ -86,6 +86,19 @@ export async function POST(
     if (deleteError) {
       console.error('Error deleting checkin:', deleteError);
       return NextResponse.json({ error: 'Failed to unvalidate check-in' }, { status: 500 });
+    }
+
+    // Revert registration status back to 'registered'
+    const { data: updatedRegistration, error: updateError } = await supabaseServer
+      .from('class_registrations')
+      .update({ status: 'registered' })
+      .eq('id', registrationId)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('Error reverting registration status:', updateError);
+      return NextResponse.json({ error: 'Failed to revert registration status' }, { status: 500 });
     }
 
     return NextResponse.json({

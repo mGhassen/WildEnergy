@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/auto-mark-absent",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+} 
