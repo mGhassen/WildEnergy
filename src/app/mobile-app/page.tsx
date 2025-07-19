@@ -26,25 +26,27 @@ import QRGenerator from "@/components/qr-generator";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/date";
 
-interface Schedule {
+interface Course {
   id: number;
-  dayOfWeek: number;
+  courseDate: string;
   startTime: string;
   endTime: string;
-  scheduleDate: string;
-  repetitionType: string;
   isActive: boolean;
+  status: string;
+  currentParticipants: number;
+  maxParticipants: number;
   class: {
     id: number;
     name: string;
-    category: string;
-    duration: number;
-    maxCapacity: number;
+    category: {
+      name: string;
+    };
   };
   trainer: {
-    id: number;
-    firstName: string;
-    lastName: string;
+    user: {
+      first_name: string;
+      last_name: string;
+    };
   };
 }
 
@@ -53,7 +55,7 @@ interface Registration {
   registrationDate: string;
   qrCode: string;
   status: string;
-  schedule: Schedule;
+  course: Course;
 }
 
 interface Subscription {
@@ -74,12 +76,12 @@ export default function MobileApp() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("home");
-  const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [showQRCode, setShowQRCode] = useState<string | null>(null);
 
   // Queries
-  const { data: schedules = [] } = useQuery<Schedule[]>({
-    queryKey: ['/api/schedules'],
+  const { data: courses = [] } = useQuery<Course[]>({
+    queryKey: ['/api/member/courses'],
     enabled: !!user
   });
 
@@ -95,8 +97,8 @@ export default function MobileApp() {
 
   // Mutations
   const registerMutation = useMutation({
-    mutationFn: async (scheduleId: number) => {
-      return apiRequest(`/api/registrations`, "POST", { scheduleId });
+    mutationFn: async (courseId: number) => {
+      return apiRequest(`/api/registrations`, "POST", { courseId });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/registrations'] });
@@ -108,28 +110,28 @@ export default function MobileApp() {
     }
   });
 
-  // Get today's and upcoming schedules
+  // Get today's and upcoming courses
   const today = new Date();
-  const todaySchedules = schedules.filter(schedule => {
-    const scheduleDate = new Date(schedule.scheduleDate);
-    return scheduleDate.toDateString() === today.toDateString();
+  const todayCourses = courses.filter(course => {
+    const courseDate = new Date(course.courseDate);
+    return courseDate.toDateString() === today.toDateString();
   });
 
-  const upcomingSchedules = schedules.filter(schedule => {
-    const scheduleDate = new Date(schedule.scheduleDate);
-    return scheduleDate > today;
+  const upcomingCourses = courses.filter(course => {
+    const courseDate = new Date(course.courseDate);
+    return courseDate > today;
   }).slice(0, 5);
 
-  const isRegistered = (scheduleId: number) => {
-    return registrations.some(reg => reg.schedule.id === scheduleId);
+  const isRegistered = (courseId: number) => {
+    return registrations.some(reg => reg.course.id === courseId);
   };
 
-  const getRegistrationQR = (scheduleId: number) => {
-    const reg = registrations.find(reg => reg.schedule.id === scheduleId);
+  const getRegistrationQR = (courseId: number) => {
+    const reg = registrations.find(reg => reg.course.id === courseId);
     return reg?.qrCode;
   };
 
-  const handleRegister = (scheduleId: number) => {
+  const handleRegister = (courseId: number) => {
     if (!subscription || subscription.sessionsRemaining <= 0) {
       toast({
         title: "No sessions remaining",
@@ -138,7 +140,7 @@ export default function MobileApp() {
       });
       return;
     }
-    registerMutation.mutate(scheduleId);
+    registerMutation.mutate(courseId);
   };
 
   const HomeTab = () => (
@@ -192,28 +194,28 @@ export default function MobileApp() {
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
-          {todaySchedules.length > 0 ? (
+          {todayCourses.length > 0 ? (
             <div className="space-y-2">
-              {todaySchedules.map(schedule => (
-                <div key={schedule.id} 
+              {todayCourses.map(course => (
+                <div key={course.id} 
                      className="flex items-center justify-between p-3 bg-muted rounded-lg"
-                     onClick={() => setSelectedSchedule(schedule)}>
+                     onClick={() => setSelectedCourse(course)}>
                   <div>
-                    <p className="font-medium">{schedule.class.name}</p>
+                    <p className="font-medium">{course.class.name}</p>
                     <p className="text-sm text-muted-foreground">
-                      {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}
+                      {formatTime(course.startTime)} - {formatTime(course.endTime)}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      with {schedule.trainer.firstName} {schedule.trainer.lastName}
+                      with {course.trainer.user.first_name} {course.trainer.user.last_name}
                     </p>
                   </div>
-                  {isRegistered(schedule.id) ? (
+                  {isRegistered(course.id) ? (
                     <Button 
                       size="sm" 
                       variant="outline"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setShowQRCode(getRegistrationQR(schedule.id) || "");
+                        setShowQRCode(getRegistrationQR(course.id) || "");
                       }}
                     >
                       <QrCode className="w-4 h-4" />
@@ -223,7 +225,7 @@ export default function MobileApp() {
                       size="sm"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleRegister(schedule.id);
+                        handleRegister(course.id);
                       }}
                       disabled={registerMutation.isPending}
                     >
@@ -270,26 +272,26 @@ export default function MobileApp() {
       </div>
 
       <div className="space-y-3">
-        {upcomingSchedules.map(schedule => (
-          <Card key={schedule.id} className="overflow-hidden">
+        {upcomingCourses.map(course => (
+          <Card key={course.id} className="overflow-hidden">
             <CardContent className="p-4">
               <div className="flex justify-between items-start mb-3">
                 <div className="flex-1">
-                  <h3 className="font-semibold text-lg">{schedule.class.name}</h3>
+                  <h3 className="font-semibold text-lg">{course.class.name}</h3>
                   <p className="text-sm text-muted-foreground mb-1">
-                    {schedule.trainer.firstName} {schedule.trainer.lastName}
+                    {course.trainer.user.first_name} {course.trainer.user.last_name}
                   </p>
                   <Badge variant="outline" className="text-xs">
-                    {schedule.class.category}
+                    {course.class.category.name}
                   </Badge>
                 </div>
-                {isRegistered(schedule.id) ? (
+                {isRegistered(course.id) ? (
                   <div className="flex flex-col items-end gap-2">
                     <Badge variant="default">Registered</Badge>
                     <Button 
                       size="sm" 
                       variant="outline"
-                      onClick={() => setShowQRCode(getRegistrationQR(schedule.id) || "")}
+                      onClick={() => setShowQRCode(getRegistrationQR(course.id) || "")}
                     >
                       <QrCode className="w-4 h-4 mr-1" />
                       QR Code
@@ -297,7 +299,7 @@ export default function MobileApp() {
                   </div>
                 ) : (
                   <Button 
-                    onClick={() => handleRegister(schedule.id)}
+                    onClick={() => handleRegister(course.id)}
                     disabled={registerMutation.isPending}
                     size="sm"
                   >
@@ -309,26 +311,26 @@ export default function MobileApp() {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-muted-foreground" />
-                  <span>{formatDate(schedule.scheduleDate)}</span>
+                  <span>{formatDate(course.courseDate)}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Clock className="w-4 h-4 text-muted-foreground" />
-                  <span>{formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}</span>
+                  <span>{formatTime(course.startTime)} - {formatTime(course.endTime)}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Users className="w-4 h-4 text-muted-foreground" />
-                  <span>Max {schedule.class.maxCapacity} people</span>
+                  <span>{course.currentParticipants}/{course.maxParticipants} people</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Activity className="w-4 h-4 text-muted-foreground" />
-                  <span>{schedule.class.duration} minutes</span>
+                  <span>{course.status}</span>
                 </div>
               </div>
 
               <Button 
                 variant="ghost" 
                 className="w-full mt-3 justify-start text-left"
-                onClick={() => setSelectedSchedule(schedule)}
+                onClick={() => setSelectedCourse(course)}
               >
                 View Details
               </Button>
@@ -351,9 +353,9 @@ export default function MobileApp() {
             <CardContent className="p-4">
               <div className="flex justify-between items-start mb-3">
                 <div className="flex-1">
-                  <h3 className="font-semibold">{registration.schedule.class.name}</h3>
+                  <h3 className="font-semibold">{registration.course.class.name}</h3>
                   <p className="text-sm text-muted-foreground">
-                    {registration.schedule.trainer.firstName} {registration.schedule.trainer.lastName}
+                    {registration.course.trainer.user.first_name} {registration.course.trainer.user.last_name}
                   </p>
                 </div>
                 <Badge variant={registration.status === "registered" ? "default" : "secondary"}>
@@ -364,11 +366,11 @@ export default function MobileApp() {
               <div className="grid grid-cols-2 gap-4 text-sm mb-3">
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-muted-foreground" />
-                  <span>{formatDate(registration.schedule.scheduleDate)}</span>
+                  <span>{formatDate(registration.course.courseDate)}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Clock className="w-4 h-4 text-muted-foreground" />
-                  <span>{formatTime(registration.schedule.startTime)}</span>
+                  <span>{formatTime(registration.course.startTime)}</span>
                 </div>
               </div>
 
@@ -526,12 +528,12 @@ export default function MobileApp() {
         </Tabs>
       </div>
 
-      {/* Schedule Detail Dialog */}
-      {selectedSchedule && (
-        <Dialog open={!!selectedSchedule} onOpenChange={() => setSelectedSchedule(null)}>
+      {/* Course Detail Dialog */}
+      {selectedCourse && (
+        <Dialog open={!!selectedCourse} onOpenChange={() => setSelectedCourse(null)}>
           <DialogContent className="max-w-sm mx-4">
             <DialogHeader>
-              <DialogTitle>{selectedSchedule.class.name}</DialogTitle>
+              <DialogTitle>{selectedCourse.class.name}</DialogTitle>
             </DialogHeader>
             
             <div className="space-y-4">
@@ -540,31 +542,31 @@ export default function MobileApp() {
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Trainer</span>
-                    <span>{selectedSchedule.trainer.firstName} {selectedSchedule.trainer.lastName}</span>
+                    <span>{selectedCourse.trainer.user.first_name} {selectedCourse.trainer.user.last_name}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Date</span>
-                    <span>{formatDate(selectedSchedule.scheduleDate)}</span>
+                    <span>{formatDate(selectedCourse.courseDate)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Time</span>
-                    <span>{formatTime(selectedSchedule.startTime)} - {formatTime(selectedSchedule.endTime)}</span>
+                    <span>{formatTime(selectedCourse.startTime)} - {formatTime(selectedCourse.endTime)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Duration</span>
-                    <span>{selectedSchedule.class.duration} minutes</span>
+                    <span className="text-muted-foreground">Category</span>
+                    <span>{selectedCourse.class.category.name}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Capacity</span>
-                    <span>{selectedSchedule.class.maxCapacity} people</span>
+                    <span>{selectedCourse.currentParticipants}/{selectedCourse.maxParticipants} people</span>
                   </div>
                 </div>
               </div>
 
-              {isRegistered(selectedSchedule.id) ? (
+              {isRegistered(selectedCourse.id) ? (
                 <Button 
                   className="w-full"
-                  onClick={() => setShowQRCode(getRegistrationQR(selectedSchedule.id) || "")}
+                  onClick={() => setShowQRCode(getRegistrationQR(selectedCourse.id) || "")}
                 >
                   <QrCode className="w-4 h-4 mr-2" />
                   Show QR Code
@@ -572,7 +574,7 @@ export default function MobileApp() {
               ) : (
                 <Button 
                   className="w-full"
-                  onClick={() => handleRegister(selectedSchedule.id)}
+                  onClick={() => handleRegister(selectedCourse.id)}
                   disabled={registerMutation.isPending}
                 >
                   Register for Class

@@ -598,7 +598,7 @@ export default function UsersPage() {
                                     </TableCell>
                                     <TableCell>
                                         <p className="text-sm text-muted-foreground">
-                                            {formatDate(user.createdAt)}
+                                            {user.createdAt ? formatDate(user.createdAt) : 'N/A'}
                                         </p>
                                     </TableCell>
                                     <TableCell>
@@ -890,7 +890,7 @@ export default function UsersPage() {
                                             </Badge>
                                             <span className="text-xs text-muted-foreground">•</span>
                                             <span className="text-xs text-muted-foreground">
-                                                Member since {formatDate(viewingUser.createdAt)}
+                                                Member since {viewingUser.createdAt ? formatDate(viewingUser.createdAt) : 'N/A'}
                                             </span>
                                         </div>
                                     </div>

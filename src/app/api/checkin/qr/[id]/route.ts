@@ -229,10 +229,10 @@ export async function GET(
     const checkinInfo = {
       member: {
         ...registration.users,
-        status: registration.users?.status,
+        status: (registration.users as any)?.status,
         activeSubscription: activeSubscription ? {
           id: activeSubscription.id,
-          planName: activeSubscription.plans?.name,
+          planName: (activeSubscription.plans as any)?.name,
           sessionsRemaining: activeSubscription.sessions_remaining,
           status: activeSubscription.status
         } : null
@@ -247,7 +247,7 @@ export async function GET(
                 return classInfo.category[0].name;
               }
             } else if (classInfo?.category && typeof classInfo.category === 'object' && 'name' in classInfo.category) {
-              return classInfo.category.name;
+              return (classInfo.category as any)?.name;
             } else if (typeof classInfo?.category === 'string') {
               return classInfo.category;
             }

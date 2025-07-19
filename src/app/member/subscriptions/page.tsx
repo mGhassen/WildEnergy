@@ -161,7 +161,10 @@ export default function MemberSubscriptions() {
           {activeSubscriptions.map((sub) => {
             const plan = sub.plan || { name: "", price: "", max_sessions: 0 };
             const totalSessions = plan.max_sessions ?? 0;
-            const sessionsUsed = totalSessions - sub.sessions_remaining;
+            // Calculate sessions used from the original plan
+            const sessionsUsedFromPlan = Math.max(0, totalSessions - sub.sessions_remaining);
+            // Calculate bonus sessions (if sessions_remaining > totalSessions, user has bonus sessions)
+            const bonusSessions = Math.max(0, sub.sessions_remaining - totalSessions);
             const subTab = subTabs[sub.id] || 'details';
             return (
               <Card key={sub.id} className="border-l-4 border-l-primary">
@@ -194,14 +197,24 @@ export default function MemberSubscriptions() {
                         <div className="text-center p-3 bg-primary/5 rounded-lg">
                           <p className="text-sm text-muted-foreground">Sessions Remaining</p>
                           <p className="text-2xl font-bold text-primary">{sub.sessions_remaining}</p>
+                          {bonusSessions > 0 && (
+                            <p className="text-xs text-green-600 font-medium mt-1">
+                              +{bonusSessions} bonus
+                            </p>
+                          )}
                         </div>
                         <div className="text-center p-3 bg-muted/50 rounded-lg">
                           <p className="text-sm font-medium text-muted-foreground">Sessions Used</p>
-                          <p className="text-2xl font-bold text-foreground">{sessionsUsed}</p>
+                          <p className="text-2xl font-bold text-foreground">{sessionsUsedFromPlan}</p>
                         </div>
                         <div className="text-center p-3 bg-muted/50 rounded-lg">
                           <p className="text-sm font-medium text-muted-foreground">Total Sessions</p>
-                          <p className="text-2xl font-bold text-foreground">{totalSessions}</p>
+                          <p className="text-2xl font-bold text-foreground">{totalSessions + bonusSessions}</p>
+                          {bonusSessions > 0 && (
+                            <p className="text-xs text-muted-foreground">
+                              {totalSessions} plan + {bonusSessions} bonus
+                            </p>
+                          )}
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-4 text-sm">
