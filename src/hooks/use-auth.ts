@@ -22,6 +22,7 @@ interface AuthState {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<void>;
+  authError: string | null; // <-- Added
 }
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
@@ -43,6 +44,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [loginError, setLoginError] = useState<Error | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null); // NEW
   const router = useRouter();
 
   // Fetch user session
@@ -86,9 +88,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
           }
           setUser(null);
           router.push('/login');
+          setAuthError('Your session has expired or is invalid. Please log in again.'); // NEW
           throw new Error('Session expired or invalid token');
         }
         
+        setAuthError(errorData.error || 'Failed to fetch session'); // NEW
         throw new Error(errorData.error || 'Failed to fetch session');
       }
 
@@ -102,6 +106,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       return null;
     } catch (error) {
       console.error('Session fetch error:', error);
+      setAuthError(
+        error instanceof Error && error.message.includes('expired')
+          ? 'Your session has expired. Please log in again.'
+          : 'An unexpected authentication error occurred. Please try again.'
+      ); // NEW
       throw error;
     }
   };
@@ -243,7 +252,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     loginError,
     login,
     logout,
-    refreshSession
+    refreshSession,
+    authError, // <-- Added
   };
 
   return React.createElement(AuthContext.Provider, { value }, children);
