@@ -7,12 +7,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiRequest } from "@/lib/queryClient";
-import { Search, Clock, Users, Calendar, Star, Check } from "lucide-react";
+import { Search, Clock, Users, Calendar, Star, Check, AlertTriangle } from "lucide-react";
 import { formatTime, getDayName } from "@/lib/date";
 import { useToast } from "@/hooks/use-toast";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, getAuthToken } from "@/lib/api";
 import { formatDate } from "@/lib/date";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 // Types for member classes page
 interface Category {
@@ -68,6 +69,22 @@ export default function MemberClasses() {
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [dayFilter, setDayFilter] = useState("");
+  const [overlapDialog, setOverlapDialog] = useState<{
+    isOpen: boolean;
+    courseId: number | null;
+    overlappingCourses: Array<{
+      courseId: number;
+      courseName: string;
+      date: string;
+      startTime: string;
+      endTime: string;
+      trainer: string;
+    }>;
+  }>({
+    isOpen: false,
+    courseId: null,
+    overlappingCourses: []
+  });
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -97,7 +114,49 @@ export default function MemberClasses() {
 
   const registerMutation = useMutation({
     mutationFn: async (courseId: number) => {
-      return await apiRequest("POST", "/api/registrations", { courseId });
+      // Get token using the shared utility
+      const token = getAuthToken();
+      console.log('Registration attempt with token:', token ? 'present' : 'missing');
+      
+      const response = await fetch("/api/registrations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        credentials: "include",
+        body: JSON.stringify({ courseId })
+      });
+      
+      console.log('Registration response status:', response.status);
+      
+      if (!response.ok) {
+        if (response.status === 409) {
+          const overlapData = await response.json();
+          throw { type: 'OVERLAP', ...overlapData };
+        } else {
+          let message = `${response.status}: ${response.statusText}`;
+          try {
+            const text = await response.text();
+            if (text.startsWith('{') || text.startsWith('[')) {
+              const errorData = JSON.parse(text);
+              message = errorData.error || errorData.message || message;
+            } else if (text.length > 0 && text.length < 200) {
+              message = text;
+            }
+          } catch {
+            // If text parsing fails, use the status message
+          }
+          throw new Error(message);
+        }
+      }
+      
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        return await response.json();
+      }
+      
+      return response;
     },
     onMutate: async (courseId: number) => {
       // Optimistically update the registrations
@@ -127,24 +186,50 @@ export default function MemberClasses() {
         queryClient.setQueryData(["/api/registrations"], context.previousRegistrations);
       }
       
-      let errorMessage = "Failed to book course";
+      console.log('Registration error:', error);
+      console.log('Error type:', typeof error);
+      console.log('Error keys:', error && typeof error === 'object' ? Object.keys(error) : 'not an object');
       
-      // Handle specific error messages from the backend
-      if (typeof error === 'object' && error && 'message' in error && typeof error.message === 'string') {
-        if (error.message?.includes("Already registered")) {
-          errorMessage = "You are already registered for this course";
-        } else if (error.message?.includes("No active subscription")) {
-          errorMessage = "No active subscription with sessions remaining";
-        } else if (error.message?.includes("Course is full")) {
-          errorMessage = "This course is full";
-        } else {
-          errorMessage = error.message;
-        }
+      // Check if this is an overlap error
+      if (typeof error === 'object' && error && 'type' in error && error.type === 'OVERLAP') {
+        const overlapData = error as any;
+        console.log('Overlap detected:', overlapData);
+        setOverlapDialog({
+          isOpen: true,
+          courseId: courseId,
+          overlappingCourses: overlapData.overlappingCourses || []
+        });
+        return;
       }
       
+      // Check if this is an overlap error by looking at the error message
+      if (typeof error === 'object' && error && 'message' in error && typeof error.message === 'string') {
+        const errorMessage = error.message;
+        
+        // Handle other specific error messages
+        let errorMessageToShow = "Failed to book course";
+        if (errorMessage.includes("Already registered")) {
+          errorMessageToShow = "You are already registered for this course";
+        } else if (errorMessage.includes("No active subscription")) {
+          errorMessageToShow = "No active subscription with sessions remaining";
+        } else if (errorMessage.includes("Course is full")) {
+          errorMessageToShow = "This course is full";
+        } else {
+          errorMessageToShow = errorMessage;
+        }
+        
+        toast({
+          title: "Booking failed",
+          description: errorMessageToShow,
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Fallback error handling
       toast({
         title: "Booking failed",
-        description: errorMessage,
+        description: "An unexpected error occurred while registering for the course.",
         variant: "destructive",
       });
     },
@@ -377,7 +462,7 @@ export default function MemberClasses() {
     <div className="space-y-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-foreground mb-2">Browse Courses</h1>
-        <p className="text-muted-foreground">Find and book fitness courses that fit your schedule</p>
+        <p className="text-muted-foreground">Find and book Pole Dance courses that fit your schedule</p>
       </div>
 
       {/* Current Plan Summary */}
@@ -495,7 +580,7 @@ export default function MemberClasses() {
                     </div>
                   </div>
                   <CardDescription className="line-clamp-2 text-sm mb-3">
-                    {course.class?.description || "Join this exciting fitness class and challenge yourself!"}
+                    {course.class?.description || "Join this exciting Pole Dance class and challenge yourself!"}
                   </CardDescription>
                   
                   {/* Course Details Grid */}
@@ -579,6 +664,75 @@ export default function MemberClasses() {
         )}
       </div>
       </TooltipProvider>
+
+      {/* Overlap Confirmation Dialog */}
+      <Dialog open={overlapDialog.isOpen} onOpenChange={(open) => setOverlapDialog(prev => ({ ...prev, isOpen: open }))}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-orange-500" />
+              Course Time Conflict
+            </DialogTitle>
+            <DialogDescription>
+              This course overlaps with other courses you're already registered for. Are you sure you want to register anyway?
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-3">
+            <div className="text-sm font-medium text-foreground">Overlapping courses:</div>
+            {overlapDialog.overlappingCourses.map((course, index) => (
+              <div key={index} className="p-3 bg-muted rounded-lg">
+                <div className="font-medium text-sm">{course.courseName}</div>
+                <div className="text-xs text-muted-foreground">
+                  {formatDate(course.date)} • {formatTime(course.startTime)} - {formatTime(course.endTime)}
+                </div>
+                <div className="text-xs text-muted-foreground">with {course.trainer}</div>
+              </div>
+            ))}
+          </div>
+          
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setOverlapDialog(prev => ({ ...prev, isOpen: false }))}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (overlapDialog.courseId) {
+                  // Proceed with registration despite overlap using force endpoint
+                  apiRequest("POST", "/api/registrations/force", { courseId: overlapDialog.courseId })
+                    .then(() => {
+                      queryClient.invalidateQueries({ queryKey: ["/api/registrations"] });
+                      queryClient.invalidateQueries({ queryKey: ["/api/member/courses"] });
+                      queryClient.invalidateQueries({ queryKey: ["/api/member/subscriptions"] });
+                      toast({
+                        title: "Registration successful!",
+                        description: "You are now registered for this course despite the time conflict.",
+                      });
+                      setOverlapDialog(prev => ({ ...prev, isOpen: false }));
+                    })
+                    .catch((error) => {
+                      let errorMessage = "Failed to register for course";
+                      if (typeof error === 'object' && error && 'message' in error && typeof error.message === 'string') {
+                        errorMessage = error.message;
+                      }
+                      toast({
+                        title: "Registration failed",
+                        description: errorMessage,
+                        variant: "destructive",
+                      });
+                    });
+                }
+              }}
+              disabled={registerMutation.isPending}
+            >
+              {registerMutation.isPending ? "Registering..." : "Register Anyway"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
