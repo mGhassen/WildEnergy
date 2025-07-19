@@ -679,6 +679,21 @@ export default function ScheduleCalendar({
             <Button variant="outline" size="icon" onClick={() => navigateDate(-1)}>
               <ChevronLeft className="w-4 h-4" />
             </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => {
+                const today = new Date();
+                if (externalCurrentDate && onNavigateToDate) {
+                  onNavigateToDate(today);
+                } else {
+                  setInternalCurrentDate(today);
+                }
+              }}
+              className="px-3"
+            >
+              Today
+            </Button>
             <Button variant="outline" size="icon" onClick={() => navigateDate(1)}>
               <ChevronRight className="w-4 h-4" />
             </Button>
