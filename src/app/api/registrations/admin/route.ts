@@ -235,7 +235,7 @@ export async function POST(req: NextRequest) {
             p_course_id: courseId,
             p_current_participants: course.current_participants + registrationResults.length,
             p_subscription_id: activeSubscription.id
-          });
+          }) as { data: any; error: any };
 
         if (procedureError) {
           console.error('Registration procedure error for member:', memberId, procedureError);

@@ -41,8 +41,12 @@ export async function POST(req: NextRequest) {
     for (const registration of registrationsToCheck || []) {
       if (!registration.course) continue;
 
-      const courseDate = registration.course.course_date;
-      const courseEndTime = registration.course.end_time;
+      // Handle both array and single object cases
+      const courseObj = Array.isArray(registration.course) ? registration.course[0] : registration.course;
+      if (!courseObj) continue;
+
+      const courseDate = courseObj.course_date;
+      const courseEndTime = courseObj.end_time;
 
       // Check if course has finished
       const isPastDate = courseDate < currentDate;
