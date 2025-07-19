@@ -39,7 +39,7 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid registration ID' }, { status: 400 });
     }
 
-    // Get the registration details
+    // Get the registration details - allow both 'registered' and 'absent' statuses
     const { data: registration, error: registrationError } = await supabaseServer
       .from('class_registrations')
       .select(`
@@ -54,11 +54,11 @@ export async function POST(
         )
       `)
       .eq('id', registrationId)
-      .eq('status', 'registered')
+      .in('status', ['registered', 'absent'])
       .single();
 
     if (registrationError || !registration) {
-      return NextResponse.json({ error: 'Registration not found or not valid' }, { status: 404 });
+      return NextResponse.json({ error: 'Registration not found or not valid for check-in' }, { status: 404 });
     }
 
     // Check if already checked in
@@ -76,6 +76,23 @@ export async function POST(
     if (existingCheckin) {
       return NextResponse.json({ error: 'Member is already checked in' }, { status: 400 });
     }
+
+    console.log(`Updating registration ${registrationId} from status '${registration.status}' to 'attended'`);
+    
+    // Update registration status to 'attended' and create check-in record
+    const { data: updatedRegistration, error: updateError } = await supabaseServer
+      .from('class_registrations')
+      .update({ status: 'attended' })
+      .eq('id', registrationId)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('Error updating registration status:', updateError);
+      return NextResponse.json({ error: 'Failed to update registration status' }, { status: 500 });
+    }
+
+    console.log(`Successfully updated registration ${registrationId} to status: ${updatedRegistration?.status}`);
 
     // Create the check-in record
     const { data: checkin, error: createError } = await supabaseServer
