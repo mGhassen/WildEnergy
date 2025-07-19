@@ -4,8 +4,14 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ChevronLeft, ChevronRight, Calendar, Users, Clock } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ChevronLeft, ChevronRight, Calendar, Users, Clock, Plus, Search, X } from 'lucide-react';
 import { formatDate, formatTime, formatLongDate, getDayName, getShortDayName } from '@/lib/date';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
+import { toast } from 'sonner';
 
 interface Schedule {
   id: number;
@@ -37,8 +43,10 @@ interface Registration {
   status: string;
   member: {
     id: number;
-    firstName: string;
-    lastName: string;
+    first_name?: string;
+    last_name?: string;
+    firstName?: string;
+    lastName?: string;
     email: string;
   };
   course: {
@@ -124,6 +132,10 @@ export default function ScheduleCalendar({
 }: ScheduleCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
+  const [isRegistrationModalOpen, setIsRegistrationModalOpen] = useState(false);
+  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+  const [memberSearchTerm, setMemberSearchTerm] = useState('');
+  const queryClient = useQueryClient();
 
   const getScheduleRegistrations = (scheduleId: number) => {
     // Get all registrations for this schedule
@@ -146,6 +158,14 @@ export default function ScheduleCalendar({
     return scheduleRegistrations.filter(reg => !checkedInRegistrationIds.has(reg.id));
   };
 
+  const getAllScheduleRegistrations = (scheduleId: number) => {
+    // Get ALL registrations for this schedule (including checked-in ones)
+    return registrations.filter(reg => 
+      reg.course?.id === scheduleId && 
+      reg.status === 'registered'
+    );
+  };
+
   const getScheduleCheckins = (scheduleId: number) => {
     return checkins.filter(checkin => 
       checkin.registration?.course?.id === scheduleId
@@ -157,6 +177,117 @@ export default function ScheduleCalendar({
     const courseDateTime = new Date(`${schedule.scheduleDate}T${schedule.endTime}`);
     const now = new Date();
     return courseDateTime < now;
+  };
+
+  // Fetch members for registration
+  const { data: members = [] } = useQuery({
+    queryKey: ["/api/members"],
+    queryFn: () => apiRequest("GET", "/api/members"),
+  });
+
+
+
+  // Admin registration mutation
+  const registerMembersMutation = useMutation({
+    mutationFn: async ({ courseId, memberIds }: { courseId: number; memberIds: string[] }) => {
+      return await apiRequest('POST', '/api/registrations/admin', { courseId, memberIds });
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/registrations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
+      
+      const summary = data.summary;
+      let message = `Successfully registered ${summary.registered} member(s).`;
+      if (summary.errors > 0) {
+        message += ` ${summary.errors} member(s) had issues.`;
+      }
+      if (summary.alreadyRegistered > 0) {
+        message += ` ${summary.alreadyRegistered} member(s) were already registered.`;
+      }
+      
+      toast.success(message);
+      setIsRegistrationModalOpen(false);
+      setSelectedMembers([]);
+      setMemberSearchTerm('');
+    },
+    onError: (error: any) => {
+      console.error('Registration error:', error);
+      let errorMessage = 'Failed to register members';
+      if (error?.message) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      toast.error(errorMessage);
+    },
+  });
+
+  // Get registered and checked-in member IDs for the current course
+  const getRegisteredMemberIds = (scheduleId: number) => {
+    const courseRegistrations = registrations.filter(reg => reg.course?.id === scheduleId);
+    const registeredIds = courseRegistrations.map(reg => reg.member?.id).filter(Boolean);
+    return registeredIds;
+  };
+
+  const getCheckedInMemberIds = (scheduleId: number) => {
+    const courseCheckins = checkins.filter(checkin => checkin.registration?.course?.id === scheduleId);
+    const checkedInIds = courseCheckins.map(checkin => checkin.member?.id).filter(Boolean);
+    return checkedInIds;
+  };
+
+  // Filter members based on search term and eligibility
+  const filteredMembers = members.filter((member: any) => {
+    // Only show active members
+    if (member.status !== 'active') {
+      return false;
+    }
+
+    // Skip if already registered for this course
+    if (selectedSchedule) {
+      const registeredIds = getRegisteredMemberIds(selectedSchedule.id);
+      const memberIdStr = String(member.id);
+      const isRegistered = registeredIds.some(id => String(id) === memberIdStr);
+      if (isRegistered) {
+        return false;
+      }
+    }
+
+    // Skip if already checked in for this course
+    if (selectedSchedule) {
+      const checkedInIds = getCheckedInMemberIds(selectedSchedule.id);
+      const memberIdStr = String(member.id);
+      const isCheckedIn = checkedInIds.some(id => String(id) === memberIdStr);
+      if (isCheckedIn) {
+        return false;
+      }
+    }
+
+    // Apply search filter
+    const searchLower = memberSearchTerm.toLowerCase();
+    const matchesSearch = (
+      member.firstName?.toLowerCase().includes(searchLower) ||
+      member.lastName?.toLowerCase().includes(searchLower) ||
+      member.email?.toLowerCase().includes(searchLower)
+    );
+    
+    return matchesSearch;
+  });
+
+  const handleRegisterMembers = () => {
+    if (!selectedSchedule || selectedMembers.length === 0) return;
+    
+    registerMembersMutation.mutate({
+      courseId: selectedSchedule.id,
+      memberIds: selectedMembers
+    });
+  };
+
+  const handleMemberToggle = (memberId: string) => {
+    setSelectedMembers(prev => 
+      prev.includes(memberId) 
+        ? prev.filter(id => id !== memberId)
+        : [...prev, memberId]
+    );
   };
 
   const navigateDate = (direction: number) => {
@@ -537,12 +668,12 @@ export default function ScheduleCalendar({
                 <div>
                   <h4 className="font-medium mb-2">Attendance Stats</h4>
                   <div className="space-y-2 text-sm">
-                    <div>Registered: {getScheduleRegistrations(selectedSchedule.id).length}</div>
+                    <div>Registered: {getAllScheduleRegistrations(selectedSchedule.id).length}</div>
                     <div>Attended: {getScheduleCheckins(selectedSchedule.id).length}</div>
                     <div>Attendance Rate: {
                       (() => {
                         const attended = getScheduleCheckins(selectedSchedule.id).length;
-                        const registered = getScheduleRegistrations(selectedSchedule.id).length;
+                        const registered = getAllScheduleRegistrations(selectedSchedule.id).length;
                         const maxCapacity = selectedSchedule.class?.maxCapacity || 0;
                         
                         const capacityRate = maxCapacity > 0 ? Math.round((attended / maxCapacity) * 100) : 0;
@@ -555,59 +686,170 @@ export default function ScheduleCalendar({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <h4 className="font-medium mb-3 flex items-center gap-2">
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-medium flex items-center gap-2">
                     <Users className="w-4 h-4" />
-                    Registered Members ({getScheduleRegistrations(selectedSchedule.id).length})
+                    Registered Members ({getAllScheduleRegistrations(selectedSchedule.id).length})
                   </h4>
-                  <div className="space-y-2 max-h-64 overflow-y-auto">
-                    {getScheduleRegistrations(selectedSchedule.id).map((registration) => (
-                      <div key={registration.id} className="flex items-center justify-between p-2 bg-muted rounded">
-                        <div>
-                          <div className="font-medium">{registration.member?.firstName || 'Unknown'} {registration.member?.lastName || ''}</div>
-                          <div className="text-xs text-muted-foreground">{registration.member?.email || 'No email'}</div>
-                        </div>
-                        <Badge variant={registration.status === 'registered' ? 'secondary' : 'default'}>
-                          {registration.status}
-                        </Badge>
-                      </div>
-                    ))}
-                    {getScheduleRegistrations(selectedSchedule.id).length === 0 && (
-                      <div className="text-muted-foreground text-sm">No members registered</div>
-                    )}
-                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsRegistrationModalOpen(true)}
+                    className="h-8 w-8 p-0"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </Button>
                 </div>
-
-                <div>
-                  <h4 className="font-medium mb-3 flex items-center gap-2">
-                    <Calendar className="w-4 h-4" />
-                    Attended Members ({getScheduleCheckins(selectedSchedule.id).length})
-                  </h4>
-                  <div className="space-y-2 max-h-64 overflow-y-auto">
-                    {getScheduleCheckins(selectedSchedule.id).map((checkin) => (
-                      <div key={checkin.id} className="flex items-center justify-between p-2 bg-green-50 border border-green-200 rounded">
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {getAllScheduleRegistrations(selectedSchedule.id).map((registration) => {
+                    // Check if this registration has been checked in
+                    const isCheckedIn = checkins.some(checkin => 
+                      checkin.registration?.id === registration.id
+                    );
+                    
+                    return (
+                      <div key={registration.id} className={`flex items-center justify-between p-2 rounded ${
+                        isCheckedIn ? 'bg-green-50 border border-green-200' : 'bg-muted'
+                      }`}>
                         <div>
-                          <div className="font-medium">{checkin.member?.firstName || 'Unknown'} {checkin.member?.lastName || ''}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {formatTime(checkin.checkinTime)}
+                          <div className="font-medium">
+                            {registration.member?.first_name || registration.member?.firstName || 'Unknown'} {registration.member?.last_name || registration.member?.lastName || ''}
                           </div>
+                          <div className="text-xs text-muted-foreground">{registration.member?.email || 'No email'}</div>
+                          {isCheckedIn && (
+                            <div className="text-xs text-green-600">
+                              Checked in at {formatTime(checkins.find(c => c.registration?.id === registration.id)?.checkinTime || '')}
+                            </div>
+                          )}
                         </div>
-                        <Badge variant="default" className="bg-green-600">
-                          Checked In
+                        <Badge variant={isCheckedIn ? 'default' : 'secondary'} className={isCheckedIn ? 'bg-green-600' : ''}>
+                          {isCheckedIn ? 'Checked In' : 'Registered'}
                         </Badge>
                       </div>
-                    ))}
-                    {getScheduleCheckins(selectedSchedule.id).length === 0 && (
-                      <div className="text-muted-foreground text-sm">No check-ins yet</div>
-                    )}
-                  </div>
+                    );
+                  })}
+                  {getAllScheduleRegistrations(selectedSchedule.id).length === 0 && (
+                    <div className="text-muted-foreground text-sm">No members registered</div>
+                  )}
                 </div>
               </div>
             </div>
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Member Registration Modal */}
+      <Dialog open={isRegistrationModalOpen} onOpenChange={setIsRegistrationModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Register Members to Course</DialogTitle>
+            <DialogDescription>
+              Select active members to register for {selectedSchedule?.class?.name} on {selectedSchedule?.scheduleDate ? formatDate(selectedSchedule.scheduleDate) : 'Unknown Date'}. 
+              Only eligible members (active, not registered, not checked in) are shown.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-hidden flex flex-col space-y-4">
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search members by name or email..."
+                value={memberSearchTerm}
+                onChange={(e) => setMemberSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+
+            {/* Selected count */}
+            {selectedMembers.length > 0 && (
+              <div className="flex items-center justify-between p-2 bg-primary/10 rounded">
+                <span className="text-sm font-medium">
+                  {selectedMembers.length} member(s) selected
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedMembers([])}
+                  className="h-6 px-2"
+                >
+                  <X className="w-3 h-3 mr-1" />
+                  Clear
+                </Button>
+              </div>
+            )}
+
+            {/* Members list */}
+            <div className="flex-1 overflow-y-auto space-y-2">
+              {filteredMembers.map((member: any) => (
+                <div
+                  key={member.id}
+                  className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                    selectedMembers.includes(member.id)
+                      ? 'bg-primary/10 border-primary'
+                      : 'bg-background border-border hover:bg-muted/50'
+                  }`}
+                  onClick={() => handleMemberToggle(member.id)}
+                >
+                  <Checkbox
+                    checked={selectedMembers.includes(member.id)}
+                    onChange={() => handleMemberToggle(member.id)}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium truncate">
+                      {member.firstName || member.first_name || ''} {member.lastName || member.last_name || ''}
+                    </div>
+                    <div className="text-sm text-muted-foreground truncate">
+                      {member.email}
+                    </div>
+                  </div>
+                  <Badge variant={member.status === 'active' ? 'default' : 'secondary'}>
+                    {member.status}
+                  </Badge>
+                </div>
+              ))}
+              {filteredMembers.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  {memberSearchTerm ? (
+                    'No eligible members found matching your search'
+                  ) : (
+                    <div className="space-y-2">
+                      <p>No eligible members available for registration</p>
+                      <p className="text-xs">Only active members who are not already registered or checked in are shown</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="flex items-center justify-between pt-4 border-t">
+            <div className="text-sm text-muted-foreground">
+              {selectedMembers.length} member(s) selected
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsRegistrationModalOpen(false);
+                  setSelectedMembers([]);
+                  setMemberSearchTerm('');
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleRegisterMembers}
+                disabled={selectedMembers.length === 0 || registerMembersMutation.isPending}
+              >
+                {registerMembersMutation.isPending ? 'Registering...' : `Register ${selectedMembers.length} Member(s)`}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

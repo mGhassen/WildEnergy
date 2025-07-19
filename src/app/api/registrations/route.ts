@@ -31,6 +31,12 @@ export async function GET(req: NextRequest) {
         .from('class_registrations')
         .select(`
           *,
+          member:users(
+            id,
+            first_name,
+            last_name,
+            email
+          ),
           course:courses(
             id,
             course_date,
@@ -51,6 +57,12 @@ export async function GET(req: NextRequest) {
         .from('class_registrations')
         .select(`
           *,
+          member:users(
+            id,
+            first_name,
+            last_name,
+            email
+          ),
           course:courses(
             id,
             course_date,
