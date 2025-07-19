@@ -119,6 +119,29 @@ export default function AdminCourses() {
     queryFn: () => apiRequest("GET", "/api/checkins"),
   });
 
+  // Fetch members
+  const { data: members = [] } = useQuery({
+    queryKey: ["/api/members"],
+    queryFn: () => apiRequest("GET", "/api/members"),
+  });
+  // Fetch subscriptions
+  const { data: subscriptions = [] } = useQuery({
+    queryKey: ["/api/subscriptions"],
+    queryFn: () => apiRequest("GET", "/api/subscriptions"),
+  });
+
+  // Filter members to only those with an active subscription
+  const activeMembers = members.filter((member: any) => {
+    const sub = subscriptions.find(
+      (s: any) =>
+        s.user_id === member.id &&
+        s.status === 'active' &&
+        new Date(s.end_date) > new Date() &&
+        s.sessions_remaining > 0
+    );
+    return !!sub;
+  });
+
   // Update course mutation
   const updateCourseMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: any }) => {
@@ -249,6 +272,7 @@ export default function AdminCourses() {
               course={selectedCourse}
               classes={classes || []}
               trainers={trainers || []}
+              activeMembers={activeMembers}
               onSubmit={handleUpdateCourse}
               onCancel={() => setIsEditModalOpen(false)}
             />
@@ -293,11 +317,12 @@ interface CourseEditFormProps {
   course: Course;
   classes: Class[];
   trainers: Trainer[];
+  activeMembers: any[]; // NEW
   onSubmit: (data: any) => void;
   onCancel: () => void;
 }
 
-function CourseEditForm({ course, classes, trainers, onSubmit, onCancel }: CourseEditFormProps) {
+function CourseEditForm({ course, classes, trainers, activeMembers, onSubmit, onCancel }: CourseEditFormProps) {
   const [formData, setFormData] = useState({
     class_id: course.classId,
     trainer_id: course.trainerId,
@@ -308,6 +333,7 @@ function CourseEditForm({ course, classes, trainers, onSubmit, onCancel }: Cours
     current_participants: course.currentParticipants,
     status: course.status,
     is_active: course.isActive,
+    member_id: "", // NEW
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -355,6 +381,26 @@ function CourseEditForm({ course, classes, trainers, onSubmit, onCancel }: Cours
             </SelectContent>
           </Select>
         </div>
+      </div>
+
+      {/* Member select for registration (only active members) */}
+      <div>
+        <Label htmlFor="member_id">Member (with active subscription)</Label>
+        <Select
+          value={formData.member_id?.toString() || ""}
+          onValueChange={(value) => setFormData({ ...formData, member_id: value })}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select member" />
+          </SelectTrigger>
+          <SelectContent>
+            {activeMembers.map((member: any) => (
+              <SelectItem key={member.id} value={member.id}>
+                {member.first_name || member.firstName} {member.last_name || member.lastName} ({member.email})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div>

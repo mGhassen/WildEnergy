@@ -12,6 +12,10 @@ import { formatDate, formatTime, formatLongDate, getDayName, getShortDayName } f
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { toast } from 'sonner';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
+import { MoreVertical } from 'lucide-react';
 
 interface Schedule {
   id: number;
@@ -142,6 +146,10 @@ export default function ScheduleCalendar({
   const [memberSearchTerm, setMemberSearchTerm] = useState('');
   const queryClient = useQueryClient();
 
+  // Add state for confirmation dialogs
+  const [confirmUnregisterId, setConfirmUnregisterId] = useState<string | number | null>(null);
+  const [confirmUnvalidateId, setConfirmUnvalidateId] = useState<string | number | null>(null);
+
   const getScheduleRegistrations = (scheduleId: number) => {
     // Get all registrations for this schedule
     const scheduleRegistrations = registrations.filter(reg => 
@@ -190,7 +198,76 @@ export default function ScheduleCalendar({
     queryFn: () => apiRequest("GET", "/api/members"),
   });
 
+  // Fetch subscriptions for all members
+  const { data: subscriptions = [] } = useQuery({
+    queryKey: ["/api/subscriptions"],
+    queryFn: () => apiRequest("GET", "/api/subscriptions"),
+  });
 
+  // Helper: does member have an active subscription?
+  function hasActiveSubscription(memberId: string | number) {
+    return subscriptions.some((sub: any) =>
+      sub.user_id === memberId &&
+      sub.status === 'active' &&
+      new Date(sub.end_date) > new Date() &&
+      sub.sessions_remaining > 0
+    );
+  }
+
+  // Get registered and checked-in member IDs for the current course
+  const getRegisteredMemberIds = (scheduleId: number) => {
+    const courseRegistrations = registrations.filter(reg => reg.course?.id === scheduleId);
+    const registeredIds = courseRegistrations.map(reg => reg.member?.id).filter(Boolean);
+    return registeredIds;
+  };
+
+  const getCheckedInMemberIds = (scheduleId: number) => {
+    const courseCheckins = checkins.filter(checkin => checkin.registration?.course?.id === scheduleId);
+    const checkedInIds = courseCheckins.map(checkin => checkin.member?.id).filter(Boolean);
+    return checkedInIds;
+  };
+
+  // Filter members based on search term, eligibility, and active subscription
+  const filteredMembers = members.filter((member: any) => {
+    // Only show active members
+    if (member.status !== 'active') {
+      return false;
+    }
+
+    // Must have at least one active subscription
+    if (!hasActiveSubscription(member.id)) {
+      return false;
+    }
+
+    // Skip if already registered for this course
+    if (selectedSchedule) {
+      const registeredIds = getRegisteredMemberIds(selectedSchedule.id);
+      const memberIdStr = String(member.id);
+      const isRegistered = registeredIds.some(id => String(id) === memberIdStr);
+      if (isRegistered) {
+        return false;
+      }
+    }
+
+    // Skip if already checked in for this course
+    if (selectedSchedule) {
+      const checkedInIds = getCheckedInMemberIds(selectedSchedule.id);
+      const memberIdStr = String(member.id);
+      const isCheckedIn = checkedInIds.some(id => String(id) === memberIdStr);
+      if (isCheckedIn) {
+        return false;
+      }
+    }
+
+    // Apply search filter
+    const searchLower = memberSearchTerm.toLowerCase();
+    const matchesSearch = (
+      member.firstName?.toLowerCase().includes(searchLower) ||
+      member.lastName?.toLowerCase().includes(searchLower) ||
+      member.email?.toLowerCase().includes(searchLower)
+    );
+    return matchesSearch;
+  });
 
   // Admin registration mutation
   const registerMembersMutation = useMutation({
@@ -271,55 +348,18 @@ export default function ScheduleCalendar({
     },
   });
 
-  // Get registered and checked-in member IDs for the current course
-  const getRegisteredMemberIds = (scheduleId: number) => {
-    const courseRegistrations = registrations.filter(reg => reg.course?.id === scheduleId);
-    const registeredIds = courseRegistrations.map(reg => reg.member?.id).filter(Boolean);
-    return registeredIds;
-  };
-
-  const getCheckedInMemberIds = (scheduleId: number) => {
-    const courseCheckins = checkins.filter(checkin => checkin.registration?.course?.id === scheduleId);
-    const checkedInIds = courseCheckins.map(checkin => checkin.member?.id).filter(Boolean);
-    return checkedInIds;
-  };
-
-  // Filter members based on search term and eligibility
-  const filteredMembers = members.filter((member: any) => {
-    // Only show active members
-    if (member.status !== 'active') {
-      return false;
-    }
-
-    // Skip if already registered for this course
-    if (selectedSchedule) {
-      const registeredIds = getRegisteredMemberIds(selectedSchedule.id);
-      const memberIdStr = String(member.id);
-      const isRegistered = registeredIds.some(id => String(id) === memberIdStr);
-      if (isRegistered) {
-        return false;
-      }
-    }
-
-    // Skip if already checked in for this course
-    if (selectedSchedule) {
-      const checkedInIds = getCheckedInMemberIds(selectedSchedule.id);
-      const memberIdStr = String(member.id);
-      const isCheckedIn = checkedInIds.some(id => String(id) === memberIdStr);
-      if (isCheckedIn) {
-        return false;
-      }
-    }
-
-    // Apply search filter
-    const searchLower = memberSearchTerm.toLowerCase();
-    const matchesSearch = (
-      member.firstName?.toLowerCase().includes(searchLower) ||
-      member.lastName?.toLowerCase().includes(searchLower) ||
-      member.email?.toLowerCase().includes(searchLower)
-    );
-    
-    return matchesSearch;
+  // Add unregister mutation
+  const unregisterMemberMutation = useMutation({
+    mutationFn: async (registrationId: number) => {
+      return await apiRequest('POST', `/api/registrations/${registrationId}/cancel`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/registrations"] });
+      toast.success('Member unregistered from course');
+    },
+    onError: (error: any) => {
+      toast.error(error?.message || 'Failed to unregister member');
+    },
   });
 
   const handleRegisterMembers = () => {
@@ -804,29 +844,28 @@ export default function ScheduleCalendar({
                             <Badge variant={isCheckedIn ? 'default' : 'secondary'} className={isCheckedIn ? 'bg-green-600' : ''}>
                               {isCheckedIn ? 'Checked In' : 'Registered'}
                             </Badge>
-                            {!isCheckedIn ? (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => validateCheckinMutation.mutate({ registrationId: registration.id })}
-                                disabled={validateCheckinMutation.isPending}
-                                className="h-7 px-2"
-                              >
-                                <Check className="w-3 h-3 mr-1" />
-                                {validateCheckinMutation.isPending ? 'Validating...' : 'Validate'}
-                              </Button>
-                            ) : (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => unvalidateCheckinMutation.mutate({ registrationId: registration.id })}
-                                disabled={unvalidateCheckinMutation.isPending}
-                                className="h-7 px-2 text-red-600 border-red-300 hover:bg-red-50"
-                              >
-                                <XCircle className="w-3 h-3 mr-1" />
-                                {unvalidateCheckinMutation.isPending ? 'Unvalidating...' : 'Unvalidate'}
-                              </Button>
-                            )}
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 p-0"><MoreVertical className="w-4 h-4" /></Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                {!isCheckedIn && (
+                                  <DropdownMenuItem onClick={() => validateCheckinMutation.mutate({ registrationId: registration.id })} disabled={validateCheckinMutation.isPending}>
+                                    <Check className="w-3 h-3 mr-2" /> Validate
+                                  </DropdownMenuItem>
+                                )}
+                                {!isCheckedIn && (
+                                  <DropdownMenuItem onClick={() => setConfirmUnregisterId(registration.id)}>
+                                    <X className="w-3 h-3 mr-2" /> Unregister
+                                  </DropdownMenuItem>
+                                )}
+                                {isCheckedIn && (
+                                  <DropdownMenuItem onClick={() => setConfirmUnvalidateId(registration.id)}>
+                                    <XCircle className="w-3 h-3 mr-2" /> Unvalidate
+                                  </DropdownMenuItem>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
                         </div>
                       );
@@ -847,8 +886,7 @@ export default function ScheduleCalendar({
           <DialogHeader>
             <DialogTitle>Register Members to Course</DialogTitle>
             <DialogDescription>
-              Select active members to register for {selectedSchedule?.class?.name} on {selectedSchedule?.scheduleDate ? formatDate(selectedSchedule.scheduleDate) : 'Unknown Date'}. 
-              Only eligible members (active, not registered, not checked in) are shown.
+              Select active members with at least an active subscription to register for {selectedSchedule?.class?.name} on {selectedSchedule?.scheduleDate ? formatDate(selectedSchedule.scheduleDate) : 'Unknown Date'}. Only eligible members (active, not registered, not checked in, with active subscription) are shown.
             </DialogDescription>
           </DialogHeader>
           
@@ -952,6 +990,56 @@ export default function ScheduleCalendar({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Unregister Confirmation Dialog */}
+      <AlertDialog open={!!confirmUnregisterId} onOpenChange={open => !open && setConfirmUnregisterId(null)}>
+        <AlertDialogTrigger asChild />
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unregister Member</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to unregister this member from the course? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setConfirmUnregisterId(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (confirmUnregisterId) unregisterMemberMutation.mutate(Number(confirmUnregisterId));
+                setConfirmUnregisterId(null);
+              }}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              Unregister
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Unvalidate Confirmation Dialog */}
+      <AlertDialog open={!!confirmUnvalidateId} onOpenChange={open => !open && setConfirmUnvalidateId(null)}>
+        <AlertDialogTrigger asChild />
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unvalidate Check-in</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to unvalidate this check-in? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setConfirmUnvalidateId(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (confirmUnvalidateId) unvalidateCheckinMutation.mutate({ registrationId: Number(confirmUnvalidateId) });
+                setConfirmUnvalidateId(null);
+              }}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              Unvalidate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
