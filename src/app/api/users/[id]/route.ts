@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
   }
   // Allow user to fetch their own info, or admin to fetch any
   if (user.id !== id) {
-    const { data: adminCheck } = await supabaseServer
+    const { data: adminCheck } = await supabaseServer()
       .from('users')
       .select('is_admin')
       .eq('auth_user_id', user.id)
@@ -33,15 +33,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
   }
-  const { data: userData, error } = await supabaseServer
+  const { data: userProfile, error: profileError } = await supabaseServer()
     .from('users')
     .select('*')
     .eq('id', id)
     .single();
-  if (error || !userData) {
+  if (profileError || !userProfile) {
     return NextResponse.json({ error: 'User not found' }, { status: 404 });
   }
-  return NextResponse.json(userData);
+  return NextResponse.json(userProfile);
 }
 
 export async function PUT(request: NextRequest) {
@@ -58,7 +58,7 @@ export async function PUT(request: NextRequest) {
   if (authError || !adminUser) {
     return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
   }
-  const { data: adminCheck } = await supabaseServer
+  const { data: adminCheck } = await supabaseServer()
     .from('users')
     .select('is_admin')
     .eq('auth_user_id', adminUser.id)
@@ -67,13 +67,13 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
   }
   const updates = await request.json();
-  const { data: updatedUser, error } = await supabaseServer
+  const { data: updatedUser, error: updateError } = await supabaseServer()
     .from('users')
     .update(updates)
     .eq('id', id)
     .select()
     .single();
-  if (error || !updatedUser) {
+  if (updateError || !updatedUser) {
     return NextResponse.json({ error: 'Failed to update user' }, { status: 500 });
   }
   return NextResponse.json(updatedUser);
@@ -95,7 +95,7 @@ export async function DELETE(request: NextRequest) {
   if (authError || !adminUser) {
     return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
   }
-  const { data: adminCheck } = await supabaseServer
+  const { data: adminCheck } = await supabaseServer()
     .from('users')
     .select('is_admin')
     .eq('auth_user_id', adminUser.id)
@@ -105,7 +105,7 @@ export async function DELETE(request: NextRequest) {
   }
   // First get the auth_user_id before deleting anything
   console.log('Looking up user with ID:', id);
-  const { data: userToDelete, error: userError } = await supabaseServer
+  const { data: userToDelete, error: userError } = await supabaseServer()
     .from('users')
     .select('auth_user_id')
     .eq('id', id)
@@ -135,13 +135,13 @@ export async function DELETE(request: NextRequest) {
 
   // Then delete from users table
   console.log('Deleting user from database with ID:', id);
-  const { error: dbError } = await supabaseServer
+  const { error: deleteError } = await supabaseServer()
     .from('users')
     .delete()
     .eq('id', id);
-  if (dbError) {
-    console.error('Database deletion error:', dbError);
-    return NextResponse.json({ error: dbError.message }, { status: 500 });
+  if (deleteError) {
+    console.error('Database deletion error:', deleteError);
+    return NextResponse.json({ error: deleteError.message }, { status: 500 });
   }
   console.log('Successfully deleted user from database');
   return NextResponse.json({ message: `User ${id} deleted` });

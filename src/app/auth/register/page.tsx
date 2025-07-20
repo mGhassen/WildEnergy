@@ -76,11 +76,12 @@ export default function RegisterPage() {
 
     try {
       const { supabase } = await import('@/lib/supabase');
-      if (!supabase) {
+      const client = supabase();
+      if (!client) {
         throw new Error('Supabase client not available');
       }
       const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}/auth/onhold` : undefined;
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { error } = await client.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo,

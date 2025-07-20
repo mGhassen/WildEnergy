@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Check if user exists in our database
-    const { data: userProfile, error: profileError } = await supabaseServer
+    const { data: userProfile, error: profileError } = await supabaseServer()
       .from('users')
       .select('*')
       .eq('auth_user_id', user.id)

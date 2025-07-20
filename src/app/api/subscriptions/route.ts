@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     console.log('Creating subscription with data:', subData);
     
     // Convert camelCase to snake_case for database
-    const dbData = {
+    const dbData: Record<string, any> = {
       user_id: subData.userId || subData.user_id,
       plan_id: subData.planId || subData.plan_id,
       start_date: subData.startDate || subData.start_date,

@@ -499,10 +499,10 @@ export default function AdminSubscriptions() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/subscriptions'] });
-      toast.success(`Successfully refunded ${data.sessionsRefunded} session(s)`);
+      toast({ title: `Successfully refunded ${data.sessionsRefunded} session(s)` });
     },
     onError: (error) => {
-      toast.error('Failed to refund sessions');
+      toast({ title: 'Failed to refund sessions', description: error?.message || '', variant: 'destructive' });
       console.error('Error refunding sessions:', error);
     },
   });

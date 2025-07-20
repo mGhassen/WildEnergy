@@ -3,7 +3,7 @@ import { supabaseServer } from '@/lib/supabase';
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: any }
 ) {
   try {
     const authHeader = req.headers.get('authorization');
@@ -18,7 +18,7 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
 
-    const { data: adminCheck } = await supabaseServer
+    const { data: adminCheck } = await supabaseServer()
       .from('users')
       .select('is_admin')
       .eq('auth_user_id', adminUser.id)
@@ -28,10 +28,10 @@ export async function POST(
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const userId = params.id;
+    const userId = context.params.id;
 
     // Get user email
-    const { data: user, error: userError } = await supabaseServer
+    const { data: user, error: userError } = await supabaseServer()
       .from('users')
       .select('email, auth_user_id')
       .eq('id', userId)
@@ -45,13 +45,11 @@ export async function POST(
       return NextResponse.json({ error: 'User has no auth account' }, { status: 400 });
     }
 
-    // Send password reset email
-    const { error: resetError } = await supabaseServer().auth.admin.resetPasswordForEmail(
-      user.email,
-      {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/reset-password`,
-      }
-    );
+    // Send password reset email using the client (anon key)
+    const { createSupabaseClient } = await import('@/lib/supabase');
+    const supabase = createSupabaseClient();
+    const redirectTo = `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/reset-password`;
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(user.email, { redirectTo });
 
     if (resetError) {
       return NextResponse.json({ 

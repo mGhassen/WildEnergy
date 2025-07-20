@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     console.log('Auth user created:', authData.user.id);
 
     // 2. Update the existing user profile to link with the auth user
-    const { error: updateError } = await supabaseServer
+    const { error: updateError } = await supabaseServer()
       .from('users')
       .update({ 
         auth_user_id: authData.user.id,

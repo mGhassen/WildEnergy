@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Create user profile
-    const { error: profileError } = await supabaseServer
+    const { error: profileError } = await supabaseServer()
       .from('users')
       .insert([
         {

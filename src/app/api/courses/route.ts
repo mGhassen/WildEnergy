@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-    const { data: adminCheck } = await supabaseServer
+    const { data: adminCheck } = await supabaseServer()
       .from('users')
       .select('is_admin')
       .eq('auth_user_id', adminUser.id)
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
     const courseData = await req.json();
-    const { data: course, error } = await supabaseServer
+    const { data: course, error } = await supabaseServer()
       .from('courses')
       .insert(courseData)
       .select('*')
