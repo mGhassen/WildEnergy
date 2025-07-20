@@ -12,12 +12,9 @@ async function getUserFromToken(token: string) {
   return userProfile;
 }
 
-export async function POST(
-  req: NextRequest,
-  context: { params: any }
-) {
+export async function POST(request: NextRequest, context: { params: any }) {
   try {
-    const authHeader = req.headers.get('authorization');
+    const authHeader = request.headers.get('authorization');
     const token = authHeader?.split(' ')[1];
     if (!token) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
@@ -33,7 +30,8 @@ export async function POST(
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const registrationId = parseInt(context.params.registrationId);
+    const params = await context.params;
+    const registrationId = parseInt(params.registrationId);
     if (!registrationId || isNaN(registrationId)) {
       return NextResponse.json({ error: 'Invalid registration ID' }, { status: 400 });
     }
