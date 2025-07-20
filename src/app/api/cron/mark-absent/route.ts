@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     // 1. Status is 'registered'
     // 2. Course has finished (past date OR today but end time has passed)
     // 3. No check-in record exists
-    const { data: registrationsToMarkAbsent, error: fetchError } = await supabaseServer
+    const { data: registrationsToMarkAbsent, error: fetchError } = await supabaseServer ()
       .from('class_registrations')
       .select(`
         id,
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
 
       if (isPastDate || isTodayButEnded) {
         // Check if there's no check-in for this registration
-        const { data: checkin, error: checkinError } = await supabaseServer
+        const { data: checkin, error: checkinError } = await supabaseServer ()
           .from('checkins')
           .select('id')
           .eq('registration_id', registration.id)
@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Update all registrations to 'absent' status
-    const { data: updatedRegistrations, error: updateError } = await supabaseServer
+    const { data: updatedRegistrations, error: updateError } = await supabaseServer ()
       .from('class_registrations')
       .update({ status: 'absent' })
       .in('id', registrationsToUpdate)

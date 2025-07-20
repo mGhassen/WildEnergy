@@ -7,7 +7,7 @@ function extractRegistrationIdFromUrl(request: NextRequest): string | null {
 }
 
 async function getUserFromToken(token: string) {
-  const { data: { user }, error } = await supabaseServer.auth.getUser(token);
+  const { data: { user }, error } = await supabaseServer().auth.getUser(token);
   if (error || !user) return null;
   const { data: userProfile } = await supabaseServer
     .from('users')

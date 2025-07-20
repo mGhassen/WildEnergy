@@ -9,12 +9,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
     // Verify user (member or admin)
-    const { data: { user }, error: authError } = await supabaseServer.auth.getUser(token);
+    const { data: { user }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !user) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
     // Fetch all trainers from trainers table, join users for names
-    const { data: trainers, error } = await supabaseServer
+    const { data: trainers, error } = await supabaseServer()
       .from('trainers')
       .select(`
         id,
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
     // Verify admin
-    const { data: { user: adminUser }, error: authError } = await supabaseServer.auth.getUser(token);
+    const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
     }
     // Create auth user with random password
     const password = Math.random().toString(36).slice(2) + Math.random().toString(36).toUpperCase().slice(2);
-    const { data: authUser, error: userError } = await supabaseServer.auth.admin.createUser({
+    const { data: authUser, error: userError } = await supabaseServer().auth.admin.createUser({
       email,
       password,
       user_metadata: {
@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
       .select('*')
       .single();
     if (userCreateError || !user) {
-      await supabaseServer.auth.admin.deleteUser(authUser.user.id).catch(() => {});
+      await supabaseServer().auth.admin.deleteUser(authUser.user.id).catch(() => {});
       return NextResponse.json({ error: userCreateError?.message || 'Failed to create user record' }, { status: 400 });
     }
     // Create trainer profile (optional, if you have a trainers table)
@@ -135,7 +135,7 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
     // Verify admin
-    const { data: { user: adminUser }, error: authError } = await supabaseServer.auth.getUser(token);
+    const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
@@ -243,7 +243,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
     // Verify admin
-    const { data: { user: adminUser }, error: authError } = await supabaseServer.auth.getUser(token);
+    const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }

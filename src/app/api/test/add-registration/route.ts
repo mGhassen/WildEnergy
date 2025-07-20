@@ -12,13 +12,13 @@ export async function POST(req: NextRequest) {
     const token = authHeader.substring(7);
     
     // Verify the token
-    const { data: { user: authUser }, error: authError } = await supabaseServer.auth.getUser(token);
+    const { data: { user: authUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !authUser) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
     // Check if the user is an admin
-    const { data: profile } = await supabaseServer
+    const { data: profile } = await supabaseServer()
       .from('users')
       .select('is_admin')
       .eq('auth_user_id', authUser.id)
@@ -29,12 +29,12 @@ export async function POST(req: NextRequest) {
     }
 
     // First, let's check what users and courses exist
-    const { data: users } = await supabaseServer
+    const { data: users } = await supabaseServer()
       .from('users')
       .select('id, first_name, last_name, email')
       .limit(5);
 
-    const { data: courses } = await supabaseServer
+    const { data: courses } = await supabaseServer()
       .from('courses')
       .select('id, course_date, start_time, end_time, class_id')
       .limit(5);

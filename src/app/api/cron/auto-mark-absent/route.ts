@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     console.log(`[AUTO-CRON] Checking for finished courses at ${currentDate} ${currentTime}`);
 
     // Use the database function to mark absent registrations
-    const { data, error } = await supabaseServer.rpc('check_finished_courses');
+    const { data, error } = await supabaseServer().rpc('check_finished_courses');
 
     if (error) {
       console.error('[AUTO-CRON] Error calling check_finished_courses:', error);

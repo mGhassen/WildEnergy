@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     console.log(`[TEST] Testing auto mark-absent for date: ${currentDate}, time: ${currentTime}`);
 
     // First, let's see what registrations would be affected
-    const { data: registrationsToCheck, error: fetchError } = await supabaseServer
+    const { data: registrationsToCheck, error: fetchError } = await supabaseServer()
       .from('class_registrations')
       .select(`
         id,
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
 
       if (isPastDate || isTodayButEnded) {
         // Check if there's no check-in for this registration
-        const { data: checkin, error: checkinError } = await supabaseServer
+        const { data: checkin, error: checkinError } = await supabaseServer()
           .from('checkins')
           .select('id')
           .eq('registration_id', registration.id)
@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
 
     // Update registrations to 'absent' status
     const registrationIds = registrationsToUpdate.map(r => r.id);
-    const { data: updatedRegistrations, error: updateError } = await supabaseServer
+    const { data: updatedRegistrations, error: updateError } = await supabaseServer()
       .from('class_registrations')
       .update({ status: 'absent' })
       .in('id', registrationIds)

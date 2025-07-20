@@ -92,6 +92,16 @@ export default function Login() {
                 placeholder="Enter your password"
                 required
               />
+              <div className="text-right">
+                <Button
+                  variant="link"
+                  className="p-0 h-auto text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() => router.push('/auth/forgot-password')}
+                  type="button"
+                >
+                  Forgot your password?
+                </Button>
+              </div>
             </div>
             <Button type="submit" className="w-full" disabled={isLoggingIn}>
               {isLoggingIn ? "Signing in..." : "Sign In"}

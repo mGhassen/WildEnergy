@@ -8,22 +8,30 @@ export async function GET(req: NextRequest) {
     if (!token) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
-    // Verify user (member or admin)
-    const { data: { user }, error: authError } = await supabaseServer.auth.getUser(token);
-    if (authError || !user) {
+    // Verify admin
+    const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
+    if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-    const { data: users, error } = await supabaseServer
+    const { data: adminCheck } = await supabaseServer()
+      .from('users')
+      .select('is_admin')
+      .eq('auth_user_id', adminUser.id)
+      .single();
+    if (!adminCheck?.is_admin) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
+    // Get all users
+    const { data: users, error } = await supabaseServer()
       .from('users')
       .select('*')
       .order('created_at', { ascending: false });
     if (error) {
-      return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
-    const usersWithCredit = (users || []).map((u: Record<string, unknown>) => ({ ...u, credit: u.credit ?? 0 }));
-    return NextResponse.json(usersWithCredit);
-  } catch {
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(users);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
@@ -35,11 +43,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
     // Verify admin
-    const { data: { user: adminUser }, error: authError } = await supabaseServer.auth.getUser(token);
+    const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-    const { data: adminCheck } = await supabaseServer
+    const { data: adminCheck } = await supabaseServer()
       .from('users')
       .select('is_admin')
       .eq('auth_user_id', adminUser.id)
@@ -50,22 +58,27 @@ export async function POST(req: NextRequest) {
     const { email, password, firstName, lastName, role } = await req.json();
     let authUserId;
     if (!password) {
-      // Use Supabase invite flow
-      const { data: inviteData, error: inviteError } = await supabaseServer.auth.admin.inviteUserByEmail(email);
+      // Use Supabase invite flow with callback
+      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+      const callbackUrl = `${baseUrl}/auth/callback`;
+      
+      const { data: inviteData, error: inviteError } = await supabaseServer().auth.admin.inviteUserByEmail(email, {
+        redirectTo: callbackUrl,
+      });
       if (inviteError || !inviteData?.user) {
         return NextResponse.json({ error: inviteError?.message || 'Failed to invite user' }, { status: 400 });
       }
       authUserId = inviteData.user.id;
     } else {
       // Create auth user with password
-      const { data: authData, error: signUpError } = await supabaseServer.auth.signUp({ email, password });
+      const { data: authData, error: signUpError } = await supabaseServer().auth.signUp({ email, password });
       if (signUpError || !authData.user) {
         return NextResponse.json({ error: signUpError?.message || 'Failed to create user' }, { status: 400 });
       }
       authUserId = authData.user.id;
     }
     // Create user profile
-    const { data: user, error: userError } = await supabaseServer
+    const { data: user, error: userError } = await supabaseServer()
       .from('users')
       .insert([{
         auth_user_id: authUserId,
@@ -94,11 +107,11 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
     // Verify admin
-    const { data: { user: adminUser }, error: authError } = await supabaseServer.auth.getUser(token);
+    const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-    const { data: adminCheck } = await supabaseServer
+    const { data: adminCheck } = await supabaseServer()
       .from('users')
       .select('is_admin')
       .eq('auth_user_id', adminUser.id)
@@ -118,7 +131,7 @@ export async function PUT(req: NextRequest) {
     if (isMember !== undefined) updates.is_member = isMember;
     if (isTrainer !== undefined) updates.is_trainer = isTrainer;
     if (status !== undefined) updates.status = status;
-    const { data: user, error } = await supabaseServer
+    const { data: user, error } = await supabaseServer()
       .from('users')
       .update(updates)
       .eq('id', id)
@@ -141,11 +154,11 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
     // Verify admin
-    const { data: { user: adminUser }, error: authError } = await supabaseServer.auth.getUser(token);
+    const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-    const { data: adminCheck } = await supabaseServer
+    const { data: adminCheck } = await supabaseServer()
       .from('users')
       .select('is_admin')
       .eq('auth_user_id', adminUser.id)
@@ -155,7 +168,7 @@ export async function DELETE(req: NextRequest) {
     }
     const { id } = await req.json();
     // Get user to delete
-    const { data: userToDelete, error: userError } = await supabaseServer
+    const { data: userToDelete, error: userError } = await supabaseServer()
       .from('users')
       .select('auth_user_id')
       .eq('id', id)
@@ -163,11 +176,11 @@ export async function DELETE(req: NextRequest) {
     if (userError) throw userError;
     // First delete from auth
     if (userToDelete?.auth_user_id) {
-      const { error: deleteAuthError } = await supabaseServer.auth.admin.deleteUser(userToDelete.auth_user_id);
+      const { error: deleteAuthError } = await supabaseServer().auth.admin.deleteUser(userToDelete.auth_user_id);
       if (deleteAuthError) throw deleteAuthError;
     }
     // Then delete from users table
-    const { error: deleteError } = await supabaseServer
+    const { error: deleteError } = await supabaseServer()
       .from('users')
       .delete()
       .eq('id', id);

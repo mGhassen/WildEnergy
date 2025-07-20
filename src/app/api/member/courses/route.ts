@@ -10,13 +10,13 @@ export async function GET(req: NextRequest) {
     }
 
     // Verify user (member)
-    const { data: { user }, error: authError } = await supabaseServer.auth.getUser(token);
+    const { data: { user }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !user) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
 
     // Verify user is a member (not admin)
-    const { data: userData } = await supabaseServer
+    const { data: userData } = await supabaseServer()
       .from('users')
       .select('is_admin')
       .eq('auth_user_id', user.id)
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
     const todayString = today.toISOString().split('T')[0]; // YYYY-MM-DD format
 
     // Fetch courses following the same structure as admin but with member filtering
-    const { data: courses, error } = await supabaseServer
+    const { data: courses, error } = await supabaseServer()
       .from('courses')
       .select(`
         *,

@@ -10,7 +10,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     // Verify admin
-    const { data: { user: adminUser }, error: authError } = await supabaseServer.auth.getUser(token);
+    const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
@@ -68,7 +68,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     }
 
     // Verify admin
-    const { data: { user: adminUser }, error: authError } = await supabaseServer.auth.getUser(token);
+    const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }

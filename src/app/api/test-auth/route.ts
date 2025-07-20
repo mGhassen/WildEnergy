@@ -7,7 +7,7 @@ export async function GET(req: NextRequest) {
     console.log('Testing Supabase Auth admin access...');
     
     // Test 1: Check if service role key is working
-    const { data: { users }, error: listError } = await supabaseServer.auth.admin.listUsers();
+    const { data: { users }, error: listError } = await supabaseServer().auth.admin.listUsers();
     
     if (listError) {
       console.error('Failed to list users:', listError);
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
       const testUser = users[0];
       console.log('Testing with user:', testUser.id);
       
-      const { data: { user }, error: getUserError } = await supabaseServer.auth.admin.getUserById(testUser.id);
+      const { data: { user }, error: getUserError } = await supabaseServer().auth.admin.getUserById(testUser.id);
       
       if (getUserError) {
         console.error('Failed to get user by ID:', getUserError);

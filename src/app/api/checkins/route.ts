@@ -10,13 +10,13 @@ export async function GET(req: NextRequest) {
     }
     const token = authHeader.substring(7);
     // Verify the token
-    const { data: { user }, error: authError } = await supabaseServer.auth.getUser(token);
+    const { data: { user }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !user) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
     // Check if the user is an admin
-    const { data: profile } = await supabaseServer
+    const { data: profile } = await supabaseServer()
       .from('users')
       .select('is_admin')
       .eq('auth_user_id', user.id)
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
     const date = searchParams.get('date');
 
     // Build the query
-    let query = supabaseServer
+    let query = supabaseServer()
       .from('checkins')
       .select(`
         *,
@@ -149,13 +149,13 @@ export async function POST(req: NextRequest) {
     const token = authHeader.substring(7);
     
     // Verify the token
-    const { data: { user: authUser }, error: authError } = await supabaseServer.auth.getUser(token);
+    const { data: { user: authUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !authUser) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
     // Check if the user is an admin
-    const { data: profile } = await supabaseServer
+    const { data: profile } = await supabaseServer()
       .from('users')
       .select('is_admin')
       .eq('auth_user_id', authUser.id)
@@ -178,7 +178,7 @@ export async function POST(req: NextRequest) {
     console.log('Processing QR code check-in:', qr_code);
 
     // Get registration by QR code
-    const { data: registration, error: regError } = await supabaseServer
+    const { data: registration, error: regError } = await supabaseServer()
       .from('class_registrations')
       .select('*')
       .eq('qr_code', qr_code)
@@ -192,7 +192,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Check if already checked in
-    const { data: existingCheckins } = await supabaseServer
+    const { data: existingCheckins } = await supabaseServer()
       .from('checkins')
       .select('*')
       .eq('registration_id', registration.id);
@@ -205,7 +205,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Get user and course details
-    const { data: memberUser } = await supabaseServer
+    const { data: memberUser } = await supabaseServer()
       .from('users')
       .select('*')
       .eq('id', registration.user_id)
@@ -218,7 +218,7 @@ export async function POST(req: NextRequest) {
       }, { status: 404 });
     }
 
-    const { data: course } = await supabaseServer
+    const { data: course } = await supabaseServer()
       .from('courses')
       .select('*')
       .eq('id', registration.course_id)
@@ -240,7 +240,7 @@ export async function POST(req: NextRequest) {
       checkin_time: new Date().toISOString()
     };
 
-    const { data: checkin, error: checkinError } = await supabaseServer
+    const { data: checkin, error: checkinError } = await supabaseServer()
       .from('checkins')
       .insert(checkinData)
       .select()
@@ -254,7 +254,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Update registration status to attended
-    const { error: updateError } = await supabaseServer
+    const { error: updateError } = await supabaseServer()
       .from('class_registrations')
       .update({ 
         status: 'attended',
