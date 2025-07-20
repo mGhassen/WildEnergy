@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,6 +64,7 @@ const getStatusColor = (status: string) => {
     }
 };
 
+// Add confirmed status to User interface
 interface User {
   id: string;
   firstName: string;
@@ -77,6 +78,7 @@ interface User {
   isMember: boolean;
   isTrainer: boolean;
   createdAt?: string;
+  confirmedAt?: string | null; // Add this field
 }
 
 export default function UsersPage() {
@@ -125,6 +127,32 @@ export default function UsersPage() {
             createdAt: u.createdAt || u.created_at,
         })) as User[]
         : [];
+
+    // After fetching users, fetch confirmation status for each user
+    useEffect(() => {
+      async function fetchConfirmedStatus() {
+        if (!Array.isArray(mappedUsers) || mappedUsers.length === 0) return;
+        // Only fetch for users without confirmedAt
+        const usersToFetch = mappedUsers.filter(u => u.email && u.confirmedAt === undefined);
+        if (usersToFetch.length === 0) return;
+        // Call backend API to get confirmedAt for each user
+        const results = await Promise.all(usersToFetch.map(async (user) => {
+          try {
+            const res = await apiRequest("POST", "/api/users/get-confirmed-at", { email: user.email });
+            return { id: user.id, confirmedAt: res.confirmedAt };
+          } catch {
+            return { id: user.id, confirmedAt: null };
+          }
+        }));
+        // Update usersMapped with confirmedAt
+        results.forEach(({ id, confirmedAt }) => {
+          const idx = mappedUsers.findIndex(u => u.id === id);
+          if (idx !== -1) mappedUsers[idx].confirmedAt = confirmedAt;
+        });
+      }
+      fetchConfirmedStatus();
+      // eslint-disable-next-line
+    }, [users]);
 
     // Filter users
     const filteredUsers = Array.isArray(mappedUsers) ? mappedUsers.filter((user: User) =>
@@ -175,12 +203,8 @@ export default function UsersPage() {
     // Create user mutation
     const createUserMutation = useMutation({
         mutationFn: async (data: CreateUserForm) => {
-            // Remove password if empty or falsy
-            const payload = { ...data };
-            if (!payload.password) {
-                delete payload.password;
-            }
-            return await apiRequest("POST", "/api/users", payload);
+            // No password field anymore, so just send the data as is
+            return await apiRequest("POST", "/api/users", data);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["/api/users"] });
@@ -620,10 +644,16 @@ export default function UsersPage() {
                                                         <Key className="w-4 h-4 mr-2" />
                                                         Reset Password
                                                     </DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => quickActionMutation.mutate({ id: user.id, action: 'resend-invitation' })}>
-                                                        <Mail className="w-4 h-4 mr-2" />
-                                                        Resend Invitation
-                                                    </DropdownMenuItem>
+                                                    {user.confirmedAt
+                                                      ? <DropdownMenuItem disabled title="User already confirmed. Use Reset Password instead.">
+                                                          <Mail className="w-4 h-4 mr-2" />
+                                                          Resend Invitation
+                                                        </DropdownMenuItem>
+                                                      : <DropdownMenuItem onClick={() => quickActionMutation.mutate({ id: user.id, action: 'resend-invitation' })}>
+                                                          <Mail className="w-4 h-4 mr-2" />
+                                                          Resend Invitation
+                                                        </DropdownMenuItem>
+                                                    }
                                                     {user.status !== 'inactive' && (
                                                         <DropdownMenuItem onClick={() => quickActionMutation.mutate({ id: user.id, action: 'archive' })}>
                                                             <Archive className="w-4 h-4 mr-2" />

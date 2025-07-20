@@ -28,7 +28,8 @@ export async function POST(
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const userId = context.params.id;
+    const params = await context.params;
+    const userId = params.id;
 
     // Get user email
     const { data: user, error: userError } = await supabaseServer()
@@ -45,6 +46,14 @@ export async function POST(
       return NextResponse.json({ error: 'User has no auth account' }, { status: 400 });
     }
 
+    // Check if user is already confirmed in Supabase Auth
+    const { data: authUser, error: authUserError } = await supabaseServer().auth.admin.getUserById(user.auth_user_id);
+    if (authUserError || !authUser) {
+      return NextResponse.json({ error: 'User not found in Supabase Auth', details: authUserError?.message }, { status: 404 });
+    }
+    if (authUser.user?.confirmed_at) {
+      return NextResponse.json({ error: 'User is already confirmed. Cannot resend invitation.' }, { status: 400 });
+    }
     // Resend invitation email
     const { error: inviteError } = await supabaseServer().auth.admin.inviteUserByEmail(
       user.email,
@@ -54,9 +63,11 @@ export async function POST(
     );
 
     if (inviteError) {
+      console.error('Supabase inviteUserByEmail error:', inviteError);
       return NextResponse.json({ 
         error: 'Failed to send invitation email',
-        details: inviteError.message 
+        details: inviteError.message,
+        fullError: inviteError
       }, { status: 500 });
     }
 
