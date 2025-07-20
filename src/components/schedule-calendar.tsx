@@ -846,54 +846,49 @@ export default function ScheduleCalendar({
                 <div className="space-y-2 max-h-64 overflow-y-auto">
                   {getAllScheduleRegistrations(selectedSchedule.id).map((registration) => {
                     // Check if this registration has been checked in
-                    const isCheckedIn = checkins.some(checkin => 
-                      checkin.registration?.id === registration.id
-                    );
-                    
-                                          return (
-                        <div key={registration.id} className={`flex items-center justify-between p-2 rounded ${
-                          isCheckedIn ? 'bg-green-50 border border-green-200' : 'bg-muted'
-                        }`}>
-                          <div>
-                            <div className="font-medium">
-                              {registration.member?.first_name || registration.member?.firstName || 'Unknown'} {registration.member?.last_name || registration.member?.lastName || ''}
-                            </div>
-                            <div className="text-xs text-muted-foreground">{registration.member?.email || 'No email'}</div>
-                            {isCheckedIn && (
-                              <div className="text-xs text-green-600">
-                                Checked in at {formatTime(checkins.find(c => c.registration?.id === registration.id)?.checkinTime || '')}
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant={isCheckedIn ? 'default' : 'secondary'} className={isCheckedIn ? 'bg-green-600' : ''}>
-                              {isCheckedIn ? 'Checked In' : 'Registered'}
-                            </Badge>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-7 w-7 p-0"><MoreVertical className="w-4 h-4" /></Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                {!isCheckedIn && (
-                                  <DropdownMenuItem onClick={() => validateCheckinMutation.mutate({ registrationId: registration.id })} disabled={validateCheckinMutation.isPending}>
-                                    <Check className="w-3 h-3 mr-2" /> Validate
-                                  </DropdownMenuItem>
-                                )}
-                                {!isCheckedIn && (
-                                  <DropdownMenuItem onClick={() => handleUnregisterClick(registration.id)}>
-                                    <X className="w-3 h-3 mr-2" /> Unregister
-                                  </DropdownMenuItem>
-                                )}
-                                {isCheckedIn && (
-                                  <DropdownMenuItem onClick={() => setConfirmUnvalidateId(registration.id)}>
-                                    <XCircle className="w-3 h-3 mr-2" /> Unvalidate
-                                  </DropdownMenuItem>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
+                    const checkin = checkins.find(c => c.registration?.id === registration.id);
+                    const isCheckedIn = !!checkin;
+                    const memberName = `${registration.member?.first_name || registration.member?.firstName || ''} ${registration.member?.last_name || registration.member?.lastName || ''}`.trim();
+                    const memberEmail = registration.member?.email || 'No email';
+                    const checkinTime = checkin ? formatTime(checkin.checkinTime) : '';
+                    return (
+                      <div key={registration.id} className={`flex items-center justify-between p-2 rounded ${isCheckedIn ? 'bg-green-50 border border-green-200' : 'bg-muted'}`}>
+                        <div>
+                          <div className="font-medium">{memberName || 'Unknown'}</div>
+                          <div className="text-xs text-muted-foreground">{memberEmail}</div>
+                          {isCheckedIn && (
+                            <div className="text-xs text-green-600">Checked in at {checkinTime}</div>
+                          )}
                         </div>
-                      );
+                        <div className="flex items-center gap-2">
+                          <Badge variant={isCheckedIn ? 'default' : 'secondary'} className={isCheckedIn ? 'bg-green-600' : ''}>
+                            {isCheckedIn ? 'Checked In' : 'Registered'}
+                          </Badge>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 p-0"><MoreVertical className="w-4 h-4" /></Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {!isCheckedIn && (
+                                <DropdownMenuItem onClick={() => validateCheckinMutation.mutate({ registrationId: registration.id })} disabled={validateCheckinMutation.isPending}>
+                                  <Check className="w-3 h-3 mr-2" /> Validate
+                                </DropdownMenuItem>
+                              )}
+                              {!isCheckedIn && (
+                                <DropdownMenuItem onClick={() => handleUnregisterClick(registration.id)}>
+                                  <X className="w-3 h-3 mr-2" /> Unregister
+                                </DropdownMenuItem>
+                              )}
+                              {isCheckedIn && (
+                                <DropdownMenuItem onClick={() => setConfirmUnvalidateId(registration.id)}>
+                                  <XCircle className="w-3 h-3 mr-2" /> Unvalidate
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+                    );
                   })}
                   {getAllScheduleRegistrations(selectedSchedule.id).length === 0 && (
                     <div className="text-muted-foreground text-sm">No members registered</div>
