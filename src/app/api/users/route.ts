@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
     if (!adminCheck?.is_admin) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
-    const { email, password, firstName, lastName, role } = await req.json();
+    const { email, password, firstName, lastName, isAdmin, isMember, isTrainer } = await req.json();
     let authUserId;
     if (!password) {
       // Use Supabase invite flow with correct redirect
@@ -84,7 +84,9 @@ export async function POST(req: NextRequest) {
         email,
         first_name: firstName,
         last_name: lastName,
-        is_admin: role === 'admin',
+        is_admin: !!isAdmin,
+        is_member: !!isMember,
+        is_trainer: !!isTrainer,
         status: 'active',
       }])
       .select()
