@@ -27,10 +27,7 @@ const createUserSchema = z.object({
     email: z.string().email("Please enter a valid email"),
     firstName: z.string().min(1, "First name is required"),
     lastName: z.string().min(1, "Last name is required"),
-    password: z.string()
-      .min(8, "Password must be at least 8 characters")
-      .optional()
-      .or(z.literal('')),
+    // Removed password field
     isAdmin: z.boolean().optional(),
     isMember: z.boolean().optional(),
     isTrainer: z.boolean().optional(),
@@ -88,6 +85,8 @@ export default function UsersPage() {
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [viewingUser, setViewingUser] = useState<User | null>(null);
     const [deletingUser, setDeletingUser] = useState<User | null>(null);
+    const [settingPasswordUser, setSettingPasswordUser] = useState<User | null>(null);
+    const [setPasswordValue, setSetPasswordValue] = useState("");
     const queryClient = useQueryClient();
     const { toast } = useToast();
 
@@ -149,7 +148,7 @@ export default function UsersPage() {
             email: "",
             firstName: "",
             lastName: "",
-            password: "",
+            // Removed password default
             isAdmin: false,
             isMember: true,
             isTrainer: false,
@@ -331,6 +330,15 @@ export default function UsersPage() {
         openViewDialog(user);
     };
 
+    function generatePassword(length = 12) {
+        const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=";
+        let password = "";
+        for (let i = 0; i < length; i++) {
+            password += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return password;
+    }
+
     if (isLoading) {
         return (
             <div className="space-y-6">
@@ -380,28 +388,7 @@ export default function UsersPage() {
                                         </FormItem>
                                     )}
                                 />
-                                <FormField
-                                    control={createForm.control}
-                                    name="password"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Password (Optional)</FormLabel>
-                                            <FormControl>
-                                                <Input 
-                                                    type="password" 
-                                                    placeholder="Leave empty to send an invitation email" 
-                                                    autoComplete="new-password"
-                                                    {...field} 
-                                                    value={field.value || ''}
-                                                />
-                                            </FormControl>
-                                            <FormMessage />
-                                            <FormDescription className="text-xs text-muted-foreground">
-                                                Leave empty to send an invitation email with a password reset link
-                                            </FormDescription>
-                                        </FormItem>
-                                    )}
-                                />
+                                {/* Removed password field from dialog */}
                                 <FormField
                                     control={createForm.control}
                                     name="firstName"
@@ -409,7 +396,7 @@ export default function UsersPage() {
                                         <FormItem>
                                             <FormLabel>First Name</FormLabel>
                                             <FormControl>
-                                                <Input placeholder="John" {...field} />
+                                                <Input placeholder="First Name" {...field} />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -422,7 +409,7 @@ export default function UsersPage() {
                                         <FormItem>
                                             <FormLabel>Last Name</FormLabel>
                                             <FormControl>
-                                                <Input placeholder="Doe" {...field} />
+                                                <Input placeholder="Last Name" {...field} />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -481,14 +468,12 @@ export default function UsersPage() {
                                         )}
                                     />
                                 </div>
-                                <DialogFooter>
+                                <div className="flex justify-end gap-2">
                                     <Button type="button" variant="outline" onClick={() => setShowCreateDialog(false)}>
                                         Cancel
                                     </Button>
-                                    <Button type="submit" disabled={createUserMutation.isPending}>
-                                        {createUserMutation.isPending ? "Creating..." : "Create User"}
-                                    </Button>
-                                </DialogFooter>
+                                    <Button type="submit">Create User</Button>
+                                </div>
                             </form>
                         </Form>
                     </DialogContent>
@@ -626,6 +611,10 @@ export default function UsersPage() {
                                                     <DropdownMenuItem onClick={() => openEditDialog(user)}>
                                                         <Edit className="w-4 h-4 mr-2" />
                                                         Edit
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => setSettingPasswordUser(user)}>
+                                                        <Key className="w-4 h-4 mr-2" />
+                                                        Set Password
                                                     </DropdownMenuItem>
                                                     <DropdownMenuItem onClick={() => quickActionMutation.mutate({ id: user.id, action: 'reset-password' })}>
                                                         <Key className="w-4 h-4 mr-2" />
@@ -1037,6 +1026,50 @@ export default function UsersPage() {
                             </div>
                         </div>
                     )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Set Password Dialog */}
+            <Dialog open={!!settingPasswordUser} onOpenChange={() => { setSettingPasswordUser(null); setSetPasswordValue(""); }}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Set Password</DialogTitle>
+                        <DialogDescription>
+                            Set a new password for {settingPasswordUser?.firstName} {settingPasswordUser?.lastName}. You can enter a password or generate a strong one.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-2">
+                            <Input
+                                type="text"
+                                placeholder="Enter new password"
+                                value={setPasswordValue}
+                                onChange={e => setSetPasswordValue(e.target.value)}
+                                autoFocus
+                            />
+                            <Button type="button" variant="outline" onClick={() => setSetPasswordValue(generatePassword())}>
+                                Generate
+                            </Button>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => { setSettingPasswordUser(null); setSetPasswordValue(""); }}>
+                            Cancel
+                        </Button>
+                        <Button type="button" disabled={!setPasswordValue} onClick={async () => {
+    if (!settingPasswordUser) return;
+    try {
+        await apiRequest("POST", `/api/users/${settingPasswordUser.id}/set-password`, { password: setPasswordValue });
+        toast({ title: "Password set successfully", description: `Password updated for ${settingPasswordUser.firstName} ${settingPasswordUser.lastName}.` });
+        setSettingPasswordUser(null);
+        setSetPasswordValue("");
+    } catch (error: any) {
+        toast({ title: "Failed to set password", description: error.message || "An error occurred.", variant: "destructive" });
+    }
+}}>
+                            Set Password
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
 
