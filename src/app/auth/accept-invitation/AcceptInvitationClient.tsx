@@ -24,14 +24,34 @@ export default function AcceptInvitationClient({ searchParams }: { searchParams:
   const [submitCount, setSubmitCount] = useState(0);
   const [cooldownEndTime, setCooldownEndTime] = useState<number | null>(null);
   const [timeRemaining, setTimeRemaining] = useState(0);
+  const [tokens, setTokens] = useState<{ access_token?: string; refresh_token?: string }>({});
 
   useEffect(() => {
-    // Get email from searchParams if available
+    // Get email from searchParams if available (for display only)
     const emailRaw = searchParams.email;
     const email = Array.isArray(emailRaw) ? emailRaw[0] : emailRaw;
     if (email) {
       setUserEmail(email);
     }
+    // Extract tokens from URL hash (preferred for Supabase invite flow)
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash;
+      if (hash && hash.includes('access_token')) {
+        const params = new URLSearchParams(hash.replace(/^#/, ''));
+        setTokens({
+          access_token: params.get('access_token') || undefined,
+          refresh_token: params.get('refresh_token') || undefined,
+        });
+        return;
+      }
+    }
+    // Fallback: try to get tokens from searchParams (legacy/edge case)
+    const accessTokenRaw = searchParams.access_token;
+    const refreshTokenRaw = searchParams.refresh_token;
+    setTokens({
+      access_token: Array.isArray(accessTokenRaw) ? accessTokenRaw[0] : accessTokenRaw,
+      refresh_token: Array.isArray(refreshTokenRaw) ? refreshTokenRaw[0] : refreshTokenRaw,
+    });
   }, [searchParams]);
 
   // Check if user is in cooldown
@@ -90,12 +110,9 @@ export default function AcceptInvitationClient({ searchParams }: { searchParams:
     }
 
     try {
-      // Get the access token from searchParams (Supabase sends this in the invitation link)
-      const accessTokenRaw = searchParams.access_token;
-      const refreshTokenRaw = searchParams.refresh_token;
-      const accessToken = Array.isArray(accessTokenRaw) ? accessTokenRaw[0] : accessTokenRaw;
-      const refreshToken = Array.isArray(refreshTokenRaw) ? refreshTokenRaw[0] : refreshTokenRaw;
-      
+      // Always use tokens from URL hash (preferred) or fallback
+      const accessToken = tokens.access_token;
+      const refreshToken = tokens.refresh_token;
       if (!accessToken) {
         throw new Error('Invalid invitation link. Please request a new invitation.');
       }
@@ -136,14 +153,44 @@ export default function AcceptInvitationClient({ searchParams }: { searchParams:
         description: "You will be automatically logged in...",
       });
 
-      // Automatically log in the user after setting password
+      // After password is set, log in directly using the login API and store tokens
       setTimeout(async () => {
         try {
-          await login(email || '', password);
-          // The useAuth hook will handle redirection
+          const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ email, password }),
+            credentials: 'include',
+          });
+          const data = await response.json();
+          if (!response.ok || !data.success || !data.session?.access_token) {
+            throw new Error(data.error || 'Login failed');
+          }
+          // Store tokens
+          localStorage.setItem('access_token', data.session.access_token);
+          if (data.session.refresh_token) {
+            localStorage.setItem('refresh_token', data.session.refresh_token);
+          }
+          if (typeof window !== 'undefined') {
+            window.__authToken = data.session.access_token;
+          }
+          // Fetch session to get user role
+          const sessionRes = await fetch('/api/auth/session', {
+            headers: { 'Authorization': `Bearer ${data.session.access_token}` },
+            credentials: 'include',
+          });
+          const sessionJson = await sessionRes.json();
+          if (sessionJson.success && sessionJson.user) {
+            if (sessionJson.user.isAdmin) {
+              window.location.href = '/admin';
+            } else {
+              window.location.href = '/member/home';
+            }
+          } else {
+            window.location.href = '/';
+          }
         } catch (loginError) {
           console.error('Auto-login failed:', loginError);
-          // Redirect to login page if auto-login fails
           router.push('/auth/login?message=password-set-success');
         }
       }, 2000);
@@ -172,115 +219,111 @@ export default function AcceptInvitationClient({ searchParams }: { searchParams:
 
   if (success) {
     return (
-      <div className="container mx-auto p-6 max-w-md">
-        <Card>
-          <CardHeader className="text-center">
-            <div className="mx-auto mb-4 w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-              <CheckCircle className="w-6 h-6 text-green-600" />
-            </div>
-            <CardTitle>Welcome to Wild Energy!</CardTitle>
-            <CardDescription>
-              Your account has been successfully activated
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="text-center">
-            <div className="flex items-center justify-center">
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              <span>Logging you in...</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <>
+        <CardHeader className="text-center">
+          <div className="mx-auto mb-4 w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+            <CheckCircle className="w-6 h-6 text-green-600" />
+          </div>
+          <CardTitle>Welcome to Wild Energy!</CardTitle>
+          <CardDescription>
+            Your account has been successfully activated
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="text-center">
+          <div className="flex items-center justify-center">
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            <span>Logging you in...</span>
+          </div>
+        </CardContent>
+      </>
     );
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-md">
-      <Card>
-        <CardHeader>
-          <CardTitle>Set Your Password</CardTitle>
-          <CardDescription>
-            Welcome to Wild Energy! Please set a password for your account.
-            {userEmail && (
-              <div className="mt-2 text-sm text-muted-foreground">
-                Account: {userEmail}
-              </div>
-            )}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          <form onSubmit={handleAcceptInvitation} className="space-y-4">
-            <div className="space-y-2">
-              <label htmlFor="password" className="text-sm font-medium">
-                New Password
-              </label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your new password"
-                required
-                minLength={6}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="confirmPassword" className="text-sm font-medium">
-                Confirm Password
-              </label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Confirm your new password"
-                required
-                minLength={6}
-              />
-            </div>
-
-            <Button type="submit" className="w-full" disabled={isLoading || isInCooldown}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Setting Password...
-                </>
-              ) : isInCooldown ? (
-                <>
-                  <Clock className="w-4 h-4 mr-2" />
-                  Wait {formatTimeRemaining(timeRemaining)}
-                </>
-              ) : (
-                'Set Password & Continue'
-              )}
-            </Button>
-          </form>
-
-          {isInCooldown && (
-            <div className="text-xs text-muted-foreground text-center">
-              <p>Please wait before trying again to prevent abuse.</p>
+    <>
+      <CardHeader>
+        <CardTitle>Set Your Password</CardTitle>
+        <CardDescription>
+          Welcome to Wild Energy! Please set a password for your account.
+          {userEmail && (
+            <div className="mt-2 text-sm text-muted-foreground">
+              Account: {userEmail}
             </div>
           )}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
-          <div className="mt-4 text-center">
-            <Button
-              variant="ghost"
-              className="w-full"
-              onClick={() => router.push('/auth/login')}
-            >
-              Back to Login
-            </Button>
+        <form onSubmit={handleAcceptInvitation} className="space-y-4">
+          <div className="space-y-2">
+            <label htmlFor="password" className="text-sm font-medium">
+              New Password
+            </label>
+            <Input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter your new password"
+              required
+              minLength={6}
+            />
           </div>
-        </CardContent>
-      </Card>
-    </div>
+
+          <div className="space-y-2">
+            <label htmlFor="confirmPassword" className="text-sm font-medium">
+              Confirm Password
+            </label>
+            <Input
+              id="confirmPassword"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Confirm your new password"
+              required
+              minLength={6}
+            />
+          </div>
+
+          <Button type="submit" className="w-full" disabled={isLoading || isInCooldown}>
+            {isLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Setting Password...
+              </>
+            ) : isInCooldown ? (
+              <>
+                <Clock className="w-4 h-4 mr-2" />
+                Wait {formatTimeRemaining(timeRemaining)}
+              </>
+            ) : (
+              'Set Password & Continue'
+            )}
+          </Button>
+        </form>
+
+        {isInCooldown && (
+          <div className="text-xs text-muted-foreground text-center">
+            <p>Please wait before trying again to prevent abuse.</p>
+          </div>
+        )}
+
+        <div className="mt-4 text-center">
+          <Button
+            variant="ghost"
+            className="w-full"
+            onClick={() => router.push('/auth/login')}
+          >
+            Back to Login
+          </Button>
+        </div>
+      </CardContent>
+    </>
   );
 } 

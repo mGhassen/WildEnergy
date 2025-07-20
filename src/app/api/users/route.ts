@@ -58,12 +58,11 @@ export async function POST(req: NextRequest) {
     const { email, password, firstName, lastName, role } = await req.json();
     let authUserId;
     if (!password) {
-      // Use Supabase invite flow with callback
+      // Use Supabase invite flow with correct redirect
       const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-      const callbackUrl = `${baseUrl}/auth/callback`;
-      
+      const inviteUrl = `${baseUrl}/auth/accept-invitation`;
       const { data: inviteData, error: inviteError } = await supabaseServer().auth.admin.inviteUserByEmail(email, {
-        redirectTo: callbackUrl,
+        redirectTo: inviteUrl,
       });
       if (inviteError || !inviteData?.user) {
         return NextResponse.json({ error: inviteError?.message || 'Failed to invite user' }, { status: 400 });
