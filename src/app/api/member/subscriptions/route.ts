@@ -11,7 +11,7 @@ async function getUserFromToken(token: string) {
   if (error || !user) return null;
   const { data: userProfile } = await supabase
     .from('users')
-    .select('id')
+    .select('id, is_admin')
     .eq('auth_user_id', user.id)
     .single();
   return userProfile;
@@ -40,6 +40,72 @@ export async function GET(req: NextRequest) {
     }
     return NextResponse.json(subscriptions);
   } catch (error) {
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const authHeader = req.headers.get('authorization');
+    const token = authHeader?.split(' ')[1];
+    if (!token) {
+      return NextResponse.json({ error: 'No token provided' }, { status: 401 });
+    }
+    
+    const userProfile = await getUserFromToken(token);
+    if (!userProfile) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+    }
+
+    // Only admins can manually refund sessions
+    if (!userProfile.is_admin) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
+
+    const { subscriptionId, sessionsToRefund = 1 } = await req.json();
+    
+    if (!subscriptionId) {
+      return NextResponse.json({ error: 'Subscription ID is required' }, { status: 400 });
+    }
+
+    // Get the subscription
+    const { data: subscription, error: subError } = await supabase
+      .from('subscriptions')
+      .select('*')
+      .eq('id', subscriptionId)
+      .single();
+
+    if (subError || !subscription) {
+      return NextResponse.json({ error: 'Subscription not found' }, { status: 404 });
+    }
+
+    // Update sessions_remaining
+    const { data: updatedSubscription, error: updateError } = await supabase
+      .from('subscriptions')
+      .update({ 
+        sessions_remaining: subscription.sessions_remaining + sessionsToRefund,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', subscriptionId)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('Error updating subscription:', updateError);
+      return NextResponse.json({ error: 'Failed to update subscription' }, { status: 500 });
+    }
+
+    console.log(`Manually refunded ${sessionsToRefund} session(s) to subscription ${subscriptionId}`);
+    
+    return NextResponse.json({ 
+      success: true, 
+      subscription: updatedSubscription,
+      sessionsRefunded: sessionsToRefund,
+      newSessionsRemaining: updatedSubscription.sessions_remaining
+    });
+
+  } catch (error) {
+    console.error('POST manual refund error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 } 

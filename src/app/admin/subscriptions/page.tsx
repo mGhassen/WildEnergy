@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { apiRequest } from "@/lib/queryClient";
-import { Plus, Search, Edit, Trash2, Eye, CreditCard, MoreVertical } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Eye, CreditCard, MoreVertical, RefreshCw } from "lucide-react";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { getInitials } from "@/lib/auth";
 import { formatDate } from "@/lib/date";
@@ -492,6 +492,27 @@ export default function AdminSubscriptions() {
     }
   };
 
+  // Manual refund mutation
+  const manualRefundMutation = useMutation({
+    mutationFn: async ({ subscriptionId, sessionsToRefund }: { subscriptionId: number; sessionsToRefund: number }) => {
+      return await apiRequest('POST', '/api/member/subscriptions', { subscriptionId, sessionsToRefund });
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/subscriptions'] });
+      toast.success(`Successfully refunded ${data.sessionsRefunded} session(s)`);
+    },
+    onError: (error) => {
+      toast.error('Failed to refund sessions');
+      console.error('Error refunding sessions:', error);
+    },
+  });
+
+  const handleManualRefund = (subscription: Subscription) => {
+    if (subscription.id) {
+      manualRefundMutation.mutate({ subscriptionId: subscription.id, sessionsToRefund: 1 });
+    }
+  };
+
   // Loading and empty states
   const isLoadingAny = !subscriptions || !mappedMembers.length || !plans.length;
 
@@ -678,6 +699,16 @@ export default function AdminSubscriptions() {
                               </DropdownMenuItem>
                             );
                           })()}
+                          <DropdownMenuItem 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleManualRefund(subscription);
+                            }}
+                            disabled={manualRefundMutation.isPending}
+                          >
+                            <RefreshCw className="w-4 h-4 mr-2" /> 
+                            {manualRefundMutation.isPending ? 'Refunding...' : 'Refund 1 Session'}
+                          </DropdownMenuItem>
                           <DropdownMenuItem 
                             onClick={(e) => {
                               e.stopPropagation();

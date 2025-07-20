@@ -148,6 +148,7 @@ export const classRegistrations = pgTable("class_registrations", {
   qrCode: text("qr_code").notNull().unique(),
   status: text("status").notNull().default("registered"), // 'registered', 'attended', 'cancelled', 'absent'
   notes: text("notes"),
+  subscriptionId: integer("subscription_id").references(() => subscriptions.id),
 });
 
 // Check-ins table

@@ -139,6 +139,26 @@ export default function AdminCourses() {
         new Date(s.end_date) > new Date() &&
         s.sessions_remaining > 0
     );
+    
+    // Debug logging
+    if (!sub) {
+      const memberSub = subscriptions.find((s: any) => s.user_id === member.id);
+      console.log(`Member ${member.first_name} ${member.last_name} (${member.id}) filtered out:`, {
+        hasSubscription: !!memberSub,
+        subscriptionStatus: memberSub?.status,
+        endDate: memberSub?.end_date,
+        sessionsRemaining: memberSub?.sessions_remaining,
+        isExpired: memberSub ? new Date(memberSub.end_date) <= new Date() : true
+      });
+    } else {
+      console.log(`Member ${member.first_name} ${member.last_name} (${member.id}) included:`, {
+        subscriptionId: sub.id,
+        status: sub.status,
+        endDate: sub.end_date,
+        sessionsRemaining: sub.sessions_remaining
+      });
+    }
+    
     return !!sub;
   });
 

@@ -37,7 +37,7 @@ export async function POST(
 
     console.log('Cancel registration attempt:', { userId: userProfile.id, registrationId });
 
-    // Get the registration to check if it exists and belongs to the user
+    // Get the registration to check if it exists and belongs to the user (admin can cancel any)
     const { data: registration, error: regError } = await supabaseServer
       .from('class_registrations')
       .select(`
@@ -50,13 +50,17 @@ export async function POST(
         )
       `)
       .eq('id', registrationId)
-      .eq('user_id', userProfile.id)
       .eq('status', 'registered')
       .single();
 
     if (regError || !registration) {
       console.error('Registration not found or not in registered status:', regError);
       return NextResponse.json({ error: 'Registration not found or cannot be cancelled' }, { status: 404 });
+    }
+
+    // Only allow non-admins to cancel their own registrations
+    if (!userProfile.is_admin && registration.user_id !== userProfile.id) {
+      return NextResponse.json({ error: 'You can only cancel your own registrations' }, { status: 403 });
     }
 
     // Check if course is in the past
@@ -71,12 +75,25 @@ export async function POST(
     const cutoffTime = new Date(courseDateTime.getTime() - (24 * 60 * 60 * 1000));
     const isWithin24Hours = now >= cutoffTime;
 
+    // Admin can override refund logic
+    let refundSession: boolean | undefined = undefined;
+    if (userProfile.is_admin) {
+      try {
+        const body = await req.json();
+        if (typeof body.refundSession === 'boolean') {
+          refundSession = body.refundSession;
+        }
+      } catch {}
+    }
+
     // Use the stored procedure to handle cancellation with session refund
     const { data: result, error: procedureError } = await supabaseServer
       .rpc('cancel_registration_with_updates', {
         p_registration_id: registrationId,
-        p_user_id: userProfile.id,
-        p_is_within_24_hours: isWithin24Hours
+        p_user_id: registration.user_id,
+        p_is_within_24_hours: isWithin24Hours,
+        p_subscription_id: registration.subscription_id,
+        p_force_refund: refundSession
       });
 
     if (procedureError) {
@@ -88,8 +105,8 @@ export async function POST(
     return NextResponse.json({ 
       success: true, 
       isWithin24Hours,
-      sessionRefunded: !isWithin24Hours,
-      message: isWithin24Hours 
+      sessionRefunded: result?.session_refunded,
+      message: result?.session_refunded === false
         ? 'Registration cancelled. Session forfeited due to late cancellation.' 
         : 'Registration cancelled. Session refunded to your account.'
     });
