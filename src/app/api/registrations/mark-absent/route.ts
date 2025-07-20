@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
 
-    const { data: adminCheck } = await supabaseServer
+    const { data: adminCheck } = await supabaseServer()
       .from('users')
       .select('is_admin')
       .eq('auth_user_id', adminUser.id)
@@ -36,21 +36,16 @@ export async function POST(req: NextRequest) {
     // 1. Status is 'registered'
     // 2. Course date is in the past OR (course date is today AND course end time has passed)
     // 3. No check-in record exists
-    const { data: registrationsToMarkAbsent, error: fetchError } = await supabaseServer
+    const { data: registrationsToMarkAbsent, error: fetchError } = await supabaseServer()
       .from('class_registrations')
       .select(`
         id,
         user_id,
         course_id,
         status,
-        course:courses(
-          id,
-          course_date,
-          end_time
-        )
+        course:courses(id, course_date, end_time)
       `)
-      .eq('status', 'registered')
-      .not('course_id', 'is', null);
+      .eq('status', 'registered');
 
     if (fetchError) {
       console.error('Error fetching registrations:', fetchError);
@@ -78,7 +73,7 @@ export async function POST(req: NextRequest) {
 
       if (isPastDate || isTodayButEnded) {
         // Check if there's no check-in for this registration
-        const { data: checkin, error: checkinError } = await supabaseServer
+        const { data: checkin, error: checkinError } = await supabaseServer()
           .from('checkins')
           .select('id')
           .eq('registration_id', registration.id)
@@ -104,7 +99,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Update all registrations to 'absent' status
-    const { data: updatedRegistrations, error: updateError } = await supabaseServer
+    const { data: updatedRegistrations, error: updateError } = await supabaseServer()
       .from('class_registrations')
       .update({ status: 'absent' })
       .in('id', registrationsToUpdate)

@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-    const { data: adminCheck } = await supabaseServer
+    const { data: adminCheck } = await supabaseServer()
       .from('users')
       .select('is_admin')
       .eq('auth_user_id', adminUser.id)
@@ -100,20 +100,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: userError?.message || 'Failed to create trainer user' }, { status: 400 });
     }
     // Create user record in users table
-    const { data: user, error: userCreateError } = await supabaseServer
+    const { data: user, error: userCreateError } = await supabaseServer()
       .from('users')
       .insert({
         auth_user_id: authUser.user.id,
         email,
         first_name: firstName,
         last_name: lastName,
-        phone,
-        is_member: false,
         is_trainer: true,
-        status: status || 'active',
-        subscription_status: 'inactive',
+        status: 'active',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       })
-      .select('*')
+      .select()
       .single();
     if (userCreateError || !user) {
       await supabaseServer().auth.admin.deleteUser(authUser.user.id).catch(() => {});
@@ -139,7 +138,7 @@ export async function PUT(req: NextRequest) {
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-    const { data: adminCheck } = await supabaseServer
+    const { data: adminCheck } = await supabaseServer()
       .from('users')
       .select('is_admin')
       .eq('auth_user_id', adminUser.id)
@@ -159,7 +158,7 @@ export async function PUT(req: NextRequest) {
     if (status !== undefined) userUpdates.status = status;
     let userUpdateError = null;
     if (Object.keys(userUpdates).length > 0 && user_id) {
-      const { error: uErr } = await supabaseServer
+      const { error: uErr } = await supabaseServer()
         .from('users')
         .update(userUpdates)
         .eq('id', user_id);
@@ -177,7 +176,7 @@ export async function PUT(req: NextRequest) {
     if (status !== undefined) trainerUpdates.status = status;
     let trainerUpdateError = null;
     if (Object.keys(trainerUpdates).length > 0 && id) {
-      const { error: tErr } = await supabaseServer
+      const { error: tErr } = await supabaseServer()
         .from('trainers')
         .update(trainerUpdates)
         .eq('id', id);
@@ -190,7 +189,7 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to update trainer', userUpdateError, trainerUpdateError }, { status: 500 });
     }
     // Fetch updated trainer with joined user info
-    const { data: trainers, error: fetchError } = await supabaseServer
+    const { data: trainers, error: fetchError } = await supabaseServer()
       .from('trainers')
       .select(`
         id,
@@ -247,7 +246,7 @@ export async function DELETE(req: NextRequest) {
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-    const { data: adminCheck } = await supabaseServer
+    const { data: adminCheck } = await supabaseServer()
       .from('users')
       .select('is_admin')
       .eq('auth_user_id', adminUser.id)
@@ -258,7 +257,7 @@ export async function DELETE(req: NextRequest) {
     const { id } = await req.json();
     console.log('[DELETE /api/trainers] Received id:', id);
     // Delete from trainers table first to avoid FK constraint
-    const { error: trainerDeleteError } = await supabaseServer
+    const { error: trainerDeleteError } = await supabaseServer()
       .from('trainers')
       .delete()
       .eq('user_id', id);
@@ -267,7 +266,7 @@ export async function DELETE(req: NextRequest) {
       throw trainerDeleteError;
     }
     // Delete from users table
-    const { error: deleteError } = await supabaseServer
+    const { error: deleteError } = await supabaseServer()
       .from('users')
       .delete()
       .eq('id', id);

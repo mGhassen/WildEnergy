@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Get count of registrations that were marked as absent
-    const { count } = await supabaseServer
+    const { count } = await supabaseServer()
       .from('class_registrations')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'absent')

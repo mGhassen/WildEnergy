@@ -4,7 +4,7 @@ import { supabaseServer } from '@/lib/supabase';
 async function getUserFromToken(token: string) {
   const { data: { user }, error } = await supabaseServer().auth.getUser(token);
   if (error || !user) return null;
-  const { data: userProfile } = await supabaseServer
+  const { data: userProfile } = await supabaseServer()
     .from('users')
     .select('*')
     .eq('auth_user_id', user.id)
@@ -14,7 +14,7 @@ async function getUserFromToken(token: string) {
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: Promise<{ registrationId: string }> }
+  context: { params: any }
 ) {
   try {
     const authHeader = req.headers.get('authorization');
@@ -33,14 +33,13 @@ export async function POST(
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const resolvedParams = await params;
-    const registrationId = parseInt(resolvedParams.registrationId);
+    const registrationId = parseInt(context.params.registrationId);
     if (!registrationId || isNaN(registrationId)) {
       return NextResponse.json({ error: 'Invalid registration ID' }, { status: 400 });
     }
 
     // Get the registration details - allow both 'registered' and 'attended' statuses
-    const { data: registration, error: registrationError } = await supabaseServer
+    const { data: registration, error: registrationError } = await supabaseServer()
       .from('class_registrations')
       .select(`
         *,
@@ -62,7 +61,7 @@ export async function POST(
     }
 
     // Check if there's an existing check-in to remove
-    const { data: existingCheckin, error: checkinError } = await supabaseServer
+    const { data: existingCheckin, error: checkinError } = await supabaseServer()
       .from('checkins')
       .select('id, checkin_time, session_consumed')
       .eq('registration_id', registrationId)
@@ -78,7 +77,7 @@ export async function POST(
     }
 
     // Delete the check-in record
-    const { error: deleteError } = await supabaseServer
+    const { error: deleteError } = await supabaseServer()
       .from('checkins')
       .delete()
       .eq('id', existingCheckin.id);
@@ -108,7 +107,7 @@ export async function POST(
     console.log(`[UNVALIDATE] Course date: ${courseDate}, end time: ${courseEndTime}, Current: ${currentDate} ${currentTime}`);
 
     // Update registration status based on class timing
-    const { data: updatedRegistration, error: updateError } = await supabaseServer
+    const { data: updatedRegistration, error: updateError } = await supabaseServer()
       .from('class_registrations')
       .update({ status: newStatus })
       .eq('id', registrationId)

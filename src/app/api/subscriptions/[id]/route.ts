@@ -20,7 +20,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
 
-    const { data: adminCheck } = await supabaseServer
+    const { data: adminCheck } = await supabaseServer()
       .from('users')
       .select('is_admin')
       .eq('auth_user_id', adminUser.id)
@@ -51,7 +51,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Check if subscription exists
-    const { data: existingSubscription, error: fetchError } = await supabaseServer
+    const { data: existingSubscription, error: fetchError } = await supabaseServer()
       .from('subscriptions')
       .select('*')
       .eq('id', subscriptionId)
@@ -62,7 +62,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Validate plan exists
-    const { data: plan, error: planError } = await supabaseServer
+    const { data: plan, error: planError } = await supabaseServer()
       .from('plans')
       .select('*')
       .eq('id', planId)
@@ -73,7 +73,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Validate user exists
-    const { data: user, error: userError } = await supabaseServer
+    const { data: user, error: userError } = await supabaseServer()
       .from('users')
       .select('*')
       .eq('id', userId)
@@ -101,7 +101,7 @@ export async function PUT(request: NextRequest) {
       updateData.status = status;
     }
 
-    const { data: updatedSubscription, error: updateError } = await supabaseServer
+    const { data: updatedSubscription, error: updateError } = await supabaseServer()
       .from('subscriptions')
       .update(updateData)
       .eq('id', subscriptionId)
@@ -189,7 +189,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
 
-    const { data: adminCheck } = await supabaseServer
+    const { data: adminCheck } = await supabaseServer()
       .from('users')
       .select('is_admin')
       .eq('auth_user_id', adminUser.id)
@@ -210,7 +210,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Check if subscription exists
-    const { data: existingSubscription, error: fetchError } = await supabaseServer
+    const { data: existingSubscription, error: fetchError } = await supabaseServer()
       .from('subscriptions')
       .select('*')
       .eq('id', subscriptionId)
@@ -221,7 +221,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Delete related payments first
-    const { error: paymentsDeleteError } = await supabaseServer
+    const { error: paymentsDeleteError } = await supabaseServer()
       .from('payments')
       .delete()
       .eq('subscription_id', subscriptionId);
@@ -235,7 +235,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Delete the subscription
-    const { error: deleteError } = await supabaseServer
+    const { error: deleteError } = await supabaseServer()
       .from('subscriptions')
       .delete()
       .eq('id', subscriptionId);

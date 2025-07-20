@@ -4,7 +4,7 @@ import { supabaseServer } from '@/lib/supabase';
 async function getUserFromToken(token: string) {
   const { data: { user }, error } = await supabaseServer().auth.getUser(token);
   if (error || !user) return null;
-  const { data: userProfile } = await supabaseServer
+  const { data: userProfile } = await supabaseServer()
     .from('users')
     .select('*')
     .eq('auth_user_id', user.id)
@@ -14,7 +14,7 @@ async function getUserFromToken(token: string) {
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: Promise<{ registrationId: string }> }
+  context: { params: any }
 ) {
   try {
     const authHeader = req.headers.get('authorization');
@@ -33,14 +33,13 @@ export async function POST(
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const resolvedParams = await params;
-    const registrationId = parseInt(resolvedParams.registrationId);
+    const registrationId = parseInt(context.params.registrationId);
     if (!registrationId || isNaN(registrationId)) {
       return NextResponse.json({ error: 'Invalid registration ID' }, { status: 400 });
     }
 
     // Get the registration details - allow both 'registered' and 'absent' statuses
-    const { data: registration, error: registrationError } = await supabaseServer
+    const { data: registration, error: registrationError } = await supabaseServer()
       .from('class_registrations')
       .select(`
         *,
@@ -62,7 +61,7 @@ export async function POST(
     }
 
     // Check if already checked in
-    const { data: existingCheckin, error: checkinError } = await supabaseServer
+    const { data: existingCheckin, error: checkinError } = await supabaseServer()
       .from('checkins')
       .select('id')
       .eq('registration_id', registrationId)
@@ -80,7 +79,7 @@ export async function POST(
     console.log(`Updating registration ${registrationId} from status '${registration.status}' to 'attended'`);
     
     // Update registration status to 'attended' and create check-in record
-    const { data: updatedRegistration, error: updateError } = await supabaseServer
+    const { data: updatedRegistration, error: updateError } = await supabaseServer()
       .from('class_registrations')
       .update({ status: 'attended' })
       .eq('id', registrationId)
@@ -95,7 +94,7 @@ export async function POST(
     console.log(`Successfully updated registration ${registrationId} to status: ${updatedRegistration?.status}`);
 
     // Create the check-in record
-    const { data: checkin, error: createError } = await supabaseServer
+    const { data: checkin, error: createError } = await supabaseServer()
       .from('checkins')
       .insert({
         registration_id: registrationId,

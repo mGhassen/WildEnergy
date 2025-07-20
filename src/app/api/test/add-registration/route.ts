@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
     const testQrCode = 'REG_1752354439009_gbcgwqsfa';
 
     // Check if this QR code already exists
-    const { data: existingReg } = await supabaseServer
+    const { data: existingReg } = await supabaseServer()
       .from('class_registrations')
       .select('id, qr_code')
       .eq('qr_code', testQrCode)
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Create the test registration
-    const { data: registration, error: regError } = await supabaseServer
+    const { data: registration, error: regError } = await supabaseServer()
       .from('class_registrations')
       .insert({
         user_id: testUser.id,

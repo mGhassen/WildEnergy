@@ -13,7 +13,7 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid registration ID' }, { status: 400 });
     }
 
-    const { data: registration, error } = await supabaseServer
+    const { data: registration, error } = await supabaseServer()
       .from('class_registrations')
       .select(`
         id,

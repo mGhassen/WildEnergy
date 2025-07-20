@@ -96,7 +96,7 @@ export default function ResetPasswordPage() {
   }
 
   // Check if user is in cooldown
-  const isInCooldown = cooldownEndTime && Date.now() < cooldownEndTime;
+  const isInCooldown = !!cooldownEndTime && Date.now() < (cooldownEndTime || 0);
 
   // Update countdown timer
   useEffect(() => {

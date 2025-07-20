@@ -3,7 +3,7 @@ import { supabaseServer } from '@/lib/supabase';
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: any }
 ) {
   try {
     const authHeader = req.headers.get('authorization');
@@ -18,7 +18,7 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
 
-    const { data: adminCheck } = await supabaseServer
+    const { data: adminCheck } = await supabaseServer()
       .from('users')
       .select('is_admin')
       .eq('auth_user_id', adminUser.id)
@@ -28,10 +28,10 @@ export async function POST(
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const userId = params.id;
+    const userId = context.params.id;
 
     // Get user email
-    const { data: user, error: userError } = await supabaseServer
+    const { data: user, error: userError } = await supabaseServer()
       .from('users')
       .select('email, auth_user_id')
       .eq('id', userId)

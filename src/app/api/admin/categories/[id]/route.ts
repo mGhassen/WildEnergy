@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 
-export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function PATCH(request: NextRequest, context: { params: any }) {
   try {
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.split(' ')[1];
@@ -15,7 +15,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
 
-    const { data: adminCheck } = await supabaseServer
+    const { data: adminCheck } = await supabaseServer()
       .from('users')
       .select('is_admin')
       .eq('auth_user_id', adminUser.id)
@@ -25,7 +25,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const { id } = await params;
+    const id = context.params.id;
     const updates = await request.json();
     
     console.log('Category update request:', { id, updates });
@@ -39,7 +39,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     
     console.log('Database updates:', dbUpdates);
 
-    const { data: category, error } = await supabaseServer
+    const { data: category, error } = await supabaseServer()
       .from('categories')
       .update(dbUpdates)
       .eq('id', id)
@@ -59,7 +59,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: NextRequest, context: { params: any }) {
   try {
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.split(' ')[1];
@@ -73,7 +73,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
 
-    const { data: adminCheck } = await supabaseServer
+    const { data: adminCheck } = await supabaseServer()
       .from('users')
       .select('is_admin')
       .eq('auth_user_id', adminUser.id)
@@ -83,10 +83,10 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const { id } = await params;
+    const id = context.params.id;
 
     // Check if category is being used by any classes
-    const { data: classesUsingCategory, error: checkError } = await supabaseServer
+    const { data: classesUsingCategory, error: checkError } = await supabaseServer()
       .from('classes')
       .select('id, name')
       .eq('category_id', id);
@@ -103,7 +103,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       }, { status: 400 });
     }
 
-    const { error } = await supabaseServer
+    const { error } = await supabaseServer()
       .from('categories')
       .delete()
       .eq('id', id);
