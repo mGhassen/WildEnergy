@@ -1,62 +1,115 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { use, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { AlertCircle, CheckCircle, Loader2, Clock } from 'lucide-react';
+import { AlertCircle, CheckCircle, Loader2, Clock, Dumbbell } from 'lucide-react';
 
-export default function ResetPasswordClient({ searchParams }: { searchParams: Record<string, string | string[] | undefined> }) {
+export default function ResetPasswordClient({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  // Unwrap searchParams Promise (Next.js 15+)
+  // @ts-ignore
+  const params = use(searchParams);
+  const emailRaw = params.email;
+  const emailFromParams = Array.isArray(emailRaw) ? emailRaw[0] : emailRaw;
+
+  // All hooks at the top
   const router = useRouter();
   const { toast } = useToast();
   const { login } = useAuth();
-  
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
-  const [userEmail, setUserEmail] = useState('');
   const [submitCount, setSubmitCount] = useState(0);
   const [cooldownEndTime, setCooldownEndTime] = useState<number | null>(null);
   const [timeRemaining, setTimeRemaining] = useState(0);
-
-  // Get tokens and email from searchParams
-  const accessTokenRaw = searchParams.access_token;
-  const refreshTokenRaw = searchParams.refresh_token;
-  const accessToken = Array.isArray(accessTokenRaw) ? accessTokenRaw[0] : accessTokenRaw;
-  const refreshToken = Array.isArray(refreshTokenRaw) ? refreshTokenRaw[0] : refreshTokenRaw;
-  const emailRaw = searchParams.email;
-  const email = Array.isArray(emailRaw) ? emailRaw[0] : emailRaw;
+  const [tokens, setTokens] = useState<{ access_token?: string; refresh_token?: string }>({});
+  const [isClient, setIsClient] = useState(false);
+  const [userEmail, setUserEmail] = useState(emailFromParams || '');
 
   useEffect(() => {
-    if (email) {
-      setUserEmail(email);
+    setIsClient(true);
+    // Extract tokens from hash (preferred) or query string (fallback)
+    if (typeof window !== 'undefined') {
+      let access_token, refresh_token;
+      const hash = window.location.hash;
+      if (hash && hash.includes('access_token')) {
+        const params = new URLSearchParams(hash.replace(/^#/, ''));
+        access_token = params.get('access_token') || undefined;
+        refresh_token = params.get('refresh_token') || undefined;
+      } else {
+        const search = window.location.search;
+        if (search) {
+          const params = new URLSearchParams(search);
+          access_token = params.get('access_token') || undefined;
+          refresh_token = params.get('refresh_token') || undefined;
+        }
+      }
+      setTokens({ access_token, refresh_token });
     }
-  }, [email]);
+  }, [params]);
+
+  useEffect(() => {
+    if (!isInCooldown) {
+      setTimeRemaining(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      const remaining = Math.max(0, cooldownEndTime! - Date.now());
+      setTimeRemaining(remaining);
+      if (remaining === 0) {
+        setCooldownEndTime(null);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [cooldownEndTime]);
+
+  // Derived value for cooldown
+  const isInCooldown = !!cooldownEndTime && Date.now() < (cooldownEndTime || 0);
+
+  // Format time remaining
+  const formatTimeRemaining = (ms: number): string => {
+    const seconds = Math.ceil(ms / 1000);
+    return `${seconds}s`;
+  };
+
+  if (!isClient) {
+    // Always render a Card skeleton to prevent hydration errors
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <Loader2 className="w-6 h-6 text-blue-600 animate-spin mx-auto mb-4" />
+            <CardTitle>Loading...</CardTitle>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
 
   // Check if we have the required tokens
-  const hasValidTokens = accessToken && refreshToken;
+  const hasValidTokens = tokens.access_token && tokens.refresh_token;
 
   // Show error if no valid tokens
   if (!hasValidTokens) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5 flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <div className="mx-auto mb-4 w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+            <div className="mx-auto w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center mb-4">
               <AlertCircle className="w-6 h-6 text-red-600" />
             </div>
-            <CardTitle>Invalid Reset Link</CardTitle>
-            <CardDescription>
-              This password reset link is invalid or has expired.
-            </CardDescription>
+            <CardTitle className="text-2xl font-bold">Invalid Reset Link</CardTitle>
+            <CardDescription>This password reset link is invalid or has expired.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6">
             <div className="text-sm text-muted-foreground text-center">
               <p>Please request a new password reset link.</p>
             </div>
@@ -79,52 +132,9 @@ export default function ResetPasswordClient({ searchParams }: { searchParams: Re
     );
   }
 
-  // Show loading while we validate the session
-  if (!userEmail && hasValidTokens) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <div className="mx-auto mb-4 w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-              <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
-            </div>
-            <CardTitle>Validating Reset Link</CardTitle>
-            <CardDescription>
-              Please wait while we validate your reset link...
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
-    );
-  }
-
-  // Check if user is in cooldown
-  const isInCooldown = !!cooldownEndTime && Date.now() < (cooldownEndTime || 0);
-
-  // Update countdown timer
-  useEffect(() => {
-    if (!isInCooldown) {
-      setTimeRemaining(0);
-      return;
-    }
-    const interval = setInterval(() => {
-      const remaining = Math.max(0, cooldownEndTime! - Date.now());
-      setTimeRemaining(remaining);
-      if (remaining === 0) {
-        setCooldownEndTime(null);
-      }
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [isInCooldown, cooldownEndTime]);
-
-  // Format time remaining
-  const formatTimeRemaining = (ms: number): string => {
-    const seconds = Math.ceil(ms / 1000);
-    return `${seconds}s`;
-  };
-
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     if (isInCooldown) {
       toast({
         title: "Please wait",
@@ -133,65 +143,147 @@ export default function ResetPasswordClient({ searchParams }: { searchParams: Re
       });
       return;
     }
+
     setIsLoading(true);
     setError('');
+
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       setIsLoading(false);
       return;
     }
+
     if (password.length < 6) {
       setError('Password must be at least 6 characters long');
       setIsLoading(false);
       return;
     }
+
     try {
+      // Always use tokens from hash or query string
+      const accessToken = tokens.access_token;
+      const refreshToken = tokens.refresh_token;
+      if (!accessToken) {
+        throw new Error('Invalid reset link. Please request a new password reset.');
+      }
+
       // Update the user's password using Supabase
       const { createSupabaseClient } = await import('@/lib/supabase');
       const supabase = createSupabaseClient();
+      
       // Set the session from the reset tokens
       const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-        access_token: accessToken!,
-        refresh_token: refreshToken! || '',
+        access_token: accessToken,
+        refresh_token: refreshToken || '',
       });
+
       if (sessionError || !sessionData.session) {
         throw new Error('Invalid or expired password reset link');
       }
+
       // Update the user's password
       const { error: updateError } = await supabase.auth.updateUser({
         password: password
       });
+
       if (updateError) {
         throw new Error(updateError.message);
       }
-      // Get the user's email from the session
-      const emailFromSession = sessionData.session.user.email;
-      if (emailFromSession) {
-        setUserEmail(emailFromSession);
+
+      console.log('Password updated successfully');
+
+      // Get the user's email from the session and store it for auto-login
+      const sessionEmail = sessionData.session.user.email;
+      if (sessionEmail) {
+        setUserEmail(sessionEmail);
       }
+
+      console.log('Session email extracted:', sessionEmail);
+
       setSuccess(true);
+      
       toast({
         title: "Password reset successfully!",
         description: "You will be automatically logged in...",
       });
-      // Automatically log in the user after resetting password
+
+      // After password is reset, log in directly using the login API and store tokens
       setTimeout(async () => {
         try {
-          await login(emailFromSession || '', password);
+          console.log('Starting auto-login process...');
+          console.log('User email for login:', sessionEmail);
+          console.log('Password length:', password.length);
+          
+          if (!sessionEmail) {
+            throw new Error('No email available for auto-login');
+          }
+          
+          const loginData = { email: sessionEmail, password };
+          console.log('Login data being sent:', { email: sessionEmail, passwordLength: password.length });
+          
+          const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify(loginData),
+            credentials: 'include',
+          });
+          const data = await response.json();
+          console.log('Login API response:', data);
+          
+          if (!response.ok || !data.success || !data.session?.access_token) {
+            throw new Error(data.error || 'Login failed');
+          }
+          
+          // Store tokens
+          localStorage.setItem('access_token', data.session.access_token);
+          if (data.session.refresh_token) {
+            localStorage.setItem('refresh_token', data.session.refresh_token);
+          }
+          if (typeof window !== 'undefined') {
+            window.__authToken = data.session.access_token;
+          }
+          
+          console.log('Tokens stored, fetching user session...');
+          
+          // Fetch session to get user role
+          const sessionRes = await fetch('/api/auth/session', {
+            headers: { 'Authorization': `Bearer ${data.session.access_token}` },
+            credentials: 'include',
+          });
+          const sessionJson = await sessionRes.json();
+          console.log('Session API response:', sessionJson);
+          
+          if (sessionJson.success && sessionJson.user) {
+            console.log('User role:', sessionJson.user.isAdmin ? 'admin' : 'member');
+            if (sessionJson.user.isAdmin) {
+              console.log('Redirecting to admin dashboard...');
+              window.location.href = '/admin';
+            } else {
+              console.log('Redirecting to member dashboard...');
+              window.location.href = '/member';
+            }
+          } else {
+            console.log('No user data, redirecting to home...');
+            window.location.href = '/';
+          }
         } catch (loginError) {
           console.error('Auto-login failed:', loginError);
           router.push('/auth/login?message=password-reset-success');
         }
-      }, 2000);
+      }, 3000);
+
     } catch (err: any) {
       console.error('Reset password error:', err);
       setError(err.message || 'Failed to reset password');
+      
       // Set cooldown on error to prevent rapid retries
       const newSubmitCount = submitCount + 1;
       setSubmitCount(newSubmitCount);
+      
       const cooldownDuration = Math.min(30 * newSubmitCount, 120); // 30s, 60s, 90s, 120s max
       const endTime = Date.now() + (cooldownDuration * 1000);
       setCooldownEndTime(endTime);
+      
       toast({
         title: "Error",
         description: err.message || 'Failed to reset password',
@@ -204,18 +296,16 @@ export default function ResetPasswordClient({ searchParams }: { searchParams: Re
 
   if (success) {
     return (
-      <div className="container mx-auto p-6 max-w-md">
-        <Card>
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <div className="mx-auto mb-4 w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+            <div className="mx-auto w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mb-4">
               <CheckCircle className="w-6 h-6 text-green-600" />
             </div>
-            <CardTitle>Password Reset Complete!</CardTitle>
-            <CardDescription>
-              Your password has been successfully updated
-            </CardDescription>
+            <CardTitle className="text-2xl font-bold">Password Reset Complete!</CardTitle>
+            <CardDescription>Your password has been successfully updated</CardDescription>
           </CardHeader>
-          <CardContent className="text-center">
+          <CardContent className="space-y-6">
             <div className="flex items-center justify-center">
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               <span>Logging you in...</span>
@@ -227,31 +317,32 @@ export default function ResetPasswordClient({ searchParams }: { searchParams: Re
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-md">
-      <Card>
-        <CardHeader>
-          <CardTitle>Reset Your Password</CardTitle>
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5 flex items-center justify-center p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <div className="mx-auto w-12 h-12 bg-primary rounded-xl flex items-center justify-center mb-4">
+            <Dumbbell className="w-6 h-6 text-primary-foreground" />
+          </div>
+          <CardTitle className="text-2xl font-bold">Reset Your Password</CardTitle>
           <CardDescription>
             Please enter your new password below.
-            {userEmail && (
+            {emailFromParams && (
               <div className="mt-2 text-sm text-muted-foreground">
-                Account: {userEmail}
+                Account: {emailFromParams}
               </div>
             )}
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
           {error && (
-            <Alert variant="destructive" className="mb-4">
+            <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
           <form onSubmit={handleResetPassword} className="space-y-4">
             <div className="space-y-2">
-              <label htmlFor="password" className="text-sm font-medium">
-                New Password
-              </label>
+              <Label htmlFor="password">New Password</Label>
               <Input
                 id="password"
                 type="password"
@@ -263,9 +354,7 @@ export default function ResetPasswordClient({ searchParams }: { searchParams: Re
               />
             </div>
             <div className="space-y-2">
-              <label htmlFor="confirmPassword" className="text-sm font-medium">
-                Confirm Password
-              </label>
+              <Label htmlFor="confirmPassword">Confirm Password</Label>
               <Input
                 id="confirmPassword"
                 type="password"
@@ -297,7 +386,7 @@ export default function ResetPasswordClient({ searchParams }: { searchParams: Re
               <p>Please wait before trying again to prevent abuse.</p>
             </div>
           )}
-          <div className="mt-4 text-center">
+          <div className="text-center">
             <Button
               variant="ghost"
               className="w-full"

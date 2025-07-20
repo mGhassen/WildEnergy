@@ -57,6 +57,8 @@ export async function POST(req: NextRequest) {
     }
     const { email, password, firstName, lastName, isAdmin, isMember, isTrainer } = await req.json();
     let authUserId;
+    let userStatus = 'pending'; // Default status for invited users
+    
     if (!password) {
       // Use Supabase invite flow with correct redirect
       const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
@@ -68,6 +70,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: inviteError?.message || 'Failed to invite user' }, { status: 400 });
       }
       authUserId = inviteData.user.id;
+      userStatus = 'pending'; // Invited users start with 'pending' status
     } else {
       // Create auth user with password
       const { data: authData, error: signUpError } = await supabaseServer().auth.signUp({ email, password });
@@ -75,6 +78,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: signUpError?.message || 'Failed to create user' }, { status: 400 });
       }
       authUserId = authData.user.id;
+      userStatus = 'archived'; // Users with passwords start with 'archived' status (waiting for admin approval)
     }
     // Create user profile
     const { data: user, error: userError } = await supabaseServer()
@@ -87,7 +91,7 @@ export async function POST(req: NextRequest) {
         is_admin: !!isAdmin,
         is_member: !!isMember,
         is_trainer: !!isTrainer,
-        status: 'active',
+        status: userStatus,
       }])
       .select()
       .single();

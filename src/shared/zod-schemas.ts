@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const UserStatus = ['active', 'inactive', 'suspended', 'onhold'] as const;
+const UserStatus = ['active', 'pending', 'archived', 'suspended'] as const;
 
 export const userBaseSchema = {
   email: z.string().email(),

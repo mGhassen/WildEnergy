@@ -41,7 +41,7 @@ const editUserSchema = z.object({
     isAdmin: z.boolean(),
     isMember: z.boolean(),
     isTrainer: z.boolean(),
-    status: z.enum(["active", "onhold", "inactive", "suspended"]),
+    status: z.enum(["active", "pending", "archived", "suspended"]),
 });
 
 type CreateUserForm = z.infer<typeof createUserSchema>;
@@ -55,8 +55,8 @@ const getInitials = (firstName: string, lastName: string): string => {
 const getStatusColor = (status: string) => {
     switch (status) {
         case 'active': return 'bg-green-100 text-green-800';
-        case 'onhold': return 'bg-yellow-100 text-yellow-800';
-        case 'inactive': return 'bg-gray-100 text-gray-800';
+        case 'pending': return 'bg-yellow-100 text-yellow-800';
+        case 'archived': return 'bg-gray-100 text-gray-800';
         case 'suspended': return 'bg-red-100 text-red-800';
         default: return 'bg-gray-100 text-gray-800';
     }
@@ -271,7 +271,7 @@ export default function UsersPage() {
                 case 'approve':
                     return await apiRequest("PUT", `/api/users/${id}`, { status: 'active' });
                 case 'archive':
-                    return await apiRequest("PUT", `/api/users/${id}`, { status: 'inactive' });
+                    return await apiRequest("PUT", `/api/users/${id}`, { status: 'archived' });
                 case 'suspend':
                     return await apiRequest("PUT", `/api/users/${id}`, { status: 'suspended' });
                 case 'reset-password':
@@ -336,7 +336,7 @@ export default function UsersPage() {
             isAdmin: user.isAdmin || false,
             isMember: user.isMember || false,
             isTrainer: user.isTrainer || false,
-            status: (user.status as "active" | "onhold" | "inactive" | "suspended") || "active",
+            status: (user.status as "active" | "pending" | "archived" | "suspended") || "active",
         });
     };
 
@@ -513,13 +513,13 @@ export default function UsersPage() {
                     <div className="mb-4 flex items-center justify-between">
                         <div className="flex items-center space-x-4">
                             <Badge variant="outline" className="text-yellow-600 border-yellow-300">
-                                🟡 {Array.isArray(users) ? users.filter((u: any) => u.status === 'onhold').length : 0} Pending
+                                🟡 {Array.isArray(users) ? users.filter((u: any) => u.status === 'pending').length : 0} Pending
                             </Badge>
                             <Badge variant="outline" className="text-green-600 border-green-300">
                                 🟢 {Array.isArray(users) ? users.filter((u: any) => u.status === 'active').length : 0} Active
                             </Badge>
                             <Badge variant="outline" className="text-gray-600 border-gray-300">
-                                📦 {Array.isArray(users) ? users.filter((u: any) => u.status === 'inactive').length : 0} Archived
+                                📦 {Array.isArray(users) ? users.filter((u: any) => u.status === 'archived').length : 0} Archived
                             </Badge>
                             <Badge variant="outline" className="text-red-600 border-red-300">
                                 🚫 {Array.isArray(users) ? users.filter((u: any) => u.status === 'suspended').length : 0} Suspended
@@ -583,9 +583,9 @@ export default function UsersPage() {
                                     </TableCell>
                                     <TableCell>
                                         <Badge className={getStatusColor(user.status)}>
-                                            {user.status === 'onhold' && '⏳ Pending'}
+                                            {user.status === 'pending' && '⏳ Pending'}
                                             {user.status === 'active' && '✅ Active'}
-                                            {user.status === 'inactive' && '📦 Archived'}
+                                            {user.status === 'archived' && '📦 Archived'}
                                             {user.status === 'suspended' && '🚫 Suspended'}
                                         </Badge>
                                     </TableCell>
@@ -596,7 +596,7 @@ export default function UsersPage() {
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex items-center space-x-2">
-                                            {user.status === 'onhold' && (
+                                            {user.status === 'pending' && (
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
@@ -638,7 +638,7 @@ export default function UsersPage() {
                                                           Resend Invitation
                                                         </DropdownMenuItem>
                                                     }
-                                                    {user.status !== 'inactive' && (
+                                                    {user.status !== 'archived' && (
                                                         <DropdownMenuItem onClick={() => quickActionMutation.mutate({ id: user.id, action: 'archive' })}>
                                                             <Archive className="w-4 h-4 mr-2" />
                                                             Archive
@@ -782,8 +782,8 @@ export default function UsersPage() {
                                             </FormControl>
                                             <SelectContent>
                                                 <SelectItem value="active">✅ Active</SelectItem>
-                                                <SelectItem value="onhold">⏳ Pending</SelectItem>
-                                                <SelectItem value="inactive">📦 Archived</SelectItem>
+                                                <SelectItem value="pending">⏳ Pending</SelectItem>
+                                                <SelectItem value="archived">📦 Archived</SelectItem>
                                                 <SelectItem value="suspended">🚫 Suspended</SelectItem>
                                             </SelectContent>
                                         </Select>
@@ -886,9 +886,9 @@ export default function UsersPage() {
                                         <p className="text-muted-foreground text-lg">{viewingUser.email}</p>
                                         <div className="flex items-center space-x-2 mt-2">
                                             <Badge className={getStatusColor(viewingUser.status)}>
-                                                {viewingUser.status === 'onhold' && '⏳ Pending'}
+                                                {viewingUser.status === 'pending' && '⏳ Pending'}
                                                 {viewingUser.status === 'active' && '✅ Active'}
-                                                {viewingUser.status === 'inactive' && '📦 Archived'}
+                                                {viewingUser.status === 'archived' && '📦 Archived'}
                                                 {viewingUser.status === 'suspended' && '🚫 Suspended'}
                                             </Badge>
                                             <span className="text-xs text-muted-foreground">•</span>
@@ -1024,7 +1024,7 @@ export default function UsersPage() {
                                         <Mail className="w-4 h-4 mr-2" />
                                         Resend Invitation
                                     </Button>
-                                    {viewingUser.status === 'onhold' && (
+                                    {viewingUser.status === 'pending' && (
                                         <Button
                                             variant="outline"
                                             size="sm"
