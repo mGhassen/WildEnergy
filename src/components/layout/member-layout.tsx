@@ -117,6 +117,21 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
             
             {/* User Section */}
             <div className="flex items-center space-x-3">
+              {/* Theme toggle button - visible on all screens */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleTheme}
+                className="relative overflow-hidden group"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-yellow-400 to-orange-500 opacity-0 group-hover:opacity-10 transition-opacity duration-200" />
+                {theme === "light" ? (
+                  <Moon className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+                ) : (
+                  <Sun className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+                )}
+              </Button>
+
               {/* Mobile menu button */}
               <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
                 <SheetTrigger asChild>
@@ -177,6 +192,31 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
                         </Link>
                       );
                     })}
+                  </div>
+                  
+                  {/* User Menu Items */}
+                  <div className="mt-6 space-y-2">
+                    <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Account
+                    </div>
+                    <Link href="/member/history" onClick={handleNavigationClick}>
+                      <div className="flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer">
+                        <History className="w-4 h-4" />
+                        <div className="flex-1">
+                          <div>Class History</div>
+                          <div className="text-xs opacity-70">View your past classes</div>
+                        </div>
+                      </div>
+                    </Link>
+                    <Link href="/plans" onClick={handleNavigationClick}>
+                      <div className="flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer">
+                        <CreditCard className="w-4 h-4" />
+                        <div className="flex-1">
+                          <div>Plans</div>
+                          <div className="text-xs opacity-70">View available plans</div>
+                        </div>
+                      </div>
+                    </Link>
                   </div>
                   
                   <div className="absolute bottom-4 left-4 right-4 space-y-2">
@@ -264,7 +304,7 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
       </header>
 
       {/* Mobile Navigation Bar */}
-      <nav className="lg:hidden bg-card/80 backdrop-blur-sm shadow-sm border-b border-border">
+      <nav className="hidden bg-card/80 backdrop-blur-sm shadow-sm border-b border-border">
         <div className="flex justify-around px-2 py-2">
           {navigation.slice(0, 4).map((item) => {
             const Icon = item.icon;
