@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { supabase } from '@/lib/supabase';
+import { createSupabaseClient } from '@/lib/supabase';
 import { Clock, CheckCircle } from 'lucide-react';
 
 export default function OnHoldPage() {
@@ -16,7 +16,8 @@ export default function OnHoldPage() {
   }, []);
 
   const handleSignOut = async () => {
-    if (isClient && supabase) {
+    if (isClient) {
+      const supabase = createSupabaseClient();
       await supabase.auth.signOut();
     }
     router.push('/login');

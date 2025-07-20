@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 
 async function getUserFromToken(token: string) {
-  const { data: { user }, error } = await supabaseServer.auth.getUser(token);
+  const { data: { user }, error } = await supabaseServer().auth.getUser(token);
   if (error || !user) return null;
-  const { data: userProfile } = await supabaseServer
+  const { data: userProfile } = await supabaseServer()
     .from('users')
     .select('*')
     .eq('auth_user_id', user.id)
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     console.log('Admin registration attempt:', { courseId, memberIds });
 
     // Check if course exists and is active
-    const { data: course, error: courseError } = await supabaseServer
+    const { data: course, error: courseError } = await supabaseServer()
       .from('courses')
       .select('*')
       .eq('id', courseId)
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Get all members to validate they exist and are active
-    const { data: members, error: membersError } = await supabaseServer
+    const { data: members, error: membersError } = await supabaseServer()
       .from('users')
       .select('id, first_name, last_name, email, status, is_member')
       .in('id', memberIds)
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Check existing registrations for these members
-    const { data: existingRegistrations, error: existingError } = await supabaseServer
+    const { data: existingRegistrations, error: existingError } = await supabaseServer()
       .from('class_registrations')
       .select('user_id, status')
       .eq('course_id', courseId)
@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
     // Check for overlapping courses for each member
     const overlapResults = [];
     for (const memberId of newMembers) {
-      const { data: overlappingCourses, error: overlapError } = await supabaseServer
+      const { data: overlappingCourses, error: overlapError } = await supabaseServer()
         .from('class_registrations')
         .select(`
           id,
@@ -166,7 +166,7 @@ export async function POST(req: NextRequest) {
     // Check subscriptions for each member
     const subscriptionResults = [];
     for (const memberId of newMembers) {
-      const { data: activeSubscription, error: subscriptionError } = await supabaseServer
+      const { data: activeSubscription, error: subscriptionError } = await supabaseServer()
         .from('subscriptions')
         .select('id, sessions_remaining')
         .eq('user_id', memberId)
@@ -208,7 +208,7 @@ export async function POST(req: NextRequest) {
     for (const memberId of newMembers) {
       try {
         // Get member's active subscription
-        const { data: activeSubscription } = await supabaseServer
+        const { data: activeSubscription } = await supabaseServer()
           .from('subscriptions')
           .select('id, sessions_remaining')
           .eq('user_id', memberId)
@@ -229,7 +229,7 @@ export async function POST(req: NextRequest) {
         }
 
         // Use the stored procedure to handle registration with session deduction
-        const rpcResult: any = await supabaseServer
+        const rpcResult: any = await supabaseServer()
           .rpc('create_registration_with_updates', {
             p_user_id: memberId,
             p_course_id: courseId,
@@ -271,7 +271,7 @@ export async function POST(req: NextRequest) {
     // Update course participant count
     if (registrationResults.length > 0) {
       const newParticipantCount = currentRegistered + registrationResults.length;
-      await supabaseServer
+      await supabaseServer()
         .from('courses')
         .update({ current_participants: newParticipantCount })
         .eq('id', courseId);

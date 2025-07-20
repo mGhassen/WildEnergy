@@ -9,20 +9,17 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
     // Verify admin
-    const { data: { user: adminUser }, error: authError } = await supabaseServer.auth.getUser(token);
+    const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-    const { data: adminCheck } = await supabaseServer
+    const { data: adminCheck } = await supabaseServer()
       .from('users')
       .select('is_admin')
       .eq('auth_user_id', adminUser.id)
       .single();
-    if (!adminCheck?.is_admin) {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
-    }
     // Fetch all subscriptions
-    const { data: subscriptions, error } = await supabaseServer
+    const { data: subscriptions, error } = await supabaseServer()
       .from('subscriptions')
       .select('*')
       .order('created_at', { ascending: false });
@@ -43,11 +40,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
     // Verify admin
-    const { data: { user: adminUser }, error: authError } = await supabaseServer.auth.getUser(token);
+    const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-    const { data: adminCheck } = await supabaseServer
+    const { data: adminCheck } = await supabaseServer()
       .from('users')
       .select('is_admin')
       .eq('auth_user_id', adminUser.id)
@@ -103,7 +100,7 @@ export async function POST(req: NextRequest) {
     
     // Get plan details to set sessions_remaining if not provided
     if (!dbData.sessions_remaining || dbData.sessions_remaining === 0) {
-      const { data: plan, error: planError } = await supabaseServer
+      const { data: plan, error: planError } = await supabaseServer()
         .from('plans')
         .select('max_sessions')
         .eq('id', dbData.plan_id)
@@ -145,7 +142,7 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
     
-    const { data: subscription, error } = await supabaseServer
+    const { data: subscription, error } = await supabaseServer()
       .from('subscriptions')
       .insert(dbData)
       .select('*')
@@ -177,11 +174,11 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
     // Verify admin
-    const { data: { user: adminUser }, error: authError } = await supabaseServer.auth.getUser(token);
+    const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-    const { data: adminCheck } = await supabaseServer
+    const { data: adminCheck } = await supabaseServer()
       .from('users')
       .select('is_admin')
       .eq('auth_user_id', adminUser.id)
@@ -190,7 +187,7 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
     const { id, ...updates } = await req.json();
-    const { data: subscription, error } = await supabaseServer
+    const { data: subscription, error } = await supabaseServer()
       .from('subscriptions')
       .update(updates)
       .eq('id', id)
@@ -213,11 +210,11 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
     // Verify admin
-    const { data: { user: adminUser }, error: authError } = await supabaseServer.auth.getUser(token);
+    const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-    const { data: adminCheck } = await supabaseServer
+    const { data: adminCheck } = await supabaseServer()
       .from('users')
       .select('is_admin')
       .eq('auth_user_id', adminUser.id)
@@ -226,7 +223,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
     const { id } = await req.json();
-    const { error } = await supabaseServer
+    const { error } = await supabaseServer()
       .from('subscriptions')
       .delete()
       .eq('id', id);

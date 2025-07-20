@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     console.log('Creating admin user in Supabase Auth:', email);
 
     // 1. Create auth user
-    const { data: authData, error: authError } = await supabaseServer.auth.admin.createUser({
+    const { data: authData, error: authError } = await supabaseServer().auth.admin.createUser({
       email,
       password,
       email_confirm: true,
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     if (updateError) {
       console.error('Profile update error:', updateError);
       // Clean up auth user if profile update fails
-      await supabaseServer.auth.admin.deleteUser(authData.user.id);
+      await supabaseServer().auth.admin.deleteUser(authData.user.id);
       return NextResponse.json({
         success: false,
         error: 'Failed to update user profile',

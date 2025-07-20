@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
 
     // Get user from token
     console.log('Validating token with Supabase...');
-    const { data: { user }, error: userError } = await supabaseServer.auth.getUser(token);
+    const { data: { user }, error: userError } = await supabaseServer().auth.getUser(token);
     
     if (userError) {
       console.log('Token validation error:', userError);
@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
     console.log('Token validated, user ID:', user.id);
 
     // Get user profile
-    const { data: userData, error: dbError } = await supabaseServer
+    const { data: userData, error: dbError } = await supabaseServer()
       .from('users')
       .select('*')
       .eq('auth_user_id', user.id)

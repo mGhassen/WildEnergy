@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 
 async function getUserFromToken(token: string) {
-  const { data: { user }, error } = await supabaseServer.auth.getUser(token);
+  const { data: { user }, error } = await supabaseServer().auth.getUser(token);
   if (error || !user) return null;
-  const { data: userProfile } = await supabaseServer
+  const { data: userProfile } = await supabaseServer ()
     .from('users')
     .select('*')
     .eq('auth_user_id', user.id)
@@ -38,7 +38,7 @@ export async function POST(
     console.log('Cancel registration attempt:', { userId: userProfile.id, registrationId });
 
     // Get the registration to check if it exists and belongs to the user (admin can cancel any)
-    const { data: registration, error: regError } = await supabaseServer
+    const { data: registration, error: regError } = await supabaseServer ()
       .from('class_registrations')
       .select(`
         *,
@@ -87,7 +87,7 @@ export async function POST(
     }
 
     // Use the stored procedure to handle cancellation with session refund
-    const { data: result, error: procedureError } = await supabaseServer
+    const { data: result, error: procedureError } = await supabaseServer ()
       .rpc('cancel_registration_with_updates', {
         p_registration_id: registrationId,
         p_user_id: registration.user_id,

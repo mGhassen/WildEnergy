@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Sign in with Supabase
-    const { data: { session, user }, error } = await supabaseServer.auth.signInWithPassword({
+    const { data: { session, user }, error } = await supabaseServer().auth.signInWithPassword({
       email,
       password,
     });
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Get user profile
-    const { data: userProfile, error: profileError } = await supabaseServer
+    const { data: userProfile, error: profileError } = await supabaseServer()
       .from('users')
       .select('*')
       .eq('auth_user_id', user.id)

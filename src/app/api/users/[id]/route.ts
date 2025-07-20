@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
   if (!token) {
     return NextResponse.json({ error: 'No token provided' }, { status: 401 });
   }
-  const { data: { user }, error: authError } = await supabaseServer.auth.getUser(token);
+  const { data: { user }, error: authError } = await supabaseServer().auth.getUser(token);
   if (authError || !user) {
     return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
   }
@@ -54,7 +54,7 @@ export async function PUT(request: NextRequest) {
   if (!token) {
     return NextResponse.json({ error: 'No token provided' }, { status: 401 });
   }
-  const { data: { user: adminUser }, error: authError } = await supabaseServer.auth.getUser(token);
+  const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
   if (authError || !adminUser) {
     return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
   }
@@ -91,7 +91,7 @@ export async function DELETE(request: NextRequest) {
   if (!token) {
     return NextResponse.json({ error: 'No token provided' }, { status: 401 });
   }
-  const { data: { user: adminUser }, error: authError } = await supabaseServer.auth.getUser(token);
+  const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
   if (authError || !adminUser) {
     return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
   }
@@ -121,7 +121,7 @@ export async function DELETE(request: NextRequest) {
   // Delete from Supabase Auth FIRST (before deleting from database)
   if (userToDelete?.auth_user_id) {
     console.log('Deleting user from Supabase Auth with auth_user_id:', userToDelete.auth_user_id);
-    const { error: authError2 } = await supabaseServer.auth.admin.deleteUser(userToDelete.auth_user_id);
+    const { error: authError2 } = await supabaseServer().auth.admin.deleteUser(userToDelete.auth_user_id);
     if (authError2) {
       console.error('Failed to delete from Supabase Auth:', authError2);
       return NextResponse.json({ 

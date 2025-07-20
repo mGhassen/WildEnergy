@@ -19,7 +19,7 @@ export async function GET(
 
   // 2. Validate the token and get the user using the server client
   console.log('Check-in QR API - Validating token...');
-  const { data: { user }, error } = await supabaseServer.auth.getUser(token);
+  const { data: { user }, error } = await supabaseServer().auth.getUser(token);
 
   if (error) {
     console.log('Check-in QR API - Token validation error:', error);
@@ -34,7 +34,7 @@ export async function GET(
 
   // 3. Check if the user is an admin
   console.log('Check-in QR API - Checking admin status for user:', user.id);
-  const { data: profile, error: profileError } = await supabaseServer
+  const { data: profile, error: profileError } = await supabaseServer()
     .from('users')
     .select('is_admin')
     .eq('auth_user_id', user.id)
@@ -63,7 +63,7 @@ export async function GET(
 
     // Find the registration by QR code
     console.log('Check-in QR API - Querying class_registrations table...');
-    const { data: registration, error: regError } = await supabaseServer
+    const { data: registration, error: regError } = await supabaseServer()
       .from('class_registrations')
       .select(`
         id,
@@ -100,7 +100,7 @@ export async function GET(
       console.log('Check-in QR API - No registration found for QR code:', qrCode);
       
       // Let's also check what QR codes exist in the database
-      const { data: allQrCodes, error: qrError } = await supabaseServer
+      const { data: allQrCodes, error: qrError } = await supabaseServer()
         .from('class_registrations')
         .select('qr_code, id, user_id')
         .not('qr_code', 'is', null);
@@ -124,7 +124,7 @@ export async function GET(
     console.log('courseObj:', courseObj);
 
     // Get class information (with max_capacity, category, difficulty)
-    const { data: classInfo } = await supabaseServer
+    const { data: classInfo } = await supabaseServer()
       .from('classes')
       .select('id, name, max_capacity, category_id, difficulty, category:category_id (id, name)')
       .eq('id', courseObj?.class_id)
@@ -132,7 +132,7 @@ export async function GET(
     console.log('classInfo:', classInfo);
 
     // Get trainer information
-    const { data: trainerInfo } = await supabaseServer
+    const { data: trainerInfo } = await supabaseServer()
       .from('trainers')
       .select(`
         id,
@@ -146,7 +146,7 @@ export async function GET(
       .single();
 
     // Get member's active subscription info
-    const { data: activeSubscription } = await supabaseServer
+    const { data: activeSubscription } = await supabaseServer()
       .from('subscriptions')
       .select('id, plan_id, status, sessions_remaining, plans(name)')
       .eq('user_id', registration.user_id)
@@ -156,14 +156,14 @@ export async function GET(
       .single();
 
     // Get registered and checked-in counts for this course (excluding cancelled)
-    const { data: courseRegistrations } = await supabaseServer
+    const { data: courseRegistrations } = await supabaseServer()
       .from('class_registrations')
       .select('id, user_id, status')
       .eq('course_id', courseObj.id)
       .neq('status', 'cancelled');
 
     // Get all check-ins for this course to determine who has checked in
-    const { data: allCourseCheckins } = await supabaseServer
+    const { data: allCourseCheckins } = await supabaseServer()
       .from('checkins')
       .select('registration_id')
       .in('registration_id', courseRegistrations?.map(r => r.id) || []);
@@ -176,7 +176,7 @@ export async function GET(
 
     // Get all registered members for this course (all statuses except cancelled: registered, attended, absent)
     console.log('Check-in QR API - Debug: Querying for course_id:', courseObj.id);
-    const { data: allCourseMembers, error: membersError } = await supabaseServer
+    const { data: allCourseMembers, error: membersError } = await supabaseServer()
       .from('class_registrations')
       .select(`
         id,
@@ -227,7 +227,7 @@ export async function GET(
     console.log('Check-in QR API - Debug: courseObj.id used for query:', courseObj.id);
 
     // Get all checked-in members for this course
-    const { data: attendantMembers } = await supabaseServer
+    const { data: attendantMembers } = await supabaseServer()
       .from('checkins')
       .select(`
         class_registrations!inner (
@@ -242,7 +242,7 @@ export async function GET(
       .eq('class_registrations.course_id', courseObj.id);
 
     // Check if this member is already checked in
-    const { data: existingCheckin } = await supabaseServer
+    const { data: existingCheckin } = await supabaseServer()
       .from('checkins')
       .select('id')
       .eq('registration_id', registration.id)

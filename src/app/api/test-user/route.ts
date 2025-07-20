@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Try to sign in with the provided credentials
-    const { data: { session, user }, error } = await supabaseServer.auth.signInWithPassword({
+    const { data: { session, user }, error } = await supabaseServer().auth.signInWithPassword({
       email,
       password,
     });

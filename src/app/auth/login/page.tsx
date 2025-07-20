@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -13,24 +13,37 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
-import { useRouter } from 'next/navigation';
-import { AlertCircle, Loader2 } from "lucide-react";
+import { useRouter, useSearchParams } from 'next/navigation';
+import { AlertCircle, Loader2, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 
 export default function Login() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const { login, authError } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    // Check for success messages from URL parameters
+    const message = searchParams.get('message');
+    if (message === 'password-set-success') {
+      setSuccess('Your password has been set successfully! You can now log in with your new password.');
+    } else if (message === 'password-reset-success') {
+      setSuccess('Your password has been reset successfully! You can now log in with your new password.');
+    }
+  }, [searchParams]);
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
+    setSuccess(""); // Clear success message when attempting login
 
     try {
       // Use the useAuth hook's login method which handles everything
@@ -117,6 +130,12 @@ export default function Login() {
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
+          {success && (
+            <Alert variant="success">
+              <CheckCircle className="h-4 w-4" />
+              <AlertDescription>{success}</AlertDescription>
+            </Alert>
+          )}
 
           {/* Google Login */}
           <Button
@@ -182,6 +201,16 @@ export default function Login() {
                 required
                 disabled={isLoading}
               />
+              <div className="text-right">
+                <Button
+                  variant="link"
+                  className="p-0 h-auto text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() => router.push('/auth/forgot-password')}
+                  type="button"
+                >
+                  Forgot your password?
+                </Button>
+              </div>
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}

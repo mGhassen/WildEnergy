@@ -23,13 +23,13 @@ export async function GET(request: NextRequest) {
     const token = authHeader.substring(7);
     
     // Verify the token
-    const { data: { user: authUser }, error: authError } = await supabaseServer.auth.getUser(token);
+    const { data: { user: authUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !authUser) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
     // Check if the user is an admin
-    const { data: profile } = await supabaseServer
+    const { data: profile } = await supabaseServer()
       .from('users')
       .select('is_admin')
       .eq('auth_user_id', authUser.id)
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get member details
-    const { data: member, error: memberError } = await supabaseServer
+    const { data: member, error: memberError } = await supabaseServer()
       .from('users')
       .select('*')
       .eq('id', id)
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get subscriptions
-    const { data: subscriptions } = await supabaseServer
+    const { data: subscriptions } = await supabaseServer()
       .from('subscriptions')
       .select(`
         *,
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false });
 
     // Get class registrations
-    const { data: registrations } = await supabaseServer
+    const { data: registrations } = await supabaseServer()
       .from('class_registrations')
       .select(`
         *,
@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
       .order('registration_date', { ascending: false });
 
     // Get check-ins
-    const { data: checkins } = await supabaseServer
+    const { data: checkins } = await supabaseServer()
       .from('checkins')
       .select(`
         *,
@@ -108,7 +108,7 @@ export async function GET(request: NextRequest) {
       .order('checkin_time', { ascending: false });
 
     // Get payments
-    const { data: payments } = await supabaseServer
+    const { data: payments } = await supabaseServer()
       .from('payments')
       .select('*')
       .eq('user_id', id)

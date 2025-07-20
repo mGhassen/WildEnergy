@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 
 async function getUserFromToken(token: string) {
-  const { data: { user }, error } = await supabaseServer.auth.getUser(token);
+  const { data: { user }, error } = await supabaseServer().auth.getUser(token);
   if (error || !user) return null;
-  const { data: userProfile } = await supabaseServer
+  const { data: userProfile } = await supabaseServer()
     .from('users')
     .select('*')
     .eq('auth_user_id', user.id)
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     console.log('Force registration attempt:', { userId: userProfile.id, courseId });
 
     // Check if course exists and is active
-    const { data: course, error: courseError } = await supabaseServer
+    const { data: course, error: courseError } = await supabaseServer()
       .from('courses')
       .select('*')
       .eq('id', courseId)
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Check if already registered (but skip overlap check)
-    const { data: existing, error: existingError } = await supabaseServer
+    const { data: existing, error: existingError } = await supabaseServer()
       .from('class_registrations')
       .select('*')
       .eq('user_id', userProfile.id)
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Get user's active subscription with sessions remaining
-    const { data: activeSubscription, error: subscriptionError } = await supabaseServer
+    const { data: activeSubscription, error: subscriptionError } = await supabaseServer()
       .from('subscriptions')
       .select('id, sessions_remaining')
       .eq('user_id', userProfile.id)
@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Use the stored procedure to handle registration with session deduction
-    const { data: result, error: procedureError } = await supabaseServer
+    const { data: result, error: procedureError } = await supabaseServer()
       .rpc('create_registration_with_updates', {
         p_user_id: userProfile.id,
         p_course_id: courseId,
