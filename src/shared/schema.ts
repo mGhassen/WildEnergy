@@ -15,7 +15,7 @@ export const users = pgTable("users", {
   // Role and status management
   isAdmin: boolean("is_admin").notNull().default(false),
   isMember: boolean("is_member").notNull().default(true),
-  status: text("status", { enum: ['active', 'inactive', 'suspended', 'onhold'] }).notNull().default("onhold"),
+  status: text("status", { enum: ['active', 'pending', 'archived', 'suspended'] }).notNull().default("pending"),
   subscriptionStatus: text("subscription_status").default("inactive"),
   profileImageUrl: text("profile_image_url"),
   // Member-specific fields (only relevant when isMember = true)
@@ -262,7 +262,7 @@ export const checkinsRelations = relations(checkins, ({ one }) => ({
 }));
 
 // Define status enums
-const UserStatus = ['active', 'inactive', 'suspended', 'onhold'] as const;
+const UserStatus = ['active', 'pending', 'archived', 'suspended'] as const;
 type UserStatusType = typeof UserStatus[number];
 
 // Base user schema
@@ -274,7 +274,7 @@ export const userBaseSchema = {
   dateOfBirth: z.date().optional(),
   isAdmin: z.boolean().default(false),
   isMember: z.boolean().default(true),
-  status: z.enum(UserStatus).default('onhold'),
+  status: z.enum(UserStatus).default('pending'),
   subscriptionStatus: z.string().default('inactive'),
   profileImageUrl: z.string().optional(),
   memberNotes: z.string().optional(),

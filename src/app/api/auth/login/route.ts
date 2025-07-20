@@ -41,16 +41,28 @@ export async function POST(req: NextRequest) {
     }
 
     // Check user status
-    if (userProfile.status === 'onhold') {
+    if (userProfile.status === 'archived') {
       return NextResponse.json({
         success: false,
-        error: 'Account is pending approval. Please wait for admin approval.',
+        error: 'Account is pending admin approval. Please wait for approval before logging in.',
+      }, { status: 403 });
+    }
+    if (userProfile.status === 'pending') {
+      return NextResponse.json({
+        success: false,
+        error: 'Account is pending invitation acceptance. Please check your email and accept the invitation.',
       }, { status: 403 });
     }
     if (userProfile.status === 'suspended') {
       return NextResponse.json({
         success: false,
         error: 'Account has been suspended. Please contact support.',
+      }, { status: 403 });
+    }
+    if (userProfile.status !== 'active') {
+      return NextResponse.json({
+        success: false,
+        error: 'Account is not active. Please contact support.',
       }, { status: 403 });
     }
 

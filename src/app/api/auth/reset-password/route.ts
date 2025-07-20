@@ -14,15 +14,15 @@ export async function POST(request: NextRequest) {
     const { createSupabaseClient } = await import('@/lib/supabase');
     const supabase = createSupabaseClient();
 
-    // Use the callback route for better handling
+    // Use direct reset-password route (same as accept invitation flow)
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-    const callbackUrl = `${baseUrl}/auth/callback`;
+    const redirectTo = `${baseUrl}/auth/reset-password`;
 
     console.log('Sending password reset email to:', email);
-    console.log('Callback URL:', callbackUrl);
+    console.log('Redirect URL:', redirectTo);
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: callbackUrl,
+      redirectTo: redirectTo,
     });
 
     if (error) {

@@ -1,0 +1,62 @@
+# Project identifier
+project_id = "wild-energy"
+
+[api]
+port = 54421
+schemas = ["public", "storage", "graphql_public", "guepard"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54422
+major_version = 15
+
+[studio]
+port = 54423
+
+[inbucket]
+port = 54424
+smtp_port = 54425
+pop3_port = 54426
+
+[storage]
+file_size_limit = "50MiB"
+
+[auth]
+site_url = "http://localhost:3000"
+additional_redirect_urls = [
+  "http://localhost:3000",
+  "http://localhost:3000/auth/callback",
+  "http://localhost:3000/auth/accept-invitation",
+  "http://localhost:3000/update-password"
+]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = true
+
+[auth.email.template.invite]
+subject = "You are invited to Guepard Platform"
+content_path = "./supabase/templates/invite-user.html"
+
+[auth.email.template.confirmation]
+subject = "Confirm your email"
+content_path = "./supabase/templates/confirm-email.html"
+
+[auth.email.template.recovery]
+subject = "Reset your password"
+content_path = "./supabase/templates/reset-password.html"
+
+[auth.email.template.email_change]
+subject = "Confirm your email change"
+content_path = "./supabase/templates/change-email-address.html"
+
+[auth.email.template.magic_link]
+subject = "Sign in to Guepard Platform"
+content_path = "./supabase/templates/magic-link.html"
+
+[analytics]
+enabled = false 

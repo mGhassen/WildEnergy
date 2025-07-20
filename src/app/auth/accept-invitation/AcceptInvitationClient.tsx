@@ -140,6 +140,17 @@ export default function AcceptInvitationClient({ searchParams }: { searchParams:
         throw new Error(updateError.message);
       }
 
+      // Update user status to 'active' after accepting invitation
+      const { error: statusError } = await supabase
+        .from('users')
+        .update({ status: 'active' })
+        .eq('auth_user_id', sessionData.session.user.id);
+
+      if (statusError) {
+        console.error('Failed to update user status:', statusError);
+        // Don't throw error here, as the password was set successfully
+      }
+
       // Get the user's email from the session
       const email = sessionData.session.user.email;
       if (email) {
@@ -184,7 +195,7 @@ export default function AcceptInvitationClient({ searchParams }: { searchParams:
             if (sessionJson.user.isAdmin) {
               window.location.href = '/admin';
             } else {
-              window.location.href = '/member/home';
+              window.location.href = '/member';
             }
           } else {
             window.location.href = '/';
