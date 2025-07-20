@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { apiRequest } from "@/lib/queryClient";
-import { Search, Plus, Edit, Trash2, User, Shield, MoreHorizontal, Key, Archive, CheckCircle, XCircle, Mail, Star, X, Phone, Calendar, Clock, Activity, FileText } from "lucide-react";
+import { Search, Plus, Edit, Trash2, User, Shield, MoreHorizontal, Key, Archive, CheckCircle, XCircle, Mail, Star, X, Phone, Calendar, Clock, Activity, FileText, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -21,16 +21,14 @@ import { z } from "zod";
 import { formatDate } from "@/lib/date";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 // Form schemas
 const createUserSchema = z.object({
     email: z.string().email("Please enter a valid email"),
     firstName: z.string().min(1, "First name is required"),
     lastName: z.string().min(1, "Last name is required"),
-    // Removed password field
-    isAdmin: z.boolean().optional(),
-    isMember: z.boolean().optional(),
-    isTrainer: z.boolean().optional(),
+    role: z.enum(["admin", "member", "trainer"], { required_error: "Role is required" }),
 });
 
 const editUserSchema = z.object({
@@ -170,16 +168,13 @@ export default function UsersPage() {
     }));
 
     // Create user form
-    const createForm = useForm<CreateUserForm>({
+    const createForm = useForm<z.infer<typeof createUserSchema>>({
         resolver: zodResolver(createUserSchema),
         defaultValues: {
             email: "",
             firstName: "",
             lastName: "",
-            // Removed password default
-            isAdmin: false,
-            isMember: true,
-            isTrainer: false,
+            role: "member",
         },
     });
 
@@ -311,8 +306,14 @@ export default function UsersPage() {
     });
 
     // Handle create user
-    const handleCreateUser = (data: CreateUserForm) => {
-        createUserMutation.mutate(data);
+    const handleCreateUser = (data: z.infer<typeof createUserSchema>) => {
+        const { role, ...rest } = data;
+        createUserMutation.mutate({
+            ...rest,
+            isAdmin: role === 'admin',
+            isMember: role === 'member',
+            isTrainer: role === 'trainer',
+        });
     };
 
     // Handle edit user
@@ -373,6 +374,9 @@ export default function UsersPage() {
             </div>
         );
     }
+
+    const isCreatingUser = createUserMutation.isPending;
+    console.log('isCreatingUser:', isCreatingUser);
 
     return (
         <div className="space-y-6">
@@ -439,64 +443,44 @@ export default function UsersPage() {
                                         </FormItem>
                                     )}
                                 />
-                                <div className="space-y-3">
-                                    <FormField
-                                        control={createForm.control}
-                                        name="isAdmin"
-                                        render={({ field }) => (
-                                            <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                                                <FormControl>
-                                                    <Checkbox
-                                                        checked={field.value}
-                                                        onCheckedChange={field.onChange}
-                                                    />
-                                                </FormControl>
-                                                <div className="space-y-1 leading-none">
-                                                    <FormLabel>Admin User</FormLabel>
-                                                </div>
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={createForm.control}
-                                        name="isMember"
-                                        render={({ field }) => (
-                                            <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                                                <FormControl>
-                                                    <Checkbox
-                                                        checked={field.value}
-                                                        onCheckedChange={field.onChange}
-                                                    />
-                                                </FormControl>
-                                                <div className="space-y-1 leading-none">
-                                                    <FormLabel>Member User</FormLabel>
-                                                </div>
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={createForm.control}
-                                        name="isTrainer"
-                                        render={({ field }) => (
-                                            <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                                                <FormControl>
-                                                    <Checkbox
-                                                        checked={field.value}
-                                                        onCheckedChange={field.onChange}
-                                                    />
-                                                </FormControl>
-                                                <div className="space-y-1 leading-none">
-                                                    <FormLabel>Trainer User</FormLabel>
-                                                </div>
-                                            </FormItem>
-                                        )}
-                                    />
-                                </div>
+                                <FormField
+                                    control={createForm.control}
+                                    name="role"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Role</FormLabel>
+                                            <FormControl>
+                                                <RadioGroup
+                                                    value={field.value}
+                                                    onValueChange={field.onChange}
+                                                    className="flex flex-row gap-4"
+                                                >
+                                                    <RadioGroupItem value="admin" id="role-admin" />
+                                                    <FormLabel htmlFor="role-admin">Admin</FormLabel>
+                                                    <RadioGroupItem value="member" id="role-member" />
+                                                    <FormLabel htmlFor="role-member">Member</FormLabel>
+                                                    <RadioGroupItem value="trainer" id="role-trainer" />
+                                                    <FormLabel htmlFor="role-trainer">Trainer</FormLabel>
+                                                </RadioGroup>
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
                                 <div className="flex justify-end gap-2">
                                     <Button type="button" variant="outline" onClick={() => setShowCreateDialog(false)}>
                                         Cancel
                                     </Button>
-                                    <Button type="submit">Create User</Button>
+                                    <Button type="submit" disabled={isCreatingUser}>
+                                        {isCreatingUser ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                                Creating...
+                                            </>
+                                        ) : (
+                                            'Create User'
+                                        )}
+                                    </Button>
                                 </div>
                             </form>
                         </Form>
