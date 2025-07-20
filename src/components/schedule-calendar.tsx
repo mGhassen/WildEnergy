@@ -16,6 +16,7 @@ import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
 import { MoreVertical } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
 
 interface Schedule {
   id: number;
@@ -145,10 +146,24 @@ export default function ScheduleCalendar({
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [memberSearchTerm, setMemberSearchTerm] = useState('');
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   // Add state for confirmation dialogs
   const [confirmUnregisterId, setConfirmUnregisterId] = useState<string | number | null>(null);
   const [confirmUnvalidateId, setConfirmUnvalidateId] = useState<string | number | null>(null);
+  const [adminRefundSession, setAdminRefundSession] = useState(true);
+
+  // Calculate if cancellation is late (within 24h of course start)
+  const isLateCancellation = (registrationId: number) => {
+    const registration = registrations.find(reg => reg.id === registrationId);
+    if (!registration?.course) return false;
+    
+    const courseDateTime = new Date(`${registration.course.courseDate}T${registration.course.startTime}`);
+    const cutoffTime = new Date(courseDateTime.getTime() - (24 * 60 * 60 * 1000));
+    const now = new Date();
+    
+    return now >= cutoffTime;
+  };
 
   const getScheduleRegistrations = (scheduleId: number) => {
     // Get all registrations for this schedule
@@ -175,7 +190,7 @@ export default function ScheduleCalendar({
     // Get ALL registrations for this schedule (including checked-in ones)
     return registrations.filter(reg => 
       reg.course?.id === scheduleId && 
-      reg.status === 'registered'
+      (reg.status === 'registered' || reg.status === 'attended')  // Include both registered and attended (checked-in) members
     );
   };
 
@@ -216,7 +231,10 @@ export default function ScheduleCalendar({
 
   // Get registered and checked-in member IDs for the current course
   const getRegisteredMemberIds = (scheduleId: number) => {
-    const courseRegistrations = registrations.filter(reg => reg.course?.id === scheduleId);
+    const courseRegistrations = registrations.filter(reg => 
+      reg.course?.id === scheduleId && 
+      reg.status === 'registered'  // Only include active registrations, exclude cancelled ones
+    );
     const registeredIds = courseRegistrations.map(reg => reg.member?.id).filter(Boolean);
     return registeredIds;
   };
@@ -350,8 +368,8 @@ export default function ScheduleCalendar({
 
   // Add unregister mutation
   const unregisterMemberMutation = useMutation({
-    mutationFn: async (registrationId: number) => {
-      return await apiRequest('POST', `/api/registrations/${registrationId}/cancel`, {});
+    mutationFn: async ({ registrationId, refundSession }: { registrationId: number, refundSession?: boolean }) => {
+      return await apiRequest('POST', `/api/registrations/${registrationId}/cancel`, refundSession !== undefined ? { refundSession } : {});
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/registrations"] });
@@ -709,6 +727,13 @@ export default function ScheduleCalendar({
     );
   };
 
+  // Update adminRefundSession when dialog opens
+  const handleUnregisterClick = (registrationId: number) => {
+    const isLate = isLateCancellation(registrationId);
+    setAdminRefundSession(!isLate); // Default: refund if not late, forfeit if late
+    setConfirmUnregisterId(registrationId);
+  };
+
   return (
     <div className="space-y-6">
       {/* Calendar Header */}
@@ -855,7 +880,7 @@ export default function ScheduleCalendar({
                                   </DropdownMenuItem>
                                 )}
                                 {!isCheckedIn && (
-                                  <DropdownMenuItem onClick={() => setConfirmUnregisterId(registration.id)}>
+                                  <DropdownMenuItem onClick={() => handleUnregisterClick(registration.id)}>
                                     <X className="w-3 h-3 mr-2" /> Unregister
                                   </DropdownMenuItem>
                                 )}
@@ -1001,11 +1026,49 @@ export default function ScheduleCalendar({
               Are you sure you want to unregister this member from the course? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {user?.isAdmin && confirmUnregisterId && (
+            <div className="space-y-3 py-2">
+              {isLateCancellation(Number(confirmUnregisterId)) ? (
+                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                  <p className="text-sm text-yellow-800 font-medium">⚠️ Late Cancellation</p>
+                  <p className="text-xs text-yellow-700 mt-1">
+                    This is a late cancellation (within 24 hours of the course). 
+                    By default, the session will be forfeited.
+                  </p>
+                </div>
+              ) : (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-md">
+                  <p className="text-sm text-green-800 font-medium">✅ Regular Cancellation</p>
+                  <p className="text-xs text-green-700 mt-1">
+                    This is not a late cancellation. By default, the session will be refunded.
+                  </p>
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="admin-refund-session"
+                  checked={adminRefundSession}
+                  onCheckedChange={checked => setAdminRefundSession(!!checked)}
+                />
+                <Label htmlFor="admin-refund-session">
+                  {isLateCancellation(Number(confirmUnregisterId)) ? 'Override: Refund session to member' : 'Refund session to member'}
+                </Label>
+              </div>
+            </div>
+          )}
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setConfirmUnregisterId(null)}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (confirmUnregisterId) unregisterMemberMutation.mutate(Number(confirmUnregisterId));
+                if (confirmUnregisterId) {
+                  const isLate = isLateCancellation(Number(confirmUnregisterId));
+                  const defaultRefund = !isLate; // Default: refund if not late
+                  const refundSession = user?.isAdmin ? adminRefundSession : defaultRefund;
+                  unregisterMemberMutation.mutate({ 
+                    registrationId: Number(confirmUnregisterId), 
+                    refundSession: user?.isAdmin ? refundSession : undefined 
+                  });
+                }
                 setConfirmUnregisterId(null);
               }}
               className="bg-destructive text-white hover:bg-destructive/90"

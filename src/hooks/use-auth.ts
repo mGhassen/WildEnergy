@@ -73,9 +73,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
           if (errorData.status === 'onhold') {
             // Redirect to onhold page
             router.push('/auth/onhold');
-            throw new Error(errorData.error || 'Account access denied');
+            setAuthError(errorData.error || 'Account access denied');
+            return null;
           }
-          throw new Error(errorData.error || 'Account access denied');
+          setAuthError(errorData.error || 'Account access denied');
+          return null;
         }
         
         if (response.status === 401) {
@@ -88,12 +90,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
           }
           setUser(null);
           router.push('/login');
-          setAuthError('Your session has expired or is invalid. Please log in again.'); // NEW
-          throw new Error('Session expired or invalid token');
+          setAuthError('Your session has expired or is invalid. Please log in again.');
+          return null;
         }
         
-        setAuthError(errorData.error || 'Failed to fetch session'); // NEW
-        throw new Error(errorData.error || 'Failed to fetch session');
+        setAuthError(errorData.error || 'Failed to fetch session');
+        return null;
       }
 
       const data = await response.json();
@@ -101,6 +103,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       if (data.success && data.user) {
         setUser(data.user);
+        setAuthError(null); // Clear any previous errors
         return data.user;
       }
       return null;
@@ -110,8 +113,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         error instanceof Error && error.message.includes('expired')
           ? 'Your session has expired. Please log in again.'
           : 'An unexpected authentication error occurred. Please try again.'
-      ); // NEW
-      throw error;
+      );
+      return null;
     }
   };
 
@@ -125,9 +128,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
 
       try {
-        await fetchSession(token);
+        const user = await fetchSession(token);
+        if (!user) {
+          // Session was invalid, tokens already cleared in fetchSession
+          console.log('Session check failed - no user returned');
+        }
       } catch (error) {
         console.error('Session check failed:', error);
+        // Fallback cleanup in case fetchSession didn't handle it
         localStorage.removeItem('access_token');
         if (typeof window !== 'undefined') {
           delete window.__authToken;
