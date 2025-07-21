@@ -25,6 +25,7 @@ const formatEuropeanDate = (dateString: string) => {
   });
 };
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface ScheduleFormData {
   classId: number;
@@ -61,6 +62,7 @@ export default function AdminSchedules() {
   const [searchTerm, setSearchTerm] = useState("");
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   const { data: rawSchedules = [], isLoading, refetch } = useQuery({
     queryKey: ["schedules"],
@@ -345,6 +347,68 @@ export default function AdminSchedules() {
     setIsModalOpen(true);
   };
 
+  // --- Mobile Schedule Card ---
+  const MobileScheduleCard = ({ schedule, onEdit, onDelete }: { schedule: any, onEdit: (s: any) => void, onDelete: (id: number) => void }) => {
+    const attendedMembers = getScheduleCheckins(schedule.id);
+    const maxCapacity = schedule.class?.max_capacity || 0;
+    const totalAttendance = attendedMembers.length;
+    const repetitionCount = schedule.repetitionType === 'weekly' ? 4 : schedule.repetitionType === 'daily' ? 30 : 1;
+    const adjustedCapacity = maxCapacity * repetitionCount;
+    const attendanceRate = adjustedCapacity > 0 ? Math.round((totalAttendance / adjustedCapacity) * 100) : 0;
+    return (
+      <Card className="mb-3 shadow-sm border border-gray-200">
+        <CardContent className="p-3">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
+              <Calendar className="w-5 h-5 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="font-semibold text-base truncate">{schedule.class?.name}</span>
+                <Badge variant="outline" className="text-xs">{schedule.class?.category}</Badge>
+                <Badge variant="secondary" className="text-xs flex items-center gap-1">
+                  <RepeatIcon className="w-3 h-3" />
+                  {getRepetitionLabel(schedule.repetitionType || 'weekly')}
+                </Badge>
+                <Badge variant={schedule.isActive ? 'default' : 'secondary'} className="text-xs ml-1">
+                  {schedule.isActive ? 'Active' : 'Inactive'}
+                </Badge>
+              </div>
+              <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1">
+                  <Users className="w-3 h-3" />
+                  {schedule.trainer?.firstName} {schedule.trainer?.lastName}
+                </div>
+                <div className="flex items-center gap-1">
+                  <Badge variant="outline" className="text-xs">
+                    {schedule.scheduleDate ? formatEuropeanDate(schedule.scheduleDate) : getDayName(schedule.dayOfWeek)}
+                  </Badge>
+                  <span>{formatTime(schedule.startTime)}-{formatTime(schedule.endTime)}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <TrendingUp className="w-3 h-3 text-green-600" />
+                  <span className="font-medium text-green-600">{attendanceRate}%</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Users className="w-3 h-3 text-muted-foreground" />
+                  <span className="font-medium">{maxCapacity}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="flex gap-2 mt-2">
+            <Button size="icon" variant="ghost" className="border border-gray-200" onClick={() => onEdit(schedule)}>
+              <Edit className="w-4 h-4" />
+            </Button>
+            <Button size="icon" variant="ghost" className="border border-gray-200 text-red-600" onClick={() => onDelete(schedule.id)}>
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center">
@@ -598,135 +662,101 @@ export default function AdminSchedules() {
                 ))}
               </div>
             ) : (
-              <div className="space-y-4">
-                {filteredSchedules.map((schedule: any) => {
-                  const attendedMembers = getScheduleCheckins(schedule.id);
-                  
-                  // Get capacity from class max_capacity
-                  const maxCapacity = schedule.class?.max_capacity || 0;
-                  
-                  // Calculate attendance rate: total attendance over capacity multiplied by repetitions
-                  const totalAttendance = attendedMembers.length;
-                  const repetitionCount = schedule.repetitionType === 'weekly' ? 4 : schedule.repetitionType === 'daily' ? 30 : 1; // Estimate repetitions
-                  const adjustedCapacity = maxCapacity * repetitionCount;
-                  const attendanceRate = adjustedCapacity > 0 
-                    ? Math.round((totalAttendance / adjustedCapacity) * 100)
-                    : 0;
+              isMobile ? (
+                <div className="space-y-2">
+                  {filteredSchedules.map((schedule: any) => (
+                    <MobileScheduleCard key={schedule.id} schedule={schedule} onEdit={handleEdit} onDelete={handleDelete} />
+                  ))}
+                  {filteredSchedules.length === 0 && (
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground">No schedules found.</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {filteredSchedules.map((schedule: any) => {
+                    const attendedMembers = getScheduleCheckins(schedule.id);
+                    
+                    // Get capacity from class max_capacity
+                    const maxCapacity = schedule.class?.max_capacity || 0;
+                    
+                    // Calculate attendance rate: total attendance over capacity multiplied by repetitions
+                    const totalAttendance = attendedMembers.length;
+                    const repetitionCount = schedule.repetitionType === 'weekly' ? 4 : schedule.repetitionType === 'daily' ? 30 : 1; // Estimate repetitions
+                    const adjustedCapacity = maxCapacity * repetitionCount;
+                    const attendanceRate = adjustedCapacity > 0 
+                      ? Math.round((totalAttendance / adjustedCapacity) * 100)
+                      : 0;
 
-                  return (
-                    <Card key={schedule.id} className="hover:shadow-md transition-shadow">
-                      <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-4 flex-1">
-                            <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
-                              <Calendar className="w-8 h-8 text-white" />
-                            </div>
-                            
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-2">
-                                <h3 className="text-lg font-semibold text-foreground">{schedule.class?.name}</h3>
-                                <Badge variant="outline" className="text-xs">
-                                  {schedule.class?.category}
-                                </Badge>
-                                <Badge variant="secondary" className="text-xs flex items-center gap-1">
-                                  <RepeatIcon className="w-3 h-3" />
-                                  {getRepetitionLabel(schedule.repetitionType || 'weekly')}
-                                </Badge>
+                    return (
+                      <Card key={schedule.id} className="hover:shadow-md transition-shadow">
+                        <CardContent className={isMobile ? 'p-3' : 'p-6'}>
+                          <div className={isMobile ? 'flex flex-col gap-2' : 'flex items-center justify-between'}>
+                            <div className={isMobile ? 'flex items-center gap-3' : 'flex items-center space-x-4 flex-1'}>
+                              <div className={isMobile ? 'w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center' : 'w-16 h-16 rounded-lg bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center'}>
+                                <Calendar className={isMobile ? 'w-5 h-5 text-white' : 'w-8 h-8 text-white'} />
                               </div>
-                              
-                              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
-                                <div>
-                                  <p className="text-muted-foreground">Trainer</p>
-                                  <p className="font-medium">{schedule.trainer?.firstName} {schedule.trainer?.lastName}</p>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h3 className={isMobile ? 'text-base font-semibold text-foreground' : 'text-lg font-semibold text-foreground'}>{schedule.class?.name}</h3>
+                                  <Badge variant="outline" className="text-xs">{schedule.class?.category}</Badge>
+                                  <Badge variant="secondary" className="text-xs flex items-center gap-1">
+                                    <RepeatIcon className="w-3 h-3" />
+                                    {getRepetitionLabel(schedule.repetitionType || 'weekly')}
+                                  </Badge>
                                 </div>
-                                
-                                <div>
-                                  <p className="text-muted-foreground">Schedule</p>
-                                  <div className="flex items-center gap-1">
-                                    <Badge variant="outline" className="text-xs">
-                                      {schedule.scheduleDate ? formatEuropeanDate(schedule.scheduleDate) : getDayName(schedule.dayOfWeek)}
-                                    </Badge>
-                                    <span className="text-xs text-muted-foreground">
-                                      {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}
-                                    </span>
+                                <div className={isMobile ? 'flex flex-col gap-1 text-xs' : 'grid grid-cols-2 md:grid-cols-5 gap-4 text-sm'}>
+                                  <div>
+                                    <p className="text-muted-foreground">Trainer</p>
+                                    <p className="font-medium">{schedule.trainer?.firstName} {schedule.trainer?.lastName}</p>
                                   </div>
-                                </div>
-                                
-                                <div>
-                                  <p className="text-muted-foreground">Capacity</p>
-                                  <div className="flex items-center gap-1">
-                                    <Users className="w-4 h-4 text-muted-foreground" />
-                                    <span className="font-medium">
-                                      {maxCapacity}
-                                    </span>
+                                  <div>
+                                    <p className="text-muted-foreground">Schedule</p>
+                                    <div className="flex items-center gap-1">
+                                      <Badge variant="outline" className="text-xs">
+                                        {schedule.scheduleDate ? formatEuropeanDate(schedule.scheduleDate) : getDayName(schedule.dayOfWeek)}
+                                      </Badge>
+                                      <span className="text-xs text-muted-foreground">
+                                        {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}
+                                      </span>
+                                    </div>
                                   </div>
-                                </div>
-                                
-                                <div>
-                                  <p className="text-muted-foreground">Attendance</p>
-                                  <div className="flex items-center gap-1">
-                                    <TrendingUp className="w-4 h-4 text-green-600" />
-                                    <span className="font-medium text-green-600">
-                                      {totalAttendance}/{adjustedCapacity} ({attendanceRate}%)
-                                    </span>
+                                  <div>
+                                    <p className="text-muted-foreground">Capacity</p>
+                                    <div className="flex items-center gap-1">
+                                      <Users className="w-4 h-4 text-muted-foreground" />
+                                      <span className="font-medium">{maxCapacity}</span>
+                                    </div>
                                   </div>
-                                </div>
-                                <div>
-                                  <p className="text-muted-foreground">Courses</p>
-                                  <div className="flex items-center gap-1">
-                                    <span className="font-medium">
-                                      {coursesCountBySchedule[schedule.id] || 0}
-                                    </span>
+                                  <div>
+                                    <p className="text-muted-foreground">Attendance</p>
+                                    <div className="flex items-center gap-1">
+                                      <TrendingUp className="w-4 h-4 text-green-600" />
+                                      <span className="font-medium text-green-600">{attendanceRate}%</span>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
-                              
-                              {schedule.class?.duration && (
-                                <div className="mt-2 text-xs text-muted-foreground">
-                                  Duration: {schedule.class.duration} minutes
-                                </div>
-                              )}
                             </div>
+                            {/* Actions can be added here, stacked for mobile if needed */}
                           </div>
-                          
-                          <div className="flex flex-col items-end gap-2">
-                            <Badge variant={schedule.isActive ? 'default' : 'secondary'}>
-                              {schedule.isActive ? 'Active' : 'Inactive'}
-                            </Badge>
-                            
-                            <div className="flex space-x-2">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleEdit(schedule)}
-                              >
-                                <Edit className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleDelete(schedule.id)}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-                
-                {filteredSchedules.length === 0 && (
-                  <div className="text-center py-12">
-                    <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-foreground mb-2">No schedules found</h3>
-                    <p className="text-muted-foreground">
-                      {searchTerm ? 'Try adjusting your search criteria' : 'Create your first schedule to get started'}
-                    </p>
-                  </div>
-                )}
-              </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                  
+                  {filteredSchedules.length === 0 && (
+                    <div className="text-center py-12">
+                      <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-foreground mb-2">No schedules found</h3>
+                      <p className="text-muted-foreground">
+                        {searchTerm ? 'Try adjusting your search criteria' : 'Create your first schedule to get started'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )
             )}
           </CardContent>
         </Card>
