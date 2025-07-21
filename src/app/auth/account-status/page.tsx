@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Mail, Clock, ArrowLeft, RefreshCw, AlertCircle } from "lucide-react";
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 
@@ -22,7 +22,7 @@ interface StatusConfig {
   showResendButton?: boolean;
 }
 
-export default function AccountStatusPage() {
+function AccountStatusContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<AccountStatus>('unknown');
@@ -387,5 +387,24 @@ export default function AccountStatusPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function AccountStatusPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="flex items-center justify-center py-8">
+            <div className="flex items-center space-x-2">
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              <span>Loading...</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    }>
+      <AccountStatusContent />
+    </Suspense>
   );
 } 

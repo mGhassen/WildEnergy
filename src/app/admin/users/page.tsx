@@ -28,7 +28,10 @@ const createUserSchema = z.object({
     email: z.string().email("Please enter a valid email"),
     firstName: z.string().min(1, "First name is required"),
     lastName: z.string().min(1, "Last name is required"),
-    role: z.enum(["admin", "member", "trainer"], { required_error: "Role is required" }),
+    role: z.enum(["admin", "member", "trainer"]),
+    isAdmin: z.boolean(),
+    isMember: z.boolean(),
+    isTrainer: z.boolean(),
 });
 
 const editUserSchema = z.object({
@@ -175,8 +178,19 @@ export default function UsersPage() {
             firstName: "",
             lastName: "",
             role: "member",
+            isAdmin: false,
+            isMember: false,
+            isTrainer: false,
         },
     });
+
+    // Watch role changes and update boolean fields
+    const watchedRole = createForm.watch("role");
+    useEffect(() => {
+        createForm.setValue("isAdmin", watchedRole === "admin");
+        createForm.setValue("isMember", watchedRole === "member");
+        createForm.setValue("isTrainer", watchedRole === "trainer");
+    }, [watchedRole, createForm]);
 
     // Edit user form
     const editForm = useForm<EditUserForm>({
@@ -307,13 +321,7 @@ export default function UsersPage() {
 
     // Handle create user
     const handleCreateUser = (data: z.infer<typeof createUserSchema>) => {
-        const { role, ...rest } = data;
-        createUserMutation.mutate({
-            ...rest,
-            isAdmin: role === 'admin',
-            isMember: role === 'member',
-            isTrainer: role === 'trainer',
-        });
+        createUserMutation.mutate(data);
     };
 
     // Handle edit user
