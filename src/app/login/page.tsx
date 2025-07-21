@@ -30,11 +30,7 @@ export default function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      await login(credentials.email, credentials.password);
-    } catch (error) {
-      console.error('Login failed:', error);
-    }
+    await login(credentials.email, credentials.password);
   };
 
   const handleDemoLogin = async (role: 'admin' | 'member') => {
@@ -43,11 +39,7 @@ export default function Login() {
       member: { email: "member@wildenergy.gym", password: "member" }
     };
     
-    try {
-      await login(demoCredentials[role].email, demoCredentials[role].password);
-    } catch (error) {
-      console.error('Demo login failed:', error);
-    }
+    await login(demoCredentials[role].email, demoCredentials[role].password);
   };
 
   return (
