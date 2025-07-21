@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import ScheduleCalendar from '@/components/schedule-calendar';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface Course {
   id: number;
@@ -68,6 +69,7 @@ export default function AdminCourses() {
   const [calendarView, setCalendarView] = useState<"daily" | "weekly" | "monthly">("monthly");
   const [currentDate, setCurrentDate] = useState(new Date());
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
 
   const handleNavigateToDate = (date: Date) => {
     setCurrentDate(date);
@@ -273,10 +275,11 @@ export default function AdminCourses() {
             schedules={coursesAsSchedules}
             registrations={registrations || []}
             checkins={checkins || []}
-            viewMode={calendarView}
-            onViewModeChange={setCalendarView}
+            viewMode={isMobile ? 'daily' : calendarView}
+            onViewModeChange={isMobile ? () => {} : setCalendarView}
             onNavigateToDate={handleNavigateToDate}
             currentDate={currentDate}
+            hideViewModeSwitcher={isMobile}
           />
         </CardContent>
       </Card>

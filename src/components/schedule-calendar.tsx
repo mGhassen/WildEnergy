@@ -17,6 +17,7 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
 import { MoreVertical } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface Schedule {
   id: number;
@@ -128,6 +129,7 @@ interface ScheduleCalendarProps {
   onViewModeChange: (mode: "daily" | "weekly" | "monthly") => void;
   onNavigateToDate?: (date: Date) => void;
   currentDate?: Date;
+  hideViewModeSwitcher?: boolean;
 }
 
 export default function ScheduleCalendar({ 
@@ -137,7 +139,8 @@ export default function ScheduleCalendar({
   viewMode, 
   onViewModeChange,
   onNavigateToDate,
-  currentDate: externalCurrentDate
+  currentDate: externalCurrentDate,
+  hideViewModeSwitcher = false
 }: ScheduleCalendarProps) {
   const [internalCurrentDate, setInternalCurrentDate] = useState(new Date());
   const currentDate = externalCurrentDate || internalCurrentDate;
@@ -147,6 +150,7 @@ export default function ScheduleCalendar({
   const [memberSearchTerm, setMemberSearchTerm] = useState('');
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const isMobile = useIsMobile();
 
   // Add state for confirmation dialogs
   const [confirmUnregisterId, setConfirmUnregisterId] = useState<string | number | null>(null);
@@ -523,30 +527,30 @@ export default function ScheduleCalendar({
             return (
               <Card key={schedule.id} className={`cursor-pointer hover:shadow-md transition-shadow ${isPast ? 'opacity-60 bg-gray-50' : ''}`}
                     onClick={() => setSelectedSchedule(schedule)}>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <h3 className={`font-semibold text-lg ${isPast ? 'text-gray-500' : ''}`}>{schedule.class?.name || 'Unknown Class'}</h3>
-                      <p className={`${isPast ? 'text-gray-400' : 'text-muted-foreground'}`}>
+                <CardContent className={isMobile ? 'p-2' : 'p-4'}>
+                  <div className={isMobile ? 'flex flex-col gap-2' : 'flex items-center justify-between'}>
+                    <div className={isMobile ? '' : 'flex-1'}>
+                      <h3 className={`font-semibold ${isMobile ? 'text-base' : 'text-lg'} ${isPast ? 'text-gray-500' : ''}`}>{schedule.class?.name || 'Unknown Class'}</h3>
+                      <p className={`${isPast ? 'text-gray-400' : 'text-muted-foreground'} ${isMobile ? 'text-xs' : ''}`}>
                         {schedule.trainer?.firstName || 'Unknown'} {schedule.trainer?.lastName || ''}
                       </p>
-                      <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                      <div className={isMobile ? 'flex flex-col gap-1 mt-1 text-xs text-muted-foreground' : 'flex items-center gap-4 mt-2 text-sm text-muted-foreground'}>
                         <div className="flex items-center gap-1">
-                          <Clock className="w-4 h-4" />
+                          <Clock className={isMobile ? 'w-3 h-3' : 'w-4 h-4'} />
                           {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}
                         </div>
                         <div className="flex items-center gap-1">
-                          <Users className="w-4 h-4" />
+                          <Users className={isMobile ? 'w-3 h-3' : 'w-4 h-4'} />
                           {getAllScheduleRegistrations(schedule.id).length}/{schedule.class?.maxCapacity || 0} registered
                         </div>
                         <div className="flex items-center gap-1">
-                          <Users className="w-4 h-4" />
+                          <Users className={isMobile ? 'w-3 h-3' : 'w-4 h-4'} />
                           {attendedMembers.length} attended
                         </div>
                       </div>
                     </div>
-                    <div className="text-right space-y-2">
-                      <Badge variant={isPast ? "outline" : "secondary"}>
+                    <div className={isMobile ? 'mt-2 text-left' : 'text-right space-y-2'}>
+                      <Badge variant={isPast ? 'outline' : 'secondary'} className={isMobile ? 'text-xs' : ''}>
                         {schedule.class.category}
                       </Badge>
                     </div>
@@ -765,18 +769,20 @@ export default function ScheduleCalendar({
           </div>
         </div>
         
-        <div className="flex items-center gap-2">
-          {(['daily', 'weekly', 'monthly'] as const).map((mode) => (
-            <Button
-              key={mode}
-              variant={viewMode === mode ? "default" : "outline"}
-              size="sm"
-              onClick={() => onViewModeChange(mode)}
-            >
-              {mode.charAt(0).toUpperCase() + mode.slice(1)}
-            </Button>
-          ))}
-        </div>
+        {!hideViewModeSwitcher && (
+          <div className="flex items-center gap-2">
+            {(['daily', 'weekly', 'monthly'] as const).map((mode) => (
+              <Button
+                key={mode}
+                variant={viewMode === mode ? "default" : "outline"}
+                size="sm"
+                onClick={() => onViewModeChange(mode)}
+              >
+                {mode.charAt(0).toUpperCase() + mode.slice(1)}
+              </Button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Calendar Views */}
