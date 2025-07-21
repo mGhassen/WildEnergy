@@ -61,7 +61,7 @@ export default function RegisterPage() {
         description: "Please wait for admin approval before signing in.",
       });
 
-      router.push('/auth/onhold');
+      router.push('/auth/waiting-approval');
     } catch (err: any) {
       setError(err.message || "An error occurred during registration");
     } finally {
@@ -80,7 +80,7 @@ export default function RegisterPage() {
       if (!client) {
         throw new Error('Supabase client not available');
       }
-      const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}/auth/onhold` : undefined;
+      const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}/auth/waiting-approval` : undefined;
       const { error } = await client.auth.signInWithOAuth({
         provider: 'google',
         options: {

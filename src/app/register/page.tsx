@@ -44,8 +44,8 @@ export default function Register() {
         throw new Error(data.error || 'Registration failed');
       }
 
-      // Redirect to login after successful registration
-      router.push('/login?registered=true');
+      // Redirect to account status page after successful registration
+      router.push(`/auth/account-status?email=${encodeURIComponent(credentials.email)}`);
     } catch (err) {
       console.error('Registration error:', err);
       setError(err instanceof Error ? err.message : 'Registration failed');

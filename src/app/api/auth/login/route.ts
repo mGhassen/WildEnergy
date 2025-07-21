@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    // Sign in with Supabase
+    // First attempt authentication with Supabase
     const { data: { session, user }, error } = await supabaseServer().auth.signInWithPassword({
       email,
       password,
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
       }, { status: 401 });
     }
 
-    // Get user profile
+    // Now get user profile after successful authentication
     const { data: userProfile, error: profileError } = await supabaseServer()
       .from('users')
       .select('*')
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
       }, { status: 401 });
     }
 
-    // Check user status
+    // Check user status after successful authentication
     if (userProfile.status === 'archived') {
       return NextResponse.json({
         success: false,

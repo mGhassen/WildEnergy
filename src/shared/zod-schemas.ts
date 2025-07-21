@@ -10,7 +10,7 @@ export const userBaseSchema = {
   dateOfBirth: z.date().optional(),
   isAdmin: z.boolean().default(false),
   isMember: z.boolean().default(true),
-  status: z.enum(UserStatus).default('onhold'),
+  status: z.enum(UserStatus).default('archived'),
   subscriptionStatus: z.string().default('inactive'),
   profileImageUrl: z.string().optional(),
   memberNotes: z.string().optional(),

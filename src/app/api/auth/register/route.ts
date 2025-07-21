@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { supabaseServer } from '@/lib/supabase';
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,8 +12,8 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    // 1. Create auth user
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    // 1. Create auth user using service role
+    const { data: authData, error: authError } = await supabaseServer().auth.signUp({
       email,
       password,
     });
@@ -30,8 +25,8 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    // 2. Create user profile
-    const { error: profileError } = await supabase
+    // 2. Create user profile with 'archived' status (waiting for admin approval)
+    const { error: profileError } = await supabaseServer()
       .from('users')
       .insert([
         {
@@ -41,7 +36,7 @@ export async function POST(req: NextRequest) {
           last_name: lastName || '',
           is_admin: false,
           is_member: true,
-          status: 'onhold',
+          status: 'archived', // Users with passwords start with 'archived' status
           subscription_status: 'inactive',
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -52,7 +47,7 @@ export async function POST(req: NextRequest) {
 
     if (profileError) {
       // Clean up auth user if profile creation fails
-      await supabase.auth.admin.deleteUser(authData.user.id);
+      await supabaseServer().auth.admin.deleteUser(authData.user.id);
       return NextResponse.json({
         success: false,
         error: 'Failed to create user profile',
@@ -62,7 +57,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'User registered successfully',
+      message: 'User registered successfully. Your account is pending admin approval.',
       userId: authData.user.id,
     });
   } catch (error: any) {
