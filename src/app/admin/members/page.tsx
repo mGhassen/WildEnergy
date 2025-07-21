@@ -22,6 +22,7 @@ import {
   XCircle} from "lucide-react";
 import { formatDate } from "@/lib/date";
 import "./member-details-dialog.css";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 // Types for member details
 interface Member {
@@ -125,6 +126,7 @@ const getMemberStatusColor = (status: string) => {
 };
 
 export default function MembersPage() {
+  const isMobile = useIsMobile();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [showMemberDetails, setShowMemberDetails] = useState(false);
@@ -231,6 +233,53 @@ export default function MembersPage() {
     );
   }
 
+  // Mobile Member Card Component
+  const MobileMemberCard = ({ member }: { member: Member }) => (
+    <Card key={member.id} className="mb-2">
+      <CardContent className="p-4 flex items-center gap-3">
+        <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+          <span className="text-sm font-medium text-primary">
+            {getInitials(member.firstName || "", member.lastName || "")}
+          </span>
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <p className="font-medium text-foreground truncate">
+              {member.firstName} {member.lastName}
+            </p>
+          </div>
+          <p className="text-xs text-muted-foreground truncate mb-1">{member.email}</p>
+          <div className="flex flex-wrap gap-1 mb-1">
+            <Badge className={`${getMemberStatusColor(member.status)} text-xs`}>
+              {member.status === 'active' && '✅ Active'}
+              {member.status === 'archived' && '⏳ Pending Approval'}
+              {member.status === 'pending' && '📧 Pending Confirmation'}
+              {member.status === 'suspended' && '🚫 Suspended'}
+            </Badge>
+            <Badge className={`${getSubscriptionStatusColor(member.subscriptionStatus || 'inactive')} text-xs`}>
+              {member.subscriptionStatus === 'active' && '💳 Active'}
+              {member.subscriptionStatus === 'expired' && '❌ Expired'}
+              {member.subscriptionStatus === 'pending' && '⏳ Pending'}
+              {member.subscriptionStatus === 'cancelled' && '🚫 Cancelled'}
+              {['active','expired','pending','cancelled'].indexOf(member.subscriptionStatus || 'inactive') === -1 && member.subscriptionStatus || 'inactive'}
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {formatDate(member.createdAt || "")}
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="ml-2 h-8 w-8 p-0"
+          onClick={() => openMemberDetails(member)}
+        >
+          <Eye className="w-4 h-4" />
+        </Button>
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -301,7 +350,7 @@ export default function MembersPage() {
         </Card>
       </div>
 
-      {/* Members Table */}
+      {/* Members List - Responsive */}
       <Card>
         <CardHeader>
           <CardTitle>Members</CardTitle>
@@ -310,79 +359,95 @@ export default function MembersPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Member</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Subscription</TableHead>
-                <TableHead>Joined</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredMembers.map((member: Member) => (
-                <TableRow key={member.id}>
-                  <TableCell className="font-medium">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                        <span className="text-sm font-medium text-primary">
-                          {getInitials(member.firstName || "", member.lastName || "")}
-                        </span>
-                      </div>
-                      <div>
-                        <p className="font-medium text-foreground">
-                          {member.firstName} {member.lastName}
-                        </p>
-                        <p className="text-sm text-muted-foreground">{member.email}</p>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={getMemberStatusColor(member.status)}>
-                      {member.status === 'active' && '✅ Active'}
-                      {member.status === 'archived' && '⏳ Pending Approval'}
-                      {member.status === 'pending' && '📧 Pending Confirmation'}
-                      {member.status === 'suspended' && '🚫 Suspended'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={getSubscriptionStatusColor(member.subscriptionStatus || 'inactive')}>
-                      {member.subscriptionStatus === 'active' && '💳 Active'}
-                      {member.subscriptionStatus === 'expired' && '❌ Expired'}
-                      {member.subscriptionStatus === 'pending' && '⏳ Pending'}
-                      {member.subscriptionStatus === 'cancelled' && '🚫 Cancelled'}
-                      {['active','expired','pending','cancelled'].indexOf(member.subscriptionStatus || 'inactive') === -1 && member.subscriptionStatus || 'inactive'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <p className="text-sm text-muted-foreground">
-                      {formatDate(member.createdAt || "")}
-                    </p>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openMemberDetails(member)}
-                      >
-                        <Eye className="w-3 h-3 mr-1" />
-                        View Details
-                      </Button>
-                    </div>
-                  </TableCell>
+          {/* Desktop Table View */}
+          {!isMobile && (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Member</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Subscription</TableHead>
+                  <TableHead>Joined</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredMembers.map((member: Member) => (
+                  <TableRow key={member.id}>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                          <span className="text-sm font-medium text-primary">
+                            {getInitials(member.firstName || "", member.lastName || "")}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="font-medium text-foreground">
+                            {member.firstName} {member.lastName}
+                          </p>
+                          <p className="text-sm text-muted-foreground">{member.email}</p>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={getMemberStatusColor(member.status)}>
+                        {member.status === 'active' && '✅ Active'}
+                        {member.status === 'archived' && '⏳ Pending Approval'}
+                        {member.status === 'pending' && '📧 Pending Confirmation'}
+                        {member.status === 'suspended' && '🚫 Suspended'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={getSubscriptionStatusColor(member.subscriptionStatus || 'inactive')}>
+                        {member.subscriptionStatus === 'active' && '💳 Active'}
+                        {member.subscriptionStatus === 'expired' && '❌ Expired'}
+                        {member.subscriptionStatus === 'pending' && '⏳ Pending'}
+                        {member.subscriptionStatus === 'cancelled' && '🚫 Cancelled'}
+                        {['active','expired','pending','cancelled'].indexOf(member.subscriptionStatus || 'inactive') === -1 && member.subscriptionStatus || 'inactive'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <p className="text-sm text-muted-foreground">
+                        {formatDate(member.createdAt || "")}
+                      </p>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openMemberDetails(member)}
+                        >
+                          <Eye className="w-3 h-3 mr-1" />
+                          View Details
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {filteredMembers.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8">
+                      <p className="text-muted-foreground">No members found matching your search.</p>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          )}
+          {/* Mobile Card View */}
+          {isMobile && (
+            <div className="space-y-2">
+              {filteredMembers.map((member: Member) => (
+                <MobileMemberCard key={member.id} member={member} />
               ))}
               {filteredMembers.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
-                    <p className="text-muted-foreground">No members found matching your search.</p>
-                  </TableCell>
-                </TableRow>
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">No members found matching your search.</p>
+                </div>
               )}
-            </TableBody>
-          </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
 
