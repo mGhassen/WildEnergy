@@ -15,6 +15,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { apiRequest } from "@/lib/queryClient";
 import { Search, Plus, Edit, Trash2, User, Shield, MoreHorizontal, Key, Archive, CheckCircle, XCircle, Mail, Star, X, Phone, Calendar, Clock, Activity, FileText, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -92,6 +93,7 @@ export default function UsersPage() {
     const [setPasswordValue, setSetPasswordValue] = useState("");
     const queryClient = useQueryClient();
     const { toast } = useToast();
+    const isMobile = useIsMobile();
 
     // Fetch users
     const { data: users = [], isLoading } = useQuery({
@@ -372,6 +374,144 @@ export default function UsersPage() {
         return password;
     }
 
+    // Mobile User Card Component
+    const MobileUserCard = ({ user }: { user: User }) => (
+        <Card 
+            key={user.id} 
+            className="cursor-pointer hover:bg-muted/50 transition-colors"
+            onClick={(e) => handleRowClick(e, user)}
+        >
+            <CardContent className="p-4">
+                <div className="flex items-start justify-between">
+                    <div className="flex items-center space-x-3 flex-1">
+                        <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
+                            <span className="text-sm font-medium text-primary">
+                                {getInitials(user.firstName || "", user.lastName || "")}
+                            </span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center space-x-2 mb-1">
+                                <p className="font-medium text-foreground truncate">
+                                    {user.firstName} {user.lastName}
+                                </p>
+                            </div>
+                            <p className="text-sm text-muted-foreground truncate mb-2">{user.email}</p>
+                            
+                            {/* Role badges */}
+                            <div className="flex flex-wrap gap-1 mb-2">
+                                {user.isAdmin && (
+                                    <Badge variant="default" className="text-xs">
+                                        <Shield className="w-3 h-3 mr-1" />
+                                        Admin
+                                    </Badge>
+                                )}
+                                {user.isMember && (
+                                    <Badge variant="secondary" className="text-xs">
+                                        <User className="w-3 h-3 mr-1" />
+                                        Member
+                                    </Badge>
+                                )}
+                                {user.isTrainer && (
+                                    <Badge variant="outline" className="text-xs">
+                                        <Star className="w-3 h-3 mr-1" />
+                                        Trainer
+                                    </Badge>
+                                )}
+                            </div>
+                            
+                            {/* Status and date */}
+                            <div className="flex items-center justify-between">
+                                <Badge className={`${getStatusColor(user.status)} text-xs`}>
+                                    {user.status === 'pending' && '⏳ Pending'}
+                                    {user.status === 'active' && '✅ Active'}
+                                    {user.status === 'archived' && '📦 Archived'}
+                                    {user.status === 'suspended' && '🚫 Suspended'}
+                                </Badge>
+                                <p className="text-xs text-muted-foreground">
+                                    {user.createdAt ? formatDate(user.createdAt) : 'N/A'}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* Actions */}
+                    <div className="flex items-center space-x-1 ml-2">
+                        {user.status === 'pending' && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-green-600 border-green-300 hover:bg-green-50 h-8 w-8 p-0"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    quickActionMutation.mutate({ id: user.id, action: 'approve' });
+                                }}
+                                disabled={quickActionMutation.isPending}
+                            >
+                                <CheckCircle className="w-3 h-3" />
+                            </Button>
+                        )}
+
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button 
+                                    variant="ghost" 
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <MoreHorizontal className="w-4 h-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => openEditDialog(user)}>
+                                    <Edit className="w-4 h-4 mr-2" />
+                                    Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setSettingPasswordUser(user)}>
+                                    <Key className="w-4 h-4 mr-2" />
+                                    Set Password
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => quickActionMutation.mutate({ id: user.id, action: 'reset-password' })}>
+                                    <Key className="w-4 h-4 mr-2" />
+                                    Reset Password
+                                </DropdownMenuItem>
+                                {user.confirmedAt
+                                  ? <DropdownMenuItem disabled title="User already confirmed. Use Reset Password instead.">
+                                      <Mail className="w-4 h-4 mr-2" />
+                                      Resend Invitation
+                                    </DropdownMenuItem>
+                                  : <DropdownMenuItem onClick={() => quickActionMutation.mutate({ id: user.id, action: 'resend-invitation' })}>
+                                      <Mail className="w-4 h-4 mr-2" />
+                                      Resend Invitation
+                                    </DropdownMenuItem>
+                                }
+                                {user.status !== 'archived' && (
+                                    <DropdownMenuItem onClick={() => quickActionMutation.mutate({ id: user.id, action: 'archive' })}>
+                                        <Archive className="w-4 h-4 mr-2" />
+                                        Archive
+                                    </DropdownMenuItem>
+                                )}
+                                {user.status !== 'suspended' && (
+                                    <DropdownMenuItem onClick={() => quickActionMutation.mutate({ id: user.id, action: 'suspend' })}>
+                                        <XCircle className="w-4 h-4 mr-2" />
+                                        Suspend
+                                    </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem
+                                    onClick={() => setDeletingUser(user)}
+                                    className="text-red-600"
+                                >
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    Delete
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    );
+
     if (isLoading) {
         return (
             <div className="space-y-6">
@@ -390,14 +530,14 @@ export default function UsersPage() {
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-foreground">User Management</h1>
-                    <p className="text-muted-foreground mt-2">
+                    <h1 className="text-2xl sm:text-3xl font-bold text-foreground">User Management</h1>
+                    <p className="text-muted-foreground mt-2 text-sm sm:text-base">
                         Manage user accounts and permissions
                     </p>
                 </div>
                 <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
                     <DialogTrigger asChild>
-                        <Button>
+                        <Button className="w-full sm:w-auto">
                             <Plus className="w-4 h-4 mr-2" />
                             Add User
                         </Button>
@@ -509,7 +649,7 @@ export default function UsersPage() {
                 </div>
             </div>
 
-            {/* Users Table */}
+            {/* Users List - Responsive */}
             <Card>
                 <CardHeader>
                     <CardTitle>Users</CardTitle>
@@ -518,168 +658,185 @@ export default function UsersPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <div className="mb-4 flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
-                            <Badge variant="outline" className="text-yellow-600 border-yellow-300">
+                    <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+                            <Badge variant="outline" className="text-yellow-600 border-yellow-300 text-xs sm:text-sm">
                                 🟡 {Array.isArray(users) ? users.filter((u: any) => u.status === 'pending').length : 0} Pending
                             </Badge>
-                            <Badge variant="outline" className="text-green-600 border-green-300">
+                            <Badge variant="outline" className="text-green-600 border-green-300 text-xs sm:text-sm">
                                 🟢 {Array.isArray(users) ? users.filter((u: any) => u.status === 'active').length : 0} Active
                             </Badge>
-                            <Badge variant="outline" className="text-gray-600 border-gray-300">
+                            <Badge variant="outline" className="text-gray-600 border-gray-300 text-xs sm:text-sm">
                                 📦 {Array.isArray(users) ? users.filter((u: any) => u.status === 'archived').length : 0} Archived
                             </Badge>
-                            <Badge variant="outline" className="text-red-600 border-red-300">
+                            <Badge variant="outline" className="text-red-600 border-red-300 text-xs sm:text-sm">
                                 🚫 {Array.isArray(users) ? users.filter((u: any) => u.status === 'suspended').length : 0} Suspended
                             </Badge>
                         </div>
                     </div>
 
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>User</TableHead>
-                                <TableHead>Role</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Created At</TableHead>
-                                <TableHead>Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {usersMapped.map((user: User) => (
-                                <TableRow 
-                                    key={user.id} 
-                                    className="cursor-pointer hover:bg-muted/50"
-                                    onClick={(e) => handleRowClick(e, user)}
-                                >
-                                    <TableCell className="font-medium">
-                                        <div className="flex items-center space-x-3">
-                                            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                                                <span className="text-sm font-medium text-primary">
-                                                    {getInitials(user.firstName || "", user.lastName || "")}
-                                                </span>
-                                            </div>
-                                            <div>
-                                                <p className="font-medium text-foreground">
-                                                    {user.firstName} {user.lastName}
-                                                </p>
-                                                <p className="text-sm text-muted-foreground">{user.email}</p>
-                                            </div>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center space-x-2">
-                                            {user.isAdmin && (
-                                                <Badge variant="default">
-                                                    <Shield className="w-3 h-3 mr-1" />
-                                                    Admin
-                                                </Badge>
-                                            )}
-                                            {user.isMember && (
-                                                <Badge variant="secondary">
-                                                    <User className="w-3 h-3 mr-1" />
-                                                    Member
-                                                </Badge>
-                                            )}
-                                            {user.isTrainer && (
-                                                <Badge variant="outline">
-                                                    <Star className="w-3 h-3 mr-1" />
-                                                    Trainer
-                                                </Badge>
-                                            )}
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <Badge className={getStatusColor(user.status)}>
-                                            {user.status === 'pending' && '⏳ Pending'}
-                                            {user.status === 'active' && '✅ Active'}
-                                            {user.status === 'archived' && '📦 Archived'}
-                                            {user.status === 'suspended' && '🚫 Suspended'}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell>
-                                        <p className="text-sm text-muted-foreground">
-                                            {user.createdAt ? formatDate(user.createdAt) : 'N/A'}
-                                        </p>
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center space-x-2">
-                                            {user.status === 'pending' && (
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className="text-green-600 border-green-300 hover:bg-green-50"
-                                                    onClick={() => quickActionMutation.mutate({ id: user.id, action: 'approve' })}
-                                                    disabled={quickActionMutation.isPending}
-                                                >
-                                                    <CheckCircle className="w-3 h-3 mr-1" />
-                                                    Approve
-                                                </Button>
-                                            )}
-
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" size="icon">
-                                                        <MoreHorizontal className="w-4 h-4" />
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end">
-                                                    <DropdownMenuItem onClick={() => openEditDialog(user)}>
-                                                        <Edit className="w-4 h-4 mr-2" />
-                                                        Edit
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => setSettingPasswordUser(user)}>
-                                                        <Key className="w-4 h-4 mr-2" />
-                                                        Set Password
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => quickActionMutation.mutate({ id: user.id, action: 'reset-password' })}>
-                                                        <Key className="w-4 h-4 mr-2" />
-                                                        Reset Password
-                                                    </DropdownMenuItem>
-                                                    {user.confirmedAt
-                                                      ? <DropdownMenuItem disabled title="User already confirmed. Use Reset Password instead.">
-                                                          <Mail className="w-4 h-4 mr-2" />
-                                                          Resend Invitation
-                                                        </DropdownMenuItem>
-                                                      : <DropdownMenuItem onClick={() => quickActionMutation.mutate({ id: user.id, action: 'resend-invitation' })}>
-                                                          <Mail className="w-4 h-4 mr-2" />
-                                                          Resend Invitation
-                                                        </DropdownMenuItem>
-                                                    }
-                                                    {user.status !== 'archived' && (
-                                                        <DropdownMenuItem onClick={() => quickActionMutation.mutate({ id: user.id, action: 'archive' })}>
-                                                            <Archive className="w-4 h-4 mr-2" />
-                                                            Archive
-                                                        </DropdownMenuItem>
-                                                    )}
-                                                    {user.status !== 'suspended' && (
-                                                        <DropdownMenuItem onClick={() => quickActionMutation.mutate({ id: user.id, action: 'suspend' })}>
-                                                            <XCircle className="w-4 h-4 mr-2" />
-                                                            Suspend
-                                                        </DropdownMenuItem>
-                                                    )}
-                                                    <DropdownMenuItem
-                                                        onClick={() => setDeletingUser(user)}
-                                                        className="text-red-600"
-                                                    >
-                                                        <Trash2 className="w-4 h-4 mr-2" />
-                                                        Delete
-                                                    </DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </div>
-                                    </TableCell>
+                    {/* Desktop Table View */}
+                    {!isMobile && (
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>User</TableHead>
+                                    <TableHead>Role</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead>Created At</TableHead>
+                                    <TableHead>Actions</TableHead>
                                 </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {usersMapped.map((user: User) => (
+                                    <TableRow 
+                                        key={user.id} 
+                                        className="cursor-pointer hover:bg-muted/50"
+                                        onClick={(e) => handleRowClick(e, user)}
+                                    >
+                                        <TableCell className="font-medium">
+                                            <div className="flex items-center space-x-3">
+                                                <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                                                    <span className="text-sm font-medium text-primary">
+                                                        {getInitials(user.firstName || "", user.lastName || "")}
+                                                    </span>
+                                                </div>
+                                                <div>
+                                                    <p className="font-medium text-foreground">
+                                                        {user.firstName} {user.lastName}
+                                                    </p>
+                                                    <p className="text-sm text-muted-foreground">{user.email}</p>
+                                                </div>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center space-x-2">
+                                                {user.isAdmin && (
+                                                    <Badge variant="default">
+                                                        <Shield className="w-3 h-3 mr-1" />
+                                                        Admin
+                                                    </Badge>
+                                                )}
+                                                {user.isMember && (
+                                                    <Badge variant="secondary">
+                                                        <User className="w-3 h-3 mr-1" />
+                                                        Member
+                                                    </Badge>
+                                                )}
+                                                {user.isTrainer && (
+                                                    <Badge variant="outline">
+                                                        <Star className="w-3 h-3 mr-1" />
+                                                        Trainer
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge className={getStatusColor(user.status)}>
+                                                {user.status === 'pending' && '⏳ Pending'}
+                                                {user.status === 'active' && '✅ Active'}
+                                                {user.status === 'archived' && '📦 Archived'}
+                                                {user.status === 'suspended' && '🚫 Suspended'}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            <p className="text-sm text-muted-foreground">
+                                                {user.createdAt ? formatDate(user.createdAt) : 'N/A'}
+                                            </p>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center space-x-2">
+                                                {user.status === 'pending' && (
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="text-green-600 border-green-300 hover:bg-green-50"
+                                                        onClick={() => quickActionMutation.mutate({ id: user.id, action: 'approve' })}
+                                                        disabled={quickActionMutation.isPending}
+                                                    >
+                                                        <CheckCircle className="w-3 h-3 mr-1" />
+                                                        Approve
+                                                    </Button>
+                                                )}
+
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="ghost" size="icon">
+                                                            <MoreHorizontal className="w-4 h-4" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end">
+                                                        <DropdownMenuItem onClick={() => openEditDialog(user)}>
+                                                            <Edit className="w-4 h-4 mr-2" />
+                                                            Edit
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => setSettingPasswordUser(user)}>
+                                                            <Key className="w-4 h-4 mr-2" />
+                                                            Set Password
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => quickActionMutation.mutate({ id: user.id, action: 'reset-password' })}>
+                                                            <Key className="w-4 h-4 mr-2" />
+                                                            Reset Password
+                                                        </DropdownMenuItem>
+                                                        {user.confirmedAt
+                                                          ? <DropdownMenuItem disabled title="User already confirmed. Use Reset Password instead.">
+                                                              <Mail className="w-4 h-4 mr-2" />
+                                                              Resend Invitation
+                                                            </DropdownMenuItem>
+                                                          : <DropdownMenuItem onClick={() => quickActionMutation.mutate({ id: user.id, action: 'resend-invitation' })}>
+                                                              <Mail className="w-4 h-4 mr-2" />
+                                                              Resend Invitation
+                                                            </DropdownMenuItem>
+                                                        }
+                                                        {user.status !== 'archived' && (
+                                                            <DropdownMenuItem onClick={() => quickActionMutation.mutate({ id: user.id, action: 'archive' })}>
+                                                                <Archive className="w-4 h-4 mr-2" />
+                                                                Archive
+                                                            </DropdownMenuItem>
+                                                        )}
+                                                        {user.status !== 'suspended' && (
+                                                            <DropdownMenuItem onClick={() => quickActionMutation.mutate({ id: user.id, action: 'suspend' })}>
+                                                                <XCircle className="w-4 h-4 mr-2" />
+                                                                Suspend
+                                                            </DropdownMenuItem>
+                                                        )}
+                                                        <DropdownMenuItem
+                                                            onClick={() => setDeletingUser(user)}
+                                                            className="text-red-600"
+                                                        >
+                                                            <Trash2 className="w-4 h-4 mr-2" />
+                                                            Delete
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                                {filteredUsers.length === 0 && (
+                                    <TableRow>
+                                        <TableCell colSpan={5} className="text-center py-8">
+                                            <p className="text-muted-foreground">No users found matching your search.</p>
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    )}
+
+                    {/* Mobile Card View */}
+                    {isMobile && (
+                        <div className="space-y-3">
+                            {usersMapped.map((user: User) => (
+                                <MobileUserCard key={user.id} user={user} />
                             ))}
                             {filteredUsers.length === 0 && (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="text-center py-8">
-                                        <p className="text-muted-foreground">No users found matching your search.</p>
-                                    </TableCell>
-                                </TableRow>
+                                <div className="text-center py-8">
+                                    <p className="text-muted-foreground">No users found matching your search.</p>
+                                </div>
                             )}
-                        </TableBody>
-                    </Table>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
 

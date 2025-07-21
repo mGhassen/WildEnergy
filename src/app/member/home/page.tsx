@@ -9,6 +9,7 @@ import QRGenerator from "@/components/qr-generator";
 import { Calendar, Clock, Users, MapPin, QrCode, ArrowRight, Sparkles, Crown, Star, Zap, ChevronLeft, ChevronRight } from "lucide-react";
 import { formatTime, getDayName, formatDate } from "@/lib/date";
 import { useState, useEffect } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { apiFetch } from "@/lib/api";
 
@@ -69,6 +70,7 @@ interface Plan {
 
 export default function MemberHome() {
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const [selectedQR, setSelectedQR] = useState<Registration | null>(null);
   const [tab, setTab] = useState<'today' | 'upcoming'>('today');
   const [currentPlanIndex, setCurrentPlanIndex] = useState(0);
@@ -130,12 +132,12 @@ export default function MemberHome() {
 
   if (registrationsLoading) {
     return (
-      <div className="max-w-6xl mx-auto p-6 space-y-8">
+      <div className={isMobile ? "max-w-full mx-auto p-2 space-y-4" : "max-w-6xl mx-auto p-6 space-y-8"}>
         <div className="animate-pulse space-y-6">
-          <div className="h-12 bg-muted rounded-lg w-1/3"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="h-48 bg-muted rounded-lg"></div>
+          <div className={isMobile ? "h-8 bg-muted rounded-lg w-1/2" : "h-12 bg-muted rounded-lg w-1/3"}></div>
+          <div className={isMobile ? "grid grid-cols-1 gap-3" : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"}>
+            {[...Array(isMobile ? 3 : 6)].map((_, i) => (
+              <div key={i} className={isMobile ? "h-24 bg-muted rounded-lg" : "h-48 bg-muted rounded-lg"}></div>
             ))}
           </div>
         </div>
@@ -144,45 +146,45 @@ export default function MemberHome() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-8">
+    <div className={isMobile ? "max-w-full mx-auto p-2 space-y-4" : "max-w-6xl mx-auto p-6 space-y-8"}>
       {/* Welcome Header */}
-      <div className="text-center space-y-4 mb-8">
+      <div className={isMobile ? "text-center space-y-2 mb-4" : "text-center space-y-4 mb-8"}>
         <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-primary/10 to-primary/5 rounded-full">
           <Sparkles className="w-4 h-4 text-primary" />
-          <span className="text-sm font-medium text-primary">Welcome back!</span>
+          <span className="text-xs sm:text-sm font-medium text-primary">Welcome back!</span>
         </div>
-        <h1 className="text-4xl font-bold text-foreground">
+        <h1 className={isMobile ? "text-2xl font-bold text-foreground" : "text-4xl font-bold text-foreground"}>
           Hello, {user?.firstName || 'there'}! 👋
         </h1>
-        <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+        <p className={isMobile ? "text-base text-muted-foreground max-w-xs mx-auto" : "text-lg text-muted-foreground max-w-2xl mx-auto"}>
           Ready for your next workout? Here's what's happening today and this week.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className={isMobile ? "grid grid-cols-1 gap-4" : "grid grid-cols-1 lg:grid-cols-3 gap-8"}>
         {/* Main Content */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className={isMobile ? "space-y-4" : "lg:col-span-2 space-y-6"}>
           {/* Insights Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full mb-10">
+          <div className={isMobile ? "grid grid-cols-1 gap-3 w-full mb-4" : "grid grid-cols-1 md:grid-cols-2 gap-6 w-full mb-10"}>
             <Card>
-              <CardContent className="p-6 flex items-center gap-4 h-full">
-                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                  <Users className="w-6 h-6 text-primary" />
+              <CardContent className={isMobile ? "p-3 flex items-center gap-3 h-full" : "p-6 flex items-center gap-4 h-full"}>
+                <div className={isMobile ? "w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center" : "w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center"}>
+                  <Users className={isMobile ? "w-4 h-4 text-primary" : "w-6 h-6 text-primary"} />
                 </div>
                 <div>
-                <p className="text-sm text-muted-foreground">Active Subscriptions</p>
-                  <p className="text-2xl font-bold text-foreground">{totalActive}</p>
+                  <p className={isMobile ? "text-xs text-muted-foreground" : "text-sm text-muted-foreground"}>Active Subscriptions</p>
+                  <p className={isMobile ? "text-lg font-bold text-foreground" : "text-2xl font-bold text-foreground"}>{totalActive}</p>
                 </div>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="p-6 flex items-center gap-4 h-full">
-                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                  <Badge className="w-6 h-6 text-primary" />
+              <CardContent className={isMobile ? "p-3 flex items-center gap-3 h-full" : "p-6 flex items-center gap-4 h-full"}>
+                <div className={isMobile ? "w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center" : "w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center"}>
+                  <Badge className={isMobile ? "w-4 h-4 text-primary" : "w-6 h-6 text-primary"} />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Sessions Remaining</p>
-                  <p className="text-2xl font-bold text-foreground">{totalSessionsRemaining}</p>
+                  <p className={isMobile ? "text-xs text-muted-foreground" : "text-sm text-muted-foreground"}>Sessions Remaining</p>
+                  <p className={isMobile ? "text-lg font-bold text-foreground" : "text-2xl font-bold text-foreground"}>{totalSessionsRemaining}</p>
                 </div>
               </CardContent>
             </Card>
