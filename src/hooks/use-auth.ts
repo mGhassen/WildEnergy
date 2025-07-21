@@ -197,7 +197,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
             router.push(`/auth/account-status?email=${encodeURIComponent(email)}`);
             return;
           }
-          throw new Error(data.error || 'Account access denied');
+          setLoginError(new Error(data.error || 'Account access denied'));
+          return;
         }
         
         // Handle 401 errors (invalid credentials or user not found)
@@ -216,15 +217,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
               return;
             }
           }
-          throw new Error(data.error || 'Invalid email or password');
+          setLoginError(new Error(data.error || 'Invalid email or password'));
+          return;
         }
         
-        throw new Error(data.error || 'Login failed');
+        setLoginError(new Error(data.error || 'Login failed'));
+        return;
       }
 
       if (!data.session || !data.session.access_token) {
         console.log('Session structure:', JSON.stringify(data.session, null, 2));
-        throw new Error('No access token received');
+        setLoginError(new Error('No access token received'));
+        return;
       }
 
       // 2. Store tokens
@@ -243,9 +247,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       // 3. Set user data from response
       if (!data.user) {
-        throw new Error('Failed to load user profile');
+        setLoginError(new Error('Failed to load user profile'));
+        return;
       }
       setUser(data.user);
+      setLoginError(null); // Clear any previous errors
     } catch (error) {
       console.error('Login error:', error);
       localStorage.removeItem('access_token');
@@ -255,7 +261,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
       setUser(null);
       setLoginError(error instanceof Error ? error : new Error(String(error)));
-      throw error;
     } finally {
       setIsLoggingIn(false);
     }
