@@ -69,11 +69,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
         
         // Handle specific status codes
         if (response.status === 403) {
-          // User is onhold, suspended, or inactive
-          if (errorData.status === 'onhold') {
-            // Redirect to onhold page
-            router.push('/auth/onhold');
-            setAuthError(errorData.error || 'Account access denied');
+          // User is archived, suspended, or pending
+          if (errorData.status === 'archived') {
+            // Redirect to waiting approval page
+            router.push('/auth/waiting-approval');
+            setAuthError(errorData.error || 'Account pending approval');
             return null;
           }
           setAuthError(errorData.error || 'Account access denied');
@@ -179,11 +179,46 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (!response.ok || !data.success) {
         // Handle specific status codes
         if (response.status === 403) {
-          if (data.error && data.error.toLowerCase().includes('onhold')) {
-            throw new Error(data.error || 'Account is pending approval');
+          if (data.error && data.error.toLowerCase().includes('archived')) {
+            // User is archived (pending admin approval)
+            localStorage.setItem('account_status_email', email);
+            router.push(`/auth/account-status?email=${encodeURIComponent(email)}`);
+            return;
+          }
+          if (data.error && data.error.toLowerCase().includes('pending')) {
+            // User is pending (needs to confirm invitation)
+            localStorage.setItem('account_status_email', email);
+            router.push(`/auth/account-status?email=${encodeURIComponent(email)}`);
+            return;
+          }
+          if (data.error && data.error.toLowerCase().includes('suspended')) {
+            // User is suspended
+            localStorage.setItem('account_status_email', email);
+            router.push(`/auth/account-status?email=${encodeURIComponent(email)}`);
+            return;
           }
           throw new Error(data.error || 'Account access denied');
         }
+        
+        // Handle 401 errors (invalid credentials or user not found)
+        if (response.status === 401) {
+          // Check if it's a status-related error that should redirect
+          if (data.error && (data.error.toLowerCase().includes('pending') || data.error.toLowerCase().includes('archived'))) {
+            // This shouldn't happen with 401, but handle it gracefully
+            if (data.error.toLowerCase().includes('archived')) {
+              localStorage.setItem('account_status_email', email);
+              router.push(`/auth/account-status?email=${encodeURIComponent(email)}`);
+              return;
+            }
+            if (data.error.toLowerCase().includes('pending')) {
+              localStorage.setItem('account_status_email', email);
+              router.push(`/auth/account-status?email=${encodeURIComponent(email)}`);
+              return;
+            }
+          }
+          throw new Error(data.error || 'Invalid email or password');
+        }
+        
         throw new Error(data.error || 'Login failed');
       }
 
@@ -200,6 +235,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (typeof window !== 'undefined') {
         window.__authToken = data.session.access_token;
       }
+
+      // Clean up any pending email
+      localStorage.removeItem('pending_email');
+      localStorage.removeItem('pending_approval_email');
+      localStorage.removeItem('account_status_email');
 
       // 3. Set user data from response
       if (!data.user) {

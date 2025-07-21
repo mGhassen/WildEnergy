@@ -57,11 +57,18 @@ export async function GET(req: NextRequest) {
     console.log('User profile found, status:', userData.status);
 
     // Status checks
-    if (userData.status === 'onhold') {
+    if (userData.status === 'archived') {
       return NextResponse.json({
         success: false,
         error: 'Account is pending approval. Please wait for admin approval.',
-        status: 'onhold',
+        status: 'archived',
+      }, { status: 403 });
+    }
+    if (userData.status === 'pending') {
+      return NextResponse.json({
+        success: false,
+        error: 'Account is pending confirmation. Please check your email for confirmation link.',
+        status: 'pending',
       }, { status: 403 });
     }
     if (userData.status === 'suspended') {
@@ -69,13 +76,6 @@ export async function GET(req: NextRequest) {
         success: false,
         error: 'Account has been suspended. Please contact support.',
         status: 'suspended',
-      }, { status: 403 });
-    }
-    if (userData.status === 'inactive') {
-      return NextResponse.json({
-        success: false,
-        error: 'Account is inactive. Please contact support.',
-        status: 'inactive',
       }, { status: 403 });
     }
 

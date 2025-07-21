@@ -117,9 +117,9 @@ const getSubscriptionStatusColor = (status: string) => {
 const getMemberStatusColor = (status: string) => {
   switch (status) {
     case 'active': return 'bg-green-100 text-green-800';
-    case 'onhold': return 'bg-yellow-100 text-yellow-800';
+    case 'archived': return 'bg-yellow-100 text-yellow-800';
+    case 'pending': return 'bg-blue-100 text-blue-800';
     case 'suspended': return 'bg-red-100 text-red-800';
-    case 'inactive': return 'bg-gray-100 text-gray-800';
     default: return 'bg-gray-100 text-gray-800';
   }
 };
@@ -284,7 +284,7 @@ export default function MembersPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-yellow-600">
-              {members.filter((m: any) => m.status === 'onhold').length}
+              {members.filter((m: any) => m.status === 'archived').length}
             </div>
           </CardContent>
         </Card>
@@ -341,9 +341,9 @@ export default function MembersPage() {
                   <TableCell>
                     <Badge className={getMemberStatusColor(member.status)}>
                       {member.status === 'active' && '✅ Active'}
-                      {member.status === 'onhold' && '⏳ Pending'}
+                      {member.status === 'archived' && '⏳ Pending Approval'}
+                      {member.status === 'pending' && '📧 Pending Confirmation'}
                       {member.status === 'suspended' && '🚫 Suspended'}
-                      {member.status === 'inactive' && '📦 Inactive'}
                     </Badge>
                   </TableCell>
                   <TableCell>
