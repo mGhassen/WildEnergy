@@ -284,7 +284,7 @@ export default function AdminSchedules() {
       
       // Handle specific error for schedules with registrations
       if (error.message?.includes('Cannot delete schedule with existing registrations')) {
-        const details = error.details || {};
+        const details = (error as any).details || {};
         toast({ 
           title: "Cannot Delete Schedule", 
           description: `This schedule has ${details.registeredMembers || 0} registered members and ${details.attendedMembers || 0} who have attended. Please cancel all registrations first.`,
