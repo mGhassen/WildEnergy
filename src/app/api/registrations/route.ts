@@ -42,6 +42,7 @@ export async function GET(req: NextRequest) {
             course_date,
             start_time,
             end_time,
+            schedule_id,
             class:classes(name, description, category:categories(name)),
             trainer:trainers(user:users(first_name, last_name))
           )
@@ -50,6 +51,7 @@ export async function GET(req: NextRequest) {
         console.error('Admin registrations error:', error);
         return NextResponse.json({ error: 'Failed to fetch registrations' }, { status: 500 });
       }
+      console.log('Admin registrations fetched:', registrations?.length || 0, 'registrations');
       return NextResponse.json(registrations);
     } else {
       // User: return own registrations

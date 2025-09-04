@@ -1,0 +1,466 @@
+"use client";
+
+import { useState, useMemo } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { 
+  ChevronDown, 
+  ChevronRight, 
+  Search, 
+  Filter, 
+  Download, 
+  RefreshCw,
+  Eye,
+  Trash2,
+  Calendar,
+  User,
+  Clock,
+  Users
+} from "lucide-react";
+
+interface Column {
+  key: string;
+  label: string;
+  sortable?: boolean;
+  render?: (value: any, row: any) => React.ReactNode;
+  width?: string;
+}
+
+interface GroupOption {
+  key: string;
+  label: string;
+}
+
+interface FilterOption {
+  key: string;
+  label: string;
+  type: 'select' | 'date' | 'text';
+  options?: { value: string; label: string }[];
+}
+
+interface DataTableProps {
+  data: any[];
+  columns: Column[];
+  groupOptions: GroupOption[];
+  filterOptions?: FilterOption[];
+  initialFilters?: Record<string, string>;
+  onRowClick?: (row: any) => void;
+  onRowSelect?: (rowId: number, selected: boolean) => void;
+  onBulkAction?: (action: string, selectedIds: number[]) => void;
+  onExport?: (data: any[]) => void;
+  onRefresh?: () => void;
+  loading?: boolean;
+  searchable?: boolean;
+  selectable?: boolean;
+  title?: string;
+  description?: string;
+}
+
+export default function DataTable({
+  data,
+  columns,
+  groupOptions,
+  filterOptions = [],
+  initialFilters = {},
+  onRowClick,
+  onRowSelect,
+  onBulkAction,
+  onExport,
+  onRefresh,
+  loading = false,
+  searchable = true,
+  selectable = true,
+  title = "Data Table",
+  description = "Manage your data"
+}: DataTableProps) {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortColumn, setSortColumn] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [groupBy, setGroupBy] = useState<string>("none");
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
+  const [filters, setFilters] = useState<Record<string, string>>(initialFilters);
+  const [showFilters, setShowFilters] = useState(Object.keys(initialFilters).length > 0);
+
+  // Filter data based on search term and filters
+  const filteredData = useMemo(() => {
+    let filtered = data;
+    
+    // Apply search term
+    if (searchTerm) {
+      filtered = filtered.filter((row) =>
+        Object.values(row).some((value) =>
+          String(value).toLowerCase().includes(searchTerm.toLowerCase())
+        )
+      );
+    }
+    
+    // Apply advanced filters
+    Object.entries(filters).forEach(([filterKey, filterValue]) => {
+      if (filterValue && filterValue !== 'all') {
+        filtered = filtered.filter((row) => {
+          const value = getNestedValue(row, filterKey);
+          return String(value).toLowerCase().includes(filterValue.toLowerCase());
+        });
+      }
+    });
+    
+    return filtered;
+  }, [data, searchTerm, filters]);
+
+  // Helper function to get nested values
+  const getNestedValue = (obj: any, path: string) => {
+    return path.split('.').reduce((current, key) => current?.[key], obj);
+  };
+
+  // Sort data
+  const sortedData = useMemo(() => {
+    if (!sortColumn) return filteredData;
+    
+    return [...filteredData].sort((a, b) => {
+      const aVal = a[sortColumn];
+      const bVal = b[sortColumn];
+      
+      if (aVal < bVal) return sortDirection === "asc" ? -1 : 1;
+      if (aVal > bVal) return sortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [filteredData, sortColumn, sortDirection]);
+
+  // Group data
+  const groupedData = useMemo(() => {
+    if (groupBy === "none") return sortedData;
+    
+    const groups: { [key: string]: any[] } = {};
+    
+    sortedData.forEach((row) => {
+      const groupKey = String(row[groupBy] || "Unknown");
+      if (!groups[groupKey]) {
+        groups[groupKey] = [];
+      }
+      groups[groupKey].push(row);
+    });
+    
+    return groups;
+  }, [sortedData, groupBy]);
+
+  // Handle column sorting
+  const handleSort = (columnKey: string) => {
+    if (sortColumn === columnKey) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(columnKey);
+      setSortDirection("asc");
+    }
+  };
+
+  // Handle group expansion
+  const toggleGroup = (groupKey: string) => {
+    const newExpanded = new Set(expandedGroups);
+    if (newExpanded.has(groupKey)) {
+      newExpanded.delete(groupKey);
+    } else {
+      newExpanded.add(groupKey);
+    }
+    setExpandedGroups(newExpanded);
+  };
+
+  // Handle row selection
+  const handleRowSelect = (rowId: number, selected: boolean) => {
+    const newSelected = new Set(selectedRows);
+    if (selected) {
+      newSelected.add(rowId);
+    } else {
+      newSelected.delete(rowId);
+    }
+    setSelectedRows(newSelected);
+    onRowSelect?.(rowId, selected);
+  };
+
+  // Handle select all
+  const handleSelectAll = () => {
+    const allIds = groupBy === "none" 
+      ? sortedData.map(row => row.id)
+      : Object.values(groupedData).flat().map(row => row.id);
+    
+    if (selectedRows.size === allIds.length) {
+      setSelectedRows(new Set());
+    } else {
+      setSelectedRows(new Set(allIds));
+    }
+  };
+
+  // Render grouped data
+  const renderGroupedData = () => {
+    if (groupBy === "none") {
+      return renderRows(sortedData);
+    }
+
+    return Object.entries(groupedData).map(([groupKey, rows]) => {
+      const isExpanded = expandedGroups.has(groupKey);
+      const groupCount = rows.length;
+      
+      return (
+        <div key={groupKey} className="border-b border-gray-200">
+          <div 
+            className="flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 cursor-pointer"
+            onClick={() => toggleGroup(groupKey)}
+          >
+            <div className="flex items-center gap-2">
+              {isExpanded ? (
+                <ChevronDown className="w-4 h-4" />
+              ) : (
+                <ChevronRight className="w-4 h-4" />
+              )}
+              <span className="font-medium">{groupKey}</span>
+              <Badge variant="secondary">{groupCount} items</Badge>
+            </div>
+          </div>
+          {isExpanded && (
+            <div className="bg-white">
+              {renderRows(rows)}
+            </div>
+          )}
+        </div>
+      );
+    });
+  };
+
+  // Render table rows
+  const renderRows = (rows: any[]) => {
+    return rows.map((row, index) => (
+      <div
+        key={row.id || index}
+        className={`flex items-center border-b border-gray-200 hover:bg-gray-50 ${
+          onRowClick ? "cursor-pointer" : ""
+        }`}
+        onClick={() => onRowClick?.(row)}
+      >
+        {selectable && (
+          <div className="p-3">
+            <Checkbox
+              checked={selectedRows.has(row.id)}
+              onCheckedChange={(checked) => handleRowSelect(row.id, checked as boolean)}
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        )}
+        
+        {columns.map((column) => (
+          <div
+            key={column.key}
+            className="p-3 flex-1"
+            style={{ width: column.width }}
+          >
+            {column.render ? column.render(row[column.key], row) : String(row[column.key] || "")}
+          </div>
+        ))}
+      </div>
+    ));
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold">{title}</h2>
+          <p className="text-muted-foreground">{description}</p>
+        </div>
+        <div className="flex gap-2">
+          {onRefresh && (
+            <Button variant="outline" onClick={onRefresh} disabled={loading}>
+              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+          )}
+          {onExport && (
+            <Button variant="outline" onClick={() => onExport(sortedData)}>
+              <Download className="w-4 h-4 mr-2" />
+              Export
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Controls */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-wrap gap-4 items-center">
+            {searchable && (
+              <div className="flex-1 min-w-64">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    placeholder="Search..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+            )}
+            
+            <div className="flex gap-2">
+              <Select value={groupBy} onValueChange={setGroupBy}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Group by..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No Grouping</SelectItem>
+                  {groupOptions.map((option) => (
+                    <SelectItem key={option.key} value={option.key}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              {filterOptions.length > 0 && (
+                <Button
+                  variant="outline"
+                  onClick={() => setShowFilters(!showFilters)}
+                >
+                  <Filter className="w-4 h-4 mr-2" />
+                  Filters
+                </Button>
+              )}
+            </div>
+
+            {selectable && selectedRows.size > 0 && (
+              <div className="flex gap-2">
+                <span className="text-sm text-muted-foreground">
+                  {selectedRows.size} selected
+                </span>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => onBulkAction?.("delete", Array.from(selectedRows))}
+                >
+                  <Trash2 className="w-4 h-4 mr-1" />
+                  Delete
+                </Button>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Advanced Filters */}
+      {showFilters && filterOptions.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Advanced Filters</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {filterOptions.map((filter) => (
+                <div key={filter.key}>
+                  <label className="text-sm font-medium">{filter.label}</label>
+                  {filter.type === 'select' ? (
+                    <Select 
+                      value={filters[filter.key] || 'all'} 
+                      onValueChange={(value) => setFilters(prev => ({ ...prev, [filter.key]: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All {filter.label}</SelectItem>
+                        {filter.options?.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : filter.type === 'date' ? (
+                    <Input
+                      type="date"
+                      value={filters[filter.key] || ''}
+                      onChange={(e) => setFilters(prev => ({ ...prev, [filter.key]: e.target.value }))}
+                    />
+                  ) : (
+                    <Input
+                      placeholder={`Filter by ${filter.label.toLowerCase()}...`}
+                      value={filters[filter.key] || ''}
+                      onChange={(e) => setFilters(prev => ({ ...prev, [filter.key]: e.target.value }))}
+                    />
+                  )}
+                </div>
+              ))}
+              
+              <div className="flex items-end">
+                <Button
+                  variant="outline"
+                  onClick={() => setFilters({})}
+                >
+                  Clear Filters
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Table */}
+      <Card>
+        <CardContent className="p-0">
+          {/* Table Header */}
+          <div className="flex items-center border-b border-gray-200 bg-gray-50">
+            {selectable && (
+              <div className="p-3">
+                <Checkbox
+                  checked={selectedRows.size > 0 && selectedRows.size === (groupBy === "none" ? sortedData.length : Object.values(groupedData).flat().length)}
+                  onCheckedChange={handleSelectAll}
+                />
+              </div>
+            )}
+            
+            {columns.map((column) => (
+              <div
+                key={column.key}
+                className={`p-3 flex-1 font-medium ${
+                  column.sortable ? "cursor-pointer hover:bg-gray-100" : ""
+                }`}
+                style={{ width: column.width }}
+                onClick={() => column.sortable && handleSort(column.key)}
+              >
+                <div className="flex items-center gap-2">
+                  {column.label}
+                  {column.sortable && sortColumn === column.key && (
+                    <span className="text-xs">
+                      {sortDirection === "asc" ? "↑" : "↓"}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Table Body */}
+          {loading ? (
+            <div className="p-8 text-center">
+              <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2" />
+              <p>Loading...</p>
+            </div>
+          ) : (
+            <div className="max-h-96 overflow-y-auto">
+              {renderGroupedData()}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Summary */}
+      <div className="text-sm text-muted-foreground">
+        Showing {filteredData.length} of {data.length} items
+        {groupBy !== "none" && ` (${Object.keys(groupedData).length} groups)`}
+      </div>
+    </div>
+  );
+}
