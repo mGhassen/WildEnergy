@@ -28,7 +28,7 @@ export default function AdminCheckins() {
   const [fullTestQRUrl, setFullTestQRUrl] = useState("");
 
   useEffect(() => {
-    setFullTestQRUrl(`${window.location.origin}/checkin/${testQRCode}`);
+    setFullTestQRUrl(`${window.location.origin}/checkin/qr/${testQRCode}`);
   }, [testQRCode]);
 
   // Fetch all check-ins (not just today)
@@ -83,7 +83,7 @@ export default function AdminCheckins() {
 
   const copyQRUrl = (qrCode: string) => {
     if (typeof window === 'undefined') return;
-    const url = `${window.location.origin}/checkin/${qrCode}`;
+    const url = `${window.location.origin}/checkin/qr/${qrCode}`;
     navigator.clipboard.writeText(url);
     toast({
       title: "URL copied!",
@@ -298,7 +298,7 @@ export default function AdminCheckins() {
                     Scan this QR code to test the check-in process
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    URL: {fullTestQRUrl || `/checkin/${testQRCode}`}
+                    URL: {fullTestQRUrl || `/checkin/qr/${testQRCode}`}
                   </p>
                 </div>
               </div>

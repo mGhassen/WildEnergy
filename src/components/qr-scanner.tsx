@@ -441,7 +441,7 @@ export default function QRScanner({ onScan, isProcessing = false }: QRScannerPro
             Use this QR code to test the scanner: <code className="bg-white px-1 rounded">QR-TEST-123456</code>
           </p>
           <p className="text-xs text-gray-600 mb-3">
-            URL format: <code className="bg-white px-1 rounded">{window.location.origin}/checkin/QR-TEST-123456</code>
+            URL format: <code className="bg-white px-1 rounded">{window.location.origin}/checkin/qr/QR-TEST-123456</code>
           </p>
           <div className="flex justify-center">
             <QRGenerator value="QR-TEST-123456" size={100} />
