@@ -61,6 +61,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     { name: "Users", href: "/admin/users", icon: Users },
     { name: "Members", href: "/admin/members", icon: UserCheck },
     { name: "Trainers", href: "/admin/trainers", icon: UserCheck },
+    { name: "Registrations", href: "/admin/registrations", icon: UserCheck },
     { name: "Categories", href: "/admin/categories", icon: Tags },
     { name: "Classes", href: "/admin/classes", icon: Calendar },
     { name: "Schedules", href: "/admin/schedules", icon: Clock },

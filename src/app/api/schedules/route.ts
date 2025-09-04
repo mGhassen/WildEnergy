@@ -94,9 +94,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
     const scheduleData = await req.json();
+    
+    // Generate a unique code for the schedule
+    const { data: lastSchedule } = await supabaseServer()
+      .from('schedules')
+      .select('id')
+      .order('id', { ascending: false })
+      .limit(1)
+      .single();
+    
+    const nextId = (lastSchedule?.id || 0) + 1;
+    const code = `SCH-${nextId.toString().padStart(4, '0')}`;
+    
     const { data: schedule, error } = await supabaseServer()
       .from('schedules')
-      .insert(scheduleData)
+      .insert({ ...scheduleData, code })
       .select('*')
       .single();
     if (error) {

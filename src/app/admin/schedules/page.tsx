@@ -425,6 +425,7 @@ export default function AdminSchedules() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
                 <span className="font-semibold text-base truncate">{schedule.class?.name}</span>
+                <Badge variant="outline" className="text-xs">{schedule.code || `SCH-${schedule.id}`}</Badge>
                 <Badge variant="outline" className="text-xs">{schedule.class?.category}</Badge>
                 <Badge variant="secondary" className="text-xs flex items-center gap-1">
                   <RepeatIcon className="w-3 h-3" />
@@ -462,9 +463,27 @@ export default function AdminSchedules() {
                 <Trash2 className="w-4 h-4" />
               </Button>
             ) : (
-              <div className="text-xs text-muted-foreground px-2 py-1 bg-gray-100 rounded">
-                Has registrations
-              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-blue-600 hover:text-blue-700"
+                onClick={() => {
+                  const scheduleCourses = courses.filter((course: any) => course.schedule_id === schedule.id);
+                  const courseIds = scheduleCourses.map((course: any) => course.id);
+                  const scheduleRegistrations = registrations.filter((reg: any) => 
+                    courseIds.includes(reg.course_id)
+                  );
+                  
+                  // Redirect to registrations page with filters
+                  const params = new URLSearchParams({
+                    scheduleId: schedule.id.toString(),
+                    status: 'registered,attended'
+                  });
+                  window.location.href = `/admin/registrations?${params.toString()}`;
+                }}
+              >
+                View Registrations
+              </Button>
             )}
           </div>
         </CardContent>
@@ -763,6 +782,7 @@ export default function AdminSchedules() {
                               <div className="flex-1">
                                 <div className="flex items-center gap-2 mb-1">
                                   <h3 className={isMobile ? 'text-base font-semibold text-foreground' : 'text-lg font-semibold text-foreground'}>{schedule.class?.name}</h3>
+                                  <Badge variant="outline" className="text-xs">{schedule.code || `SCH-${schedule.id}`}</Badge>
                                   <Badge variant="outline" className="text-xs">{schedule.class?.category}</Badge>
                                   <Badge variant="secondary" className="text-xs flex items-center gap-1">
                                     <RepeatIcon className="w-3 h-3" />
@@ -810,9 +830,27 @@ export default function AdminSchedules() {
                                   Delete
                                 </Button>
                               ) : (
-                                <div className="text-xs text-muted-foreground px-3 py-2 bg-gray-100 rounded-md">
-                                  Has registrations
-                                </div>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-blue-600 hover:text-blue-700"
+                                  onClick={() => {
+                                    const scheduleCourses = courses.filter((course: any) => course.schedule_id === schedule.id);
+                                    const courseIds = scheduleCourses.map((course: any) => course.id);
+                                    const scheduleRegistrations = registrations.filter((reg: any) => 
+                                      courseIds.includes(reg.course_id)
+                                    );
+                                    
+                                    // Redirect to registrations page with filters
+                                    const params = new URLSearchParams({
+                                      scheduleId: schedule.id.toString(),
+                                      status: 'registered,attended'
+                                    });
+                                    window.location.href = `/admin/registrations?${params.toString()}`;
+                                  }}
+                                >
+                                  View Registrations
+                                </Button>
                               )}
                             </div>
                           </div>
