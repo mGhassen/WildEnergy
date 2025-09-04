@@ -90,6 +90,15 @@ export default function DataTable({
   useEffect(() => {
     if (Object.keys(initialFilters).length > 0) {
       setShowFilters(true);
+      console.log('DataTable: Showing filters because initialFilters exist:', initialFilters);
+    }
+  }, [initialFilters]);
+
+  // Update filters when initialFilters prop changes
+  useEffect(() => {
+    if (Object.keys(initialFilters).length > 0) {
+      setFilters(initialFilters);
+      console.log('DataTable: Updated filters from initialFilters:', initialFilters);
     }
   }, [initialFilters]);
 
@@ -101,6 +110,14 @@ export default function DataTable({
   // Filter data based on search term and filters
   const filteredData = useMemo(() => {
     let filtered = data;
+    
+    console.log('DataTable filtering with:', { searchTerm, filters, dataLength: data.length });
+    
+    // Debug: Log first registration to see data structure
+    if (data.length > 0) {
+      console.log('Sample registration data:', data[0]);
+      console.log('Sample course data:', data[0]?.course);
+    }
     
     // Apply search term
     if (searchTerm) {
@@ -114,13 +131,49 @@ export default function DataTable({
     // Apply advanced filters
     Object.entries(filters).forEach(([filterKey, filterValue]) => {
       if (filterValue && filterValue !== 'all') {
+        console.log(`Applying filter: ${filterKey} = ${filterValue}`);
+        const beforeCount = filtered.length;
         filtered = filtered.filter((row) => {
           const value = getNestedValue(row, filterKey);
-          return String(value).toLowerCase().includes(filterValue.toLowerCase());
+          
+          // For numeric IDs, do exact match
+          if (filterKey.includes('_id') || filterKey.includes('Id')) {
+            const matches = String(value) === String(filterValue);
+            if (filterKey === 'course.schedule_id') {
+              console.log(`Schedule filter: row.course.schedule_id = ${row.course?.schedule_id} (${typeof row.course?.schedule_id}), filterValue = ${filterValue} (${typeof filterValue}), matches = ${matches}`);
+            }
+            return matches;
+          }
+          
+          // For status filter, handle comma-separated values
+          if (filterKey === 'status') {
+            if (filterValue === 'all') {
+              return true; // Show all statuses
+            }
+            if (filterValue.includes(',')) {
+              const statusValues = filterValue.split(',').map(s => s.trim());
+              const matches = statusValues.includes(String(value));
+              console.log(`Status filter (comma-separated): value = ${value}, statusValues = ${statusValues}, matches = ${matches}`);
+              return matches;
+            } else {
+              const matches = String(value) === String(filterValue);
+              console.log(`Status filter (single): value = ${value}, filterValue = ${filterValue}, matches = ${matches}`);
+              return matches;
+            }
+          }
+          
+          // For other fields, do substring match
+          const matches = String(value).toLowerCase().includes(filterValue.toLowerCase());
+          if (filterKey === 'course.schedule_id') {
+            console.log(`Schedule filter: row.course.schedule_id = ${row.course?.schedule_id}, filterValue = ${filterValue}, matches = ${matches}`);
+          }
+          return matches;
         });
+        console.log(`Filter ${filterKey}: ${beforeCount} -> ${filtered.length} items`);
       }
     });
     
+    console.log('Final filtered data length:', filtered.length);
     return filtered;
   }, [data, searchTerm, filters]);
 

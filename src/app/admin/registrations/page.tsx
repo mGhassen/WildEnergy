@@ -40,14 +40,18 @@ export default function AdminRegistrations() {
     const urlParams = new URLSearchParams(window.location.search);
     const initialFilters: Record<string, string> = {};
     
+    console.log('URL params:', Object.fromEntries(urlParams.entries()));
+    
     // Handle scheduleId filter
     if (urlParams.get('scheduleId')) {
       initialFilters['course.schedule_id'] = urlParams.get('scheduleId') || '';
+      console.log('Setting schedule filter:', initialFilters['course.schedule_id']);
     }
     
     // Handle status filter (comma-separated)
     if (urlParams.get('status')) {
       initialFilters['status'] = urlParams.get('status') || '';
+      console.log('Setting status filter:', initialFilters['status']);
     }
     
     // Handle other filters
@@ -57,9 +61,12 @@ export default function AdminRegistrations() {
       }
     });
     
+    console.log('Initial filters:', initialFilters);
+    
     // Only update if there are filters to set
     if (Object.keys(initialFilters).length > 0) {
       setFilters(initialFilters);
+      console.log('Filters set successfully');
     }
   }, []);
 
@@ -368,10 +375,12 @@ export default function AdminRegistrations() {
       label: 'Status',
       type: 'select' as const,
       options: [
+        { value: 'all', label: 'All Statuses' },
         { value: 'registered', label: 'Registered' },
         { value: 'attended', label: 'Attended' },
         { value: 'cancelled', label: 'Cancelled' },
-        { value: 'no_show', label: 'No Show' }
+        { value: 'no_show', label: 'No Show' },
+        { value: 'registered,attended', label: 'Registered & Attended' }
       ]
     },
     {
