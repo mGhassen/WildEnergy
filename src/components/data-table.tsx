@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -84,7 +84,19 @@ export default function DataTable({
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const [filters, setFilters] = useState<Record<string, string>>(initialFilters);
-  const [showFilters, setShowFilters] = useState(Object.keys(initialFilters).length > 0);
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Show filters if there are initial filters after hydration
+  useEffect(() => {
+    if (Object.keys(initialFilters).length > 0) {
+      setShowFilters(true);
+    }
+  }, [initialFilters]);
+
+  // Helper function to get nested values
+  const getNestedValue = (obj: any, path: string) => {
+    return path.split('.').reduce((current, key) => current?.[key], obj);
+  };
 
   // Filter data based on search term and filters
   const filteredData = useMemo(() => {
@@ -111,11 +123,6 @@ export default function DataTable({
     
     return filtered;
   }, [data, searchTerm, filters]);
-
-  // Helper function to get nested values
-  const getNestedValue = (obj: any, path: string) => {
-    return path.split('.').reduce((current, key) => current?.[key], obj);
-  };
 
   // Sort data
   const sortedData = useMemo(() => {

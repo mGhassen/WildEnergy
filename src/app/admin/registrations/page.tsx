@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,32 +33,35 @@ export default function AdminRegistrations() {
   const { toast } = useToast();
 
   // Initialize filters from URL parameters
-  const [filters, setFilters] = useState<Record<string, string>>(() => {
-    if (typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search);
-      const initialFilters: Record<string, string> = {};
-      
-      // Handle scheduleId filter
-      if (urlParams.get('scheduleId')) {
-        initialFilters['course.schedule_id'] = urlParams.get('scheduleId') || '';
-      }
-      
-      // Handle status filter (comma-separated)
-      if (urlParams.get('status')) {
-        initialFilters['status'] = urlParams.get('status') || '';
-      }
-      
-      // Handle other filters
-      ['classId', 'trainerId', 'memberId', 'dateFrom', 'dateTo', 'courseId', 'registrationDateFrom', 'registrationDateTo'].forEach(param => {
-        if (urlParams.get(param)) {
-          initialFilters[param] = urlParams.get(param) || '';
-        }
-      });
-      
-      return initialFilters;
+  const [filters, setFilters] = useState<Record<string, string>>({});
+
+  // Initialize filters from URL parameters after hydration
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const initialFilters: Record<string, string> = {};
+    
+    // Handle scheduleId filter
+    if (urlParams.get('scheduleId')) {
+      initialFilters['course.schedule_id'] = urlParams.get('scheduleId') || '';
     }
-    return {};
-  });
+    
+    // Handle status filter (comma-separated)
+    if (urlParams.get('status')) {
+      initialFilters['status'] = urlParams.get('status') || '';
+    }
+    
+    // Handle other filters
+    ['classId', 'trainerId', 'memberId', 'dateFrom', 'dateTo', 'courseId', 'registrationDateFrom', 'registrationDateTo'].forEach(param => {
+      if (urlParams.get(param)) {
+        initialFilters[param] = urlParams.get(param) || '';
+      }
+    });
+    
+    // Only update if there are filters to set
+    if (Object.keys(initialFilters).length > 0) {
+      setFilters(initialFilters);
+    }
+  }, []);
 
   const { data: registrations = [], isLoading, error } = useQuery({
     queryKey: ["registrations"],
@@ -404,7 +407,7 @@ export default function AdminRegistrations() {
       type: 'select' as const,
       options: schedules.map((schedule: any) => ({
         value: schedule.id.toString(),
-        label: `${schedule.code || `SCH-${schedule.id}`} - ${schedule.class?.name || 'Unknown Class'} - ${schedule.trainer?.first_name || ''} ${schedule.trainer?.last_name || ''}`.trim()
+        label: schedule.code || `SCH-${schedule.id}`
       }))
     },
     {
