@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
       description: description ? String(description).trim() : undefined,
       category_id: Number(categoryId),
       difficulty: difficulty || 'beginner',
-      duration_minutes: Number(duration),
+      duration: Number(duration),
       max_capacity: Number(maxCapacity),
       equipment: equipment || null,
       is_active: isActive !== undefined ? Boolean(isActive) : true,

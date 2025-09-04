@@ -12,13 +12,128 @@ function extractIdFromUrl(request: NextRequest): string | null {
 }
 
 export async function PATCH(request: NextRequest) {
-  const id = extractIdFromUrl(request);
-  // TODO: Implement logic to update class by ID
-  return NextResponse.json({ message: `Update class ${id}` });
+  try {
+    const id = extractIdFromUrl(request);
+    if (!id) {
+      return NextResponse.json({ error: 'Class ID is required' }, { status: 400 });
+    }
+
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.split(' ')[1];
+    if (!token) {
+      return NextResponse.json({ error: 'No token provided' }, { status: 401 });
+    }
+
+    // Verify admin
+    const { data: { user: adminUser }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !adminUser) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+    }
+
+    const { data: adminCheck } = await supabase
+      .from('users')
+      .select('is_admin')
+      .eq('auth_user_id', adminUser.id)
+      .single();
+
+    if (!adminCheck?.is_admin) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
+
+    const { name, description, category_id, difficulty, duration, max_capacity, equipment, is_active } = await request.json();
+
+    // Validate required fields
+    if (!name || !category_id || !duration || !max_capacity) {
+      return NextResponse.json({ error: 'Missing required class fields' }, { status: 400 });
+    }
+
+    const updateData = {
+      name: name.trim(),
+      description: description ? String(description).trim() : null,
+      category_id: Number(category_id),
+      difficulty: difficulty || 'beginner',
+      duration: Number(duration),
+      max_capacity: Number(max_capacity),
+      equipment: equipment || null,
+      is_active: is_active !== undefined ? Boolean(is_active) : true,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data: updatedClass, error } = await supabase
+      .from('classes')
+      .update(updateData)
+      .eq('id', id)
+      .select('*')
+      .single();
+
+    if (error) {
+      return NextResponse.json({ error: 'Failed to update class', details: error.message }, { status: 500 });
+    }
+
+    if (!updatedClass) {
+      return NextResponse.json({ error: 'Class not found' }, { status: 404 });
+    }
+
+    return NextResponse.json(updatedClass);
+  } catch (error) {
+    console.error('Error updating class:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 }
 
 export async function DELETE(request: NextRequest) {
-  const id = extractIdFromUrl(request);
-  // TODO: Implement logic to delete class by ID
-  return NextResponse.json({ message: `Delete class ${id}` });
+  try {
+    const id = extractIdFromUrl(request);
+    if (!id) {
+      return NextResponse.json({ error: 'Class ID is required' }, { status: 400 });
+    }
+
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.split(' ')[1];
+    if (!token) {
+      return NextResponse.json({ error: 'No token provided' }, { status: 401 });
+    }
+
+    // Verify admin
+    const { data: { user: adminUser }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !adminUser) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+    }
+
+    const { data: adminCheck } = await supabase
+      .from('users')
+      .select('is_admin')
+      .eq('auth_user_id', adminUser.id)
+      .single();
+
+    if (!adminCheck?.is_admin) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
+
+    // Check if class exists
+    const { data: existingClass, error: fetchError } = await supabase
+      .from('classes')
+      .select('id')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !existingClass) {
+      return NextResponse.json({ error: 'Class not found' }, { status: 404 });
+    }
+
+    // Delete the class
+    const { error: deleteError } = await supabase
+      .from('classes')
+      .delete()
+      .eq('id', id);
+
+    if (deleteError) {
+      return NextResponse.json({ error: 'Failed to delete class', details: deleteError.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ message: 'Class deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting class:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 } 
