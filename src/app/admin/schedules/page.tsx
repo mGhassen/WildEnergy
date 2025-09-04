@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
@@ -60,6 +61,8 @@ export default function AdminSchedules() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [scheduleToDelete, setScheduleToDelete] = useState<any>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const isMobile = useIsMobile();
@@ -261,15 +264,43 @@ export default function AdminSchedules() {
       queryClient.invalidateQueries({ queryKey: ["schedules"] });
       // Force a refetch to ensure we get the latest data
       setTimeout(() => refetch(), 100);
-      toast({ title: "Schedule deleted successfully" });
+      
+      // Show success message with course counts
+      const courseCount = data.deletedCourses || 0;
+      const activeCourseCount = data.activeCourses || 0;
+      const scheduleName = data.scheduleName || 'Schedule';
+      
+      toast({ 
+        title: "Schedule deleted successfully",
+        description: `Deleted ${scheduleName} and ${courseCount} related course${courseCount !== 1 ? 's' : ''} (${activeCourseCount} active)`
+      });
+      
+      // Close dialog
+      setDeleteDialogOpen(false);
+      setScheduleToDelete(null);
     },
     onError: (error) => {
       console.error('Delete schedule mutation error:', error);
-      toast({ 
-        title: "Error deleting schedule", 
-        description: error.message,
-        variant: "destructive" 
-      });
+      
+      // Handle specific error for schedules with registrations
+      if (error.message?.includes('Cannot delete schedule with existing registrations')) {
+        const details = error.details || {};
+        toast({ 
+          title: "Cannot Delete Schedule", 
+          description: `This schedule has ${details.registeredMembers || 0} registered members and ${details.attendedMembers || 0} who have attended. Please cancel all registrations first.`,
+          variant: "destructive" 
+        });
+      } else {
+        toast({ 
+          title: "Error deleting schedule", 
+          description: error.message,
+          variant: "destructive" 
+        });
+      }
+      
+      // Close dialog on error
+      setDeleteDialogOpen(false);
+      setScheduleToDelete(null);
     },
   });
 
@@ -285,7 +316,31 @@ export default function AdminSchedules() {
     if (!Array.isArray(checkins)) {
       return [];
     }
-    return checkins.filter((checkin: any) => checkin.registration?.schedule?.id === scheduleId);
+    // Get all courses for this schedule
+    const scheduleCourses = courses.filter((course: any) => course.schedule_id === scheduleId);
+    const courseIds = scheduleCourses.map((course: any) => course.id);
+    
+    return checkins.filter((checkin: any) => 
+      courseIds.includes(checkin.registration?.course_id)
+    );
+  };
+
+  const canDeleteSchedule = (scheduleId: number) => {
+    // Get all courses for this schedule
+    const scheduleCourses = courses.filter((course: any) => course.schedule_id === scheduleId);
+    const courseIds = scheduleCourses.map((course: any) => course.id);
+    
+    // Check if any of these courses have registrations
+    const scheduleRegistrations = registrations.filter((reg: any) => 
+      courseIds.includes(reg.course_id)
+    );
+    
+    // Check if any of these courses have checkins
+    const scheduleCheckins = checkins.filter((checkin: any) => 
+      courseIds.includes(checkin.registration?.course_id)
+    );
+    
+    return scheduleRegistrations.length === 0 && scheduleCheckins.length === 0;
   };
 
   const getRepetitionLabel = (type: string) => {
@@ -324,9 +379,14 @@ export default function AdminSchedules() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id: number) => {
-    if (confirm("Are you sure you want to delete this schedule?")) {
-      deleteScheduleMutation.mutate(id);
+  const handleDelete = (schedule: any) => {
+    setScheduleToDelete(schedule);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (scheduleToDelete) {
+      deleteScheduleMutation.mutate(scheduleToDelete.id);
     }
   };
 
@@ -397,12 +457,15 @@ export default function AdminSchedules() {
             </div>
           </div>
           <div className="flex gap-2 mt-2">
-            <Button size="icon" variant="ghost" className="border border-gray-200" onClick={() => onEdit(schedule)}>
-              <Edit className="w-4 h-4" />
-            </Button>
-            <Button size="icon" variant="ghost" className="border border-gray-200 text-red-600" onClick={() => onDelete(schedule.id)}>
-              <Trash2 className="w-4 h-4" />
-            </Button>
+            {canDeleteSchedule(schedule.id) ? (
+              <Button size="icon" variant="ghost" className="border border-gray-200 text-red-600" onClick={() => onDelete(schedule)}>
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            ) : (
+              <div className="text-xs text-muted-foreground px-2 py-1 bg-gray-100 rounded">
+                Has registrations
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -739,7 +802,19 @@ export default function AdminSchedules() {
                                 </div>
                               </div>
                             </div>
-                            {/* Actions can be added here, stacked for mobile if needed */}
+                            {/* Desktop Actions */}
+                            <div className="flex gap-2">
+                              {canDeleteSchedule(schedule.id) ? (
+                                <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700" onClick={() => handleDelete(schedule)}>
+                                  <Trash2 className="w-4 h-4 mr-1" />
+                                  Delete
+                                </Button>
+                              ) : (
+                                <div className="text-xs text-muted-foreground px-3 py-2 bg-gray-100 rounded-md">
+                                  Has registrations
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </CardContent>
                       </Card>
@@ -761,6 +836,47 @@ export default function AdminSchedules() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Schedule</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this schedule? This action will permanently delete all related courses.
+            </AlertDialogDescription>
+            {scheduleToDelete && (
+              <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div className="font-medium text-red-800">
+                  {scheduleToDelete.class?.name} - {scheduleToDelete.trainer?.firstName} {scheduleToDelete.trainer?.lastName}
+                </div>
+                <div className="text-sm text-red-600 mt-1">
+                  {scheduleToDelete.scheduleDate ? formatEuropeanDate(scheduleToDelete.scheduleDate) : getDayName(scheduleToDelete.dayOfWeek)} • {formatTime(scheduleToDelete.startTime)} - {formatTime(scheduleToDelete.endTime)}
+                </div>
+                <div className="text-sm text-red-600 mt-3 space-y-1">
+                  <div>⚠️ <strong>This will delete:</strong></div>
+                  <div>• All courses generated from this schedule</div>
+                  <div>• Schedule configuration and timing</div>
+                  <div className="font-semibold mt-2">This action cannot be undone!</div>
+                  <div className="text-xs text-gray-600 mt-2">
+                    Note: Schedules with member registrations cannot be deleted. Cancel all registrations first.
+                  </div>
+                </div>
+              </div>
+            )}
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDelete}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={deleteScheduleMutation.isPending}
+            >
+              {deleteScheduleMutation.isPending ? "Deleting..." : "Delete Schedule"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
