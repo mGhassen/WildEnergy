@@ -32,7 +32,27 @@ export async function GET(req: NextRequest) {
       .from('subscriptions')
       .select(`
         *,
-        plan:plans(*)
+        plan:plans(
+          *,
+          plan_groups (
+            id,
+            group_id,
+            session_count,
+            is_free,
+            groups (
+              id,
+              name,
+              description,
+              color,
+              categories (
+                id,
+                name,
+                description,
+                color
+              )
+            )
+          )
+        )
       `)
       .eq('user_id', userProfile.id);
     if (error) {
