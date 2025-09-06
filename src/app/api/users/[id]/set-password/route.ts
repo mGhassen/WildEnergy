@@ -3,7 +3,7 @@ import { supabaseServer } from '@/lib/supabase';
 
 export async function POST(
   req: NextRequest,
-  context: { params: any }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const authHeader = req.headers.get('authorization');
@@ -28,7 +28,7 @@ export async function POST(
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const userId = context.params.id;
+    const { id: userId } = await context.params;
     const { password } = await req.json();
     if (!password || password.length < 8) {
       return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 });

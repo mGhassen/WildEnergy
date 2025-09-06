@@ -3,7 +3,7 @@ import { supabaseServer } from '@/lib/supabase';
 
 export async function POST(
   req: NextRequest,
-  context: { params: any }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const authHeader = req.headers.get('authorization');

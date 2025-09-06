@@ -94,7 +94,7 @@ const data = {
       ],
     },
     {
-      title: "Payments",
+      title: "Billing & Plans",
       url: "/admin/payments",
       icon: CreditCard,
       items: [
