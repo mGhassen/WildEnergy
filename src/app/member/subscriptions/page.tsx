@@ -8,13 +8,31 @@ import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/hooks/use-auth";
 import React, { useState, useEffect } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { CreditCard, Clock, CheckCircle, XCircle, Info, Calendar } from "lucide-react";
+import { CreditCard, Clock, CheckCircle, XCircle, Info, Calendar, Users } from "lucide-react";
 
 interface Plan {
   id: number;
   name: string;
   price: string;
   max_sessions: number;
+  plan_groups?: Array<{
+    id: number;
+    group_id: number;
+    session_count: number;
+    is_free: boolean;
+    groups: {
+      id: number;
+      name: string;
+      description: string;
+      color: string;
+      categories: Array<{
+        id: number;
+        name: string;
+        description: string;
+        color: string;
+      }>;
+    };
+  }>;
 }
 
 interface Payment {
@@ -44,7 +62,7 @@ interface Profile {
 export default function MemberSubscriptions() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [mainTab, setMainTab] = useState<'active' | 'history'>('active');
-  const [subTabs, setSubTabs] = useState<{ [subId: number]: 'details' | 'payments' }>({});
+  const [subTabs, setSubTabs] = useState<{ [subId: number]: 'details' | 'groups' | 'payments' }>({});
 
   // Fetch user credit
   const { data: profile, isLoading: loadingProfile, error: errorProfile } = useQuery<Profile>({
@@ -200,7 +218,7 @@ export default function MemberSubscriptions() {
             console.log('Subscription data:', sub);
             console.log('Plan data:', sub.plan);
             
-            const plan = sub.plan || { name: "", price: "", max_sessions: 0 };
+            const plan = sub.plan || { name: "", price: "", max_sessions: 0, plan_groups: [] };
             const totalSessions = plan.max_sessions ?? 0;
             
             console.log('Total sessions calculated:', totalSessions);
@@ -219,13 +237,19 @@ export default function MemberSubscriptions() {
                   <CardDescription>Active membership details</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {/* Mini-tabs for details/payments */}
+                  {/* Mini-tabs for details/groups/payments */}
                   <div className="flex gap-2 mb-4">
                     <button
                       className={`rounded-full px-4 py-1 text-sm font-medium flex items-center gap-1 transition-all ${subTab === 'details' ? 'bg-primary text-primary-foreground shadow' : 'bg-muted text-muted-foreground hover:bg-muted/70'}`}
                       onClick={() => setSubTabs(t => ({ ...t, [sub.id]: 'details' }))}
                     >
                       <Info className="w-4 h-4" /> Details
+                    </button>
+                    <button
+                      className={`rounded-full px-4 py-1 text-sm font-medium flex items-center gap-1 transition-all ${subTab === 'groups' ? 'bg-primary text-primary-foreground shadow' : 'bg-muted text-muted-foreground hover:bg-muted/70'}`}
+                      onClick={() => setSubTabs(t => ({ ...t, [sub.id]: 'groups' }))}
+                    >
+                      <Users className="w-4 h-4" /> Groups
                     </button>
                     <button
                       className={`rounded-full px-4 py-1 text-sm font-medium flex items-center gap-1 transition-all ${subTab === 'payments' ? 'bg-primary text-primary-foreground shadow' : 'bg-muted text-muted-foreground hover:bg-muted/70'}`}
@@ -267,6 +291,92 @@ export default function MemberSubscriptions() {
                         </div>
                       </div>
                     </>
+                  ) : subTab === 'groups' ? (
+                    <div className="space-y-4">
+                      {(() => {
+                        const planGroups = plan.plan_groups || [];
+                        if (planGroups.length === 0) {
+                          return (
+                            <div className="text-center py-8 border-2 border-dashed border-muted/50 rounded-lg bg-muted/10">
+                              <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-muted/50 flex items-center justify-center">
+                                <Users className="w-6 h-6 text-muted-foreground" />
+                              </div>
+                              <p className="text-sm font-medium text-muted-foreground mb-1">
+                                No groups included
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                This plan doesn't include any specific groups
+                              </p>
+                            </div>
+                          );
+                        }
+                        return (
+                          <div className="space-y-3">
+                            {planGroups.map((planGroup: any) => (
+                              <div key={planGroup.id} className="p-4 bg-muted/20 rounded-lg border border-border/50">
+                                <div className="flex items-center justify-between mb-3">
+                                  <div className="flex items-center gap-3">
+                                    <div 
+                                      className="w-4 h-4 rounded-full shadow-sm border border-white/20" 
+                                      style={{ backgroundColor: planGroup.groups?.color || '#6B7280' }}
+                                    />
+                                    <div>
+                                      <h4 className="font-semibold text-foreground">
+                                        {planGroup.groups?.name}
+                                      </h4>
+                                      <p className="text-sm text-muted-foreground">
+                                        {planGroup.groups?.description}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium text-foreground">
+                                      {planGroup.session_count} session{planGroup.session_count > 1 ? 's' : ''}
+                                    </span>
+                                    {planGroup.is_free && (
+                                      <div className="flex items-center gap-1">
+                                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                                        <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-1 rounded-full font-semibold border border-green-200 dark:border-green-800">
+                                          FREE
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                                
+                                {/* Categories within this group */}
+                                {planGroup.groups?.categories && planGroup.groups.categories.length > 0 && (
+                                  <div className="mt-3 pt-3 border-t border-border/30">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <div className="w-1 h-3 bg-muted-foreground/50 rounded-full"></div>
+                                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                                        Categories
+                                      </span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                      {planGroup.groups.categories.map((category: any) => (
+                                        <div 
+                                          key={category.id}
+                                          className="flex items-center gap-1.5 px-2 py-1 bg-background border border-border/50 rounded-md text-xs"
+                                        >
+                                          <div 
+                                            className="w-2 h-2 rounded-full" 
+                                            style={{ backgroundColor: category.color }}
+                                          />
+                                          <span className="text-foreground font-medium">
+                                            {category.name}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </div>
                   ) : (
                     <div className="space-y-2">
                       {getPaymentsForSub(sub.id).length === 0 ? (
@@ -312,7 +422,7 @@ export default function MemberSubscriptions() {
               </Card>
             )}
             {inactiveSubscriptions.map((sub) => {
-              const plan = sub.plan || { name: "", price: "", max_sessions: 0 };
+              const plan = sub.plan || { name: "", price: "", max_sessions: 0, plan_groups: [] };
               const subTab = subTabs[sub.id] || 'details';
               return (
                 <Card key={sub.id} className="border-l-4 border-l-muted opacity-75">
@@ -324,13 +434,19 @@ export default function MemberSubscriptions() {
                     <CardDescription>Inactive membership details</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {/* Mini-tabs for details/payments */}
+                    {/* Mini-tabs for details/groups/payments */}
                     <div className="flex gap-2 mb-4">
                       <button
                         className={`rounded-full px-4 py-1 text-sm font-medium flex items-center gap-1 transition-all ${subTab === 'details' ? 'bg-primary text-primary-foreground shadow' : 'bg-muted text-muted-foreground hover:bg-muted/70'}`}
                         onClick={() => setSubTabs(t => ({ ...t, [sub.id]: 'details' }))}
                       >
                         <Info className="w-4 h-4" /> Details
+                      </button>
+                      <button
+                        className={`rounded-full px-4 py-1 text-sm font-medium flex items-center gap-1 transition-all ${subTab === 'groups' ? 'bg-primary text-primary-foreground shadow' : 'bg-muted text-muted-foreground hover:bg-muted/70'}`}
+                        onClick={() => setSubTabs(t => ({ ...t, [sub.id]: 'groups' }))}
+                      >
+                        <Users className="w-4 h-4" /> Groups
                       </button>
                       <button
                         className={`rounded-full px-4 py-1 text-sm font-medium flex items-center gap-1 transition-all ${subTab === 'payments' ? 'bg-primary text-primary-foreground shadow' : 'bg-muted text-muted-foreground hover:bg-muted/70'}`}
@@ -357,6 +473,92 @@ export default function MemberSubscriptions() {
                           <span className="text-muted-foreground">Status:</span>
                           <Badge variant="secondary" className="ml-1">{sub.status}</Badge>
                         </div>
+                      </div>
+                    ) : subTab === 'groups' ? (
+                      <div className="space-y-4">
+                        {(() => {
+                          const planGroups = plan.plan_groups || [];
+                          if (planGroups.length === 0) {
+                            return (
+                              <div className="text-center py-8 border-2 border-dashed border-muted/50 rounded-lg bg-muted/10">
+                                <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-muted/50 flex items-center justify-center">
+                                  <Users className="w-6 h-6 text-muted-foreground" />
+                                </div>
+                                <p className="text-sm font-medium text-muted-foreground mb-1">
+                                  No groups included
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  This plan didn't include any specific groups
+                                </p>
+                              </div>
+                            );
+                          }
+                          return (
+                            <div className="space-y-3">
+                              {planGroups.map((planGroup: any) => (
+                                <div key={planGroup.id} className="p-4 bg-muted/20 rounded-lg border border-border/50">
+                                  <div className="flex items-center justify-between mb-3">
+                                    <div className="flex items-center gap-3">
+                                      <div 
+                                        className="w-4 h-4 rounded-full shadow-sm border border-white/20" 
+                                        style={{ backgroundColor: planGroup.groups?.color || '#6B7280' }}
+                                      />
+                                      <div>
+                                        <h4 className="font-semibold text-foreground">
+                                          {planGroup.groups?.name}
+                                        </h4>
+                                        <p className="text-sm text-muted-foreground">
+                                          {planGroup.groups?.description}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-sm font-medium text-foreground">
+                                        {planGroup.session_count} session{planGroup.session_count > 1 ? 's' : ''}
+                                      </span>
+                                      {planGroup.is_free && (
+                                        <div className="flex items-center gap-1">
+                                          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                                          <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-1 rounded-full font-semibold border border-green-200 dark:border-green-800">
+                                            FREE
+                                          </span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Categories within this group */}
+                                  {planGroup.groups?.categories && planGroup.groups.categories.length > 0 && (
+                                    <div className="mt-3 pt-3 border-t border-border/30">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <div className="w-1 h-3 bg-muted-foreground/50 rounded-full"></div>
+                                        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                                          Categories
+                                        </span>
+                                      </div>
+                                      <div className="flex flex-wrap gap-2">
+                                        {planGroup.groups.categories.map((category: any) => (
+                                          <div 
+                                            key={category.id}
+                                            className="flex items-center gap-1.5 px-2 py-1 bg-background border border-border/50 rounded-md text-xs"
+                                          >
+                                            <div 
+                                              className="w-2 h-2 rounded-full" 
+                                              style={{ backgroundColor: category.color }}
+                                            />
+                                            <span className="text-foreground font-medium">
+                                              {category.name}
+                                            </span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })()}
                       </div>
                     ) : (
                       <div className="space-y-2">
