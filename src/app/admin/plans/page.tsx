@@ -381,22 +381,26 @@ export default function AdminPlans() {
                 />
 
                 {/* Plan Groups */}
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <FormLabel className="text-base">Groups</FormLabel>
+                    <div className="flex items-center gap-2">
+                      <div className="w-1 h-4 bg-primary rounded-full"></div>
+                      <FormLabel className="text-base font-semibold text-foreground">Plan Groups</FormLabel>
+                    </div>
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
                       onClick={() => append({ groupId: 0, sessionCount: 1, isFree: false })}
+                      className="h-9 px-3"
                     >
                       <Plus className="w-4 h-4 mr-1" />
-                      Add
+                      Add Group
                     </Button>
                   </div>
                   
                   {fields.map((field, index) => (
-                    <div key={field.id} className="p-3 border rounded-lg bg-card">
+                    <div key={field.id} className="p-4 bg-muted/20 rounded-lg border border-border/50 space-y-3">
                       <div className="flex items-center gap-3">
                         <FormField
                           control={form.control}
@@ -405,7 +409,7 @@ export default function AdminPlans() {
                             <FormItem className="flex-1">
                               <Select onValueChange={(value) => field.onChange(Number(value))} value={field.value?.toString()}>
                                 <FormControl>
-                                  <SelectTrigger>
+                                  <SelectTrigger className="h-10">
                                     <SelectValue placeholder="Select group" />
                                   </SelectTrigger>
                                 </FormControl>
@@ -414,10 +418,10 @@ export default function AdminPlans() {
                                     <SelectItem key={group.id} value={group.id.toString()}>
                                       <div className="flex items-center gap-2">
                                         <div 
-                                          className="w-2 h-2 rounded-full" 
+                                          className="w-2.5 h-2.5 rounded-full shadow-sm border border-white/20" 
                                           style={{ backgroundColor: group.color }}
                                         />
-                                        {group.name}
+                                        <span className="font-medium">{group.name}</span>
                                       </div>
                                     </SelectItem>
                                   ))}
@@ -432,12 +436,13 @@ export default function AdminPlans() {
                           control={form.control}
                           name={`planGroups.${index}.sessionCount`}
                           render={({ field }) => (
-                            <FormItem className="w-20">
+                            <FormItem className="w-24">
                               <FormControl>
                                 <Input
                                   type="number"
                                   min={1}
-                                  placeholder="Count"
+                                  placeholder="Sessions"
+                                  className="h-10 text-center font-medium"
                                   {...field}
                                   onChange={e => field.onChange(Number(e.target.value))}
                                 />
@@ -451,14 +456,15 @@ export default function AdminPlans() {
                           control={form.control}
                           name={`planGroups.${index}.isFree`}
                           render={({ field }) => (
-                            <FormItem className="flex flex-row items-center space-x-1 space-y-0">
+                            <FormItem className="flex flex-row items-center space-x-2 space-y-0">
                               <FormControl>
                                 <Checkbox
                                   checked={field.value}
                                   onCheckedChange={field.onChange}
+                                  className="data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
                                 />
                               </FormControl>
-                              <FormLabel className="text-xs text-muted-foreground">
+                              <FormLabel className="text-sm font-medium text-foreground">
                                 Free
                               </FormLabel>
                             </FormItem>
@@ -470,7 +476,7 @@ export default function AdminPlans() {
                           variant="ghost"
                           size="sm"
                           onClick={() => remove(index)}
-                          className="text-destructive hover:text-destructive p-1 h-8 w-8"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10 p-2 h-10 w-10 rounded-lg"
                         >
                           <X className="w-4 h-4" />
                         </Button>
@@ -479,9 +485,15 @@ export default function AdminPlans() {
                   ))}
                   
                   {fields.length === 0 && (
-                    <div className="text-center py-6 border-2 border-dashed border-muted rounded-lg">
-                      <p className="text-sm text-muted-foreground">
+                    <div className="text-center py-8 border-2 border-dashed border-muted/50 rounded-lg bg-muted/10">
+                      <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-muted/50 flex items-center justify-center">
+                        <Plus className="w-6 h-6 text-muted-foreground" />
+                      </div>
+                      <p className="text-sm font-medium text-muted-foreground mb-1">
                         No groups added yet
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Click "Add" to include groups in this plan
                       </p>
                     </div>
                   )}
@@ -587,25 +599,39 @@ export default function AdminPlans() {
                     
                     {/* Plan Groups Display */}
                     {plan.plan_groups && plan.plan_groups.length > 0 && (
-                      <div className="space-y-1">
-                        <span className="text-sm text-muted-foreground">Includes:</span>
-                        {plan.plan_groups.map((group: any, index: number) => (
-                          <div key={index} className="flex items-center justify-between text-xs">
-                            <div className="flex items-center gap-1">
-                              <div 
-                                className="w-2 h-2 rounded-full" 
-                                style={{ backgroundColor: group.groups?.color || '#6B7280' }}
-                              />
-                              <span>{group.groups?.name}</span>
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-1 h-4 bg-primary rounded-full"></div>
+                          <span className="text-sm font-medium text-foreground">Included Groups</span>
+                        </div>
+                        <div className="space-y-2">
+                          {plan.plan_groups.map((group: any, index: number) => (
+                            <div key={index} className="flex items-center justify-between p-2 bg-muted/30 rounded-lg border border-border/50">
+                              <div className="flex items-center gap-3">
+                                <div 
+                                  className="w-3 h-3 rounded-full shadow-sm border border-white/20" 
+                                  style={{ backgroundColor: group.groups?.color || '#6B7280' }}
+                                />
+                                <div className="flex flex-col">
+                                  <span className="text-sm font-medium text-foreground">
+                                    {group.groups?.name}
+                                  </span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {group.session_count} session{group.session_count > 1 ? 's' : ''}
+                                  </span>
+                                </div>
+                              </div>
                               {group.is_free && (
-                                <span className="text-xs bg-green-100 text-green-800 px-1.5 py-0.5 rounded-full font-medium">
-                                  FREE
-                                </span>
+                                <div className="flex items-center gap-1">
+                                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                                  <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-1 rounded-full font-semibold border border-green-200 dark:border-green-800">
+                                    FREE
+                                  </span>
+                                </div>
                               )}
                             </div>
-                            <span className="text-muted-foreground">{group.session_count}</span>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
