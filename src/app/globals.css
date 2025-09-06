@@ -21,7 +21,7 @@
     --destructive: 9.8901 81.9820% 43.5294%;
     --destructive-foreground: 0 100% 99.4118%;
     --border: 0 0% 87.4510%;
-    --input: 0 0% 96.4706%;
+    --input: 0 0% 81.4706%;
     --ring: 151.3274 66.8639% 66.8627%;
     --chart-1: 151.3274 66.8639% 66.8627%;
     --chart-2: 217.2193 91.2195% 59.8039%;
@@ -36,7 +36,7 @@
     --sidebar-accent-foreground: 0 0% 12.5490%;
     --sidebar-border: 0 0% 87.4510%;
     --sidebar-ring: 151.3274 66.8639% 66.8627%;
-    --font-sans: Outfit, sans-serif;
+    --font-sans: var(--font-outfit), sans-serif;
     --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
     --font-mono: monospace;
     --radius: 0.5rem;
@@ -48,6 +48,7 @@
     --shadow-lg: 0px 1px 3px 0px hsl(0 0% 0% / 0.17), 0px 4px 6px -1px hsl(0 0% 0% / 0.17);
     --shadow-xl: 0px 1px 3px 0px hsl(0 0% 0% / 0.17), 0px 8px 10px -1px hsl(0 0% 0% / 0.17);
     --shadow-2xl: 0px 1px 3px 0px hsl(0 0% 0% / 0.43);
+    --shadow-input: 0px 1px 3px 0px hsl(0 0% 0% / 0.17);
     --tracking-normal: 0.025em;
     --spacing: 0.25rem;
   }
@@ -85,7 +86,7 @@
     --sidebar-accent-foreground: 0 0% 98.0392%;
     --sidebar-border: 0 0% 16.0784%;
     --sidebar-ring: 141.8919 69.1589% 58.0392%;
-    --font-sans: Outfit, sans-serif;
+    --font-sans: var(--font-outfit), sans-serif;
     --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
     --font-mono: monospace;
     --radius: 0.5rem;
@@ -97,6 +98,7 @@
     --shadow-lg: 0px 1px 3px 0px hsl(0 0% 0% / 0.17), 0px 4px 6px -1px hsl(0 0% 0% / 0.17);
     --shadow-xl: 0px 1px 3px 0px hsl(0 0% 0% / 0.17), 0px 8px 10px -1px hsl(0 0% 0% / 0.17);
     --shadow-2xl: 0px 1px 3px 0px hsl(0 0% 0% / 0.43);
+    --shadow-input: 0px 1px 3px 0px hsl(0 0% 0% / 0.17);
   }
 }
 
