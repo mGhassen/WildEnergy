@@ -17,6 +17,20 @@ export default function PlansPage() {
   // Find the plan with the most sessions for 'Popular' badge
   const maxSessions = Math.max(...(plans?.map(p => p.max_sessions) || [0]));
 
+  // Helper function to get total sessions from plan groups
+  const getTotalSessions = (plan: any) => {
+    if (plan.plan_groups && plan.plan_groups.length > 0) {
+      return plan.plan_groups.reduce((total: number, group: any) => total + group.session_count, 0);
+    }
+    return plan.max_sessions || 0;
+  };
+
+  // Helper function to get categories from a group
+  const getGroupCategories = (group: any) => {
+    if (!group.groups?.group_categories) return [];
+    return group.groups.group_categories.map((gc: any) => gc.categories);
+  };
+
   return (
     <MemberLayout>
       <div className="max-w-5xl mx-auto py-12 px-4">
@@ -42,16 +56,55 @@ export default function PlansPage() {
                     <span className="text-3xl font-bold text-primary">{plan.price} TND</span>
                     <span className="text-muted-foreground">/ {plan.duration_days} days</span>
                   </div>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    <span className="inline-flex items-center gap-1 text-sm bg-muted px-2 py-1 rounded-full">
-                      <Users className="w-4 h-4 text-primary" /> {plan.max_sessions} sessions
-                    </span>
-                    <span className="inline-flex items-center gap-1 text-sm bg-muted px-2 py-1 rounded-full">
-                      <Calendar className="w-4 h-4 text-primary" /> {plan.duration_days} days
-                    </span>
-                    <span className="inline-flex items-center gap-1 text-sm bg-muted px-2 py-1 rounded-full">
-                      <CheckCircle className="w-4 h-4 text-green-600" /> All classes included
-                    </span>
+                  <div className="space-y-3 mt-2">
+                    <div className="flex flex-wrap gap-2">
+                      <span className="inline-flex items-center gap-1 text-sm bg-muted px-2 py-1 rounded-full">
+                        <Users className="w-4 h-4 text-primary" /> {getTotalSessions(plan)} total sessions
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-sm bg-muted px-2 py-1 rounded-full">
+                        <Calendar className="w-4 h-4 text-primary" /> {plan.duration_days} days
+                      </span>
+                    </div>
+                    
+                    {/* Plan Groups Display */}
+                    {plan.plan_groups && plan.plan_groups.length > 0 ? (
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-muted-foreground">Includes:</p>
+                        <div className="space-y-2">
+                          {plan.plan_groups.map((group: any, index: number) => {
+                            const categories = getGroupCategories(group);
+                            return (
+                              <div key={index} className="space-y-1">
+                                <div className="flex items-center justify-between text-sm">
+                                  <div className="flex items-center gap-2">
+                                    <div 
+                                      className="w-3 h-3 rounded-full" 
+                                      style={{ backgroundColor: group.groups?.color || '#6B7280' }}
+                                    />
+                                    <span className="font-medium">{group.groups?.name}</span>
+                                  </div>
+                                  <span className="text-muted-foreground">{group.session_count} sessions</span>
+                                </div>
+                                {categories.length > 0 && (
+                                  <div className="ml-5 text-xs text-muted-foreground">
+                                    {categories.map((cat: any, catIndex: number) => (
+                                      <span key={catIndex}>
+                                        {cat.name}
+                                        {catIndex < categories.length - 1 ? ', ' : ''}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-sm bg-muted px-2 py-1 rounded-full">
+                        <CheckCircle className="w-4 h-4 text-green-600" /> All classes included
+                      </span>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-4 mt-2">

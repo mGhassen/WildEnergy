@@ -121,6 +121,10 @@ const data = {
           title: "Categories",
           url: "/admin/categories",
         },
+        {
+          title: "Groups",
+          url: "/admin/groups",
+        },
       ],
     },
   ],
