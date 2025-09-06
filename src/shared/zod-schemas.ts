@@ -39,6 +39,25 @@ export const insertCategorySchema = z.object({
   isActive: z.boolean().default(true)
 });
 
+export const insertGroupSchema = z.object({
+  name: z.string().min(1, 'Group name is required'),
+  description: z.string().optional(),
+  color: z.string().optional(),
+  isActive: z.boolean().default(true),
+  categoryIds: z.array(z.number()).optional(),
+});
+
+export const insertGroupCategorySchema = z.object({
+  groupId: z.number().min(1, 'Group ID is required'),
+  categoryId: z.number().min(1, 'Category ID is required'),
+});
+
+export const insertPlanGroupSchema = z.object({
+  planId: z.number().min(1, 'Plan ID is required'),
+  groupId: z.number().min(1, 'Group ID is required'),
+  sessionCount: z.number().min(1, 'Session count must be at least 1'),
+});
+
 export const insertPlanSchema = z.object({
   name: z.string().min(1, 'Plan name is required'),
   description: z.string().optional(),
@@ -46,6 +65,10 @@ export const insertPlanSchema = z.object({
   duration_days: z.number().min(1, 'Duration must be at least 1 day'),
   max_sessions: z.number().min(1, 'Must allow at least 1 session'),
   is_active: z.boolean(),
+  planGroups: z.array(z.object({
+    groupId: z.number().min(1, 'Group is required'),
+    sessionCount: z.number().min(1, 'Session count must be at least 1'),
+  })).optional(),
 });
 
 export const insertClassSchema = z.object({
@@ -112,6 +135,9 @@ export const insertSubscriptionSchema = z.object({
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type InsertTrainer = z.infer<typeof insertTrainerSchema>;
 export type InsertCategory = z.infer<typeof insertCategorySchema>;
+export type InsertGroup = z.infer<typeof insertGroupSchema>;
+export type InsertGroupCategory = z.infer<typeof insertGroupCategorySchema>;
+export type InsertPlanGroup = z.infer<typeof insertPlanGroupSchema>;
 export type InsertPlan = z.infer<typeof insertPlanSchema>;
 export type InsertClass = z.infer<typeof insertClassSchema>;
 export type InsertSchedule = z.infer<typeof insertScheduleSchema>;

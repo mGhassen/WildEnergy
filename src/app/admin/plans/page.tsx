@@ -9,16 +9,29 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
-import { useForm } from "react-hook-form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertPlanSchema } from "@/shared/zod-schemas";
+import { insertPlanSchema, insertPlanGroupSchema } from "@/shared/zod-schemas";
 // Removed broken apiRequest imports
-import { Plus, Search, Edit, Trash2, Clock } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Clock, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 import { apiFetch } from "@/lib/api";
 
-const planFormSchema = insertPlanSchema;
+const planFormSchema = z.object({
+  name: z.string().min(1, 'Plan name is required'),
+  description: z.string().optional(),
+  price: z.number().min(0, 'Price must be a positive number'),
+  durationDays: z.number().min(1, 'Duration must be at least 1 day'),
+  maxSessions: z.number().min(1, 'Must allow at least 1 session'),
+  isActive: z.boolean(),
+  planGroups: z.array(z.object({
+    groupId: z.number().min(1, 'Group is required'),
+    sessionCount: z.number().min(1, 'Session count must be at least 1'),
+  })).optional(),
+});
+
 type PlanFormData = z.infer<typeof planFormSchema>;
 
 // UI-only type for the form
@@ -29,6 +42,10 @@ type PlanFormUi = {
   durationDays: number;
   maxSessions: number;
   isActive: boolean;
+  planGroups: Array<{
+    groupId: number;
+    sessionCount: number;
+  }>;
 };
 
 export default function AdminPlans() {
@@ -43,7 +60,13 @@ export default function AdminPlans() {
     queryFn: () => apiFetch("/api/plans"),
   });
 
+  const { data: groups } = useQuery({
+    queryKey: ["/api/groups"],
+    queryFn: () => apiFetch("/api/groups"),
+  });
+
   const form = useForm<PlanFormUi>({
+    resolver: zodResolver(planFormSchema),
     defaultValues: {
       name: "",
       description: "",
@@ -51,7 +74,13 @@ export default function AdminPlans() {
       durationDays: 30,
       maxSessions: 1,
       isActive: true,
+      planGroups: [],
     },
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "planGroups",
   });
 
   const createPlanMutation = useMutation({
@@ -141,6 +170,10 @@ export default function AdminPlans() {
       duration_days: data.durationDays,
       max_sessions: data.maxSessions,
       is_active: data.isActive,
+      planGroups: data.planGroups?.map(group => ({
+        groupId: group.groupId,
+        sessionCount: group.sessionCount,
+      })) || [],
     };
     if (editingPlan) {
       updatePlanMutation.mutate({ id: editingPlan.id, data: submitData });
@@ -158,6 +191,10 @@ export default function AdminPlans() {
       durationDays: plan.duration_days ?? plan.durationDays,
       maxSessions: plan.max_sessions ?? plan.maxSessions,
       isActive: plan.is_active ?? plan.isActive,
+      planGroups: plan.plan_groups?.map((group: any) => ({
+        groupId: group.group_id,
+        sessionCount: group.session_count,
+      })) || [],
     });
     setIsModalOpen(true);
   };
@@ -301,6 +338,88 @@ export default function AdminPlans() {
                     </FormItem>
                   )}
                 />
+
+                {/* Plan Groups Section */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <FormLabel>Plan Groups</FormLabel>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => append({ groupId: 0, sessionCount: 1 })}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Group
+                    </Button>
+                  </div>
+                  
+                  {fields.map((field, index) => (
+                    <div key={field.id} className="flex items-center gap-2 p-3 border rounded-lg">
+                      <FormField
+                        control={form.control}
+                        name={`planGroups.${index}.groupId`}
+                        render={({ field }) => (
+                          <FormItem className="flex-1">
+                            <Select onValueChange={(value) => field.onChange(Number(value))} value={field.value?.toString()}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select group" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {groups?.map((group: any) => (
+                                  <SelectItem key={group.id} value={group.id.toString()}>
+                                    <div className="flex items-center gap-2">
+                                      <div 
+                                        className="w-3 h-3 rounded-full" 
+                                        style={{ backgroundColor: group.color }}
+                                      />
+                                      {group.name}
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`planGroups.${index}.sessionCount`}
+                        render={({ field }) => (
+                          <FormItem className="w-24">
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min={1}
+                                placeholder="Count"
+                                {...field}
+                                onChange={e => field.onChange(Number(e.target.value))}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => remove(index)}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  
+                  {fields.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No plan groups added. Click "Add Group" to define which categories and how many sessions are included in this plan.
+                    </p>
+                  )}
+                </div>
                 <DialogFooter>
                   <Button type="submit" disabled={createPlanMutation.isPending || updatePlanMutation.isPending}>
                     {editingPlan ? "Update Plan" : "Create Plan"}
@@ -379,6 +498,25 @@ export default function AdminPlans() {
                         <span className="font-medium">{getDurationText(plan.durationDays)}</span>
                       </div>
                     </div>
+                    
+                    {/* Plan Groups Display */}
+                    {plan.plan_groups && plan.plan_groups.length > 0 && (
+                      <div className="space-y-1">
+                        <span className="text-sm text-muted-foreground">Includes:</span>
+                        {plan.plan_groups.map((group: any, index: number) => (
+                          <div key={index} className="flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-1">
+                              <div 
+                                className="w-2 h-2 rounded-full" 
+                                style={{ backgroundColor: group.groups?.color || '#6B7280' }}
+                              />
+                              <span>{group.groups?.name}</span>
+                            </div>
+                            <span className="text-muted-foreground">{group.session_count}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex space-x-2 pt-4">

@@ -73,6 +73,10 @@ export async function apiFetch<T = any>(
       const error = new Error(errorData.message || 'Request failed');
       (error as any).status = response.status;
       (error as any).data = errorData;
+      // Pass through all error data properties
+      Object.keys(errorData).forEach(key => {
+        (error as any)[key] = errorData[key];
+      });
       throw error;
     }
     
