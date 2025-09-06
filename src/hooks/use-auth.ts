@@ -149,15 +149,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
     checkAuth();
   }, [router]);
 
-  // Handle redirection when user changes
+  // Handle redirection when user changes (only on initial load)
   useEffect(() => {
     if (user && !isLoading) {
-      if (user.isAdmin) {
-        router.push('/admin/dashboard');
-      } else if (user.role === 'member' || user.status === 'active') {
-        router.push('/member');
-      } else {
-        router.push('/auth/waiting-approval');
+      const currentPath = window.location.pathname;
+      
+      // Only redirect if we're on the root page or login page
+      if (currentPath === '/' || currentPath === '/auth/login') {
+        if (user.isAdmin) {
+          router.push('/admin/dashboard');
+        } else if (user.role === 'member' || user.status === 'active') {
+          router.push('/member');
+        } else {
+          router.push('/auth/waiting-approval');
+        }
       }
     }
   }, [user, isLoading, router]);
