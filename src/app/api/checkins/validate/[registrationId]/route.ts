@@ -14,7 +14,7 @@ async function getUserFromToken(token: string) {
 
 export async function POST(
   req: NextRequest,
-  context: { params: any }
+  context: { params: Promise<{ registrationId: string }> }
 ) {
   try {
     const authHeader = req.headers.get('authorization');
@@ -33,8 +33,9 @@ export async function POST(
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const registrationId = parseInt(context.params.registrationId);
-    if (!registrationId || isNaN(registrationId)) {
+    const { registrationId } = await context.params;
+    const registrationIdNum = parseInt(registrationId);
+    if (!registrationId || isNaN(registrationIdNum)) {
       return NextResponse.json({ error: 'Invalid registration ID' }, { status: 400 });
     }
 
@@ -52,7 +53,7 @@ export async function POST(
           class:classes(name)
         )
       `)
-      .eq('id', registrationId)
+      .eq('id', registrationIdNum)
       .in('status', ['registered', 'absent'])
       .single();
 
@@ -82,7 +83,7 @@ export async function POST(
     const { data: updatedRegistration, error: updateError } = await supabaseServer()
       .from('class_registrations')
       .update({ status: 'attended' })
-      .eq('id', registrationId)
+      .eq('id', registrationIdNum)
       .select()
       .single();
 

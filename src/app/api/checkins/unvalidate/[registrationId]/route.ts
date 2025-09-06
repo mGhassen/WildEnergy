@@ -12,7 +12,7 @@ async function getUserFromToken(token: string) {
   return userProfile;
 }
 
-export async function POST(request: NextRequest, context: { params: any }) {
+export async function POST(request: NextRequest, context: { params: Promise<{ registrationId: string }> }) {
   try {
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.split(' ')[1];

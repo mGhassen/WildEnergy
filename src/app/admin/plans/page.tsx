@@ -31,26 +31,14 @@ const planFormSchema = z.object({
   planGroups: z.array(z.object({
     groupId: z.number().min(1, 'Group is required'),
     sessionCount: z.number().min(1, 'Session count must be at least 1'),
-    isFree: z.boolean().optional(),
-  })).optional(),
+    isFree: z.boolean(),
+  })),
 });
 
 type PlanFormData = z.infer<typeof planFormSchema>;
 
-// UI-only type for the form
-type PlanFormUi = {
-  name: string;
-  description?: string;
-  price: number;
-  durationDays: number;
-  maxSessions: number;
-  isActive: boolean;
-  planGroups: Array<{
-    groupId: number;
-    sessionCount: number;
-    isFree: boolean;
-  }>;
-};
+// Use the inferred type from schema
+type PlanFormUi = PlanFormData;
 
 export default function AdminPlans() {
   const [isModalOpen, setIsModalOpen] = useState(false);

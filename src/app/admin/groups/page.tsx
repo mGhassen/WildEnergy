@@ -122,7 +122,7 @@ export default function AdminGroups() {
         setLinkedPlans([]);
       }
     },
-    onError: (error) => {
+    onError: (error: any) => {
       if (error.linkedPlans && error.linkedPlans.length > 0) {
         setLinkedPlans(error.linkedPlans);
         toast({ 

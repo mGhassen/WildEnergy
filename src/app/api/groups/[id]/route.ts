@@ -6,7 +6,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-export async function GET(req: NextRequest, context: { params: any }) {
+export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const authHeader = req.headers.get('authorization');
     const token = authHeader?.split(' ')[1];
@@ -20,7 +20,7 @@ export async function GET(req: NextRequest, context: { params: any }) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
 
-    const { id } = context.params;
+    const { id } = await context.params;
 
     // Fetch group with its categories
     const { data: group, error } = await supabase
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest, context: { params: any }) {
   }
 }
 
-export async function PUT(req: NextRequest, context: { params: any }) {
+export async function PUT(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const authHeader = req.headers.get('authorization');
     const token = authHeader?.split(' ')[1];
@@ -71,7 +71,7 @@ export async function PUT(req: NextRequest, context: { params: any }) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const { id } = context.params;
+    const { id } = await context.params;
     const { categoryIds, ...updates } = await req.json();
     
     // Update the group
@@ -136,7 +136,7 @@ export async function PUT(req: NextRequest, context: { params: any }) {
   }
 }
 
-export async function DELETE(req: NextRequest, context: { params: any }) {
+export async function DELETE(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const authHeader = req.headers.get('authorization');
     const token = authHeader?.split(' ')[1];
@@ -160,7 +160,7 @@ export async function DELETE(req: NextRequest, context: { params: any }) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const { id } = context.params;
+    const { id } = await context.params;
 
     // Check if group is used in any plans
     const { data: linkedPlans, error: plansError } = await supabase

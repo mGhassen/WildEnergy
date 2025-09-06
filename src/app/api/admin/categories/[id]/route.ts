@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 
-export async function PATCH(request: NextRequest, context: { params: any }) {
+export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.split(' ')[1];
@@ -25,7 +25,7 @@ export async function PATCH(request: NextRequest, context: { params: any }) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const id = context.params.id;
+    const { id } = await context.params;
     const updates = await request.json();
     
     console.log('Category update request:', { id, updates });
@@ -59,7 +59,7 @@ export async function PATCH(request: NextRequest, context: { params: any }) {
   }
 }
 
-export async function DELETE(request: NextRequest, context: { params: any }) {
+export async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.split(' ')[1];
@@ -83,7 +83,7 @@ export async function DELETE(request: NextRequest, context: { params: any }) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const id = context.params.id;
+    const { id } = await context.params;
 
     // Check if category is being used by any classes
     const { data: classesUsingCategory, error: checkError } = await supabaseServer()
