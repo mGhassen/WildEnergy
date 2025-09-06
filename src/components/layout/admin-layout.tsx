@@ -205,7 +205,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         <AppSidebar className="hidden md:flex" />
 
         {/* Main content */}
-        <SidebarInset className="flex-1 flex flex-col relative">
+        <SidebarInset className="flex-1 flex flex-col relative border border-border shadow-lg rounded-lg overflow-hidden">
           {/* Header */}
           <header className="bg-card border-b border-border px-4 sm:px-6 py-4">
             <div className="flex items-center w-full">
