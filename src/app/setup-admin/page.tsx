@@ -103,7 +103,7 @@ export default function SetupAdminPage() {
           <div className="text-sm text-muted-foreground">
             <p>After creating the admin user, you can:</p>
             <ol className="list-decimal list-inside mt-2 space-y-1">
-              <li>Go to <a href="/login" className="text-blue-600 hover:underline">/login</a></li>
+              <li>Go to <a href="/auth/login" className="text-blue-600 hover:underline">/auth/login</a></li>
               <li>Log in with the email and password you just created</li>
               <li>Access the admin dashboard</li>
             </ol>

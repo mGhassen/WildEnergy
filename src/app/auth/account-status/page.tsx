@@ -77,7 +77,7 @@ function AccountStatusContent() {
           });
           setTimeout(() => {
             handleBackToLogin();
-            window.location.href = '/login';
+            window.location.href = '/auth/login';
           }, 2000);
         }
       } else {
@@ -164,11 +164,11 @@ function AccountStatusContent() {
     switch (effectiveStatus) {
       case 'pending':
         return {
-          icon: <Mail className="w-6 h-6 text-blue-600" />,
+          icon: <Mail className="w-6 h-6 text-primary" />,
           title: "Confirm Your Email",
           description: "We've sent you a confirmation email to complete your account setup.",
-          color: "text-blue-600",
-          bgColor: "bg-blue-100",
+          color: "text-primary",
+          bgColor: "bg-primary/10",
           instructions: [
             "1. Check your email inbox",
             "2. Click the confirmation link in the email",
@@ -182,11 +182,11 @@ function AccountStatusContent() {
       
       case 'archived':
         return {
-          icon: <Clock className="w-6 h-6 text-amber-600" />,
+          icon: <Clock className="w-6 h-6 text-orange-600" />,
           title: "Account Pending Approval",
           description: "Your email has been confirmed. Your account is now waiting for admin approval.",
-          color: "text-amber-600",
-          bgColor: "bg-amber-100",
+          color: "text-orange-600",
+          bgColor: "bg-orange-100",
           instructions: [
             "1. Admin reviews your account",
             "2. You'll receive an approval notification",
@@ -198,11 +198,11 @@ function AccountStatusContent() {
       
       case 'suspended':
         return {
-          icon: <AlertCircle className="w-6 h-6 text-red-600" />,
+          icon: <AlertCircle className="w-6 h-6 text-destructive" />,
           title: "Account Suspended",
           description: "Your account has been suspended. Please contact support for assistance.",
-          color: "text-red-600",
-          bgColor: "bg-red-100",
+          color: "text-destructive",
+          bgColor: "bg-destructive/10",
           instructions: [
             "1. Contact support at support@wildenergy.gym",
             "2. Provide your account details",
@@ -214,11 +214,11 @@ function AccountStatusContent() {
       
       default:
         return {
-          icon: <Mail className="w-6 h-6 text-gray-600" />,
+          icon: <Mail className="w-6 h-6 text-muted-foreground" />,
           title: "Account Status",
           description: "Please check your account status to proceed.",
-          color: "text-gray-600",
-          bgColor: "bg-gray-100",
+          color: "text-muted-foreground",
+          bgColor: "bg-muted/50",
           instructions: [
             "1. Check your account status",
             "2. Follow the instructions provided",
@@ -258,20 +258,8 @@ function AccountStatusContent() {
   }
 
   return (
-    <div className={`min-h-screen flex items-center justify-center p-4 ${
-      effectiveStatus === 'pending' 
-        ? 'bg-gradient-to-br from-blue-50 to-indigo-100' 
-        : effectiveStatus === 'archived'
-        ? 'bg-gradient-to-br from-amber-50 to-orange-100'
-        : 'bg-gradient-to-br from-primary/5 to-secondary/5'
-    }`}>
-      <Card className={`w-full max-w-md ${
-        effectiveStatus === 'pending' 
-          ? 'border-blue-200 shadow-blue-100' 
-          : effectiveStatus === 'archived'
-          ? 'border-amber-200 shadow-amber-100'
-          : ''
-      }`}>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5 p-4">
+      <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className={`mx-auto w-16 h-16 ${statusConfig.bgColor} rounded-full flex items-center justify-center mb-4 shadow-lg`}>
             {statusConfig.icon}
@@ -290,38 +278,14 @@ function AccountStatusContent() {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="text-center space-y-4">
-            <div className={`p-6 rounded-xl border-2 ${
-              effectiveStatus === 'pending' 
-                ? 'bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800' 
-                : effectiveStatus === 'archived'
-                ? 'bg-amber-50 border-amber-200 dark:bg-amber-950 dark:border-amber-800'
-                : 'bg-gray-50 border-gray-200 dark:bg-gray-950 dark:border-gray-800'
-            }`}>
-              <h3 className={`font-bold text-lg mb-3 ${
-                effectiveStatus === 'pending' 
-                  ? 'text-blue-900 dark:text-blue-100' 
-                  : effectiveStatus === 'archived'
-                  ? 'text-amber-900 dark:text-amber-100'
-                  : 'text-gray-900 dark:text-gray-100'
-              }`}>
+            <div className="p-6 rounded-xl border-2 bg-muted/50 border-border">
+              <h3 className="font-bold text-lg mb-3 text-foreground">
                 What to do next:
               </h3>
-              <ol className={`text-sm space-y-2 text-left ${
-                effectiveStatus === 'pending' 
-                  ? 'text-blue-800 dark:text-blue-200' 
-                  : effectiveStatus === 'archived'
-                  ? 'text-amber-800 dark:text-amber-200'
-                  : 'text-gray-800 dark:text-gray-200'
-              }`}>
+              <ol className="text-sm space-y-2 text-left text-muted-foreground">
                 {statusConfig.instructions.map((instruction, index) => (
                   <li key={index} className="flex items-start space-x-2">
-                    <span className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
-                      effectiveStatus === 'pending' 
-                        ? 'bg-blue-200 text-blue-800' 
-                        : effectiveStatus === 'archived'
-                        ? 'bg-amber-200 text-amber-800'
-                        : 'bg-gray-200 text-gray-800'
-                    }`}>
+                    <span className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold bg-primary text-primary-foreground">
                       {index + 1}
                     </span>
                     <span>{instruction}</span>
@@ -331,13 +295,13 @@ function AccountStatusContent() {
             </div>
             
             {effectiveStatus === 'pending' && (
-              <div className="text-sm text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+              <div className="text-sm text-primary bg-primary/10 p-3 rounded-lg border border-primary/20">
                 <p>💡 <strong>Tip:</strong> Didn't receive the email? Check your spam folder or try resending.</p>
               </div>
             )}
             
             {effectiveStatus === 'archived' && (
-              <div className="text-sm text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950 p-3 rounded-lg border border-amber-200 dark:border-amber-800">
+              <div className="text-sm text-orange-600 bg-orange-100 p-3 rounded-lg border border-orange-200">
                 <p>⏰ <strong>Note:</strong> This usually takes 24-48 hours. You can check back periodically to see if your account has been approved.</p>
               </div>
             )}
@@ -347,13 +311,7 @@ function AccountStatusContent() {
             <Button 
               onClick={statusConfig.actionHandler} 
               disabled={isLoading || !email}
-              className={`w-full ${
-                effectiveStatus === 'pending' 
-                  ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600' 
-                  : effectiveStatus === 'archived'
-                  ? 'bg-amber-600 hover:bg-amber-700 text-white border-amber-600'
-                  : ''
-              }`}
+              className="w-full"
             >
               {isLoading ? (
                 <>
@@ -374,7 +332,7 @@ function AccountStatusContent() {
               className="w-full" 
               onClick={handleBackToLogin}
             >
-              <Link href="/login">
+              <Link href="/auth/login">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Login
               </Link>
