@@ -7,9 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertPlanSchema, insertPlanGroupSchema } from "@/shared/zod-schemas";
@@ -29,6 +31,7 @@ const planFormSchema = z.object({
   planGroups: z.array(z.object({
     groupId: z.number().min(1, 'Group is required'),
     sessionCount: z.number().min(1, 'Session count must be at least 1'),
+    isFree: z.boolean().optional(),
   })).optional(),
 });
 
@@ -45,6 +48,7 @@ type PlanFormUi = {
   planGroups: Array<{
     groupId: number;
     sessionCount: number;
+    isFree: boolean;
   }>;
 };
 
@@ -52,6 +56,9 @@ export default function AdminPlans() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deletingPlan, setDeletingPlan] = useState<any>(null);
+  const [linkedSubscriptions, setLinkedSubscriptions] = useState<any[]>([]);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -136,14 +143,22 @@ export default function AdminPlans() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/plans"] });
+      setIsDeleteDialogOpen(false);
+      setDeletingPlan(null);
+      setLinkedSubscriptions([]);
       toast({ title: "Plan deleted successfully" });
     },
-    onError: (error) => {
-      toast({ 
-        title: "Error deleting plan", 
-        description: error.message,
-        variant: "destructive" 
-      });
+    onError: (error: any) => {
+      if (error.status === 400 && error.linkedSubscriptions) {
+        setLinkedSubscriptions(error.linkedSubscriptions);
+        setIsDeleteDialogOpen(true);
+      } else {
+        toast({ 
+          title: "Error deleting plan", 
+          description: error.message,
+          variant: "destructive" 
+        });
+      }
     },
   });
 
@@ -173,6 +188,7 @@ export default function AdminPlans() {
       planGroups: data.planGroups?.map(group => ({
         groupId: group.groupId,
         sessionCount: group.sessionCount,
+        isFree: group.isFree || false,
       })) || [],
     };
     if (editingPlan) {
@@ -194,14 +210,42 @@ export default function AdminPlans() {
       planGroups: plan.plan_groups?.map((group: any) => ({
         groupId: group.group_id,
         sessionCount: group.session_count,
+        isFree: group.is_free || false,
       })) || [],
     });
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id: number) => {
-    if (confirm("Are you sure you want to delete this plan?")) {
-      deletePlanMutation.mutate(id);
+  const checkDeletion = async (planId: number) => {
+    try {
+      const response = await apiFetch(`/api/plans/${planId}/check-deletion`);
+      return response;
+    } catch (error) {
+      console.error('Error checking deletion:', error);
+      return { canDelete: false, linkedSubscriptions: [] };
+    }
+  };
+
+  const handleDelete = async (plan: any) => {
+    setDeletingPlan(plan);
+    setLinkedSubscriptions([]);
+    
+    // Check if plan can be deleted
+    const deletionCheck = await checkDeletion(plan.id);
+    
+    if (deletionCheck.canDelete) {
+      // Safe to delete - show confirmation
+      setIsDeleteDialogOpen(true);
+    } else {
+      // Has active subscriptions - show error dialog
+      setLinkedSubscriptions(deletionCheck.linkedSubscriptions || []);
+      setIsDeleteDialogOpen(true);
+    }
+  };
+
+  const confirmDelete = () => {
+    if (deletingPlan) {
+      deletePlanMutation.mutate(deletingPlan.id);
     }
   };
 
@@ -237,41 +281,45 @@ export default function AdminPlans() {
               Add Plan
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle>{editingPlan ? "Edit Plan" : "Add New Plan"}</DialogTitle>
-              <DialogDescription>
-                {editingPlan ? "Update plan information" : "Add a new membership plan"}
-              </DialogDescription>
+          <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
+            <DialogHeader className="pb-4">
+              <DialogTitle className="text-xl">{editingPlan ? "Edit Plan" : "New Plan"}</DialogTitle>
             </DialogHeader>
+            
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Plan Name</FormLabel>
-                      <FormControl>
-                        <Input {...field} placeholder="e.g., Premium Monthly" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Description</FormLabel>
-                      <FormControl>
-                        <Textarea {...field} placeholder="Brief description of the plan..." />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+                {/* Basic Info */}
+                <div className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Plan Name</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="e.g., Premium Monthly" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Description</FormLabel>
+                        <FormControl>
+                          <Textarea {...field} placeholder="Brief description..." rows={2} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                {/* Pricing & Duration */}
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -292,6 +340,7 @@ export default function AdminPlans() {
                       </FormItem>
                     )}
                   />
+                  
                   <FormField
                     control={form.control}
                     name="maxSessions"
@@ -311,118 +360,167 @@ export default function AdminPlans() {
                     )}
                   />
                 </div>
+
+                {/* Duration Quick Select */}
                 <FormField
                   control={form.control}
                   name="durationDays"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Duration (Days)</FormLabel>
-                      <div className="space-y-2">
-                        <div className="flex gap-2 flex-wrap mb-2">
-                          <Button type="button" variant="outline" size="sm" onClick={() => field.onChange(30)}>1 Month</Button>
-                          <Button type="button" variant="outline" size="sm" onClick={() => field.onChange(90)}>3 Months</Button>
-                          <Button type="button" variant="outline" size="sm" onClick={() => field.onChange(180)}>6 Months</Button>
-                          <Button type="button" variant="outline" size="sm" onClick={() => field.onChange(365)}>1 Year</Button>
-                        </div>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            min={1}
-                            {...field}
-                            onChange={e => field.onChange(Number(e.target.value))}
-                            placeholder="30"
-                          />
-                        </FormControl>
+                      <FormLabel>Duration</FormLabel>
+                      <div className="flex gap-2">
+                        {[
+                          { label: "1M", value: 30 },
+                          { label: "3M", value: 90 },
+                          { label: "6M", value: 180 },
+                          { label: "1Y", value: 365 }
+                        ].map(({ label, value }) => (
+                          <Button
+                            key={value}
+                            type="button"
+                            variant={field.value === value ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => field.onChange(value)}
+                            className="flex-1"
+                          >
+                            {label}
+                          </Button>
+                        ))}
                       </div>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
 
-                {/* Plan Groups Section */}
-                <div className="space-y-4">
+                {/* Plan Groups */}
+                <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <FormLabel>Plan Groups</FormLabel>
+                    <FormLabel className="text-base">Groups</FormLabel>
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => append({ groupId: 0, sessionCount: 1 })}
+                      onClick={() => append({ groupId: 0, sessionCount: 1, isFree: false })}
                     >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add Group
+                      <Plus className="w-4 h-4 mr-1" />
+                      Add
                     </Button>
                   </div>
                   
                   {fields.map((field, index) => (
-                    <div key={field.id} className="flex items-center gap-2 p-3 border rounded-lg">
-                      <FormField
-                        control={form.control}
-                        name={`planGroups.${index}.groupId`}
-                        render={({ field }) => (
-                          <FormItem className="flex-1">
-                            <Select onValueChange={(value) => field.onChange(Number(value))} value={field.value?.toString()}>
+                    <div key={field.id} className="p-3 border rounded-lg bg-card">
+                      <div className="flex items-center gap-3">
+                        <FormField
+                          control={form.control}
+                          name={`planGroups.${index}.groupId`}
+                          render={({ field }) => (
+                            <FormItem className="flex-1">
+                              <Select onValueChange={(value) => field.onChange(Number(value))} value={field.value?.toString()}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select group" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {groups?.map((group: any) => (
+                                    <SelectItem key={group.id} value={group.id.toString()}>
+                                      <div className="flex items-center gap-2">
+                                        <div 
+                                          className="w-2 h-2 rounded-full" 
+                                          style={{ backgroundColor: group.color }}
+                                        />
+                                        {group.name}
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name={`planGroups.${index}.sessionCount`}
+                          render={({ field }) => (
+                            <FormItem className="w-20">
                               <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select group" />
-                                </SelectTrigger>
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  placeholder="Count"
+                                  {...field}
+                                  onChange={e => field.onChange(Number(e.target.value))}
+                                />
                               </FormControl>
-                              <SelectContent>
-                                {groups?.map((group: any) => (
-                                  <SelectItem key={group.id} value={group.id.toString()}>
-                                    <div className="flex items-center gap-2">
-                                      <div 
-                                        className="w-3 h-3 rounded-full" 
-                                        style={{ backgroundColor: group.color }}
-                                      />
-                                      {group.name}
-                                    </div>
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name={`planGroups.${index}.sessionCount`}
-                        render={({ field }) => (
-                          <FormItem className="w-24">
-                            <FormControl>
-                              <Input
-                                type="number"
-                                min={1}
-                                placeholder="Count"
-                                {...field}
-                                onChange={e => field.onChange(Number(e.target.value))}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => remove(index)}
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name={`planGroups.${index}.isFree`}
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-center space-x-1 space-y-0">
+                              <FormControl>
+                                <Checkbox
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                />
+                              </FormControl>
+                              <FormLabel className="text-xs text-muted-foreground">
+                                Free
+                              </FormLabel>
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => remove(index)}
+                          className="text-destructive hover:text-destructive p-1 h-8 w-8"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                   
                   {fields.length === 0 && (
-                    <p className="text-sm text-muted-foreground text-center py-4">
-                      No plan groups added. Click "Add Group" to define which categories and how many sessions are included in this plan.
-                    </p>
+                    <div className="text-center py-6 border-2 border-dashed border-muted rounded-lg">
+                      <p className="text-sm text-muted-foreground">
+                        No groups added yet
+                      </p>
+                    </div>
                   )}
                 </div>
-                <DialogFooter>
+
+                {/* Active Status */}
+                <FormField
+                  control={form.control}
+                  name="isActive"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                      <FormLabel className="text-sm">
+                        Active plan
+                      </FormLabel>
+                    </FormItem>
+                  )}
+                />
+
+                <DialogFooter className="pt-4">
                   <Button type="submit" disabled={createPlanMutation.isPending || updatePlanMutation.isPending}>
-                    {editingPlan ? "Update Plan" : "Create Plan"}
+                    {editingPlan ? "Update" : "Create"}
                   </Button>
                 </DialogFooter>
               </form>
@@ -511,6 +609,11 @@ export default function AdminPlans() {
                                 style={{ backgroundColor: group.groups?.color || '#6B7280' }}
                               />
                               <span>{group.groups?.name}</span>
+                              {group.is_free && (
+                                <span className="text-xs bg-green-100 text-green-800 px-1.5 py-0.5 rounded-full font-medium">
+                                  FREE
+                                </span>
+                              )}
                             </div>
                             <span className="text-muted-foreground">{group.session_count}</span>
                           </div>
@@ -532,7 +635,7 @@ export default function AdminPlans() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleDelete(plan.id)}
+                      onClick={() => handleDelete(plan)}
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
@@ -543,6 +646,73 @@ export default function AdminPlans() {
           ))
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent className="sm:max-w-[500px]">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl">
+              {linkedSubscriptions.length > 0 ? "Cannot Delete Plan" : "Delete Plan"}
+            </AlertDialogTitle>
+          </AlertDialogHeader>
+          
+          <div className="py-4">
+            {linkedSubscriptions.length > 0 ? (
+              <div className="space-y-3">
+                <p className="text-base text-foreground">This plan cannot be deleted because it has active subscriptions.</p>
+                <div className="bg-destructive/5 border border-destructive/20 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-2 h-2 bg-destructive rounded-full"></div>
+                    <span className="font-medium text-destructive">
+                      {linkedSubscriptions.length} Active Subscription{linkedSubscriptions.length > 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <div className="space-y-1 text-sm text-foreground">
+                    {linkedSubscriptions.map((sub, index) => (
+                      <div key={sub.id} className="flex items-center justify-between">
+                        <span>
+                          {sub.users?.first_name} {sub.users?.last_name}
+                        </span>
+                        <span className="text-muted-foreground">
+                          {sub.users?.email}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-sm text-foreground mt-2">
+                    Please cancel or transfer these subscriptions before deleting the plan.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-base text-foreground">Are you sure you want to delete the plan <strong>"{deletingPlan?.name}"</strong>?</p>
+                <p className="text-sm text-muted-foreground">
+                  This action cannot be undone. All plan groups will also be deleted.
+                </p>
+              </div>
+            )}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setIsDeleteDialogOpen(false);
+              setDeletingPlan(null);
+              setLinkedSubscriptions([]);
+            }}>
+              {linkedSubscriptions.length > 0 ? "Close" : "Cancel"}
+            </AlertDialogCancel>
+            {linkedSubscriptions.length === 0 && (
+              <AlertDialogAction
+                onClick={confirmDelete}
+                disabled={deletePlanMutation.isPending}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {deletePlanMutation.isPending ? "Deleting..." : "Delete Plan"}
+              </AlertDialogAction>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

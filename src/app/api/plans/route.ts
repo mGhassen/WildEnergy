@@ -27,6 +27,7 @@ export async function GET(req: NextRequest) {
           id,
           group_id,
           session_count,
+          is_free,
           groups (
             id,
             name,
@@ -90,6 +91,7 @@ export async function POST(req: NextRequest) {
         plan_id: plan.id,
         group_id: group.groupId,
         session_count: group.sessionCount,
+        is_free: group.isFree || false,
       }));
 
       const { error: groupsError } = await supabase
@@ -112,6 +114,7 @@ export async function POST(req: NextRequest) {
           id,
           group_id,
           session_count,
+          is_free,
           groups (
             id,
             name,
@@ -191,6 +194,7 @@ export async function PUT(req: NextRequest) {
           plan_id: id,
           group_id: group.groupId,
           session_count: group.sessionCount,
+          is_free: group.isFree || false,
         }));
 
         const { error: groupsError } = await supabase
@@ -212,6 +216,7 @@ export async function PUT(req: NextRequest) {
           id,
           group_id,
           session_count,
+          is_free,
           groups (
             id,
             name,
