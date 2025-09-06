@@ -100,6 +100,44 @@ export default function LoginPage({ searchParams }: { searchParams: Promise<Reco
     }
   };
 
+  const handlePrefilledLogin = async (email: string, password: string) => {
+    setEmail(email);
+    setPassword(password);
+    setError("");
+    setSuccess("");
+    
+    // Small delay to ensure state is updated before attempting login
+    setTimeout(async () => {
+      try {
+        await login(email, password);
+        
+        // Show success message
+        toast({
+          title: "Login successful!",
+          description: "Redirecting you to your dashboard...",
+        });
+      } catch (err: unknown) {
+        console.error('Prefilled login error:', err);
+        let errorMessage = 'An error occurred during login';
+        if (err instanceof Error) {
+          if (err.message.includes('Invalid login credentials')) {
+            errorMessage = 'Invalid email or password';
+          } else if (err.message.includes('Email not confirmed')) {
+            errorMessage = 'Please verify your email before logging in';
+          } else {
+            errorMessage = err.message;
+          }
+        }
+        setError(errorMessage);
+        toast({
+          title: "Login failed",
+          description: errorMessage,
+          variant: "destructive"
+        });
+      }
+    }, 100);
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5 p-4">
       <Card className="w-full max-w-md">
@@ -222,24 +260,34 @@ export default function LoginPage({ searchParams }: { searchParams: Promise<Reco
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => {
-                      setEmail("admin@wildenergy.gym");
-                      setPassword("admin123");
-                    }}
+                    onClick={() => handlePrefilledLogin("admin@wildenergy.gym", "admin123")}
+                    disabled={isLoading}
                     className="text-xs"
                   >
-                    Admin Login
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                        Logging in...
+                      </>
+                    ) : (
+                      "Admin Login"
+                    )}
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => {
-                      setEmail("member@wildenergy.gym");
-                      setPassword("member123");
-                    }}
+                    onClick={() => handlePrefilledLogin("member@wildenergy.gym", "member123")}
+                    disabled={isLoading}
                     className="text-xs"
                   >
-                    Member Login
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                        Logging in...
+                      </>
+                    ) : (
+                      "Member Login"
+                    )}
                   </Button>
                 </div>
               </div>
