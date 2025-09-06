@@ -31,6 +31,7 @@ export async function GET(req: NextRequest, context: { params: any }) {
           id,
           group_id,
           session_count,
+          is_free,
           groups (
             id,
             name,
@@ -115,6 +116,7 @@ export async function PUT(req: NextRequest, context: { params: any }) {
           plan_id: id,
           group_id: group.groupId,
           session_count: group.sessionCount,
+          is_free: group.isFree || false,
         }));
 
         const { error: groupsError } = await supabase
@@ -136,6 +138,7 @@ export async function PUT(req: NextRequest, context: { params: any }) {
           id,
           group_id,
           session_count,
+          is_free,
           groups (
             id,
             name,
@@ -188,6 +191,27 @@ export async function DELETE(req: NextRequest, context: { params: any }) {
     }
 
     const { id } = context.params;
+
+    // Check if plan has active subscriptions
+    const { data: subscriptions, error: subscriptionError } = await supabase
+      .from('subscriptions')
+      .select('id, user_id, status')
+      .eq('plan_id', id);
+
+    if (subscriptionError) {
+      return NextResponse.json({ error: 'Failed to check plan subscriptions' }, { status: 500 });
+    }
+
+    if (subscriptions && subscriptions.length > 0) {
+      const activeSubscriptions = subscriptions.filter(sub => sub.status === 'active');
+      if (activeSubscriptions.length > 0) {
+        return NextResponse.json({ 
+          error: 'Cannot delete plan with active subscriptions',
+          message: `This plan is used by ${activeSubscriptions.length} active subscription(s). Please cancel or transfer these subscriptions first.`,
+          linkedSubscriptions: activeSubscriptions
+        }, { status: 400 });
+      }
+    }
 
     // Delete plan groups first (due to foreign key constraint)
     const { error: groupsError } = await supabase

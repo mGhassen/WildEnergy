@@ -19,6 +19,7 @@ CREATE TABLE plan_groups (
     plan_id INTEGER NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
     group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
     session_count INTEGER NOT NULL DEFAULT 1,
+    is_free BOOLEAN DEFAULT false,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT plan_groups_plan_group_unique UNIQUE(plan_id, group_id)
@@ -62,3 +63,4 @@ COMMENT ON TABLE groups IS 'Groups that contain multiple categories (e.g., "Pole
 COMMENT ON COLUMN categories.group_id IS 'Each category belongs to exactly one group (one-to-one relationship)';
 COMMENT ON TABLE plan_groups IS 'Defines how many sessions of each group are included in a plan (one-to-many: a plan has many groups)';
 COMMENT ON COLUMN plan_groups.session_count IS 'Number of sessions allowed for this group in the plan';
+COMMENT ON COLUMN plan_groups.is_free IS 'Whether this group session is free (no charge) in the plan';
