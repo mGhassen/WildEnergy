@@ -57,7 +57,7 @@ export async function apiFetch<T = any>(
       setAuthToken(null);
       // Redirect to login with return URL
       const returnUrl = window.location.pathname + window.location.search;
-      window.location.href = `/login?returnTo=${encodeURIComponent(returnUrl)}`;
+      window.location.href = `/auth/login?returnTo=${encodeURIComponent(returnUrl)}`;
       throw new Error('Session expired. Please log in again.');
     }
     
@@ -228,7 +228,7 @@ export const authApi = {
       localStorage.removeItem('refresh_token');
       
       // Force a full page reload to clear any in-memory state
-      window.location.href = '/login';
+      window.location.href = '/auth/login';
     }
   },
 };

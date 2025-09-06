@@ -89,7 +89,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             delete window.__authToken;
           }
           setUser(null);
-          router.push('/login');
+          router.push('/auth/login');
           setAuthError('Your session has expired or is invalid. Please log in again.');
           return null;
         }
@@ -148,6 +148,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     checkAuth();
   }, [router]);
+
+  // Handle redirection when user changes
+  useEffect(() => {
+    if (user && !isLoading) {
+      if (user.isAdmin) {
+        router.push('/admin/dashboard');
+      } else if (user.role === 'member' || user.status === 'active') {
+        router.push('/member');
+      } else {
+        router.push('/auth/waiting-approval');
+      }
+    }
+  }, [user, isLoading, router]);
 
   // Refresh the current session
   const refreshSession = async () => {
@@ -285,15 +298,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Clear all auth-related data regardless of API call success
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
+      localStorage.removeItem('pending_email');
+      localStorage.removeItem('pending_approval_email');
+      localStorage.removeItem('account_status_email');
       if (typeof window !== 'undefined') {
         delete window.__authToken;
       }
       
-      // Clear user state immediately
+      // Clear user state and errors immediately
       setUser(null);
+      setLoginError(null);
+      setAuthError(null);
       
       // Redirect to login page
-      router.push('/login');
+      router.push('/auth/login');
     }
   };
 

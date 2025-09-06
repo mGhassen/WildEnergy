@@ -30,13 +30,9 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar"
+import { useAuth } from "@/hooks/use-auth"
 
 const data = {
-  user: {
-    name: "Admin User",
-    email: "admin@wildenergy.com",
-    avatar: "/avatars/admin.jpg",
-  },
   navMain: [
     {
       title: "Dashboard",
@@ -144,7 +140,19 @@ const data = {
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { state } = useSidebar()
+  const { user } = useAuth()
   const collapsed = state === "collapsed"
+  
+  // Create user object for NavUser component
+  const userForNav = user ? {
+    name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email?.split('@')[0] || 'User',
+    email: user.email || '',
+    avatar: "/avatars/user.jpg", // Default avatar
+  } : {
+    name: "Guest",
+    email: "",
+    avatar: "/avatars/guest.jpg",
+  }
 
   return (
     <Sidebar variant="inset" {...props}>
@@ -170,7 +178,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser user={userForNav} />
       </SidebarFooter>
     </Sidebar>
   )

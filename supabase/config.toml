@@ -2,22 +2,22 @@
 project_id = "wild-energy"
 
 [api]
-port = 54421
-schemas = ["public", "storage", "graphql_public", "guepard"]
+port = 55421
+schemas = ["public", "storage", "graphql_public"]
 extra_search_path = ["public", "extensions"]
 max_rows = 1000
 
 [db]
-port = 54422
+port = 55422
 major_version = 15
 
 [studio]
-port = 54423
+port = 55423
 
 [inbucket]
-port = 54424
-smtp_port = 54425
-pop3_port = 54426
+port = 55424
+smtp_port = 55425
+pop3_port = 55426
 
 [storage]
 file_size_limit = "50MiB"
