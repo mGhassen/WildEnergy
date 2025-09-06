@@ -20,11 +20,13 @@ import {
   Moon,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   BookOpen,
   Home
 } from "lucide-react";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import Link from "next/link";
 import { useTheme } from "@/components/theme-provider";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -118,19 +120,60 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   
 
   const navigation = [
-    { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
-    { name: "Users", href: "/admin/users", icon: Users },
-    { name: "Members", href: "/admin/members", icon: UserCheck },
-    { name: "Trainers", href: "/admin/trainers", icon: UserCheck },
-    { name: "Categories", href: "/admin/categories", icon: Tags },
-    { name: "Classes", href: "/admin/classes", icon: Calendar },
-    { name: "Schedules", href: "/admin/schedules", icon: Clock },
-    { name: "Courses", href: "/admin/courses", icon: BookOpen },
-    { name: "Registrations", href: "/admin/registrations", icon: UserCheck },
-    { name: "Plans", href: "/admin/plans", icon: Package },
-    { name: "Subscriptions", href: "/admin/subscriptions", icon: CreditCard },
-    { name: "Payments", href: "/admin/payments", icon: CreditCard },
-    { name: "Check-ins", href: "/admin/checkins", icon: QrCode },
+    { 
+      name: "Dashboard", 
+      href: "/admin", 
+      icon: LayoutDashboard,
+      items: []
+    },
+    { 
+      name: "People", 
+      href: "/admin/members", 
+      icon: Users,
+      items: [
+        { name: "Users", href: "/admin/users" },
+        { name: "Members", href: "/admin/members" },
+        { name: "Trainers", href: "/admin/trainers" },
+      ]
+    },
+    { 
+      name: "Program", 
+      href: "/admin/classes", 
+      icon: Calendar,
+      items: [
+        { name: "Classes", href: "/admin/classes" },
+        { name: "Schedules", href: "/admin/schedules" },
+        { name: "Courses", href: "/admin/courses" },
+      ]
+    },
+    { 
+      name: "Attendance", 
+      href: "/admin/registrations", 
+      icon: Clock,
+      items: [
+        { name: "Registrations", href: "/admin/registrations" },
+        { name: "Check-ins", href: "/admin/checkins" },
+      ]
+    },
+    { 
+      name: "Payments", 
+      href: "/admin/payments", 
+      icon: CreditCard,
+      items: [
+        { name: "Plans", href: "/admin/plans" },
+        { name: "Subscriptions", href: "/admin/subscriptions" },
+        { name: "Payments", href: "/admin/payments" },
+      ]
+    },
+    { 
+      name: "Settings", 
+      href: "/admin/settings", 
+      icon: Tags,
+      items: [
+        { name: "General", href: "/admin/settings" },
+        { name: "Categories", href: "/admin/categories" },
+      ]
+    },
   ];
 
   const isActive = (href: string) => {
@@ -139,6 +182,17 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     }
     return pathname.startsWith(href);
   };
+
+  // Function to check if any sub-item is active
+  const hasActiveSubItem = (subItems?: { name: string; href: string }[]) => {
+    if (!subItems) return false
+    return subItems.some(subItem => isActive(subItem.href))
+  }
+
+  // Function to determine if a group should be open by default
+  const shouldGroupBeOpen = (item: { href: string; items?: { name: string; href: string }[] }) => {
+    return isActive(item.href) || hasActiveSubItem(item.items)
+  }
 
   const handleNavigationClick = () => {
     setMobileMenuOpen(false);
@@ -232,19 +286,47 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                   <div className="flex-1 p-4 space-y-2">
                     {navigation.map((item) => {
                       const Icon = item.icon;
+                      const isItemActive = isActive(item.href);
+                      const hasActiveChild = hasActiveSubItem(item.items);
+                      const isGroupOpen = shouldGroupBeOpen(item);
+                      
                       return (
-                        <Link key={item.name} href={item.href} onClick={handleNavigationClick}>
-                          <div
-                            className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-                              isActive(item.href)
-                                ? "bg-primary text-primary-foreground"
-                                : "text-muted-foreground hover:text-foreground hover:bg-accent"
-                            }`}
-                          >
-                            <Icon className="w-5 h-5" />
-                            <span>{item.name}</span>
+                        <Collapsible key={item.name} defaultOpen={isGroupOpen}>
+                          <div className="space-y-1">
+                            <CollapsibleTrigger asChild>
+                              <div
+                                className="flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer text-muted-foreground hover:text-foreground hover:bg-accent"
+                              >
+                                <Icon className="w-5 h-5" />
+                                <span className="flex-1">{item.name}</span>
+                                {item.items && item.items.length > 0 && (
+                                  <ChevronDown className="h-4 w-4 transition-transform duration-200 data-[state=open]:rotate-180" />
+                                )}
+                              </div>
+                            </CollapsibleTrigger>
+                            
+                            {item.items && item.items.length > 0 && (
+                              <CollapsibleContent className="space-y-1">
+                                {item.items.map((subItem) => {
+                                  const isSubItemActive = isActive(subItem.href);
+                                  return (
+                                    <Link key={subItem.name} href={subItem.href} onClick={handleNavigationClick}>
+                                      <div
+                                        className={`flex items-center space-x-3 px-3 py-2 ml-6 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                                          isSubItemActive
+                                            ? "bg-primary text-primary-foreground font-semibold"
+                                            : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                                        }`}
+                                      >
+                                        <span>{subItem.name}</span>
+                                      </div>
+                                    </Link>
+                                  );
+                                })}
+                              </CollapsibleContent>
+                            )}
                           </div>
-                        </Link>
+                        </Collapsible>
                       );
                     })}
                   </div>
