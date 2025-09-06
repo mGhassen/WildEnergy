@@ -170,7 +170,6 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       href: "/admin/settings", 
       icon: Tags,
       items: [
-        { name: "General", href: "/admin/settings" },
         { name: "Categories", href: "/admin/categories" },
       ]
     },

@@ -122,10 +122,6 @@ const data = {
       icon: Settings2,
       items: [
         {
-          title: "General",
-          url: "/admin/settings",
-        },
-        {
           title: "Categories",
           url: "/admin/categories",
         },
