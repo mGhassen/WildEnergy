@@ -34,7 +34,14 @@ export async function GET(req: NextRequest) {
     if (error) {
       return NextResponse.json({ error: 'Failed to fetch payments' }, { status: 500 });
     }
-    return NextResponse.json(payments);
+    
+    // Convert amount from string to number for proper handling
+    const processedPayments = payments?.map(payment => ({
+      ...payment,
+      amount: parseFloat(payment.amount) || 0
+    })) || [];
+    
+    return NextResponse.json(processedPayments);
   } catch (error) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
@@ -61,8 +68,33 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
     
-    const paymentData = await req.json();
-    console.log('Creating payment with data:', paymentData);
+    const rawPaymentData = await req.json();
+    console.log('Creating payment with data:', rawPaymentData);
+    
+    // Validate required fields
+    if (!rawPaymentData.subscription_id) {
+      return NextResponse.json({ error: 'subscription_id is required' }, { status: 400 });
+    }
+    if (!rawPaymentData.user_id) {
+      return NextResponse.json({ error: 'user_id is required' }, { status: 400 });
+    }
+    if (!rawPaymentData.amount || rawPaymentData.amount <= 0) {
+      return NextResponse.json({ error: 'amount must be greater than 0' }, { status: 400 });
+    }
+    
+    // Transform the data to match database schema
+    const paymentData = {
+      subscription_id: parseInt(rawPaymentData.subscription_id),
+      user_id: rawPaymentData.user_id,
+      amount: parseFloat(rawPaymentData.amount),
+      payment_type: rawPaymentData.payment_type || 'cash',
+      payment_status: rawPaymentData.payment_status || 'paid',
+      payment_date: rawPaymentData.payment_date || new Date().toISOString().split('T')[0],
+      transaction_id: rawPaymentData.transaction_id || null,
+      notes: rawPaymentData.notes || null,
+    };
+    
+    console.log('Transformed payment data:', paymentData);
     
     // Create the payment
     const { data: payment, error } = await supabase
@@ -73,7 +105,12 @@ export async function POST(req: NextRequest) {
       
     if (error) {
       console.error('Payment creation error:', error);
-      return NextResponse.json({ error: 'Failed to create payment' }, { status: 500 });
+      console.error('Payment data that failed:', paymentData);
+      return NextResponse.json({ 
+        error: 'Failed to create payment', 
+        details: error.message,
+        code: error.code 
+      }, { status: 500 });
     }
     
     // Check if this payment completes the subscription
@@ -107,12 +144,25 @@ export async function POST(req: NextRequest) {
           
           console.log(`Subscription ${subscription.id}: Total paid: ${totalPaid}, Plan price: ${planPrice}`);
           
-          // If full payment is made, update subscription status to active
-          if (totalPaid >= planPrice && subscription.status === 'pending') {
+          // Determine the correct status based on payment amount
+          let newStatus = subscription.status;
+          if (totalPaid >= planPrice) {
+            // Full payment made - activate subscription
+            newStatus = 'active';
+          } else if (totalPaid > 0) {
+            // Partial payment - keep as pending
+            newStatus = 'pending';
+          } else {
+            // No payment - keep as pending
+            newStatus = 'pending';
+          }
+          
+          // Update subscription status if it changed
+          if (newStatus !== subscription.status) {
             const { error: updateError } = await supabase
               .from('subscriptions')
               .update({ 
-                status: 'active',
+                status: newStatus,
                 updated_at: new Date().toISOString()
               })
               .eq('id', subscription.id);
@@ -120,7 +170,7 @@ export async function POST(req: NextRequest) {
             if (updateError) {
               console.error('Error updating subscription status:', updateError);
             } else {
-              console.log(`Updated subscription ${subscription.id} status to 'active'`);
+              console.log(`Updated subscription ${subscription.id} status from '${subscription.status}' to '${newStatus}'`);
             }
           }
         }

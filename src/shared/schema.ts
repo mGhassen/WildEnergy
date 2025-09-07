@@ -57,8 +57,7 @@ export const plans = pgTable("plans", {
   name: text("name").notNull(),
   description: text("description"),
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
-  sessionsIncluded: integer("sessions_included").notNull(),
-  duration: integer("duration").notNull(), // in months
+  durationDays: integer("duration_days").notNull(), // in days
   isActive: boolean("is_active").notNull().default(true),
 });
 

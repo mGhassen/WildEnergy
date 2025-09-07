@@ -1,14 +1,18 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, DollarSign, Filter, Calendar, TrendingUp, CreditCard } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+import { Search, DollarSign, Filter, Calendar, TrendingUp, CreditCard, Edit, Trash2 } from "lucide-react";
 import { getInitials } from "@/lib/auth";
 import { formatDate } from "@/lib/date";
 import { apiRequest } from "@/lib/queryClient";
@@ -62,6 +66,20 @@ export default function AdminPayments() {
     dateTo: "",
   });
 
+  // Edit and delete state
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
+  const [paymentToDelete, setPaymentToDelete] = useState<Payment | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    amount: "",
+    payment_type: "cash",
+    payment_status: "paid",
+    payment_date: "",
+    transaction_id: "",
+    notes: "",
+  });
+
   const { data: payments = [], isLoading } = useQuery<Payment[]>({
     queryKey: ["/api/payments"],
     queryFn: () => apiRequest("GET", "/api/payments"),
@@ -80,6 +98,50 @@ export default function AdminPayments() {
   const { data: plans = [] } = useQuery({
     queryKey: ["/api/plans"],
     queryFn: () => apiRequest("GET", "/api/plans"),
+  });
+
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  // Mutations
+  const updatePaymentMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return await apiRequest("PUT", `/api/payments/${data.id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/subscriptions"] });
+      setIsEditModalOpen(false);
+      setEditingPayment(null);
+      toast({ title: "Payment updated successfully" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error updating payment",
+        description: error.message,
+        variant: "destructive"
+      });
+    },
+  });
+
+  const deletePaymentMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return await apiRequest("DELETE", `/api/payments/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/subscriptions"] });
+      setIsDeleteModalOpen(false);
+      setPaymentToDelete(null);
+      toast({ title: "Payment deleted successfully" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error deleting payment",
+        description: error.message,
+        variant: "destructive"
+      });
+    },
   });
 
   // Map members from snake_case to camelCase for UI
@@ -168,16 +230,16 @@ export default function AdminPayments() {
       p.payment_date && new Date(p.payment_date) >= monthStart
     );
 
-    const completedPayments = filteredPayments.filter(p => p.payment_status === 'completed');
+    const completedPayments = filteredPayments.filter(p => p.payment_status === 'paid');
 
     // Sum of all credits on hold
     const totalCredits = mappedMembers.reduce((sum, m) => sum + (m.credit > 0 ? m.credit : 0), 0);
 
     return {
       total: completedPayments.reduce((sum, p) => sum + Number(p.amount), 0),
-      today: todayPayments.filter(p => p.payment_status === 'completed').reduce((sum, p) => sum + Number(p.amount), 0),
-      thisWeek: weekPayments.filter(p => p.payment_status === 'completed').reduce((sum, p) => sum + Number(p.amount), 0),
-      thisMonth: monthPayments.filter(p => p.payment_status === 'completed').reduce((sum, p) => sum + Number(p.amount), 0),
+      today: todayPayments.filter(p => p.payment_status === 'paid').reduce((sum, p) => sum + Number(p.amount), 0),
+      thisWeek: weekPayments.filter(p => p.payment_status === 'paid').reduce((sum, p) => sum + Number(p.amount), 0),
+      thisMonth: monthPayments.filter(p => p.payment_status === 'paid').reduce((sum, p) => sum + Number(p.amount), 0),
       totalPayments: filteredPayments.length,
       completedPayments: completedPayments.length,
       uniqueMembers: new Set(filteredPayments.map(p => p.user_id)).size,
@@ -236,6 +298,48 @@ export default function AdminPayments() {
       dateFrom: "",
       dateTo: "",
     });
+  };
+
+  // Edit and delete handlers
+  const handleEditPayment = (payment: Payment) => {
+    setEditingPayment(payment);
+    setEditFormData({
+      amount: payment.amount.toString(),
+      payment_type: payment.payment_type,
+      payment_status: payment.payment_status,
+      payment_date: payment.payment_date ? payment.payment_date.split('T')[0] : "",
+      transaction_id: payment.transaction_id || "",
+      notes: payment.notes || "",
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleDeletePayment = (payment: Payment) => {
+    setPaymentToDelete(payment);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleEditSubmit = () => {
+    if (!editingPayment) return;
+    
+    const updateData = {
+      id: editingPayment.id,
+      subscription_id: editingPayment.subscription_id,
+      user_id: editingPayment.user_id,
+      amount: parseFloat(editFormData.amount),
+      payment_type: editFormData.payment_type,
+      payment_status: editFormData.payment_status,
+      payment_date: editFormData.payment_date,
+      transaction_id: editFormData.transaction_id || null,
+      notes: editFormData.notes || null,
+    };
+    
+    updatePaymentMutation.mutate(updateData);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (!paymentToDelete) return;
+    deletePaymentMutation.mutate(paymentToDelete.id);
   };
 
   if (isLoading) {
@@ -500,6 +604,7 @@ export default function AdminPayments() {
                 <TableHead>Type</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -544,12 +649,181 @@ export default function AdminPayments() {
                       {getPaymentStatusText(payment.payment_status)}
                     </Badge>
                   </TableCell>
+                  <TableCell>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEditPayment(payment)}
+                        className="h-8 w-8 p-0"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDeletePayment(payment)}
+                        className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
+
+      {/* Edit Payment Modal */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Payment</DialogTitle>
+            <DialogDescription>
+              Update payment details for {editingPayment?.member?.firstName} {editingPayment?.member?.lastName}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="amount" className="text-right">
+                Amount
+              </Label>
+              <Input
+                id="amount"
+                type="number"
+                step="0.01"
+                value={editFormData.amount}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, amount: e.target.value }))}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="payment_type" className="text-right">
+                Type
+              </Label>
+              <Select
+                value={editFormData.payment_type}
+                onValueChange={(value) => setEditFormData(prev => ({ ...prev, payment_type: value }))}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="card">Card</SelectItem>
+                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                  <SelectItem value="check">Check</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="payment_status" className="text-right">
+                Status
+              </Label>
+              <Select
+                value={editFormData.payment_status}
+                onValueChange={(value) => setEditFormData(prev => ({ ...prev, payment_status: value }))}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                  <SelectItem value="failed">Failed</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="payment_date" className="text-right">
+                Date
+              </Label>
+              <Input
+                id="payment_date"
+                type="date"
+                value={editFormData.payment_date}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, payment_date: e.target.value }))}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="transaction_id" className="text-right">
+                Transaction ID
+              </Label>
+              <Input
+                id="transaction_id"
+                value={editFormData.transaction_id}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, transaction_id: e.target.value }))}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="notes" className="text-right">
+                Notes
+              </Label>
+              <Textarea
+                id="notes"
+                value={editFormData.notes}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, notes: e.target.value }))}
+                className="col-span-3"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleEditSubmit}
+              disabled={updatePaymentMutation.isPending}
+            >
+              {updatePaymentMutation.isPending ? "Updating..." : "Update Payment"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Payment Modal */}
+      <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Delete Payment</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this payment? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <p className="font-medium">
+                {paymentToDelete?.member?.firstName} {paymentToDelete?.member?.lastName}
+              </p>
+              <p className="text-sm text-gray-600">
+                Amount: {formatPrice(paymentToDelete?.amount || 0)}
+              </p>
+              <p className="text-sm text-gray-600">
+                Date: {paymentToDelete?.payment_date ? formatDate(paymentToDelete.payment_date) : 'N/A'}
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={handleDeleteConfirm}
+              disabled={deletePaymentMutation.isPending}
+            >
+              {deletePaymentMutation.isPending ? "Deleting..." : "Delete Payment"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 } 

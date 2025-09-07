@@ -18,17 +18,40 @@ export async function GET(req: NextRequest) {
       .select('is_admin')
       .eq('auth_user_id', adminUser.id)
       .single();
-    // Fetch all subscriptions with group sessions
+    if (!adminCheck?.is_admin) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
+    
+    // Fetch all subscriptions with plan data and group sessions
     const { data: subscriptions, error } = await supabaseServer()
       .from('subscriptions')
       .select(`
         *,
+        plan:plans(
+          id,
+          name,
+          price,
+          duration_days,
+          is_active,
+          plan_groups(
+            id,
+            group_id,
+            session_count,
+            is_free,
+            group:groups(
+              id,
+              name,
+              description,
+              color
+            )
+          )
+        ),
         subscription_group_sessions(
           id,
           group_id,
           sessions_remaining,
           total_sessions,
-          groups(
+          group:groups(
             id,
             name,
             description,
@@ -38,11 +61,30 @@ export async function GET(req: NextRequest) {
       `)
       .order('created_at', { ascending: false });
     if (error) {
-      return NextResponse.json({ error: 'Failed to fetch subscriptions' }, { status: 500 });
+      console.error('Supabase error fetching subscriptions:', error);
+      return NextResponse.json({ 
+        error: 'Failed to fetch subscriptions', 
+        details: error.message,
+        code: error.code 
+      }, { status: 500 });
     }
-    return NextResponse.json(subscriptions);
-  } catch {
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    
+    // Convert price from string to number for proper handling
+    const processedSubscriptions = subscriptions?.map(sub => ({
+      ...sub,
+      plan: sub.plan ? {
+        ...sub.plan,
+        price: parseFloat(sub.plan.price) || 0
+      } : null
+    })) || [];
+    
+    return NextResponse.json(processedSubscriptions);
+  } catch (error) {
+    console.error('Unexpected error in GET /api/subscriptions:', error);
+    return NextResponse.json({ 
+      error: 'Internal server error', 
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
   }
 }
 

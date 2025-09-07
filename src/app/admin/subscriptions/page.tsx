@@ -117,7 +117,7 @@ const paymentFormSchema = z.object({
   user_id: z.string(),
   amount: z.number().min(0.01, "Amount must be greater than 0"),
   payment_type: z.enum(['credit', 'cash', 'card', 'bank_transfer', 'check', 'other']),
-  payment_status: z.enum(['pending', 'completed', 'failed', 'refunded', 'cancelled']).optional(),
+  payment_status: z.enum(['pending', 'paid', 'failed', 'cancelled', 'refunded']).optional(),
   payment_date: z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/, "Invalid date"),
   transaction_id: z.string().optional(),
   notes: z.string().optional(),
@@ -213,7 +213,7 @@ export default function AdminSubscriptions() {
       user_id: "",
       amount: 0,
       payment_type: "cash",
-      payment_status: "completed",
+      payment_status: "paid",
       payment_date: new Date().toISOString().split('T')[0],
       transaction_id: "",
       notes: "",
@@ -314,9 +314,11 @@ export default function AdminSubscriptions() {
   // Update createPaymentMutation to accept snake_case fields
   const createPaymentMutation = useMutation({
     mutationFn: async (data: any) => {
+      console.log('Creating payment with data:', data);
       return await apiRequest("POST", "/api/payments", data);
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('Payment created successfully:', data);
       queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
       queryClient.invalidateQueries({ queryKey: ["/api/members"] }); // After payment, refetch members to update credit
       queryClient.invalidateQueries({ queryKey: ["/api/subscriptions"] });
@@ -325,6 +327,7 @@ export default function AdminSubscriptions() {
       toast({ title: "Payment created successfully" });
     },
     onError: (error) => {
+      console.error('Payment creation error:', error);
       toast({
         title: "Error creating payment",
         description: error.message,
@@ -376,6 +379,22 @@ export default function AdminSubscriptions() {
     },
   });
 
+  // Helper function to calculate remaining amount for a subscription
+  const getRemainingAmount = (subscription: Subscription) => {
+    const subscriptionPayments = getPaymentsForSubscription(subscription.id);
+    const totalPaid = subscriptionPayments
+      .filter(p => p.payment_status === 'paid')
+      .reduce((sum, p) => sum + (p.amount || 0), 0);
+    
+    // Plan price is a number from the API
+    const planPrice = Number(subscription.plan?.price) || 0;
+    
+    // Calculate remaining amount
+    const remainingAmount = Math.max(0, planPrice - totalPaid);
+    
+    return remainingAmount;
+  };
+
   // Event handlers
   const openCreateSubscriptionModal = () => {
     subscriptionForm.reset();
@@ -397,12 +416,17 @@ export default function AdminSubscriptions() {
   // 1. Fix openPaymentModal to accept an optional override for payment_type and amount
   const openPaymentModal = (subscription: Subscription, override?: { amount?: number; payment_type?: PaymentFormData['payment_type'] }) => {
     setSelectedSubscriptionForPayment(subscription);
+    setSelectedSubscription(subscription); // Set selectedSubscription for the credit button
+    
+    // Calculate remaining amount if not overridden
+    const remainingAmount = override?.amount ?? getRemainingAmount(subscription);
+    
     paymentForm.reset({
       subscription_id: subscription.id,
       user_id: subscription.user_id,
-      amount: override?.amount ?? (subscription.plan?.price || 0),
+      amount: remainingAmount,
       payment_type: override?.payment_type ?? "cash",
-      payment_status: "completed",
+      payment_status: "paid",
       payment_date: new Date().toISOString().split('T')[0],
       transaction_id: "",
       notes: "",
@@ -425,6 +449,7 @@ export default function AdminSubscriptions() {
 
   // 3. In handlePaymentSubmit, do not override payment_type, just use data.payment_type
   const handlePaymentSubmit = (data: PaymentFormData) => {
+    console.log('Payment form data:', data);
     const paymentPayload = {
       subscription_id: data.subscription_id,
       user_id: data.user_id,
@@ -435,6 +460,7 @@ export default function AdminSubscriptions() {
       transaction_id: data.transaction_id,
       notes: data.notes,
     };
+    console.log('Payment payload:', paymentPayload);
     if (editingPayment) {
       updatePaymentMutation.mutate({
         ...paymentPayload,
@@ -458,7 +484,7 @@ export default function AdminSubscriptions() {
       user_id: payment.user_id,
       amount: payment.amount,
       payment_type: (payment.payment_type as "cash" | "card" | "bank_transfer" | "check" | "other") || "cash",
-      payment_status: (payment.payment_status as "pending" | "completed" | "failed" | "refunded" | "cancelled") || "completed",
+      payment_status: (payment.payment_status as "pending" | "paid" | "failed" | "cancelled") || "paid",
       payment_date: payment.payment_date.split('T')[0],
       transaction_id: payment.transaction_id || '',
       notes: payment.notes || '',
@@ -658,7 +684,7 @@ export default function AdminSubscriptions() {
                       (() => {
                         const subscriptionPayments = getPaymentsForSubscription(subscription.id);
                         const totalPaid = subscriptionPayments
-                          .filter((p) => p.payment_status === 'completed')
+                          .filter((p) => p.payment_status === 'paid')
                           .reduce((sum, p) => sum + (p.amount || 0), 0);
                         const planPrice = subscription.plan?.price || 0;
                         let status = 'Not Paid';
@@ -708,7 +734,7 @@ export default function AdminSubscriptions() {
                           {(() => {
                             const subscriptionPayments = getPaymentsForSubscription(subscription.id);
                             const totalPaid = subscriptionPayments
-                              .filter((p) => p.payment_status === 'completed')
+                              .filter((p) => p.payment_status === 'paid')
                               .reduce((sum, p) => sum + (p.amount || 0), 0);
                             const planPrice = subscription.plan?.price || 0;
                             if (totalPaid >= planPrice) {
@@ -1204,8 +1230,8 @@ export default function AdminSubscriptions() {
                   size="sm"
                   onClick={() => {
                     if (!selectedSubscription) return;
-                    const planPriceLocal = selectedSubscription.plan ? selectedSubscription.plan.price || 0 : 0;
-                    const useAmount = Math.min(Number(member.credit) || 0, planPriceLocal);
+                    const remainingAmount = getRemainingAmount(selectedSubscription);
+                    const useAmount = Math.min(Number(member.credit) || 0, remainingAmount);
                     openPaymentModal(selectedSubscription, { amount: useAmount, payment_type: 'credit' });
                   }}
                   disabled={!member.credit || Number(member.credit) <= 0 || !selectedSubscription}
@@ -1293,7 +1319,7 @@ export default function AdminSubscriptions() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="completed">Completed</SelectItem>
+                          <SelectItem value="paid">Paid</SelectItem>
                           <SelectItem value="pending">Pending</SelectItem>
                           <SelectItem value="failed">Failed</SelectItem>
                           <SelectItem value="refunded">Refunded</SelectItem>
@@ -1394,7 +1420,7 @@ export default function AdminSubscriptions() {
                     {(() => {
                       const subscriptionPayments = selectedSubscription ? getPaymentsForSubscription(selectedSubscription.id) : [];
                       const totalPaid = subscriptionPayments
-                        .filter((p) => p.payment_status === 'completed')
+                        .filter((p) => p.payment_status === 'paid')
                         .reduce((sum, p) => sum + (p.amount || 0), 0);
                       const planPrice = selectedSubscription?.plan?.price || 0;
                       let status = 'Not Paid';
@@ -1437,7 +1463,7 @@ export default function AdminSubscriptions() {
                             <div key={payment.id} className="border rounded-lg p-3 text-xs flex flex-col md:flex-row md:items-center md:justify-between bg-muted/30 shadow-sm gap-2">
                               <div className="flex flex-col md:flex-row md:items-center gap-2 flex-1">
                                 <span className="font-semibold text-base text-primary">{formatPrice(payment.amount)}</span>
-                                <Badge variant={payment.payment_status === 'completed' ? 'default' : payment.payment_status === 'pending' ? 'secondary' : 'destructive'} className="ml-2 text-xs capitalize">
+                                <Badge variant={payment.payment_status === 'paid' ? 'default' : payment.payment_status === 'pending' ? 'secondary' : 'destructive'} className="ml-2 text-xs capitalize">
                                   {payment.payment_status}
                                 </Badge>
                                 <span className="text-muted-foreground ml-2">{payment.payment_type} • {formatDate(payment.payment_date)}</span>

@@ -640,7 +640,7 @@ export default function MembersPage() {
                                 <td className="px-2 py-1 font-medium">${payment.amount}</td>
                                 <td className="px-2 py-1">{payment.payment_type || '-'}</td>
                                 <td className="px-2 py-1">
-                                  <Badge variant={payment.payment_status === 'completed' ? 'default' : 'secondary'}>
+                                  <Badge variant={payment.payment_status === 'paid' ? 'default' : 'secondary'}>
                                     {payment.payment_status || 'pending'}
                                   </Badge>
                                 </td>
