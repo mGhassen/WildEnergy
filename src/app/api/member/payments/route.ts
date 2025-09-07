@@ -35,7 +35,14 @@ export async function GET(req: NextRequest) {
     if (error) {
       return NextResponse.json({ error: 'Failed to fetch payments' }, { status: 500 });
     }
-    return NextResponse.json(payments);
+    
+    // Convert amount from string to number for proper handling
+    const processedPayments = payments?.map(payment => ({
+      ...payment,
+      amount: parseFloat(payment.amount) || 0
+    })) || [];
+    
+    return NextResponse.json(processedPayments);
   } catch (error) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
