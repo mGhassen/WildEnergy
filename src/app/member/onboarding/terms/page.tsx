@@ -8,11 +8,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, CheckCircle, AlertCircle } from "lucide-react";
+import { FileText, CheckCircle, AlertCircle, LogOut } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 export default function TermsOnboarding() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -45,6 +45,14 @@ export default function TermsOnboarding() {
 
     loadTerms();
   }, [toast]);
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
 
   const handleAcceptTerms = async () => {
     if (!termsAccepted) {
@@ -110,6 +118,19 @@ export default function TermsOnboarding() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center p-4">
+      {/* Logout Button */}
+      <div className="absolute top-4 right-4">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleLogout}
+          className="flex items-center gap-2"
+        >
+          <LogOut className="w-4 h-4" />
+          Se déconnecter
+        </Button>
+      </div>
+      
       <Card className="w-full max-w-4xl">
         <CardHeader className="text-center">
           <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">

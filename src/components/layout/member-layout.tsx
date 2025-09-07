@@ -39,31 +39,50 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Check onboarding status
-  const { data: onboardingStatus, isLoading: isLoadingOnboarding } = useQuery({
+  const { data: onboardingStatus, isLoading: isLoadingOnboarding, error: onboardingError } = useQuery({
     queryKey: ["/api/member/onboarding/status"],
     queryFn: () => apiRequest("GET", "/api/member/onboarding/status"),
-    enabled: isAuthenticated && !pathname.startsWith("/member/onboarding"),
+    enabled: !!(isAuthenticated && user && !pathname.startsWith("/member/onboarding")),
     refetchOnMount: true,
     refetchOnWindowFocus: true,
   });
 
+  // Debug logging
+  useEffect(() => {
+    console.log("Onboarding check:", {
+      isAuthenticated,
+      onboardingStatus,
+      isLoadingOnboarding,
+      onboardingError,
+      pathname
+    });
+  }, [isAuthenticated, onboardingStatus, isLoadingOnboarding, onboardingError, pathname]);
+
   // Redirect to onboarding if not completed
   useEffect(() => {
     if (isAuthenticated && onboardingStatus && !isLoadingOnboarding) {
-      const { onboardingCompleted, hasPersonalInfo, termsAccepted } = onboardingStatus.data;
+      console.log("Onboarding status data:", onboardingStatus);
       
-      if (!onboardingCompleted) {
-        if (!hasPersonalInfo) {
-          router.push("/member/onboarding/personal-info");
-        } else if (!termsAccepted) {
-          router.push("/member/onboarding/terms");
+      if (onboardingStatus.success && onboardingStatus.data) {
+        const { onboardingCompleted, hasPersonalInfo, termsAccepted } = onboardingStatus.data;
+        
+        console.log("Onboarding details:", { onboardingCompleted, hasPersonalInfo, termsAccepted });
+        
+        if (!onboardingCompleted) {
+          if (!hasPersonalInfo) {
+            console.log("Redirecting to personal info");
+            router.push("/member/onboarding/personal-info");
+          } else if (!termsAccepted) {
+            console.log("Redirecting to terms");
+            router.push("/member/onboarding/terms");
+          }
         }
       }
     }
   }, [isAuthenticated, onboardingStatus, isLoadingOnboarding, router]);
 
   // Show loading while checking onboarding status
-  if (isAuthenticated && isLoadingOnboarding && !pathname.startsWith("/member/onboarding")) {
+  if (isAuthenticated && user && isLoadingOnboarding && !pathname.startsWith("/member/onboarding")) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center">
         <div className="text-center">
@@ -72,6 +91,24 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
         </div>
       </div>
     );
+  }
+
+  // Don't render member layout if onboarding is not completed
+  if (isAuthenticated && user && onboardingStatus && !isLoadingOnboarding && !pathname.startsWith("/member/onboarding")) {
+    if (onboardingStatus.success && onboardingStatus.data) {
+      const { onboardingCompleted } = onboardingStatus.data;
+      if (!onboardingCompleted) {
+        // Show loading while redirecting
+        return (
+          <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Redirection vers l'onboarding...</p>
+            </div>
+          </div>
+        );
+      }
+    }
   }
 
   // Don't render the member layout for onboarding pages
