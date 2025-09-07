@@ -52,6 +52,18 @@ export async function GET(req: NextRequest) {
               )
             )
           )
+        ),
+        subscription_group_sessions(
+          id,
+          group_id,
+          sessions_remaining,
+          total_sessions,
+          groups(
+            id,
+            name,
+            description,
+            color
+          )
         )
       `)
       .eq('user_id', userProfile.id);

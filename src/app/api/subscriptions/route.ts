@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
       plan_id: subData.planId || subData.plan_id,
       start_date: subData.startDate || subData.start_date,
       end_date: subData.endDate || subData.end_date,
-      status: subData.status || 'active',
+      status: subData.status || 'pending',
       notes: subData.notes,
       sessions_remaining: subData.sessionsRemaining || subData.sessions_remaining || 0
     };
@@ -154,6 +154,19 @@ export async function POST(req: NextRequest) {
         error: 'Failed to create subscription', 
         details: error.message 
       }, { status: 500 });
+    }
+    
+    // Initialize group sessions for this subscription
+    const { error: groupSessionsError } = await supabaseServer()
+      .rpc('initialize_subscription_group_sessions', {
+        p_subscription_id: subscription.id,
+        p_plan_id: subscription.plan_id
+      });
+    
+    if (groupSessionsError) {
+      console.error('Error initializing group sessions:', groupSessionsError);
+      // Don't fail the subscription creation, just log the error
+      // This allows backward compatibility with plans that don't have groups
     }
     
     return NextResponse.json({ success: true, subscription });

@@ -191,7 +191,7 @@ export default function AdminSubscriptions() {
       planId: "",
       startDate: new Date().toISOString().split('T')[0],
       notes: "",
-      status: "active",
+      status: "pending",
     },
   });
 
