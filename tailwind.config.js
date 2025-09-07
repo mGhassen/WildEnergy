@@ -71,7 +71,7 @@ module.exports = {
         "accordion-up": "accordion-up 0.2s ease-out",
       },
       boxShadow: {
-        "input": "var(--shadow-input)",
+        "input": "var(--shadow-md)",
       },
     },
   },
