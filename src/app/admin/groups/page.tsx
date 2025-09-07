@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -366,82 +367,105 @@ export default function AdminGroups() {
         </div>
       </div>
 
-      {/* Groups Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {isLoading ? (
-          [...Array(6)].map((_, i) => (
-            <Card key={i}>
-              <CardContent className="p-6">
-                <div className="animate-pulse space-y-4">
-                  <div className="h-6 bg-muted rounded w-3/4"></div>
-                  <div className="h-4 bg-muted rounded w-1/2"></div>
-                  <div className="h-8 bg-muted rounded w-full"></div>
-                  <div className="h-10 bg-muted rounded w-full"></div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        ) : (
-          filteredGroups.map((group: any) => (
-            <Card key={group.id} className="relative">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <div 
-                      className="w-4 h-4 rounded-full" 
-                      style={{ backgroundColor: group.color }}
-                    />
-                    {group.name}
-                  </CardTitle>
-                  <Badge variant={group.is_active ? 'default' : 'secondary'}>
-                    {group.is_active ? 'Active' : 'Inactive'}
-                  </Badge>
-                </div>
-                <CardDescription>{group.description}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {group.categories && group.categories.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-muted-foreground">Categories:</p>
-                      <div className="flex flex-wrap gap-1">
-                        {group.categories.map((category: any, index: number) => (
-                          <div key={index} className="flex items-center gap-1 text-xs bg-muted px-2 py-1 rounded-full">
-                            <div 
-                              className="w-2 h-2 rounded-full" 
-                              style={{ backgroundColor: category.color }}
-                            />
-                            {category.name}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex space-x-2 pt-4">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => handleEdit(group)}
-                    >
-                      <Edit className="w-4 h-4 mr-1" />
-                      Edit
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => handleDelete(group)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+      {/* Groups Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>All Groups</CardTitle>
+          <CardDescription>
+            {filteredGroups.length} of {groups?.length || 0} groups
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="space-y-4">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="animate-pulse flex items-center space-x-4 p-4">
+                  <div className="w-12 h-12 bg-muted rounded-lg"></div>
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 bg-muted rounded w-1/4"></div>
+                    <div className="h-3 bg-muted rounded w-1/3"></div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
-      </div>
+              ))}
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Group</TableHead>
+                  <TableHead>Categories</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredGroups.map((group: any) => (
+                  <TableRow key={group.id}>
+                    <TableCell>
+                      <div className="flex items-center space-x-3">
+                        <div 
+                          className="w-12 h-12 rounded-lg flex items-center justify-center"
+                          style={{ backgroundColor: group.color + '20', color: group.color }}
+                        >
+                          <span className="text-xs font-medium">
+                            {group.name.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="font-medium text-foreground">{group.name}</p>
+                          <p className="text-sm text-muted-foreground line-clamp-1">
+                            {group.description || 'No description'}
+                          </p>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {group.categories && group.categories.length > 0 ? (
+                          group.categories.map((category: any, index: number) => (
+                            <div key={index} className="flex items-center gap-1 text-xs bg-muted px-2 py-1 rounded-full">
+                              <div 
+                                className="w-2 h-2 rounded-full" 
+                                style={{ backgroundColor: category.color }}
+                              />
+                              {category.name}
+                            </div>
+                          ))
+                        ) : (
+                          <span className="text-sm text-muted-foreground">No categories</span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={group.is_active ? 'default' : 'secondary'}>
+                        {group.is_active ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex space-x-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEdit(group)}
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDelete(group)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>

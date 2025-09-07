@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -54,6 +55,7 @@ const categoryFormSchema = z.object({
   description: z.string().optional(),
   color: z.string().optional(),
   isActive: z.boolean(),
+  groupId: z.union([z.number(), z.null(), z.undefined()]).optional(),
 });
 
 type CategoryFormData = z.infer<typeof categoryFormSchema>;
@@ -65,6 +67,12 @@ interface Category {
   color?: string;
   is_active: boolean;
   isActive: boolean;
+  group_id?: number;
+  groups?: {
+    id: number;
+    name: string;
+    color: string;
+  };
 }
 
 interface Class {
@@ -107,6 +115,11 @@ export default function AdminCategories() {
     queryKey: ["admin", "classes"],
     queryFn: () => apiRequest("GET", "/api/admin/classes"),
   });
+
+  const { data: groups = [] } = useQuery({
+    queryKey: ["/api/groups"],
+    queryFn: () => apiRequest("GET", "/api/groups"),
+  });
   const classes = (rawClasses || []).map((cls: Class) => ({
     ...cls,
     categoryId: cls.category_id,
@@ -122,6 +135,7 @@ export default function AdminCategories() {
       description: "",
       color: "#4ECDC4",
       isActive: true,
+      groupId: null,
     },
   });
 
@@ -159,7 +173,7 @@ export default function AdminCategories() {
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Partial<CategoryFormData> }) => {
       console.log('Updating category:', { id, data });
-      const response = await apiRequest("PATCH", `/api/admin/categories/${id}`, data);
+      const response = await apiRequest("PUT", `/api/admin/categories`, { id, ...data });
       console.log('Update response:', response);
       return response;
     },
@@ -217,6 +231,7 @@ export default function AdminCategories() {
 
   const onSubmit = (data: CategoryFormData) => {
     console.log('Form submitted:', { data, editingCategory });
+    console.log('groupId in form data:', data.groupId, 'type:', typeof data.groupId);
     if (editingCategory) {
       console.log('Calling update mutation with:', { id: editingCategory.id, data });
       updateMutation.mutate({ id: editingCategory.id, data });
@@ -232,6 +247,7 @@ export default function AdminCategories() {
       description: category.description || "",
       color: category.color || "",
       isActive: category.isActive,
+      groupId: (category as any).group_id ?? null,
     });
   };
 
@@ -246,6 +262,7 @@ export default function AdminCategories() {
       description: "",
       color: "",
       isActive: true,
+      groupId: undefined,
     });
     setIsCreateDialogOpen(true);
   };
@@ -346,6 +363,48 @@ export default function AdminCategories() {
 
                 <FormField
                   control={form.control}
+                  name="groupId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Group</FormLabel>
+                      <Select 
+                        onValueChange={(value) => {
+                          console.log('Select onValueChange:', value, 'current field.value:', field.value);
+                          if (value === "none") {
+                            field.onChange(null);
+                          } else {
+                            field.onChange(Number(value));
+                          }
+                        }} 
+                        value={field.value === null || field.value === undefined ? "none" : field.value.toString()}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a group (optional)" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="none">No group</SelectItem>
+                          {groups.map((group: any) => (
+                            <SelectItem key={group.id} value={group.id.toString()}>
+                              <div className="flex items-center gap-2">
+                                <div 
+                                  className="w-3 h-3 rounded-full" 
+                                  style={{ backgroundColor: group.color }}
+                                />
+                                {group.name}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
                   name="isActive"
                   render={({ field }) => (
                     <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
@@ -397,9 +456,7 @@ export default function AdminCategories() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Color</TableHead>
+                <TableHead>Category</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Classes Count</TableHead>
                 <TableHead>Actions</TableHead>
@@ -408,20 +465,34 @@ export default function AdminCategories() {
             <TableBody>
               {categories.map((category: Category) => (
                 <TableRow key={category.id}>
-                  <TableCell className="font-medium">{category.name}</TableCell>
-                  <TableCell>{category.description || "—"}</TableCell>
                   <TableCell>
-                    {category.color && (
-                      <div className="flex items-center space-x-2">
-                        <div
-                          className="w-4 h-4 rounded-full border"
-                          style={{ backgroundColor: category.color }}
-                        />
-                        <span className="text-sm text-muted-foreground">
-                          {category.color}
+                    <div className="flex items-center space-x-3">
+                      <div 
+                        className="w-12 h-12 rounded-lg flex items-center justify-center"
+                        style={{ backgroundColor: category.color || '#94a3b8' }}
+                      >
+                        <span className="text-xs font-medium text-white">
+                          {category.name?.charAt(0)?.toUpperCase() || 'C'}
                         </span>
                       </div>
-                    )}
+                      <div className="flex-1">
+                        {/* Group name with colored text */}
+                        {category.groups && (
+                          <div className="mb-1">
+                            <span 
+                              className="text-xs font-medium"
+                              style={{ color: category.groups.color || '#94a3b8' }}
+                            >
+                              {category.groups.name}
+                            </span>
+                          </div>
+                        )}
+                        <p className="font-medium text-foreground">{category.name}</p>
+                        <p className="text-sm text-muted-foreground line-clamp-1">
+                          {category.description || 'No description'}
+                        </p>
+                      </div>
+                    </div>
                   </TableCell>
                   <TableCell>
                     <Badge variant={category.isActive ? "default" : "secondary"}>
