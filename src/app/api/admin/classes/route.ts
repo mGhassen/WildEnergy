@@ -31,11 +31,11 @@ export async function GET(req: NextRequest) {
       .from('classes')
       .select(`
         *,
-        categories (
+        category:categories (
           id,
           name,
           color,
-          groups (
+          group:groups (
             id,
             name,
             color

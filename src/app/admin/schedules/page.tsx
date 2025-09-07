@@ -582,25 +582,57 @@ export default function AdminSchedules() {
                         </Select>
                         <FormMessage />
                         
-                        {/* Class Info Display */}
+                        {/* Enhanced Class Info Display */}
                         {selectedClass && (
-                          <div className="mt-2 p-3 bg-muted/30 rounded-md border">
-                            <div className="flex items-center gap-2 mb-2">
+                          <div className="mt-2 p-4 bg-muted/30 rounded-md border space-y-3">
+
+                            {/* Category & Group Combined */}
+                            <div className="flex items-start gap-2 justify-between">
+                              <div className="flex items-start gap-2">
+                                <div 
+                                  className="w-1 h-8 mt-0.5" 
+                                  style={{ backgroundColor: selectedClass.category?.color || '#6B7280' }}
+                                />
+                                <div className="flex flex-col">
+                                  {selectedClass.category?.group && (
+                                    <span 
+                                      className="text-xs font-medium"
+                                      style={{ color: selectedClass.category.group.color }}
+                                    >
+                                      {selectedClass.category.group.name}
+                                    </span>
+                                  )}
+                                  <span className="text-sm text-foreground">
+                                    {selectedClass.category?.name || 'No Category'}
+                                  </span>
+                                </div>
+                              </div>
+                              {/* Status Pin - Same Line */}
                               <div 
-                                className="w-3 h-3 rounded-full border border-white/20" 
-                                style={{ backgroundColor: selectedClass.category?.color || '#6B7280' }}
+                                className={`w-3 h-3 rounded-full mt-1 ${selectedClass.is_active ? 'bg-green-500' : 'bg-red-500'}`}
+                                title={selectedClass.is_active ? 'Active' : 'Inactive'}
                               />
-                              <span className="text-sm font-medium text-foreground">
-                                {selectedClass.category?.name || 'No Category'}
-                              </span>
                             </div>
-                            <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                              <div>Duration: {selectedClass.duration || 0} min</div>
-                              <div>Capacity: {selectedClass.max_capacity || 0} members</div>
+
+                            {/* Basic Info Grid */}
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                              <div className="flex flex-col">
+                                <span className="text-xs text-muted-foreground">Duration</span>
+                                <span className="font-medium">{selectedClass.duration || 0} min</span>
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-xs text-muted-foreground">Capacity</span>
+                                <span className="font-medium">{selectedClass.max_capacity || 0} members</span>
+                              </div>
                             </div>
+
+                            {/* Description */}
                             {selectedClass.description && (
-                              <div className="mt-2 text-xs text-muted-foreground">
-                                {selectedClass.description}
+                              <div className="space-y-1">
+                                <span className="text-xs text-muted-foreground font-medium">Description</span>
+                                <p className="text-sm text-foreground leading-relaxed">
+                                  {selectedClass.description}
+                                </p>
                               </div>
                             )}
                           </div>
