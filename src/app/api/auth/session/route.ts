@@ -86,8 +86,13 @@ export async function GET(req: NextRequest) {
       isAdmin: Boolean(userData.is_admin),
       firstName: userData.first_name || user.email?.split('@')[0] || 'User',
       lastName: userData.last_name || '',
+      phone: userData.phone || '',
+      age: userData.age || 0,
+      profession: userData.profession || '',
+      address: userData.address || '',
       status: userData.status || 'active',
       credit: userData.credit ?? 0,
+      role: userData.is_admin ? 'admin' : 'member',
     };
 
     console.log('Session API returning user:', userResponse.id);

@@ -7,18 +7,22 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, CheckCircle, AlertCircle, LogOut } from "lucide-react";
+import { FileText, CheckCircle, AlertCircle, LogOut, Sun, Moon } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { useTheme } from "@/components/theme-provider";
 
 export default function TermsOnboarding() {
-  const { user, logout } = useAuth();
+  const { user, logout, isLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
+  const { theme, toggleTheme } = useTheme();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [termsContent, setTermsContent] = useState("");
   const [isLoadingTerms, setIsLoadingTerms] = useState(true);
+  const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
 
   // Load terms acceptance state from localStorage on component mount
   useEffect(() => {
@@ -26,6 +30,7 @@ export default function TermsOnboarding() {
     if (savedTermsAccepted === 'true') {
       setTermsAccepted(true);
     }
+    // Note: We don't prefill terms acceptance from database as it should be user's choice
   }, []);
 
   useEffect(() => {
@@ -63,6 +68,15 @@ export default function TermsOnboarding() {
   };
 
   const handleTermsChange = (checked: boolean) => {
+    if (!hasScrolledToBottom) {
+      toast({
+        title: "Attention",
+        description: "Veuillez lire entièrement les conditions générales avant de les accepter",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setTermsAccepted(checked);
     // Save terms acceptance state to localStorage
     if (checked) {
@@ -71,6 +85,32 @@ export default function TermsOnboarding() {
       localStorage.removeItem('onboarding-terms-accepted');
     }
   };
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLDivElement;
+    const isAtBottom = target.scrollTop + target.clientHeight >= target.scrollHeight - 10; // 10px tolerance
+    
+    if (isAtBottom && !hasScrolledToBottom) {
+      setHasScrolledToBottom(true);
+      toast({
+        title: "Merci !",
+        description: "Vous pouvez maintenant accepter les conditions générales",
+        variant: "default",
+      });
+    }
+  };
+
+  // Show loading while user data is being fetched
+  if (isLoading || !user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Chargement de vos informations...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleAcceptTerms = async () => {
     if (!termsAccepted) {
@@ -140,8 +180,19 @@ export default function TermsOnboarding() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center p-4">
-      {/* Logout Button */}
-      <div className="absolute top-4 right-4">
+      {/* Top Controls */}
+      <div className="absolute top-4 right-4 flex items-center gap-2">
+        {/* Theme Toggle */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={toggleTheme}
+          className="flex items-center gap-2"
+        >
+          {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+        </Button>
+        
+        {/* Logout Button */}
         <Button
           variant="outline"
           size="sm"
@@ -166,9 +217,21 @@ export default function TermsOnboarding() {
         
         <CardContent className="space-y-6">
           {/* Terms Content */}
-          <div className="max-h-96 overflow-y-auto border rounded-lg p-6 bg-muted/30">
+          <div 
+            className="max-h-96 overflow-y-auto border rounded-lg p-6 bg-muted/30"
+            onScroll={handleScroll}
+          >
             <div 
-              className="prose prose-sm max-w-none"
+              className="text-foreground [&_h1]:text-foreground [&_h1]:text-xl [&_h1]:font-bold [&_h1]:mb-4 [&_h1]:mt-6 [&_h1]:first:mt-0
+                         [&_h2]:text-foreground [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:mb-3 [&_h2]:mt-5
+                         [&_h3]:text-foreground [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mb-2 [&_h3]:mt-4
+                         [&_p]:text-foreground [&_p]:mb-3 [&_p]:leading-relaxed
+                         [&_ul]:text-foreground [&_ul]:mb-3 [&_ul]:pl-6 [&_ul]:space-y-1
+                         [&_ol]:text-foreground [&_ol]:mb-3 [&_ol]:pl-6 [&_ol]:space-y-1
+                         [&_li]:text-foreground [&_li]:leading-relaxed
+                         [&_strong]:text-foreground [&_strong]:font-semibold
+                         [&_em]:text-foreground [&_em]:italic
+                         [&_a]:text-primary [&_a]:underline [&_a:hover]:text-primary/80"
               dangerouslySetInnerHTML={{ 
                 __html: formatMarkdown(termsContent) 
               }}
@@ -176,23 +239,39 @@ export default function TermsOnboarding() {
           </div>
           
           {/* Acceptance Checkbox */}
-          <div className="flex items-start space-x-3 p-4 border rounded-lg bg-muted/20">
-            <Checkbox
-              id="terms-acceptance"
-              checked={termsAccepted}
-              onCheckedChange={handleTermsChange}
-              className="mt-1"
-            />
+          <div className={`flex items-start space-x-3 p-4 border rounded-lg ${hasScrolledToBottom ? 'bg-muted/20' : 'bg-muted/10'}`}>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <Checkbox
+                      id="terms-acceptance"
+                      checked={termsAccepted}
+                      onCheckedChange={handleTermsChange}
+                      disabled={!hasScrolledToBottom}
+                      className="mt-1"
+                    />
+                  </div>
+                </TooltipTrigger>
+                {!hasScrolledToBottom && (
+                  <TooltipContent>
+                    <p>Veuillez d'abord faire défiler et lire entièrement les conditions générales</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
             <div className="space-y-2">
               <Label 
                 htmlFor="terms-acceptance" 
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                className={`text-sm font-medium leading-none cursor-pointer ${!hasScrolledToBottom ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 J'ai lu et j'accepte les conditions générales d'utilisation de Wild Energy
               </Label>
               <p className="text-xs text-muted-foreground">
-                En cochant cette case, vous confirmez avoir lu, compris et accepté l'intégralité 
-                des conditions générales d'utilisation ci-dessus.
+                {hasScrolledToBottom 
+                  ? "En cochant cette case, vous confirmez avoir lu, compris et accepté l'intégralité des conditions générales d'utilisation ci-dessus."
+                  : "Veuillez d'abord lire entièrement les conditions générales ci-dessus pour pouvoir les accepter."
+                }
               </p>
             </div>
           </div>
@@ -206,20 +285,38 @@ export default function TermsOnboarding() {
             >
               Retour
             </Button>
-            <Button
-              onClick={handleAcceptTerms}
-              disabled={!termsAccepted || isSubmitting}
-              className="min-w-[200px]"
-            >
-              {isSubmitting ? (
-                "Finalisation..."
-              ) : (
-                <>
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  Accepter et Finaliser
-                </>
-              )}
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <Button
+                      onClick={handleAcceptTerms}
+                      disabled={!termsAccepted || !hasScrolledToBottom || isSubmitting}
+                      className="min-w-[200px]"
+                    >
+                      {isSubmitting ? (
+                        "Finalisation..."
+                      ) : (
+                        <>
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                          Accepter et Finaliser
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </TooltipTrigger>
+                {(!termsAccepted || !hasScrolledToBottom) && !isSubmitting && (
+                  <TooltipContent>
+                    <p>
+                      {!hasScrolledToBottom 
+                        ? "Veuillez d'abord lire entièrement les conditions générales"
+                        : "Veuillez accepter les conditions générales"
+                      }
+                    </p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
           </div>
           
           {/* Warning Message */}
