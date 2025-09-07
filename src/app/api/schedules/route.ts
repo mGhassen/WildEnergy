@@ -94,29 +94,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
     const scheduleData = await req.json();
-    
-    // Generate a unique code for the schedule
-    const { data: lastSchedule } = await supabaseServer()
-      .from('schedules')
-      .select('id')
-      .order('id', { ascending: false })
-      .limit(1)
-      .single();
-    
-    const nextId = (lastSchedule?.id || 0) + 1;
-    const code = `SCH-${nextId.toString().padStart(4, '0')}`;
+    console.log('Received schedule data:', scheduleData);
     
     const { data: schedule, error } = await supabaseServer()
       .from('schedules')
-      .insert({ ...scheduleData, code })
+      .insert(scheduleData)
       .select('*')
       .single();
     if (error) {
-      return NextResponse.json({ error: 'Failed to create schedule' }, { status: 500 });
+      console.error('Schedule creation error:', error);
+      return NextResponse.json({ error: 'Failed to create schedule', details: error.message }, { status: 500 });
     }
     return NextResponse.json({ success: true, schedule });
-  } catch {
-    return NextResponse.json({ error: 'Failed to create schedule' }, { status: 500 });
+  } catch (error) {
+    console.error('Schedule creation exception:', error);
+    return NextResponse.json({ error: 'Failed to create schedule', details: String(error) }, { status: 500 });
   }
 }
 
