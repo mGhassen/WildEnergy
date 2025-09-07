@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -29,14 +29,43 @@ export default function PersonalInfoOnboarding() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [formData, setFormData] = useState<PersonalInfoForm>({
-    firstName: user?.firstName || "",
-    lastName: user?.lastName || "",
+    firstName: "",
+    lastName: "",
     age: 0,
     profession: "",
     address: "",
-    phone: user?.phone || "",
-    email: user?.email || "",
+    phone: "",
+    email: "",
   });
+
+  // Load form data from localStorage on component mount
+  useEffect(() => {
+    const savedData = localStorage.getItem('onboarding-personal-info');
+    if (savedData) {
+      try {
+        const parsedData = JSON.parse(savedData);
+        setFormData(parsedData);
+      } catch (error) {
+        console.error('Error parsing saved form data:', error);
+      }
+    } else if (user) {
+      // If no saved data, prefill with user data
+      setFormData({
+        firstName: user.firstName || "",
+        lastName: user.lastName || "",
+        age: user.age || 0,
+        profession: user.profession || "",
+        address: user.address || "",
+        phone: user.phone || "",
+        email: user.email || "",
+      });
+    }
+  }, [user]);
+
+  // Save form data to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('onboarding-personal-info', JSON.stringify(formData));
+  }, [formData]);
 
   const handleInputChange = (field: keyof PersonalInfoForm, value: string | number) => {
     setFormData(prev => ({
@@ -123,6 +152,9 @@ export default function PersonalInfoOnboarding() {
       const response = await apiRequest("POST", "/api/member/onboarding/personal-info", formData);
       
       if (response.success) {
+        // Clear saved form data from localStorage
+        localStorage.removeItem('onboarding-personal-info');
+        
         toast({
           title: "Succès",
           description: "Informations personnelles sauvegardées",

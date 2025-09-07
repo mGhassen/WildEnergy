@@ -20,6 +20,14 @@ export default function TermsOnboarding() {
   const [termsContent, setTermsContent] = useState("");
   const [isLoadingTerms, setIsLoadingTerms] = useState(true);
 
+  // Load terms acceptance state from localStorage on component mount
+  useEffect(() => {
+    const savedTermsAccepted = localStorage.getItem('onboarding-terms-accepted');
+    if (savedTermsAccepted === 'true') {
+      setTermsAccepted(true);
+    }
+  }, []);
+
   useEffect(() => {
     // Load terms content from markdown file
     const loadTerms = async () => {
@@ -54,6 +62,16 @@ export default function TermsOnboarding() {
     }
   };
 
+  const handleTermsChange = (checked: boolean) => {
+    setTermsAccepted(checked);
+    // Save terms acceptance state to localStorage
+    if (checked) {
+      localStorage.setItem('onboarding-terms-accepted', 'true');
+    } else {
+      localStorage.removeItem('onboarding-terms-accepted');
+    }
+  };
+
   const handleAcceptTerms = async () => {
     if (!termsAccepted) {
       toast({
@@ -70,6 +88,10 @@ export default function TermsOnboarding() {
       const response = await apiRequest("POST", "/api/member/onboarding/accept-terms", { termsAccepted: true });
 
       if (response.success) {
+        // Clear all onboarding data from localStorage
+        localStorage.removeItem('onboarding-personal-info');
+        localStorage.removeItem('onboarding-terms-accepted');
+        
         toast({
           title: "Félicitations !",
           description: "Votre inscription est maintenant complète. Bienvenue chez Wild Energy !",
@@ -158,7 +180,7 @@ export default function TermsOnboarding() {
             <Checkbox
               id="terms-acceptance"
               checked={termsAccepted}
-              onCheckedChange={(checked) => setTermsAccepted(checked as boolean)}
+              onCheckedChange={handleTermsChange}
               className="mt-1"
             />
             <div className="space-y-2">
