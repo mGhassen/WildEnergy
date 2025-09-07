@@ -31,13 +31,13 @@ VALUES
   ('Kickboxing', 'High-energy martial arts workout.', 8, 50, 18, 'Gloves', true, NOW(), NOW());
 
 -- Plans
-INSERT INTO plans (name, description, price, duration_days, max_sessions, is_active)
+INSERT INTO plans (name, description, price, duration_days, is_active)
 VALUES
-  ('Basic Monthly', 'Basic monthly plan with limited sessions', 49.99, 30, 8, true),
-  ('Premium Monthly', 'Premium monthly plan with more variety', 79.99, 30, 12, true),
-  ('Pole Dance Special', 'Specialized pole dance plan', 89.99, 30, 10, true),
-  ('Flexibility Focus', 'Plan focused on stretching and mobility', 59.99, 30, 6, true),
-  ('Mixed Fitness', 'Balanced fitness plan', 99.99, 30, 15, true);
+  ('Basic Monthly', 'Basic monthly plan with limited sessions', 49.99, 30, true),
+  ('Premium Monthly', 'Premium monthly plan with more variety', 79.99, 30, true),
+  ('Pole Dance Special', 'Specialized pole dance plan', 89.99, 30, true),
+  ('Flexibility Focus', 'Plan focused on stretching and mobility', 59.99, 30, true),
+  ('Mixed Fitness', 'Balanced fitness plan', 99.99, 30, true);
 
 
 -- Plan Groups (defining which groups and how many sessions each plan includes)

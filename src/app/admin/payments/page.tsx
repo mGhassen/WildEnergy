@@ -97,7 +97,7 @@ export default function AdminPayments() {
   const mappedPlans = Array.isArray(plans)
     ? plans.map((plan: any) => ({
         ...plan,
-        sessionsIncluded: plan.max_sessions ?? plan.sessionsIncluded ?? 0,
+        sessionsIncluded: plan.plan_groups?.reduce((sum: number, group: any) => sum + (group.session_count || 0), 0) ?? plan.sessionsIncluded ?? 0,
         duration: plan.duration_days ?? plan.duration ?? 0,
       }))
     : [];

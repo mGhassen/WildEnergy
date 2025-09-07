@@ -63,7 +63,7 @@ export const insertPlanSchema = z.object({
   description: z.string().optional(),
   price: z.number().min(0, 'Price must be a positive number'),
   duration_days: z.number().min(1, 'Duration must be at least 1 day'),
-  max_sessions: z.number().min(1, 'Must allow at least 1 session'),
+  // max_sessions removed - now calculated from plan_groups
   is_active: z.boolean(),
   planGroups: z.array(z.object({
     groupId: z.number().min(1, 'Group is required'),
