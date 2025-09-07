@@ -18,10 +18,24 @@ export async function GET(req: NextRequest) {
       .select('is_admin')
       .eq('auth_user_id', adminUser.id)
       .single();
-    // Fetch all subscriptions
+    // Fetch all subscriptions with group sessions
     const { data: subscriptions, error } = await supabaseServer()
       .from('subscriptions')
-      .select('*')
+      .select(`
+        *,
+        subscription_group_sessions(
+          id,
+          group_id,
+          sessions_remaining,
+          total_sessions,
+          groups(
+            id,
+            name,
+            description,
+            color
+          )
+        )
+      `)
       .order('created_at', { ascending: false });
     if (error) {
       return NextResponse.json({ error: 'Failed to fetch subscriptions' }, { status: 500 });
