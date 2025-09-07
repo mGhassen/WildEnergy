@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/date";
+import { formatCurrency, CURRENCY_SYMBOL } from "@/lib/config";
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/hooks/use-auth";
 import React, { useState, useEffect } from "react";
@@ -187,10 +188,10 @@ export default function MemberSubscriptions() {
         </div>
         <Card className="flex items-center gap-3 px-4 py-2 bg-gradient-to-r from-green-100 to-green-50 border-green-200 shadow-none">
           <span className="inline-flex items-center gap-1 text-green-700 font-semibold text-lg">
-            {credit} TND
+            {formatCurrency(credit)}
           </span>
           <Badge variant={credit > 0 ? "default" : "secondary"} className="ml-2 px-2 py-1 rounded-full text-xs">
-            {credit > 0 ? "Credit Available" : "No Credit"}
+            {credit > 0 ? "Crédit disponible" : "Aucun crédit"}
           </Badge>
         </Card>
       </div>
@@ -324,7 +325,7 @@ export default function MemberSubscriptions() {
                           <div className="flex justify-between text-sm">
                             <span className="font-medium">Payment Progress</span>
                             <span className="text-muted-foreground">
-                              {totalPaid.toFixed(2)} TND / {planPrice.toFixed(2)} TND
+                              {formatCurrency(totalPaid)} / {formatCurrency(planPrice)}
                             </span>
                           </div>
                           <div className="w-full bg-muted rounded-full h-2">
@@ -344,20 +345,20 @@ export default function MemberSubscriptions() {
                         {/* Stats Grid */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                           <div className="text-center p-3 bg-muted/50 rounded-lg">
-                            <div className="text-2xl font-bold text-green-600">{totalPaid.toFixed(2)}</div>
-                            <div className="text-xs text-muted-foreground">Paid (TND)</div>
+                            <div className="text-2xl font-bold text-green-600">{formatCurrency(totalPaid)}</div>
+                            <div className="text-xs text-muted-foreground">Payé</div>
                           </div>
                           <div className="text-center p-3 bg-muted/50 rounded-lg">
-                            <div className="text-2xl font-bold text-orange-600">{remainingAmount.toFixed(2)}</div>
-                            <div className="text-xs text-muted-foreground">Remaining (TND)</div>
+                            <div className="text-2xl font-bold text-orange-600">{formatCurrency(remainingAmount)}</div>
+                            <div className="text-xs text-muted-foreground">Restant</div>
                           </div>
                           <div className="text-center p-3 bg-muted/50 rounded-lg">
                             <div className="text-2xl font-bold text-blue-600">{subscriptionPayments.length}</div>
-                            <div className="text-xs text-muted-foreground">Payments</div>
+                            <div className="text-xs text-muted-foreground">Paiements</div>
                           </div>
                           <div className="text-center p-3 bg-muted/50 rounded-lg">
                             <div className="text-2xl font-bold text-purple-600">{Math.round(progressPercentage)}%</div>
-                            <div className="text-xs text-muted-foreground">Complete</div>
+                            <div className="text-xs text-muted-foreground">Complet</div>
                           </div>
                         </div>
 
@@ -403,7 +404,7 @@ export default function MemberSubscriptions() {
                       return (
                         <tr key={payment.id} className="border-b">
                           <td className="px-4 py-2">{formatDate(payment.payment_date)}</td>
-                          <td className="px-4 py-2">{payment.amount} TND</td>
+                          <td className="px-4 py-2">{formatCurrency(payment.amount)}</td>
                           <td className="px-4 py-2">
                             <Badge variant={payment.status === 'paid' ? 'default' : 'secondary'}>
                               {payment.status === 'paid' ? 'Paid' : payment.status}

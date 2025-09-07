@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Search, DollarSign, Filter, Calendar, TrendingUp, CreditCard, Edit, Trash2 } from "lucide-react";
 import { getInitials } from "@/lib/auth";
 import { formatDate } from "@/lib/date";
+import { formatCurrency } from "@/lib/config";
 import { apiRequest } from "@/lib/queryClient";
 
 type Payment = {
@@ -248,10 +249,7 @@ export default function AdminPayments() {
   }, [filteredPayments, mappedMembers]);
 
   const formatPrice = (price: string | number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(Number(price));
+    return formatCurrency(Number(price));
   };
 
   const getPaymentStatusColor = (status: string) => {
