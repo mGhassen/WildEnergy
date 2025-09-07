@@ -9,8 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { User, Mail, Phone, MapPin, Briefcase, Calendar, LogOut } from "lucide-react";
+import { User, Mail, Phone, MapPin, Briefcase, Calendar, LogOut, Sun, Moon } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { useTheme } from "@/components/theme-provider";
 
 interface PersonalInfoForm {
   firstName: string;
@@ -23,9 +24,10 @@ interface PersonalInfoForm {
 }
 
 export default function PersonalInfoOnboarding() {
-  const { user, logout } = useAuth();
+  const { user, logout, isLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
+  const { theme, toggleTheme } = useTheme();
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [formData, setFormData] = useState<PersonalInfoForm>({
@@ -38,19 +40,11 @@ export default function PersonalInfoOnboarding() {
     email: "",
   });
 
-  // Load form data from localStorage on component mount
+  // Initialize form with user data from database
   useEffect(() => {
-    const savedData = localStorage.getItem('onboarding-personal-info');
-    if (savedData) {
-      try {
-        const parsedData = JSON.parse(savedData);
-        setFormData(parsedData);
-      } catch (error) {
-        console.error('Error parsing saved form data:', error);
-      }
-    } else if (user) {
-      // If no saved data, prefill with user data
-      setFormData({
+    console.log('User data in personal info:', user);
+    if (user) {
+      const baseData = {
         firstName: user.firstName || "",
         lastName: user.lastName || "",
         age: user.age || 0,
@@ -58,14 +52,12 @@ export default function PersonalInfoOnboarding() {
         address: user.address || "",
         phone: user.phone || "",
         email: user.email || "",
-      });
+      };
+
+      console.log('Setting form data with:', baseData);
+      setFormData(baseData);
     }
   }, [user]);
-
-  // Save form data to localStorage whenever it changes
-  useEffect(() => {
-    localStorage.setItem('onboarding-personal-info', JSON.stringify(formData));
-  }, [formData]);
 
   const handleInputChange = (field: keyof PersonalInfoForm, value: string | number) => {
     setFormData(prev => ({
@@ -152,9 +144,6 @@ export default function PersonalInfoOnboarding() {
       const response = await apiRequest("POST", "/api/member/onboarding/personal-info", formData);
       
       if (response.success) {
-        // Clear saved form data from localStorage
-        localStorage.removeItem('onboarding-personal-info');
-        
         toast({
           title: "Succès",
           description: "Informations personnelles sauvegardées",
@@ -183,10 +172,47 @@ export default function PersonalInfoOnboarding() {
     }
   };
 
+  // Show loading while user data is being fetched
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Chargement de vos informations...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If no user after loading, show error
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center p-4">
+        <div className="text-center">
+          <p className="text-muted-foreground">Erreur: Impossible de charger vos informations</p>
+          <Button onClick={() => window.location.reload()} className="mt-4">
+            Recharger la page
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center p-4">
-      {/* Logout Button */}
-      <div className="absolute top-4 right-4">
+      {/* Top Controls */}
+      <div className="absolute top-4 right-4 flex items-center gap-2">
+        {/* Theme Toggle */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={toggleTheme}
+          className="flex items-center gap-2"
+        >
+          {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+        </Button>
+        
+        {/* Logout Button */}
         <Button
           variant="outline"
           size="sm"
