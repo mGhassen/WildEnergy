@@ -206,7 +206,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Course is full' }, { status: 400 });
     }
 
-    // Get user's active subscription with sessions remaining
+    // Check if user can register for this course (group session check)
+    const { data: canRegister, error: canRegisterError } = await supabaseServer()
+      .rpc('can_register_for_course', {
+        p_user_id: userProfile.id,
+        p_course_id: courseId
+      });
+
+    if (canRegisterError) {
+      console.error('Error checking group session availability:', canRegisterError);
+      return NextResponse.json({ error: 'Failed to check session availability' }, { status: 500 });
+    }
+
+    if (!canRegister.can_register) {
+      return NextResponse.json({ 
+        error: canRegister.error || 'Cannot register for this course',
+        type: 'GROUP_SESSION_UNAVAILABLE',
+        groupId: canRegister.group_id,
+        sessionsRemaining: canRegister.sessions_remaining
+      }, { status: 400 });
+    }
+
+    // Get user's active subscription for backward compatibility
     const { data: activeSubscription, error: subscriptionError } = await supabaseServer()
       .from('subscriptions')
       .select('id, sessions_remaining')

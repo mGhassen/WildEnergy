@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
           .from('payments')
           .select('amount')
           .eq('subscription_id', payment.subscription_id)
-          .eq('payment_status', 'completed');
+          .eq('payment_status', 'paid');
           
         if (paymentsError) {
           console.error('Error fetching payments:', paymentsError);

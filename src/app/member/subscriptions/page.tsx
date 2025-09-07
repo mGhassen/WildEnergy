@@ -51,6 +51,18 @@ interface Subscription {
   end_date: string;
   sessions_remaining: number;
   status: string;
+  subscription_group_sessions?: {
+    id: number;
+    group_id: number;
+    sessions_remaining: number;
+    total_sessions: number;
+    groups: {
+      id: number;
+      name: string;
+      description: string;
+      color: string;
+    };
+  }[];
 }
 
 interface Profile {
@@ -62,7 +74,7 @@ interface Profile {
 export default function MemberSubscriptions() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [mainTab, setMainTab] = useState<'active' | 'history'>('active');
-  const [subTabs, setSubTabs] = useState<{ [subId: number]: 'details' | 'groups' | 'payments' }>({});
+  const [subTabs, setSubTabs] = useState<{ [subId: number]: 'details' | 'payments' }>({});
 
   // Fetch user credit
   const { data: profile, isLoading: loadingProfile, error: errorProfile } = useQuery<Profile>({
@@ -237,19 +249,13 @@ export default function MemberSubscriptions() {
                   <CardDescription>Active membership details</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {/* Mini-tabs for details/groups/payments */}
+                  {/* Mini-tabs for details/payments */}
                   <div className="flex gap-2 mb-4">
                     <button
                       className={`rounded-full px-4 py-1 text-sm font-medium flex items-center gap-1 transition-all ${subTab === 'details' ? 'bg-primary text-primary-foreground shadow' : 'bg-muted text-muted-foreground hover:bg-muted/70'}`}
                       onClick={() => setSubTabs(t => ({ ...t, [sub.id]: 'details' }))}
                     >
                       <Info className="w-4 h-4" /> Details
-                    </button>
-                    <button
-                      className={`rounded-full px-4 py-1 text-sm font-medium flex items-center gap-1 transition-all ${subTab === 'groups' ? 'bg-primary text-primary-foreground shadow' : 'bg-muted text-muted-foreground hover:bg-muted/70'}`}
-                      onClick={() => setSubTabs(t => ({ ...t, [sub.id]: 'groups' }))}
-                    >
-                      <Users className="w-4 h-4" /> Groups
                     </button>
                     <button
                       className={`rounded-full px-4 py-1 text-sm font-medium flex items-center gap-1 transition-all ${subTab === 'payments' ? 'bg-primary text-primary-foreground shadow' : 'bg-muted text-muted-foreground hover:bg-muted/70'}`}
@@ -259,123 +265,197 @@ export default function MemberSubscriptions() {
                     </button>
                   </div>
                   {subTab === 'details' ? (
-                    <>
+                    <div className="space-y-6">
+                      {/* Overview Cards */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="text-center p-4 bg-primary/5 rounded-lg border border-primary/20">
+                          <p className="text-sm text-muted-foreground mb-1">Sessions Remaining</p>
+                          <p className="text-3xl font-bold text-primary">{sub.sessions_remaining}</p>
+                          <p className="text-xs text-muted-foreground mt-1">of {totalSessions} total</p>
+                        </div>
+                        <div className="text-center p-4 bg-muted/50 rounded-lg border border-border/50">
+                          <p className="text-sm text-muted-foreground mb-1">Plan Price</p>
+                          <p className="text-2xl font-bold text-foreground">{plan.price ?? 0} TND</p>
+                          <p className="text-xs text-muted-foreground mt-1">{plan.name}</p>
+                        </div>
+                        <div className="text-center p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800/30">
+                          <p className="text-sm text-muted-foreground mb-1">Status</p>
+                          <Badge variant="default" className="text-sm">Active</Badge>
+                          <p className="text-xs text-muted-foreground mt-1">Until {formatDate(sub.end_date)}</p>
+                        </div>
+                      </div>
+
+                      {/* Subscription Details */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="text-center p-3 bg-primary/5 rounded-lg">
-                          <p className="text-sm text-muted-foreground">Sessions Remaining</p>
-                          <p className="text-2xl font-bold text-primary">{sub.sessions_remaining}</p>
-                          {bonusSessions > 0 && (
-                            <p className="text-xs text-green-600 font-medium mt-1">
-                              +{bonusSessions} bonus
-                            </p>
-                          )}
-                        </div>
-                        <div className="text-center p-3 bg-muted/50 rounded-lg">
-                          <p className="text-sm font-medium text-muted-foreground">Total Sessions</p>
-                          <p className="text-2xl font-bold text-foreground">{totalSessions}</p>
-                          {bonusSessions > 0 && (
-                            <p className="text-xs text-green-600 font-medium">
-                              +{bonusSessions} bonus available
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
+                        <div className="p-4 bg-muted/30 rounded-lg">
+                          <h4 className="font-medium text-foreground mb-3 flex items-center gap-2">
+                            <Info className="w-4 h-4" />
+                            Subscription Details
+                          </h4>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
                           <span className="text-muted-foreground">Start Date:</span>
-                          <p className="font-medium">{formatDate(sub.start_date)}</p>
+                              <span className="font-medium">{formatDate(sub.start_date)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">End Date:</span>
+                              <span className="font-medium">{formatDate(sub.end_date)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Duration:</span>
+                              <span className="font-medium">
+                                {Math.ceil((new Date(sub.end_date).getTime() - new Date(sub.start_date).getTime()) / (1000 * 60 * 60 * 24))} days
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <span className="text-muted-foreground">End Date:</span>
-                          <p className="font-medium">{formatDate(sub.end_date)}</p>
+
+                        <div className="p-4 bg-muted/30 rounded-lg">
+                          <h4 className="font-medium text-foreground mb-3 flex items-center gap-2">
+                            <Users className="w-4 h-4" />
+                            Plan Information
+                          </h4>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Plan Name:</span>
+                              <span className="font-medium">{plan.name}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Total Sessions:</span>
+                              <span className="font-medium">{totalSessions}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Sessions Used:</span>
+                              <span className="font-medium text-orange-600">{totalSessions - sub.sessions_remaining}</span>
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    </>
-                  ) : subTab === 'groups' ? (
-                    <div className="space-y-4">
-                      {(() => {
-                        const planGroups = plan.plan_groups || [];
-                        if (planGroups.length === 0) {
-                          return (
-                            <div className="text-center py-8 border-2 border-dashed border-muted/50 rounded-lg bg-muted/10">
-                              <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-muted/50 flex items-center justify-center">
-                                <Users className="w-6 h-6 text-muted-foreground" />
+
+                      {/* Groups and Sessions */}
+                      <div className="space-y-4">
+                        <h4 className="font-medium text-foreground flex items-center gap-2">
+                          <Users className="w-4 h-4" />
+                          Groups & Sessions
+                        </h4>
+                        
+                        {(() => {
+                          const planGroups = plan.plan_groups || [];
+                          const groupSessions = sub.subscription_group_sessions || [];
+                          
+                          if (planGroups.length === 0 && groupSessions.length === 0) {
+                            return (
+                              <div className="text-center py-8 border-2 border-dashed border-muted/50 rounded-lg bg-muted/10">
+                                <Users className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
+                                <h3 className="text-lg font-medium text-muted-foreground mb-2">
+                                  No Group Sessions
+                                </h3>
+                                <p className="text-sm text-muted-foreground/70">
+                                  This plan doesn't include any specific group sessions
+                                </p>
                               </div>
-                              <p className="text-sm font-medium text-muted-foreground mb-1">
-                                No groups included
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                This plan doesn't include any specific groups
-                              </p>
+                            );
+                          }
+
+                          // Combine plan groups with actual session data
+                          const combinedGroups = planGroups.map(planGroup => {
+                            const sessionData = groupSessions.find(gs => gs.group_id === planGroup.group_id);
+                            return {
+                              ...planGroup,
+                              sessions_remaining: sessionData?.sessions_remaining || 0,
+                              total_sessions: sessionData?.total_sessions || planGroup.session_count,
+                              groups: planGroup.groups
+                            };
+                          });
+
+                          return (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {combinedGroups.map((group: any) => (
+                                <div key={group.id} className="p-4 bg-muted/20 rounded-lg border border-border/50">
+                                  <div className="flex items-center justify-between mb-3">
+                                    <div className="flex items-center gap-3">
+                                      <div 
+                                        className="w-4 h-4 rounded-full shadow-sm border border-white/20" 
+                                        style={{ backgroundColor: group.groups?.color || '#6b7280' }}
+                                      />
+                                      <div>
+                                        <h5 className="font-medium text-foreground">
+                                          {group.groups?.name || 'Unknown Group'}
+                                        </h5>
+                                        {group.groups?.description && (
+                                          <p className="text-xs text-muted-foreground">
+                                            {group.groups.description}
+                                          </p>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="text-right">
+                                      <div className="text-xl font-bold text-primary">
+                                        {group.sessions_remaining}
+                                      </div>
+                                      <div className="text-xs text-muted-foreground">
+                                        of {group.total_sessions}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Progress bar */}
+                                  <div className="w-full bg-muted/30 rounded-full h-2 mb-2">
+                                    <div 
+                                      className="bg-primary h-2 rounded-full transition-all duration-300"
+                                      style={{ 
+                                        width: `${Math.max(0, (group.sessions_remaining / group.total_sessions) * 100)}%` 
+                                      }}
+                                    />
+                                  </div>
+                                  
+                                  {/* Session info */}
+                                  <div className="flex items-center justify-between text-xs">
+                                    <span className="text-muted-foreground">
+                                      {group.sessions_remaining === 0 ? 'No sessions remaining' : 
+                                       group.sessions_remaining === 1 ? '1 session remaining' : 
+                                       `${group.sessions_remaining} sessions remaining`}
+                                    </span>
+                                    <div className="flex items-center gap-2">
+                                      {group.is_free && (
+                                        <Badge variant="secondary" className="text-xs">
+                                          Free
+                                        </Badge>
+                                      )}
+                                      <Badge 
+                                        variant={group.sessions_remaining === 0 ? 'destructive' : 
+                                               group.sessions_remaining <= 2 ? 'secondary' : 'default'}
+                                        className="text-xs"
+                                      >
+                                        {group.sessions_remaining === 0 ? 'Exhausted' : 
+                                         group.sessions_remaining <= 2 ? 'Low' : 'Available'}
+                                      </Badge>
+                                    </div>
+                                  </div>
+
+                                  {/* Categories */}
+                                  {group.groups?.categories && group.groups.categories.length > 0 && (
+                                    <div className="mt-3 pt-3 border-t border-border/30">
+                                      <p className="text-xs text-muted-foreground mb-2">Categories:</p>
+                                      <div className="flex flex-wrap gap-1">
+                                        {group.groups.categories.map((category: any) => (
+                                          <div key={category.id} className="flex items-center gap-1 px-2 py-1 bg-muted/50 rounded text-xs">
+                                            <div 
+                                              className="w-2 h-2 rounded-full" 
+                                              style={{ backgroundColor: category.color }}
+                                            />
+                                            <span className="text-foreground">{category.name}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
                             </div>
                           );
-                        }
-                        return (
-                          <div className="space-y-3">
-                            {planGroups.map((planGroup: any) => (
-                              <div key={planGroup.id} className="p-4 bg-muted/20 rounded-lg border border-border/50">
-                                <div className="flex items-center justify-between mb-3">
-                                  <div className="flex items-center gap-3">
-                                    <div 
-                                      className="w-4 h-4 rounded-full shadow-sm border border-white/20" 
-                                      style={{ backgroundColor: planGroup.groups?.color || '#6B7280' }}
-                                    />
-                                    <div>
-                                      <h4 className="font-semibold text-foreground">
-                                        {planGroup.groups?.name}
-                                      </h4>
-                                      <p className="text-sm text-muted-foreground">
-                                        {planGroup.groups?.description}
-                                      </p>
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-sm font-medium text-foreground">
-                                      {planGroup.session_count} session{planGroup.session_count > 1 ? 's' : ''}
-                                    </span>
-                                    {planGroup.is_free && (
-                                      <div className="flex items-center gap-1">
-                                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                                        <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-1 rounded-full font-semibold border border-green-200 dark:border-green-800">
-                                          FREE
-                                        </span>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                                
-                                {/* Categories within this group */}
-                                {planGroup.groups?.categories && planGroup.groups.categories.length > 0 && (
-                                  <div className="mt-3 pt-3 border-t border-border/30">
-                                    <div className="flex items-center gap-2 mb-2">
-                                      <div className="w-1 h-3 bg-muted-foreground/50 rounded-full"></div>
-                                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                        Categories
-                                      </span>
-                                    </div>
-                                    <div className="flex flex-wrap gap-2">
-                                      {planGroup.groups.categories.map((category: any) => (
-                                        <div 
-                                          key={category.id}
-                                          className="flex items-center gap-1.5 px-2 py-1 bg-background border border-border/50 rounded-md text-xs"
-                                        >
-                                          <div 
-                                            className="w-2 h-2 rounded-full" 
-                                            style={{ backgroundColor: category.color }}
-                                          />
-                                          <span className="text-foreground font-medium">
-                                            {category.name}
-                                          </span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        );
-                      })()}
+                        })()}
+                      </div>
                     </div>
                   ) : (
                     <div className="space-y-2">
@@ -434,19 +514,13 @@ export default function MemberSubscriptions() {
                     <CardDescription>Inactive membership details</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {/* Mini-tabs for details/groups/payments */}
+                    {/* Mini-tabs for details/payments */}
                     <div className="flex gap-2 mb-4">
                       <button
                         className={`rounded-full px-4 py-1 text-sm font-medium flex items-center gap-1 transition-all ${subTab === 'details' ? 'bg-primary text-primary-foreground shadow' : 'bg-muted text-muted-foreground hover:bg-muted/70'}`}
                         onClick={() => setSubTabs(t => ({ ...t, [sub.id]: 'details' }))}
                       >
                         <Info className="w-4 h-4" /> Details
-                      </button>
-                      <button
-                        className={`rounded-full px-4 py-1 text-sm font-medium flex items-center gap-1 transition-all ${subTab === 'groups' ? 'bg-primary text-primary-foreground shadow' : 'bg-muted text-muted-foreground hover:bg-muted/70'}`}
-                        onClick={() => setSubTabs(t => ({ ...t, [sub.id]: 'groups' }))}
-                      >
-                        <Users className="w-4 h-4" /> Groups
                       </button>
                       <button
                         className={`rounded-full px-4 py-1 text-sm font-medium flex items-center gap-1 transition-all ${subTab === 'payments' ? 'bg-primary text-primary-foreground shadow' : 'bg-muted text-muted-foreground hover:bg-muted/70'}`}
@@ -456,109 +530,151 @@ export default function MemberSubscriptions() {
                       </button>
                     </div>
                     {subTab === 'details' ? (
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <span className="text-muted-foreground">Start Date:</span>
-                          <p className="font-medium">{formatDate(sub.start_date)}</p>
+                      <div className="space-y-6">
+                        {/* Overview Cards */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="text-center p-4 bg-muted/30 rounded-lg border border-border/50">
+                            <p className="text-sm text-muted-foreground mb-1">Plan Price</p>
+                            <p className="text-2xl font-bold text-foreground">{plan.price ?? 0} TND</p>
+                            <p className="text-xs text-muted-foreground mt-1">{plan.name}</p>
+                          </div>
+                          <div className="text-center p-4 bg-muted/30 rounded-lg border border-border/50">
+                            <p className="text-sm text-muted-foreground mb-1">Status</p>
+                            <Badge variant="secondary" className="text-sm">{sub.status}</Badge>
+                            <p className="text-xs text-muted-foreground mt-1">Ended {formatDate(sub.end_date)}</p>
+                          </div>
+                          <div className="text-center p-4 bg-muted/30 rounded-lg border border-border/50">
+                            <p className="text-sm text-muted-foreground mb-1">Duration</p>
+                            <p className="text-2xl font-bold text-foreground">
+                              {Math.ceil((new Date(sub.end_date).getTime() - new Date(sub.start_date).getTime()) / (1000 * 60 * 60 * 24))}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">days</p>
+                          </div>
                         </div>
-                        <div>
+
+                        {/* Subscription Details */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="p-4 bg-muted/30 rounded-lg">
+                            <h4 className="font-medium text-foreground mb-3 flex items-center gap-2">
+                              <Info className="w-4 h-4" />
+                              Subscription Details
+                            </h4>
+                            <div className="space-y-2 text-sm">
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Start Date:</span>
+                                <span className="font-medium">{formatDate(sub.start_date)}</span>
+                              </div>
+                              <div className="flex justify-between">
                           <span className="text-muted-foreground">End Date:</span>
-                          <p className="font-medium">{formatDate(sub.end_date)}</p>
+                                <span className="font-medium">{formatDate(sub.end_date)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Total Sessions:</span>
+                                <span className="font-medium">{plan.max_sessions || 0}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="p-4 bg-muted/30 rounded-lg">
+                            <h4 className="font-medium text-foreground mb-3 flex items-center gap-2">
+                              <Users className="w-4 h-4" />
+                              Plan Information
+                            </h4>
+                            <div className="space-y-2 text-sm">
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Plan Name:</span>
+                                <span className="font-medium">{plan.name}</span>
                         </div>
-                        <div>
+                              <div className="flex justify-between">
                           <span className="text-muted-foreground">Price:</span>
-                          <p className="font-medium">{plan.price ?? 0} TND</p>
+                                <span className="font-medium">{plan.price ?? 0} TND</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Status:</span>
+                                <Badge variant="secondary">{sub.status}</Badge>
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <span className="text-muted-foreground">Status:</span>
-                          <Badge variant="secondary" className="ml-1">{sub.status}</Badge>
-                        </div>
-                      </div>
-                    ) : subTab === 'groups' ? (
-                      <div className="space-y-4">
-                        {(() => {
-                          const planGroups = plan.plan_groups || [];
-                          if (planGroups.length === 0) {
-                            return (
-                              <div className="text-center py-8 border-2 border-dashed border-muted/50 rounded-lg bg-muted/10">
-                                <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-muted/50 flex items-center justify-center">
-                                  <Users className="w-6 h-6 text-muted-foreground" />
+
+                        {/* Groups Information */}
+                        <div className="space-y-4">
+                          <h4 className="font-medium text-foreground flex items-center gap-2">
+                            <Users className="w-4 h-4" />
+                            Groups & Sessions
+                          </h4>
+                          
+                          {(() => {
+                            const planGroups = plan.plan_groups || [];
+                            
+                            if (planGroups.length === 0) {
+                              return (
+                                <div className="text-center py-8 border-2 border-dashed border-muted/50 rounded-lg bg-muted/10">
+                                  <Users className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
+                                  <h3 className="text-lg font-medium text-muted-foreground mb-2">
+                                    No Group Sessions
+                                  </h3>
+                                  <p className="text-sm text-muted-foreground/70">
+                                    This plan didn't include any specific group sessions
+                                  </p>
                                 </div>
-                                <p className="text-sm font-medium text-muted-foreground mb-1">
-                                  No groups included
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  This plan didn't include any specific groups
-                                </p>
+                              );
+                            }
+
+                            return (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {planGroups.map((group: any) => (
+                                  <div key={group.id} className="p-4 bg-muted/20 rounded-lg border border-border/50">
+                                    <div className="flex items-center justify-between mb-3">
+                                      <div className="flex items-center gap-3">
+                                        <div 
+                                          className="w-4 h-4 rounded-full shadow-sm border border-white/20" 
+                                          style={{ backgroundColor: group.groups?.color || '#6b7280' }}
+                                        />
+                        <div>
+                                          <h5 className="font-medium text-foreground">
+                                            {group.groups?.name || 'Unknown Group'}
+                                          </h5>
+                                          {group.groups?.description && (
+                                            <p className="text-xs text-muted-foreground">
+                                              {group.groups.description}
+                                            </p>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <div className="text-right">
+                                        <div className="text-xl font-bold text-muted-foreground">
+                                          {group.session_count}
+                                        </div>
+                                        <div className="text-xs text-muted-foreground">
+                                          sessions
+                                        </div>
+                                      </div>
+                                    </div>
+                                    
+                                    {/* Categories */}
+                                    {group.groups?.categories && group.groups.categories.length > 0 && (
+                                      <div className="mt-3 pt-3 border-t border-border/30">
+                                        <p className="text-xs text-muted-foreground mb-2">Categories:</p>
+                                        <div className="flex flex-wrap gap-1">
+                                          {group.groups.categories.map((category: any) => (
+                                            <div key={category.id} className="flex items-center gap-1 px-2 py-1 bg-muted/50 rounded text-xs">
+                                              <div 
+                                                className="w-2 h-2 rounded-full" 
+                                                style={{ backgroundColor: category.color }}
+                                              />
+                                              <span className="text-foreground">{category.name}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
                               </div>
                             );
-                          }
-                          return (
-                            <div className="space-y-3">
-                              {planGroups.map((planGroup: any) => (
-                                <div key={planGroup.id} className="p-4 bg-muted/20 rounded-lg border border-border/50">
-                                  <div className="flex items-center justify-between mb-3">
-                                    <div className="flex items-center gap-3">
-                                      <div 
-                                        className="w-4 h-4 rounded-full shadow-sm border border-white/20" 
-                                        style={{ backgroundColor: planGroup.groups?.color || '#6B7280' }}
-                                      />
-                                      <div>
-                                        <h4 className="font-semibold text-foreground">
-                                          {planGroup.groups?.name}
-                                        </h4>
-                                        <p className="text-sm text-muted-foreground">
-                                          {planGroup.groups?.description}
-                                        </p>
-                                      </div>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-sm font-medium text-foreground">
-                                        {planGroup.session_count} session{planGroup.session_count > 1 ? 's' : ''}
-                                      </span>
-                                      {planGroup.is_free && (
-                                        <div className="flex items-center gap-1">
-                                          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                                          <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-1 rounded-full font-semibold border border-green-200 dark:border-green-800">
-                                            FREE
-                                          </span>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                  
-                                  {/* Categories within this group */}
-                                  {planGroup.groups?.categories && planGroup.groups.categories.length > 0 && (
-                                    <div className="mt-3 pt-3 border-t border-border/30">
-                                      <div className="flex items-center gap-2 mb-2">
-                                        <div className="w-1 h-3 bg-muted-foreground/50 rounded-full"></div>
-                                        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                          Categories
-                                        </span>
-                                      </div>
-                                      <div className="flex flex-wrap gap-2">
-                                        {planGroup.groups.categories.map((category: any) => (
-                                          <div 
-                                            key={category.id}
-                                            className="flex items-center gap-1.5 px-2 py-1 bg-background border border-border/50 rounded-md text-xs"
-                                          >
-                                            <div 
-                                              className="w-2 h-2 rounded-full" 
-                                              style={{ backgroundColor: category.color }}
-                                            />
-                                            <span className="text-foreground font-medium">
-                                              {category.name}
-                                            </span>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          );
-                        })()}
+                          })()}
+                        </div>
                       </div>
                     ) : (
                       <div className="space-y-2">
