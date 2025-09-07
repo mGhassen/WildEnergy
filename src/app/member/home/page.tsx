@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/use-auth";
 import QRGenerator from "@/components/qr-generator";
 import { Calendar, Clock, Users, MapPin, QrCode, ArrowRight, Sparkles, Crown, Star, Zap, ChevronLeft, ChevronRight } from "lucide-react";
 import { formatTime, getDayName, formatDate } from "@/lib/date";
+import { formatCurrency } from "@/lib/config";
 import { useState, useEffect } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -386,7 +387,7 @@ export default function MemberHome() {
                               <span>{currentPlan.duration_days} days</span>
                             </div>
                             <div className="text-right">
-                              <p className="text-lg font-bold text-foreground">${currentPlan.price}</p>
+                              <p className="text-lg font-bold text-foreground">{formatCurrency(currentPlan.price)}</p>
                               <p className="text-xs text-muted-foreground">per month</p>
                             </div>
                           </div>

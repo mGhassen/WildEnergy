@@ -18,6 +18,7 @@ import { Plus, Search, Edit, Trash2, Eye, CreditCard, MoreVertical, RefreshCw } 
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { getInitials } from "@/lib/auth";
 import { formatDate } from "@/lib/date";
+import { formatCurrency } from "@/lib/config";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -511,10 +512,7 @@ export default function AdminSubscriptions() {
 
   // Utility functions
   const formatPrice = (price: string | number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(Number(price));
+    return formatCurrency(Number(price));
   };
 
   const getStatusColor = (status: string) => {

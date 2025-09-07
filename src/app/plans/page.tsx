@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Star, Calendar, Users, CheckCircle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { formatCurrency } from "@/lib/config";
 import MemberLayout from "@/components/layout/member-layout";
 
 export default function PlansPage() {
@@ -53,7 +54,7 @@ export default function PlansPage() {
                   </div>
                   <CardDescription className="mb-2 text-base">{plan.description}</CardDescription>
                   <div className="flex items-center gap-3 mb-2">
-                    <span className="text-3xl font-bold text-primary">{plan.price} TND</span>
+                    <span className="text-3xl font-bold text-primary">{formatCurrency(plan.price)}</span>
                     <span className="text-muted-foreground">/ {plan.duration_days} days</span>
                   </div>
                   <div className="space-y-3 mt-2">

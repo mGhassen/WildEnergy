@@ -3,6 +3,8 @@
  * All date formatting should use these functions for consistency
  */
 
+import { DATE_LOCALE, TIME_LOCALE, TIMEZONE } from './config';
+
 /**
  * Format date in European format (DD/MM/YYYY)
  */
@@ -13,36 +15,38 @@ export function formatDate(date: string | Date): string {
     return 'Invalid Date';
   }
   
-  return dateObj.toLocaleDateString('en-GB', {
+  return dateObj.toLocaleDateString(DATE_LOCALE, {
     day: '2-digit',
     month: '2-digit',
-    year: 'numeric'
+    year: 'numeric',
+    timeZone: TIMEZONE
   });
 }
 
 /**
- * Format date in European format with time (DD/MM/YYYY HH:MM)
+ * Format date in French format with time (DD/MM/YYYY HH:MM)
  */
 export function formatDateTime(date: string | Date): string {
   const dateObj = typeof date === 'string' ? new Date(date) : date;
   
   if (isNaN(dateObj.getTime())) {
-    return 'Invalid Date';
+    return 'Date invalide';
   }
   
-  return dateObj.toLocaleDateString('en-GB', {
+  return dateObj.toLocaleDateString(DATE_LOCALE, {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
     hour: '2-digit',
-    minute: '2-digit'
+    minute: '2-digit',
+    timeZone: TIMEZONE
   });
 }
 
 /**
- * Format date in European format (DD/MM/YYYY) - alias for formatDate
+ * Format date in French format (DD/MM/YYYY) - alias for formatDate
  */
-export function formatEuropeanDate(date: string | Date): string {
+export function formatFrenchDate(date: string | Date): string {
   return formatDate(date);
 }
 
@@ -63,76 +67,80 @@ export function formatTime(time: string | Date): string {
   
   const dateObj = time;
   if (isNaN(dateObj.getTime())) {
-    return 'Invalid Time';
+    return 'Heure invalide';
   }
   
-  return dateObj.toLocaleTimeString('en-GB', {
+  return dateObj.toLocaleTimeString(TIME_LOCALE, {
     hour: '2-digit',
     minute: '2-digit',
-    hour12: false
+    hour12: false,
+    timeZone: TIMEZONE
   });
 }
 
 /**
- * Format date in long format (e.g., "Wednesday, July 16, 2025")
+ * Format date in long format (e.g., "mercredi 16 juillet 2025")
  */
 export function formatLongDate(date: string | Date): string {
   const dateObj = typeof date === 'string' ? new Date(date) : date;
   
   if (isNaN(dateObj.getTime())) {
-    return 'Invalid Date';
+    return 'Date invalide';
   }
   
-  return dateObj.toLocaleDateString('en-US', {
+  return dateObj.toLocaleDateString(DATE_LOCALE, {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
-    day: 'numeric'
+    day: 'numeric',
+    timeZone: TIMEZONE
   });
 }
 
 /**
- * Format date in short format (e.g., "Jul 16, 2025")
+ * Format date in short format (e.g., "16 juil. 2025")
  */
 export function formatShortDate(date: string | Date): string {
   const dateObj = typeof date === 'string' ? new Date(date) : date;
   
   if (isNaN(dateObj.getTime())) {
-    return 'Invalid Date';
+    return 'Date invalide';
   }
   
-  return dateObj.toLocaleDateString('en-US', {
+  return dateObj.toLocaleDateString(DATE_LOCALE, {
     year: 'numeric',
     month: 'short',
-    day: 'numeric'
+    day: 'numeric',
+    timeZone: TIMEZONE
   });
 }
 
 /**
- * Format date for display in calendar (e.g., "16 Jul")
+ * Format date for display in calendar (e.g., "16 juil.")
  */
 export function formatCalendarDate(date: string | Date): string {
   const dateObj = typeof date === 'string' ? new Date(date) : date;
   
   if (isNaN(dateObj.getTime())) {
-    return 'Invalid Date';
+    return 'Date invalide';
   }
   
-  return dateObj.toLocaleDateString('en-GB', {
+  return dateObj.toLocaleDateString(DATE_LOCALE, {
     day: '2-digit',
-    month: 'short'
+    month: 'short',
+    timeZone: TIMEZONE
   });
 }
 
 /**
- * Format date range (e.g., "16 Jul - 23 Jul")
+ * Format date range (e.g., "16 juil. - 23 juil.")
  */
 export function formatDateRange(startDate: string | Date, endDate: string | Date): string {
   const start = typeof startDate === 'string' ? new Date(startDate) : startDate;
   const end = typeof endDate === 'string' ? new Date(endDate) : endDate;
   
   if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-    return 'Invalid Date Range';
+    return 'Plage de dates invalide';
   }
   
   const startFormatted = formatCalendarDate(start);
@@ -142,40 +150,40 @@ export function formatDateRange(startDate: string | Date, endDate: string | Date
 }
 
 /**
- * Format relative time (e.g., "2 hours ago", "3 days ago")
+ * Format relative time (e.g., "il y a 2 heures", "il y a 3 jours")
  */
 export function formatRelativeTime(date: string | Date): string {
   const dateObj = typeof date === 'string' ? new Date(date) : date;
   
   if (isNaN(dateObj.getTime())) {
-    return 'Invalid Date';
+    return 'Date invalide';
   }
   
   const now = new Date();
   const diffInSeconds = Math.floor((now.getTime() - dateObj.getTime()) / 1000);
   
   if (diffInSeconds < 60) {
-    return 'Just now';
+    return 'À l\'instant';
   }
   
   const diffInMinutes = Math.floor(diffInSeconds / 60);
   if (diffInMinutes < 60) {
-    return `${diffInMinutes} minute${diffInMinutes > 1 ? 's' : ''} ago`;
+    return `il y a ${diffInMinutes} minute${diffInMinutes > 1 ? 's' : ''}`;
   }
   
   const diffInHours = Math.floor(diffInMinutes / 60);
   if (diffInHours < 24) {
-    return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`;
+    return `il y a ${diffInHours} heure${diffInHours > 1 ? 's' : ''}`;
   }
   
   const diffInDays = Math.floor(diffInHours / 24);
   if (diffInDays < 7) {
-    return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
+    return `il y a ${diffInDays} jour${diffInDays > 1 ? 's' : ''}`;
   }
   
   const diffInWeeks = Math.floor(diffInDays / 7);
   if (diffInWeeks < 4) {
-    return `${diffInWeeks} week${diffInWeeks > 1 ? 's' : ''} ago`;
+    return `il y a ${diffInWeeks} semaine${diffInWeeks > 1 ? 's' : ''}`;
   }
   
   return formatShortDate(dateObj);
@@ -202,17 +210,17 @@ export function isPast(date: string | Date): boolean {
 }
 
 /**
- * Get day name from day number (0 = Sunday, 1 = Monday, etc.)
+ * Get day name from day number (0 = dimanche, 1 = lundi, etc.)
  */
 export function getDayName(dayNumber: number): string {
-  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  return days[dayNumber] || 'Unknown';
+  const days = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+  return days[dayNumber] || 'Inconnu';
 }
 
 /**
- * Get short day name from day number (0 = Sun, 1 = Mon, etc.)
+ * Get short day name from day number (0 = dim, 1 = lun, etc.)
  */
 export function getShortDayName(dayNumber: number): string {
-  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  return days[dayNumber] || 'Unknown';
+  const days = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'];
+  return days[dayNumber] || 'Inconnu';
 } 

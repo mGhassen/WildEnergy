@@ -20,6 +20,7 @@ import { Plus, Search, Edit, Trash2, Clock, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 import { apiFetch } from "@/lib/api";
+import { formatCurrency } from "@/lib/config";
 
 const planFormSchema = z.object({
   name: z.string().min(1, 'Plan name is required'),
@@ -239,7 +240,7 @@ export default function AdminPlans() {
   };
 
   const formatPrice = (price: string | number) => {
-    return `${Number(price).toFixed(2)} TND`;
+    return formatCurrency(Number(price));
   };
 
   const getDurationText = (days: number) => {

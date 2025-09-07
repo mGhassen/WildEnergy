@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { formatDate } from "@/lib/date";
+import { formatCurrency, CURRENCY_SYMBOL } from "@/lib/config";
 import { CreditCard, Info, Calendar, Users, Plus, DollarSign } from "lucide-react";
 
 interface Plan {
@@ -155,10 +156,7 @@ export function SubscriptionDetails({
 
   const formatPrice = (price: string | number) => {
     const numPrice = typeof price === 'string' ? parseFloat(price) : price;
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(numPrice);
+    return formatCurrency(numPrice);
   };
 
   // Payment handlers
