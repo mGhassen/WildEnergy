@@ -26,10 +26,22 @@ export async function GET(req: NextRequest) {
     if (!adminCheck?.is_admin) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
-    // Fetch all classes
+    // Fetch all classes with category and group information
     const { data: classes, error } = await supabase
       .from('classes')
-      .select('*')
+      .select(`
+        *,
+        categories (
+          id,
+          name,
+          color,
+          groups (
+            id,
+            name,
+            color
+          )
+        )
+      `)
       .order('created_at', { ascending: false });
     if (error) {
       return NextResponse.json({ error: 'Failed to fetch classes' }, { status: 500 });

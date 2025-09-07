@@ -402,7 +402,7 @@ export default function AdminClasses() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Class</TableHead>
-                  <TableHead>Category</TableHead>
+                  <TableHead>Group & Category</TableHead>
                   <TableHead>Duration</TableHead>
                   <TableHead>Capacity</TableHead>
                   <TableHead>Status</TableHead>
@@ -419,7 +419,8 @@ export default function AdminClasses() {
                           style={getCategoryColor(classItem.categoryId)}
                         >
                           <span className="text-xs font-medium">
-                            {categories.find((cat: any) => cat && cat.id === classItem.categoryId)?.name?.charAt(0)?.toUpperCase() || 'C'}
+                            {classItem.categories?.name?.charAt(0)?.toUpperCase() || 
+                             categories.find((cat: any) => cat && cat.id === classItem.categoryId)?.name?.charAt(0)?.toUpperCase() || 'C'}
                           </span>
                         </div>
                         <div>
@@ -431,12 +432,27 @@ export default function AdminClasses() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge 
-                        style={getCategoryColor(classItem.categoryId)}
-                        className="border-0"
-                      >
-                        {categories.find((cat: any) => cat && cat.id === classItem.categoryId)?.name || 'Unknown'}
-                      </Badge>
+                      <div className="flex items-start space-x-2">
+                        {/* Long vertical bullet */}
+                        {classItem.categories?.groups && (
+                          <div 
+                            className="w-1 h-8 rounded-full mt-0.5"
+                            style={{ backgroundColor: classItem.categories.groups.color || '#94a3b8' }}
+                          />
+                        )}
+                        <div className="flex flex-col space-y-1">
+                          {/* Group */}
+                          {classItem.categories?.groups && (
+                            <span className="text-xs text-muted-foreground font-medium">
+                              {classItem.categories.groups.name}
+                            </span>
+                          )}
+                          {/* Category */}
+                          <span className="text-sm font-semibold text-foreground">
+                            {classItem.categories?.name || categories.find((cat: any) => cat && cat.id === classItem.categoryId)?.name || 'Unknown'}
+                          </span>
+                        </div>
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center">
