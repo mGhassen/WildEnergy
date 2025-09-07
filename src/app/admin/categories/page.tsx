@@ -203,7 +203,7 @@ export default function AdminCategories() {
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
       console.log('Deleting category:', id);
-      const response = await apiRequest("DELETE", `/api/admin/categories/${id}`);
+      const response = await apiRequest("DELETE", `/api/admin/categories`, { id });
       console.log('Delete response:', response);
       return response;
     },
@@ -219,10 +219,12 @@ export default function AdminCategories() {
         description: "Category deleted successfully",
       });
     },
-    onError: (error: Error) => {
+    onError: (error: any) => {
       console.error('Delete mutation error:', error);
+      
+      // Show toast for all errors
       toast({
-        title: "Error",
+        title: "Cannot Delete Category",
         description: error.message || "Failed to delete category",
         variant: "destructive",
       });
@@ -260,9 +262,9 @@ export default function AdminCategories() {
     form.reset({
       name: "",
       description: "",
-      color: "",
+      color: "#4ECDC4",
       isActive: true,
-      groupId: undefined,
+      groupId: null,
     });
     setIsCreateDialogOpen(true);
   };
@@ -523,7 +525,9 @@ export default function AdminCategories() {
                           <AlertDialogHeader>
                             <AlertDialogTitle>Delete Category</AlertDialogTitle>
                             <AlertDialogDescription>
-                              Are you sure you want to delete &quot;{category.name}&quot;? This action cannot be undone.
+                              Are you sure you want to delete &quot;{category.name}&quot;? 
+                              Any linked classes will be unlinked and remain without a category assignment.
+                              This action cannot be undone.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>

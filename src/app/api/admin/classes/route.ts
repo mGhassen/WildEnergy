@@ -73,13 +73,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
     const { name, description, category_id, duration, max_capacity, equipment, is_active, difficulty } = await req.json();
-    if (!name || !category_id || !duration || !max_capacity) {
+    if (!name || !duration || !max_capacity) {
       return NextResponse.json({ error: 'Missing required class fields' }, { status: 400 });
     }
     const classData = {
       name: name.trim(),
       description: description ? String(description).trim() : undefined,
-      category_id: Number(category_id),
+      category_id: category_id ? Number(category_id) : null,
       difficulty: difficulty || 'beginner',
       duration: Number(duration),
       max_capacity: Number(max_capacity),

@@ -66,13 +66,16 @@ export async function POST(req: NextRequest) {
     if (!adminCheck?.is_admin) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
-    const { name, description, groupId } = await req.json();
+    const { name, description, color, groupId } = await req.json();
     if (!name) {
       return NextResponse.json({ error: 'Category name is required' }, { status: 400 });
     }
     
     // Prepare the data to insert
     const insertData: any = { name, description };
+    if (color) {
+      insertData.color = color;
+    }
     if (groupId !== undefined && groupId !== null) {
       insertData.group_id = groupId;
     }
@@ -173,6 +176,18 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
     const { id } = await req.json();
+    
+    // First, unlink all classes from this category (set category_id to null)
+    const { error: unlinkError } = await supabaseServer()
+      .from('classes')
+      .update({ category_id: null })
+      .eq('category_id', id);
+    
+    if (unlinkError) {
+      return NextResponse.json({ error: 'Failed to unlink classes from category' }, { status: 500 });
+    }
+    
+    // Then delete the category
     const { error } = await supabaseServer()
       .from('categories')
       .delete()

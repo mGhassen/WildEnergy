@@ -74,7 +74,7 @@ export const insertPlanSchema = z.object({
 export const insertClassSchema = z.object({
   name: z.string().min(1, 'Class name is required'),
   description: z.string().optional(),
-  categoryId: z.number().min(1, 'Category is required'),
+  categoryId: z.union([z.number().min(1), z.null()]).optional(),
   difficulty: z.enum(['beginner', 'intermediate', 'advanced']),
   durationMinutes: z.number().min(1, 'Duration must be at least 1 minute'),
   maxCapacity: z.number().min(1, 'Max capacity is required'),
