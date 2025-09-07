@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -19,10 +19,12 @@ import {
   Moon
 } from "lucide-react";
 import { getInitials } from "@/lib/auth";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useTheme } from "@/components/theme-provider";
+import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import Link from "next/link";
 
 interface MemberLayoutProps {
@@ -31,9 +33,46 @@ interface MemberLayoutProps {
 
 export default function MemberLayout({ children }: MemberLayoutProps) {
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const router = useRouter();
+  const { user, logout, isAuthenticated } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Check onboarding status
+  const { data: onboardingStatus, isLoading: isLoadingOnboarding } = useQuery({
+    queryKey: ["/api/member/onboarding/status"],
+    queryFn: () => apiRequest("GET", "/api/member/onboarding/status"),
+    enabled: isAuthenticated && !pathname.startsWith("/member/onboarding"),
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+  });
+
+  // Redirect to onboarding if not completed
+  useEffect(() => {
+    if (isAuthenticated && onboardingStatus && !isLoadingOnboarding) {
+      const { onboardingCompleted, hasPersonalInfo, termsAccepted } = onboardingStatus.data;
+      
+      if (!onboardingCompleted) {
+        if (!hasPersonalInfo) {
+          router.push("/member/onboarding/personal-info");
+        } else if (!termsAccepted) {
+          router.push("/member/onboarding/terms");
+        }
+      }
+    }
+  }, [isAuthenticated, onboardingStatus, isLoadingOnboarding, router]);
+
+  // Show loading while checking onboarding status
+  if (isAuthenticated && isLoadingOnboarding && !pathname.startsWith("/member/onboarding")) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Vérification de votre profil...</p>
+        </div>
+      </div>
+    );
+  }
   
   const handleLogout = async () => {
     try {

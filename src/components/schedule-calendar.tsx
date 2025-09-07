@@ -125,6 +125,8 @@ interface ScheduleCalendarProps {
   schedules: Schedule[];
   registrations: Registration[];
   checkins: Checkin[];
+  members?: any[];
+  subscriptions?: any[];
   viewMode: "daily" | "weekly" | "monthly";
   onViewModeChange: (mode: "daily" | "weekly" | "monthly") => void;
   onNavigateToDate?: (date: Date) => void;
@@ -136,6 +138,8 @@ export default function ScheduleCalendar({
   schedules, 
   registrations, 
   checkins, 
+  members = [],
+  subscriptions = [],
   viewMode, 
   onViewModeChange,
   onNavigateToDate,
@@ -211,17 +215,7 @@ export default function ScheduleCalendar({
     return courseDateTime < now;
   };
 
-  // Fetch members for registration
-  const { data: members = [] } = useQuery({
-    queryKey: ["/api/members"],
-    queryFn: () => apiRequest("GET", "/api/members"),
-  });
-
-  // Fetch subscriptions for all members
-  const { data: subscriptions = [] } = useQuery({
-    queryKey: ["/api/subscriptions"],
-    queryFn: () => apiRequest("GET", "/api/subscriptions"),
-  });
+  // Members and subscriptions are now passed as props to avoid unauthorized API calls
 
   // Helper: does member have an active subscription?
   function hasActiveSubscription(memberId: string | number) {

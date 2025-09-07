@@ -8,6 +8,10 @@ export interface User {
   email: string;
   firstName?: string;
   lastName?: string;
+  phone?: string;
+  age?: number;
+  profession?: string;
+  address?: string;
   isAdmin: boolean;
   status?: string;
   role?: 'admin' | 'member';
