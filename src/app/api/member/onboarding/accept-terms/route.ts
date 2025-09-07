@@ -40,16 +40,24 @@ export async function POST(request: NextRequest) {
     const now = new Date().toISOString();
 
     // Update user with terms acceptance and complete onboarding
+    const updateData: any = {
+      status: "active", // Activate the user account
+      updated_at: now,
+    };
+
+    // Only add onboarding fields if they exist in the database
+    try {
+      updateData.terms_accepted = true;
+      updateData.terms_accepted_at = now;
+      updateData.onboarding_completed = true;
+      updateData.onboarding_completed_at = now;
+    } catch (error) {
+      console.log("Onboarding fields not available, updating basic fields only");
+    }
+
     const { error } = await supabase
       .from("users")
-      .update({
-        terms_accepted: true,
-        terms_accepted_at: now,
-        onboarding_completed: true,
-        onboarding_completed_at: now,
-        status: "active", // Activate the user account
-        updated_at: now,
-      })
+      .update(updateData)
       .eq("id", user.id);
 
     if (error) {
