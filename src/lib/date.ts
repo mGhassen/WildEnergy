@@ -53,7 +53,11 @@ export function formatFrenchDate(date: string | Date): string {
 /**
  * Format time in HH:MM format
  */
-export function formatTime(time: string | Date): string {
+export function formatTime(time: string | Date | null | undefined): string {
+  if (!time) {
+    return 'Heure non définie';
+  }
+  
   if (typeof time === 'string') {
     // Handle time strings like "10:00:00" or "10:00"
     const timeParts = time.split(':');

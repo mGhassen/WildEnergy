@@ -10,10 +10,12 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useForm } from "react-hook-form";
+import DataTable from "@/components/data-table";
 
 import { apiRequest } from "@/lib/queryClient";
-import { Plus, Search, Edit, Trash2, Calendar, Users, TrendingUp, RepeatIcon } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Calendar, Users, TrendingUp, RepeatIcon, Clock, MapPin, Activity, MoreHorizontal, Eye } from "lucide-react";
 import { getDayName, formatTime } from "@/lib/date";
 
 // Utility function for European date formatting (DD/MM/YYYY)
@@ -87,6 +89,228 @@ export default function AdminSchedules() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const isMobile = useIsMobile();
+
+
+  // Data table columns configuration
+  const scheduleColumns = [
+    {
+      key: 'class.name',
+      label: 'Class',
+      sortable: true,
+      width: '120px',
+      render: (value: any, row: any) => (
+        <div className="font-medium text-sm text-foreground truncate" title={row.class?.name || 'Unknown Class'}>
+          {row.class?.name || 'Unknown Class'}
+        </div>
+      )
+    },
+    {
+      key: 'trainer',
+      label: 'Trainer',
+      sortable: true,
+      width: '100px',
+      render: (value: any, row: any) => (
+        <div className="font-medium text-sm text-foreground truncate" title={`${row.trainer?.firstName} ${row.trainer?.lastName}`}>
+          {row.trainer?.firstName} {row.trainer?.lastName}
+        </div>
+      )
+    },
+    {
+      key: 'schedule',
+      label: 'Schedule',
+      sortable: true,
+      width: '100px',
+      render: (value: any, row: any) => (
+        <div className="text-sm font-medium text-foreground">
+          {formatTime(row.startTime)} - {formatTime(row.endTime)}
+        </div>
+      )
+    },
+    {
+      key: 'repetition',
+      label: 'Repetition',
+      sortable: true,
+      width: '80px',
+      render: (value: any, row: any) => (
+        <div className="text-sm text-foreground">
+          {getRepetitionLabel(row.repetitionType || 'weekly')}
+        </div>
+      )
+    },
+    {
+      key: 'capacity',
+      label: 'Capacity',
+      sortable: true,
+      width: '60px',
+      render: (value: any, row: any) => (
+        <div className="text-sm font-medium text-center text-foreground">
+          {row.class?.max_capacity || 0}
+        </div>
+      )
+    },
+    {
+      key: 'attendance',
+      label: 'Attendance',
+      sortable: true,
+      width: '70px',
+      render: (value: any, row: any) => {
+        const attendedMembers = getScheduleCheckins(row.id);
+        const maxCapacity = row.class?.max_capacity || 0;
+        const repetitionCount = row.repetitionType === 'weekly' ? 4 : row.repetitionType === 'daily' ? 30 : 1;
+        const adjustedCapacity = maxCapacity * repetitionCount;
+        const attendanceRate = adjustedCapacity > 0 
+          ? Math.round((attendedMembers.length / adjustedCapacity) * 100)
+          : 0;
+        
+        return (
+          <div className="text-sm font-medium text-center text-foreground">
+            {attendanceRate}%
+          </div>
+        );
+      }
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      sortable: true,
+      width: '60px',
+      render: (value: any, row: any) => (
+        <div className="flex items-center justify-center">
+          <div 
+            className={`w-3 h-3 rounded-full ${row.is_active ? 'bg-green-500' : 'bg-red-500'}`}
+            title={row.is_active ? 'Active' : 'Inactive'}
+          />
+        </div>
+      )
+    },
+    {
+      key: 'actions',
+      label: 'Actions',
+      width: '80px',
+      render: (value: any, row: any) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              className="h-8 w-8 p-0"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation();
+                handleViewSchedule(row);
+              }}
+            >
+              <Eye className="mr-2 h-4 w-4" />
+              View Details
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation();
+                handleEdit(row);
+              }}
+            >
+              <Edit className="mr-2 h-4 w-4" />
+              Edit
+            </DropdownMenuItem>
+            {canDeleteSchedule(row.id) ? (
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete(row);
+                }}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const scheduleCourses = courses.filter((course: any) => course.schedule_id === row.id);
+                  const courseIds = scheduleCourses.map((course: any) => course.id);
+                  const scheduleRegistrations = registrations.filter((reg: any) => 
+                    courseIds.includes(reg.course_id)
+                  );
+                  
+                  const params = new URLSearchParams({
+                    scheduleId: row.id.toString(),
+                    status: 'registered,attended'
+                  });
+                  window.location.href = `/admin/registrations?${params.toString()}`;
+                }}
+              >
+                <Users className="mr-2 h-4 w-4" />
+                View Registrations
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )
+    }
+  ];
+
+  // Group options for data table
+  const groupOptions = [
+    { key: 'class.category.name', label: 'Category' },
+    { key: 'trainer.firstName', label: 'Trainer' },
+    { key: 'repetitionType', label: 'Repetition Type' },
+    { key: 'dayOfWeek', label: 'Day of Week' },
+    { key: 'is_active', label: 'Status' }
+  ];
+
+  // Filter options for data table (will be defined after schedules data)
+  const getFilterOptions = (schedulesData: any[]) => [
+    {
+      key: 'class.category.name',
+      label: 'Category',
+      type: 'select' as const,
+      options: Array.from(new Set(schedulesData?.map((s: any) => s.class?.category?.name).filter(Boolean))).map(name => ({
+        value: name,
+        label: name
+      }))
+    },
+    {
+      key: 'trainer.firstName',
+      label: 'Trainer',
+      type: 'select' as const,
+      options: Array.from(new Set(schedulesData?.map((s: any) => s.trainer?.firstName).filter(Boolean))).map(name => ({
+        value: name,
+        label: name
+      }))
+    },
+    {
+      key: 'repetitionType',
+      label: 'Repetition',
+      type: 'select' as const,
+      options: [
+        { value: 'daily', label: 'Daily' },
+        { value: 'weekly', label: 'Weekly' },
+        { value: 'monthly', label: 'Monthly' },
+        { value: 'once', label: 'Once' }
+      ]
+    },
+    {
+      key: 'is_active',
+      label: 'Status',
+      type: 'select' as const,
+      options: [
+        { value: 'true', label: 'Active' },
+        { value: 'false', label: 'Inactive' }
+      ]
+    }
+  ];
+
+  // Navigate to schedule details page
+  const handleViewSchedule = (schedule: any) => {
+    window.location.href = `/admin/schedules/${schedule.id}`;
+  };
 
   const { data: rawSchedules = [], isLoading, refetch } = useQuery({
     queryKey: ["schedules"],
@@ -490,8 +714,8 @@ export default function AdminSchedules() {
                   <span>{formatTime(schedule.startTime)}-{formatTime(schedule.endTime)}</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <TrendingUp className="w-3 h-3 text-green-600" />
-                  <span className="font-medium text-green-600">{attendanceRate}%</span>
+                  <TrendingUp className="w-3 h-3 text-muted-foreground" />
+                  <span className="font-medium text-foreground">{attendanceRate}%</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <Users className="w-3 h-3 text-muted-foreground" />
@@ -502,14 +726,14 @@ export default function AdminSchedules() {
           </div>
           <div className="flex gap-2 mt-2">
             {canDeleteSchedule(schedule.id) ? (
-              <Button size="icon" variant="ghost" className="border border-gray-200 text-red-600" onClick={() => onDelete(schedule)}>
+              <Button size="icon" variant="ghost" className="border border-border text-destructive" onClick={() => onDelete(schedule)}>
                 <Trash2 className="w-4 h-4" />
               </Button>
             ) : (
               <Button
                 size="sm"
                 variant="outline"
-                className="text-blue-600 hover:text-blue-700"
+                className="text-primary hover:text-primary/80"
                 onClick={() => {
                   const scheduleCourses = courses.filter((course: any) => course.schedule_id === schedule.id);
                   const courseIds = scheduleCourses.map((course: any) => course.id);
@@ -591,8 +815,8 @@ export default function AdminSchedules() {
                               <div className="flex items-start gap-2">
                                 <div 
                                   className="w-1 h-8 mt-0.5" 
-                                  style={{ backgroundColor: selectedClass.category?.color || '#6B7280' }}
-                                />
+                                style={{ backgroundColor: selectedClass.category?.color || '#6B7280' }}
+                              />
                                 <div className="flex flex-col">
                                   {selectedClass.category?.group && (
                                     <span 
@@ -603,10 +827,10 @@ export default function AdminSchedules() {
                                     </span>
                                   )}
                                   <span className="text-sm text-foreground">
-                                    {selectedClass.category?.name || 'No Category'}
-                                  </span>
-                                </div>
-                              </div>
+                                {selectedClass.category?.name || 'No Category'}
+                              </span>
+                            </div>
+                            </div>
                               {/* Status Pin - Same Line */}
                               <div 
                                 className={`w-3 h-3 rounded-full mt-1 ${selectedClass.is_active ? 'bg-green-500' : 'bg-red-500'}`}
@@ -631,7 +855,7 @@ export default function AdminSchedules() {
                               <div className="space-y-1">
                                 <span className="text-xs text-muted-foreground font-medium">Description</span>
                                 <p className="text-sm text-foreground leading-relaxed">
-                                  {selectedClass.description}
+                                {selectedClass.description}
                                 </p>
                               </div>
                             )}
@@ -809,173 +1033,18 @@ export default function AdminSchedules() {
         </Dialog>
       </div>
 
-      {/* Main Content - List View Only */}
+      {/* Main Content - Enhanced Data Table */}
       <div className="space-y-6">
-
-      {/* Search */}
-      <div className="flex items-center space-x-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-          <Input
-            placeholder="Search schedules..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-      </div>
-
-        {/* Schedules Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle>All Schedules</CardTitle>
-            <CardDescription>
-              {filteredSchedules.length} of {schedules?.length || 0} schedules
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="space-y-4">
-                {[...Array(5)].map((_, i) => (
-                  <div key={i} className="animate-pulse flex items-center space-x-4 p-4">
-                    <div className="w-12 h-12 bg-muted rounded-lg"></div>
-                    <div className="flex-1 space-y-2">
-                      <div className="h-4 bg-muted rounded w-1/4"></div>
-                      <div className="h-3 bg-muted rounded w-1/3"></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              isMobile ? (
-                <div className="space-y-2">
-                  {filteredSchedules.map((schedule: any) => (
-                    <MobileScheduleCard key={schedule.id} schedule={schedule} onEdit={handleEdit} onDelete={handleDelete} />
-                  ))}
-                  {filteredSchedules.length === 0 && (
-                    <div className="text-center py-8">
-                      <p className="text-muted-foreground">No schedules found.</p>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {filteredSchedules.map((schedule: any) => {
-                    const attendedMembers = getScheduleCheckins(schedule.id);
-                    
-                    // Get capacity from class max_capacity
-                    const maxCapacity = schedule.class?.max_capacity || 0;
-                    
-                    // Calculate attendance rate: total attendance over capacity multiplied by repetitions
-                    const totalAttendance = attendedMembers.length;
-                    const repetitionCount = schedule.repetitionType === 'weekly' ? 4 : schedule.repetitionType === 'daily' ? 30 : 1; // Estimate repetitions
-                    const adjustedCapacity = maxCapacity * repetitionCount;
-                    const attendanceRate = adjustedCapacity > 0 
-                      ? Math.round((totalAttendance / adjustedCapacity) * 100)
-                      : 0;
-
-                    return (
-                      <Card key={schedule.id} className="hover:shadow-md transition-shadow">
-                        <CardContent className={isMobile ? 'p-3' : 'p-6'}>
-                          <div className={isMobile ? 'flex flex-col gap-2' : 'flex items-center justify-between'}>
-                            <div className={isMobile ? 'flex items-center gap-3' : 'flex items-center space-x-4 flex-1'}>
-                              <div className={isMobile ? 'w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center' : 'w-16 h-16 rounded-lg bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center'}>
-                                <Calendar className={isMobile ? 'w-5 h-5 text-white' : 'w-8 h-8 text-white'} />
-                              </div>
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <h3 className={isMobile ? 'text-base font-semibold text-foreground' : 'text-lg font-semibold text-foreground'}>{schedule.class?.name}</h3>
-                                  <Badge variant="outline" className="text-xs">{schedule.code || `SCH-${schedule.id}`}</Badge>
-                                  <Badge variant="outline" className="text-xs">{schedule.class?.category}</Badge>
-                                  <Badge variant="secondary" className="text-xs flex items-center gap-1">
-                                    <RepeatIcon className="w-3 h-3" />
-                                    {getRepetitionLabel(schedule.repetitionType || 'weekly')}
-                                  </Badge>
-                                </div>
-                                <div className={isMobile ? 'flex flex-col gap-1 text-xs' : 'grid grid-cols-2 md:grid-cols-5 gap-4 text-sm'}>
-                                  <div>
-                                    <p className="text-muted-foreground">Trainer</p>
-                                    <p className="font-medium">{schedule.trainer?.firstName} {schedule.trainer?.lastName}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-muted-foreground">Schedule</p>
-                                    <div className="flex items-center gap-1">
-                                      <Badge variant="outline" className="text-xs">
-                                        {schedule.scheduleDate ? formatEuropeanDate(schedule.scheduleDate) : getDayName(schedule.dayOfWeek)}
-                                      </Badge>
-                                      <span className="text-xs text-muted-foreground">
-                                        {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}
-                                      </span>
-                                    </div>
-                                  </div>
-                                  <div>
-                                    <p className="text-muted-foreground">Capacity</p>
-                                    <div className="flex items-center gap-1">
-                                      <Users className="w-4 h-4 text-muted-foreground" />
-                                      <span className="font-medium">{maxCapacity}</span>
-                                    </div>
-                                  </div>
-                                  <div>
-                                    <p className="text-muted-foreground">Attendance</p>
-                                    <div className="flex items-center gap-1">
-                                      <TrendingUp className="w-4 h-4 text-green-600" />
-                                      <span className="font-medium text-green-600">{attendanceRate}%</span>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                            {/* Desktop Actions */}
-                            <div className="flex gap-2">
-                              {canDeleteSchedule(schedule.id) ? (
-                                <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700" onClick={() => handleDelete(schedule)}>
-                                  <Trash2 className="w-4 h-4 mr-1" />
-                                  Delete
-                                </Button>
-                              ) : (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-blue-600 hover:text-blue-700"
-                                  onClick={() => {
-                                    const scheduleCourses = courses.filter((course: any) => course.schedule_id === schedule.id);
-                                    const courseIds = scheduleCourses.map((course: any) => course.id);
-                                    const scheduleRegistrations = registrations.filter((reg: any) => 
-                                      courseIds.includes(reg.course_id)
-                                    );
-                                    
-                                    // Redirect to registrations page with filters
-                                    const params = new URLSearchParams({
-                                      scheduleId: schedule.id.toString(),
-                                      status: 'registered,attended'
-                                    });
-                                    window.location.href = `/admin/registrations?${params.toString()}`;
-                                  }}
-                                >
-                                  View Registrations
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                  
-                  {filteredSchedules.length === 0 && (
-                    <div className="text-center py-12">
-                      <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                      <h3 className="text-lg font-medium text-foreground mb-2">No schedules found</h3>
-                      <p className="text-muted-foreground">
-                        {searchTerm ? 'Try adjusting your search criteria' : 'Create your first schedule to get started'}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )
-            )}
-          </CardContent>
-        </Card>
+        <DataTable
+          data={schedules || []}
+          columns={scheduleColumns}
+          groupOptions={groupOptions}
+          filterOptions={schedules ? getFilterOptions(schedules) : []}
+          loading={isLoading}
+          searchable={true}
+          selectable={true}
+          onRowClick={handleViewSchedule}
+        />
       </div>
 
       {/* Delete Confirmation Dialog */}
@@ -987,19 +1056,19 @@ export default function AdminSchedules() {
               Are you sure you want to delete this schedule? This action will permanently delete all related courses.
             </AlertDialogDescription>
             {scheduleToDelete && (
-              <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                <div className="font-medium text-red-800">
+              <div className="mt-4 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+                <div className="font-medium text-destructive">
                   {scheduleToDelete.class?.name} - {scheduleToDelete.trainer?.firstName} {scheduleToDelete.trainer?.lastName}
                 </div>
-                <div className="text-sm text-red-600 mt-1">
+                <div className="text-sm text-destructive/80 mt-1">
                   {scheduleToDelete.scheduleDate ? formatEuropeanDate(scheduleToDelete.scheduleDate) : getDayName(scheduleToDelete.dayOfWeek)} • {formatTime(scheduleToDelete.startTime)} - {formatTime(scheduleToDelete.endTime)}
                 </div>
-                <div className="text-sm text-red-600 mt-3 space-y-1">
+                <div className="text-sm text-destructive/80 mt-3 space-y-1">
                   <div>⚠️ <strong>This will delete:</strong></div>
                   <div>• All courses generated from this schedule</div>
                   <div>• Schedule configuration and timing</div>
                   <div className="font-semibold mt-2">This action cannot be undone!</div>
-                  <div className="text-xs text-gray-600 mt-2">
+                  <div className="text-xs text-muted-foreground mt-2">
                     Note: Schedules with member registrations cannot be deleted. Cancel all registrations first.
                   </div>
                 </div>
@@ -1010,7 +1079,7 @@ export default function AdminSchedules() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction 
               onClick={confirmDelete}
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-destructive hover:bg-destructive/90"
               disabled={deleteScheduleMutation.isPending}
             >
               {deleteScheduleMutation.isPending ? "Deleting..." : "Delete Schedule"}

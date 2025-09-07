@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import DataTable from "@/components/data-table";
 
 import { apiRequest } from "@/lib/queryClient";
-import { Calendar, User, Clock, Users, Trash2, Eye, X, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { Calendar, User, Clock, Users, Trash2, Eye, X, CheckCircle, XCircle, AlertCircle, Activity, MapPin } from "lucide-react";
 import { getDayName, formatTime } from "@/lib/date";
 import { useToast } from "@/hooks/use-toast";
 
@@ -209,12 +209,14 @@ export default function AdminRegistrations() {
     toast({ title: "Data refreshed" });
   };
 
+
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'registered':
-        return <Badge variant="default" className="bg-blue-100 text-blue-800">Registered</Badge>;
+        return <Badge variant="default" className="bg-primary/10 text-primary border-primary/20">Registered</Badge>;
       case 'attended':
-        return <Badge variant="default" className="bg-green-100 text-green-800">Attended</Badge>;
+        return <Badge variant="default" className="bg-green-500/10 text-green-600 border-green-500/20">Attended</Badge>;
       case 'cancelled':
         return <Badge variant="destructive">Cancelled</Badge>;
       case 'no_show':
@@ -227,15 +229,15 @@ export default function AdminRegistrations() {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'registered':
-        return <AlertCircle className="w-4 h-4 text-blue-600" />;
+        return <AlertCircle className="w-4 h-4 text-primary" />;
       case 'attended':
         return <CheckCircle className="w-4 h-4 text-green-600" />;
       case 'cancelled':
         return <XCircle className="w-4 h-4 text-red-600" />;
       case 'no_show':
-        return <X className="w-4 h-4 text-gray-600" />;
+        return <X className="w-4 h-4 text-muted-foreground" />;
       default:
-        return <AlertCircle className="w-4 h-4 text-gray-600" />;
+        return <AlertCircle className="w-4 h-4 text-muted-foreground" />;
     }
   };
 
@@ -438,10 +440,8 @@ export default function AdminRegistrations() {
         columns={columns}
         groupOptions={groupOptions}
         filterOptions={filterOptions}
-        initialFilters={filters}
         onRowClick={handleView}
         onBulkAction={handleBulkAction}
-        onExport={handleExport}
         onRefresh={refreshData}
         loading={isLoading}
         title="Registrations"
