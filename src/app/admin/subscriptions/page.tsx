@@ -68,13 +68,24 @@ type Subscription = {
   plan_id: number;
   start_date: string;
   end_date: string;
-  sessions_remaining: number;
   status: string;
   notes?: string;
   created_at: string;
   updated_at: string;
   member?: Member;
   plan?: Plan;
+  subscription_group_sessions?: {
+    id: number;
+    group_id: number;
+    sessions_remaining: number;
+    total_sessions: number;
+    groups: {
+      id: number;
+      name: string;
+      description: string;
+      color: string;
+    };
+  }[];
 };
 
 type Payment = {
@@ -633,7 +644,9 @@ export default function AdminSubscriptions() {
                   <TableCell>{formatDate(subscription.end_date)}</TableCell>
                   <TableCell>
                     <div className="text-center">
-                      <div className="font-medium text-lg">{subscription.sessions_remaining}</div>
+                      <div className="font-medium text-lg">
+                        {subscription.subscription_group_sessions?.reduce((sum: number, group: any) => sum + (group.sessions_remaining || 0), 0) || 0}
+                      </div>
                       <div className="text-sm text-muted-foreground">
                         remaining
                       </div>
@@ -1354,14 +1367,13 @@ export default function AdminSubscriptions() {
           <DialogHeader>
             <DialogTitle>Subscription Details</DialogTitle>
           </DialogHeader>
-          <Tabs defaultValue="overview" className="w-full">
+          <Tabs defaultValue="details" className="w-full">
             <TabsList className="mb-0 px-6 pt-4 bg-transparent">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="groups">Groups</TabsTrigger>
+              <TabsTrigger value="details">Details</TabsTrigger>
               <TabsTrigger value="payments">Payments</TabsTrigger>
             </TabsList>
             <div className="p-6">
-              <TabsContent value="overview">
+              <TabsContent value="details">
                 <Card className="shadow-none border-none bg-transparent">
                   <CardHeader className="p-0 mb-4">
                     <CardTitle className="text-lg">Subscription Information</CardTitle>
@@ -1378,7 +1390,9 @@ export default function AdminSubscriptions() {
                       </div>
                       <div className="flex-1 min-w-[180px]">
                         <div className="text-sm text-muted-foreground">Sessions Remaining</div>
-                        <div className="font-medium">{selectedSubscription?.sessions_remaining} / {selectedSubscription?.plan?.max_sessions ?? 0}</div>
+                        <div className="font-medium">
+                          {selectedSubscription?.subscription_group_sessions?.reduce((sum: number, group: any) => sum + (group.sessions_remaining || 0), 0) || 0} / {selectedSubscription?.plan?.max_sessions ?? 0}
+                        </div>
                       </div>
                       <div className="flex-1 min-w-[180px]">
                         <div className="text-sm text-muted-foreground">Start Date</div>
@@ -1387,6 +1401,14 @@ export default function AdminSubscriptions() {
                       <div className="flex-1 min-w-[180px]">
                         <div className="text-sm text-muted-foreground">End Date</div>
                         <div className="font-medium">{selectedSubscription?.end_date ? formatDate(selectedSubscription.end_date) : '-'}</div>
+                      </div>
+                      <div className="flex-1 min-w-[180px]">
+                        <div className="text-sm text-muted-foreground">Status</div>
+                        <div className="font-medium">
+                          <Badge variant={selectedSubscription?.status === 'active' ? 'default' : selectedSubscription?.status === 'pending' ? 'secondary' : 'destructive'}>
+                            {selectedSubscription?.status}
+                          </Badge>
+                        </div>
                       </div>
                     </div>
                     {selectedSubscription?.notes && (
@@ -1397,99 +1419,101 @@ export default function AdminSubscriptions() {
                     )}
                   </CardContent>
                 </Card>
-              </TabsContent>
-              <TabsContent value="groups">
-                <Card className="shadow-none border-none bg-transparent">
+
+                {/* Groups & Sessions */}
+                <Card className="shadow-none border-none bg-transparent mt-6">
                   <CardHeader className="p-0 mb-4">
                     <div className="flex items-center gap-2">
                       <div className="w-1 h-4 bg-primary rounded-full"></div>
-                      <CardTitle className="text-lg">Included Groups</CardTitle>
+                      <CardTitle className="text-lg">Groups & Sessions</CardTitle>
                     </div>
                     <p className="text-sm text-muted-foreground mt-1">
-                      Groups and categories included in this subscription plan
+                      Groups and categories included in this subscription plan with session tracking
                     </p>
                   </CardHeader>
                   <CardContent className="p-0">
                     {(() => {
                       const planGroups = selectedSubscription?.plan?.plan_groups || [];
+                      const groupSessions = selectedSubscription?.subscription_group_sessions || [];
+                      
                       if (planGroups.length === 0) {
                         return (
-                          <div className="text-center py-8 border-2 border-dashed border-muted/50 rounded-lg bg-muted/10">
-                            <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-muted/50 flex items-center justify-center">
-                              <div className="w-6 h-6 text-muted-foreground">📋</div>
-                            </div>
-                            <p className="text-sm font-medium text-muted-foreground mb-1">
-                              No groups included
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              This plan doesn't include any specific groups
-                            </p>
+                          <div className="text-center py-8 text-muted-foreground">
+                            <div className="text-sm">No groups assigned to this plan</div>
                           </div>
                         );
                       }
+
                       return (
-                        <div className="space-y-3">
-                          {planGroups.map((planGroup, index) => (
-                            <div key={planGroup.id} className="p-4 bg-muted/20 rounded-lg border border-border/50">
-                              <div className="flex items-center justify-between mb-3">
-                                <div className="flex items-center gap-3">
-                                  <div 
-                                    className="w-4 h-4 rounded-full shadow-sm border border-white/20" 
-                                    style={{ backgroundColor: planGroup.groups?.color || '#6B7280' }}
-                                  />
-                                  <div>
-                                    <h4 className="font-semibold text-foreground">
-                                      {planGroup.groups?.name}
-                                    </h4>
-                                    <p className="text-sm text-muted-foreground">
-                                      {planGroup.groups?.description}
-                                    </p>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm font-medium text-foreground">
-                                    {planGroup.session_count} session{planGroup.session_count > 1 ? 's' : ''}
-                                  </span>
-                                  {planGroup.is_free && (
-                                    <div className="flex items-center gap-1">
-                                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                                      <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-1 rounded-full font-semibold border border-green-200 dark:border-green-800">
-                                        FREE
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                              
-                              {/* Categories within this group */}
-                              {planGroup.groups?.categories && planGroup.groups.categories.length > 0 && (
-                                <div className="mt-3 pt-3 border-t border-border/30">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <div className="w-1 h-3 bg-muted-foreground/50 rounded-full"></div>
-                                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                      Categories
-                                    </span>
-                                  </div>
-                                  <div className="flex flex-wrap gap-2">
-                                    {planGroup.groups.categories.map((category) => (
-                                      <div 
-                                        key={category.id}
-                                        className="flex items-center gap-1.5 px-2 py-1 bg-background border border-border/50 rounded-md text-xs"
-                                      >
-                                        <div 
-                                          className="w-2 h-2 rounded-full" 
-                                          style={{ backgroundColor: category.color }}
-                                        />
-                                        <span className="text-foreground font-medium">
-                                          {category.name}
-                                        </span>
+                        <div className="space-y-4">
+                          {planGroups.map((planGroup: any) => {
+                            const groupSession = groupSessions.find((gs: any) => gs.group_id === planGroup.groups.id);
+                            const sessionsRemaining = groupSession?.sessions_remaining || 0;
+                            const totalSessions = groupSession?.total_sessions || planGroup.session_count || 0;
+                            const sessionsUsed = totalSessions - sessionsRemaining;
+                            const progressPercentage = totalSessions > 0 ? (sessionsUsed / totalSessions) * 100 : 0;
+
+                            return (
+                              <div key={planGroup.id} className="border rounded-lg p-4 space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <div 
+                                      className="w-4 h-4 rounded-full" 
+                                      style={{ backgroundColor: planGroup.groups.color }}
+                                    ></div>
+                                    <div>
+                                      <div className="font-medium">{planGroup.groups.name}</div>
+                                      <div className="text-sm text-muted-foreground">
+                                        {planGroup.groups.description}
                                       </div>
-                                    ))}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    {planGroup.is_free && (
+                                      <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                                        Free
+                                      </Badge>
+                                    )}
+                                    <Badge variant="outline">
+                                      {planGroup.session_count} sessions
+                                    </Badge>
                                   </div>
                                 </div>
-                              )}
-                            </div>
-                          ))}
+
+                                {/* Session Progress */}
+                                <div className="space-y-2">
+                                  <div className="flex justify-between text-sm">
+                                    <span>Sessions Used</span>
+                                    <span className="font-medium">{sessionsUsed} / {totalSessions}</span>
+                                  </div>
+                                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                    <div 
+                                      className="bg-primary h-2 rounded-full transition-all duration-300" 
+                                      style={{ width: `${Math.min(progressPercentage, 100)}%` }}
+                                    ></div>
+                                  </div>
+                                  <div className="flex justify-between text-xs text-muted-foreground">
+                                    <span>Remaining: {sessionsRemaining}</span>
+                                    <span>{Math.round(progressPercentage)}% used</span>
+                                  </div>
+                                </div>
+
+                                {/* Categories */}
+                                {planGroup.categories && planGroup.categories.length > 0 && (
+                                  <div className="space-y-2">
+                                    <div className="text-sm font-medium text-muted-foreground">Categories</div>
+                                    <div className="flex flex-wrap gap-2">
+                                      {planGroup.categories.map((category: any) => (
+                                        <Badge key={category.id} variant="outline" className="text-xs">
+                                          {category.name}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       );
                     })()}
