@@ -63,8 +63,7 @@ export async function POST(req: NextRequest) {
       start_date: subData.startDate || subData.start_date,
       end_date: subData.endDate || subData.end_date,
       status: subData.status || 'pending',
-      notes: subData.notes,
-      sessions_remaining: subData.sessionsRemaining || subData.sessions_remaining || 0
+      notes: subData.notes
     };
     
     console.log('Converted to database format:', dbData);
@@ -98,27 +97,6 @@ export async function POST(req: NextRequest) {
       dbData.plan_id = planId;
     }
     
-    // Get plan details to set sessions_remaining if not provided
-    if (!dbData.sessions_remaining || dbData.sessions_remaining === 0) {
-      const { data: plan, error: planError } = await supabaseServer()
-        .from('plans')
-        .select('max_sessions')
-        .eq('id', dbData.plan_id)
-        .single();
-        
-      if (planError) {
-        console.error('Error fetching plan:', planError);
-        return NextResponse.json({ 
-          error: 'Invalid plan_id or plan not found' 
-        }, { status: 400 });
-      }
-      
-      dbData.sessions_remaining = plan.max_sessions || 0;
-      console.log('Set sessions_remaining from plan:', dbData.sessions_remaining);
-    }
-    
-    // Ensure sessions_remaining is a number
-    dbData.sessions_remaining = parseInt(dbData.sessions_remaining) || 0;
     
     // Validate dates
     const startDate = new Date(dbData.start_date);

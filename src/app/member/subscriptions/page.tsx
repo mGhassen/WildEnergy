@@ -49,7 +49,6 @@ interface Subscription {
   plan?: Plan;
   start_date: string;
   end_date: string;
-  sessions_remaining: number;
   status: string;
   subscription_group_sessions?: {
     id: number;
@@ -233,6 +232,9 @@ export default function MemberSubscriptions() {
             const plan = sub.plan || { name: "", price: "", max_sessions: 0, plan_groups: [] };
             const totalSessions = plan.max_sessions ?? 0;
             
+            // Calculate remaining sessions from group sessions
+            const totalRemainingSessions = sub.subscription_group_sessions?.reduce((sum: number, group: any) => sum + (group.sessions_remaining || 0), 0) || 0;
+            
             console.log('Total sessions calculated:', totalSessions);
             
             // Bonus sessions (always 0 in this system)
@@ -270,7 +272,7 @@ export default function MemberSubscriptions() {
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="text-center p-4 bg-primary/5 rounded-lg border border-primary/20">
                           <p className="text-sm text-muted-foreground mb-1">Sessions Remaining</p>
-                          <p className="text-3xl font-bold text-primary">{sub.sessions_remaining}</p>
+                          <p className="text-3xl font-bold text-primary">{totalRemainingSessions}</p>
                           <p className="text-xs text-muted-foreground mt-1">of {totalSessions} total</p>
                         </div>
                         <div className="text-center p-4 bg-muted/50 rounded-lg border border-border/50">
@@ -326,7 +328,7 @@ export default function MemberSubscriptions() {
                             </div>
                             <div className="flex justify-between">
                               <span className="text-muted-foreground">Sessions Used:</span>
-                              <span className="font-medium text-orange-600">{totalSessions - sub.sessions_remaining}</span>
+                              <span className="font-medium text-orange-600">{totalSessions - totalRemainingSessions}</span>
                             </div>
                           </div>
                         </div>
