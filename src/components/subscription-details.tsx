@@ -3,8 +3,17 @@
 import React, { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { formatDate } from "@/lib/date";
-import { CreditCard, Info, Calendar, Users } from "lucide-react";
+import { CreditCard, Info, Calendar, Users, Plus, DollarSign } from "lucide-react";
 
 interface Plan {
   id: number;
@@ -39,10 +48,15 @@ interface Payment {
   method?: string;
   payment_status?: string;
   payment_type?: string;
+  transaction_id?: string;
+  notes?: string;
+  user_id?: string;
 }
 
 interface Subscription {
   id: number;
+  user_id?: string;
+  userId?: string; // Handle both possible field names
   plan?: Plan;
   start_date: string;
   end_date: string;
@@ -75,9 +89,22 @@ export function SubscriptionDetails({
   isAdmin = false 
 }: SubscriptionDetailsProps) {
   const [subTab, setSubTab] = useState<'details' | 'payments'>('details');
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [paymentFormData, setPaymentFormData] = useState({
+    amount: "",
+    payment_type: "cash",
+    payment_status: "paid",
+    payment_date: new Date().toISOString().split('T')[0],
+    transaction_id: "",
+    notes: "",
+  });
+
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const plan = subscription.plan || { name: "", price: "", plan_groups: [] };
-  // Calculate total sessions from plan_groups instead of max_sessions
+  
+  // Calculate total sessions from plan_groups
   const totalSessions = plan.plan_groups?.reduce((sum: number, group: any) => sum + (group.session_count || 0), 0) || 0;
   
   // Calculate remaining sessions from group sessions
@@ -86,12 +113,76 @@ export function SubscriptionDetails({
   // Helper: payments for this subscription
   const getPaymentsForSub = (subId: number) => payments.filter(p => p.subscription_id === subId);
 
+  // Calculate payment information
+  const subscriptionPayments = getPaymentsForSub(subscription.id);
+  const totalPaid = subscriptionPayments
+    .filter(p => p.payment_status === 'paid')
+    .reduce((sum, p) => sum + (p.amount || 0), 0);
+  
+  // Plan price is a number from the API
+  const planPrice = Number(plan.price) || 0;
+  
+  // Calculate remaining amount
+  const remainingAmount = Math.max(0, planPrice - totalPaid);
+
+  // Payment creation mutation
+  const createPaymentMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return await apiRequest("POST", "/api/payments", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/subscriptions"] });
+      setIsPaymentModalOpen(false);
+      setPaymentFormData({
+        amount: "",
+        payment_type: "cash",
+        payment_status: "paid",
+        payment_date: new Date().toISOString().split('T')[0],
+        transaction_id: "",
+        notes: "",
+      });
+      toast({ title: "Payment created successfully" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error creating payment",
+        description: error.message,
+        variant: "destructive"
+      });
+    },
+  });
+
   const formatPrice = (price: string | number) => {
     const numPrice = typeof price === 'string' ? parseFloat(price) : price;
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
     }).format(numPrice);
+  };
+
+  // Payment handlers
+  const handleAddPayment = () => {
+    setPaymentFormData(prev => ({
+      ...prev,
+      amount: remainingAmount.toFixed(2),
+    }));
+    setIsPaymentModalOpen(true);
+  };
+
+  const handlePaymentSubmit = () => {
+    const paymentData = {
+      subscription_id: subscription.id,
+      user_id: subscription.user_id || subscription.userId, // Handle both possible field names
+      amount: parseFloat(paymentFormData.amount),
+      payment_type: paymentFormData.payment_type,
+      payment_status: paymentFormData.payment_status,
+      payment_date: paymentFormData.payment_date,
+      transaction_id: paymentFormData.transaction_id || null,
+      notes: paymentFormData.notes || null,
+    };
+    
+    createPaymentMutation.mutate(paymentData);
   };
 
   return (
@@ -129,7 +220,7 @@ export function SubscriptionDetails({
         {(!showTabs || subTab === 'details') && (
           <div className="space-y-6">
             {/* Overview Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="text-center p-4 bg-primary/5 rounded-lg border border-primary/20">
                 <p className="text-sm text-muted-foreground mb-1">Sessions Remaining</p>
                 <p className="text-3xl font-bold text-primary">{totalRemainingSessions}</p>
@@ -139,6 +230,13 @@ export function SubscriptionDetails({
                 <p className="text-sm text-muted-foreground mb-1">Plan Price</p>
                 <p className="text-2xl font-bold text-foreground">{formatPrice(plan.price ?? 0)}</p>
                 <p className="text-xs text-muted-foreground mt-1">{plan.name}</p>
+              </div>
+              <div className="text-center p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800/30">
+                <p className="text-sm text-muted-foreground mb-1">Payment Status</p>
+                <p className="text-lg font-bold text-foreground">{formatPrice(totalPaid)}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {remainingAmount > 0 ? `${formatPrice(remainingAmount)} remaining` : 'Fully paid'}
+                </p>
               </div>
               <div className="text-center p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800/30">
                 <p className="text-sm text-muted-foreground mb-1">Status</p>
@@ -296,29 +394,184 @@ export function SubscriptionDetails({
         )}
 
         {showTabs && subTab === 'payments' && (
-          <div className="space-y-2">
-            {getPaymentsForSub(subscription.id).length === 0 ? (
-              <div className="text-center text-muted-foreground py-6">
-                <CreditCard className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                <div>No payments found for this subscription.</div>
+          <div className="space-y-4">
+            {/* Payment Summary */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-muted/30 rounded-lg">
+              <div className="text-center">
+                <p className="text-sm text-muted-foreground">Total Amount</p>
+                <p className="text-lg font-bold">{formatPrice(planPrice)}</p>
               </div>
-            ) : (
-              getPaymentsForSub(subscription.id).map(payment => (
-                <div key={payment.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <CreditCard className="w-5 h-5 text-primary" />
-                    <span className="font-medium">{payment.amount} TND</span>
-                    <span className="text-xs text-muted-foreground">{formatDate(payment.payment_date)}</span>
-                  </div>
-                  <Badge variant={(payment.status || payment.payment_status) === 'paid' || (payment.status || payment.payment_status) === 'completed' ? 'default' : 'secondary'}>
-                    {(payment.status || payment.payment_status) === 'paid' || (payment.status || payment.payment_status) === 'completed' ? 'Paid' : (payment.status || payment.payment_status)}
-                  </Badge>
-                </div>
-              ))
+              <div className="text-center">
+                <p className="text-sm text-muted-foreground">Amount Paid</p>
+                <p className="text-lg font-bold text-green-600">{formatPrice(totalPaid)}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-sm text-muted-foreground">Remaining</p>
+                <p className={`text-lg font-bold ${remainingAmount > 0 ? 'text-orange-600' : 'text-green-600'}`}>
+                  {formatPrice(remainingAmount)}
+                </p>
+              </div>
+            </div>
+
+            {/* Add Payment Button */}
+            {isAdmin && remainingAmount > 0 && (
+              <div className="flex justify-center">
+                <Button onClick={handleAddPayment} className="flex items-center gap-2">
+                  <Plus className="w-4 h-4" />
+                  Add Payment
+                </Button>
+              </div>
             )}
+
+            {/* Payments List */}
+            <div className="space-y-2">
+              {getPaymentsForSub(subscription.id).length === 0 ? (
+                <div className="text-center text-muted-foreground py-6">
+                  <CreditCard className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                  <div>No payments found for this subscription.</div>
+                </div>
+              ) : (
+                getPaymentsForSub(subscription.id).map(payment => (
+                  <div key={payment.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <CreditCard className="w-5 h-5 text-primary" />
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{formatPrice(payment.amount)}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {payment.payment_type && `(${payment.payment_type})`}
+                          </span>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {formatDate(payment.payment_date)}
+                          {payment.transaction_id && ` • ${payment.transaction_id}`}
+                        </div>
+                      </div>
+                    </div>
+                    <Badge variant={(payment.status || payment.payment_status) === 'paid' ? 'default' : 'secondary'}>
+                      {(payment.status || payment.payment_status) === 'paid' ? 'Paid' : (payment.status || payment.payment_status)}
+                    </Badge>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         )}
       </CardContent>
+
+      {/* Add Payment Modal */}
+      <Dialog open={isPaymentModalOpen} onOpenChange={setIsPaymentModalOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Add Payment</DialogTitle>
+            <DialogDescription>
+              Add a payment for this subscription. The amount is prefilled with the remaining balance.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="amount" className="text-right">
+                Amount
+              </Label>
+              <Input
+                id="amount"
+                type="number"
+                step="0.01"
+                value={paymentFormData.amount}
+                onChange={(e) => setPaymentFormData(prev => ({ ...prev, amount: e.target.value }))}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="payment_type" className="text-right">
+                Type
+              </Label>
+              <Select
+                value={paymentFormData.payment_type}
+                onValueChange={(value) => setPaymentFormData(prev => ({ ...prev, payment_type: value }))}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="card">Card</SelectItem>
+                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                  <SelectItem value="check">Check</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="payment_status" className="text-right">
+                Status
+              </Label>
+              <Select
+                value={paymentFormData.payment_status}
+                onValueChange={(value) => setPaymentFormData(prev => ({ ...prev, payment_status: value }))}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                  <SelectItem value="failed">Failed</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="payment_date" className="text-right">
+                Date
+              </Label>
+              <Input
+                id="payment_date"
+                type="date"
+                value={paymentFormData.payment_date}
+                onChange={(e) => setPaymentFormData(prev => ({ ...prev, payment_date: e.target.value }))}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="transaction_id" className="text-right">
+                Transaction ID
+              </Label>
+              <Input
+                id="transaction_id"
+                value={paymentFormData.transaction_id}
+                onChange={(e) => setPaymentFormData(prev => ({ ...prev, transaction_id: e.target.value }))}
+                className="col-span-3"
+                placeholder="Optional"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="notes" className="text-right">
+                Notes
+              </Label>
+              <Textarea
+                id="notes"
+                value={paymentFormData.notes}
+                onChange={(e) => setPaymentFormData(prev => ({ ...prev, notes: e.target.value }))}
+                className="col-span-3"
+                rows={3}
+                placeholder="Optional payment notes"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsPaymentModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handlePaymentSubmit}
+              disabled={createPaymentMutation.isPending || !paymentFormData.amount}
+            >
+              {createPaymentMutation.isPending ? "Creating..." : "Add Payment"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
