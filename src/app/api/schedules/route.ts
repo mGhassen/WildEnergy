@@ -20,7 +20,17 @@ export async function GET(req: NextRequest) {
       .select(`
         *,
         classes (
-          id, name, max_capacity, duration, category_id
+          id, name, max_capacity, duration, category_id,
+          category:categories (
+            id,
+            name,
+            color,
+            group:groups (
+              id,
+              name,
+              color
+            )
+          )
         ),
         trainers!trainer_id (
           id, user_id, specialization, experience_years, bio, certification
@@ -30,7 +40,16 @@ export async function GET(req: NextRequest) {
       
     if (error) {
       console.error('Schedules API error:', error);
-      return NextResponse.json({ error: 'Failed to fetch schedules', details: error }, { status: 500 });
+      return NextResponse.json({ error: 'Failed to fetch schedules', details: error.message }, { status: 500 });
+    }
+    
+    // Debug: Log schedule information
+    console.log('Total schedules found:', schedules?.length || 0);
+    if (schedules && schedules.length > 0) {
+      console.log('First schedule classes data:', schedules[0].classes);
+      console.log('First schedule category data:', schedules[0].classes?.category);
+    } else {
+      console.log('No schedules found in database');
     }
     
     // Get trainer user details separately
@@ -56,6 +75,14 @@ export async function GET(req: NextRequest) {
     // Transform the data to flatten the nested structure
     const transformedSchedules = schedules?.map(schedule => ({
       ...schedule,
+      class: schedule.classes ? {
+        id: schedule.classes.id,
+        name: schedule.classes.name,
+        max_capacity: schedule.classes.max_capacity,
+        duration: schedule.classes.duration,
+        category_id: schedule.classes.category_id,
+        category: schedule.classes.category
+      } : null,
       trainer: schedule.trainers ? {
         id: schedule.trainers.id,
         specialization: schedule.trainers.specialization,

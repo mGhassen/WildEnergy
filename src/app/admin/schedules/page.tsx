@@ -94,6 +94,20 @@ export default function AdminSchedules() {
   // Data table columns configuration
   const scheduleColumns = [
     {
+      key: 'code',
+      label: 'Code & Status',
+      sortable: true,
+      width: '120px',
+      render: (value: any, row: any) => (
+        <div className="flex items-center gap-2">
+          <div className={`w-3 h-3 rounded-full ${row.is_active ? 'bg-green-500' : 'bg-red-500'}`} />
+          <div className="font-mono text-sm font-medium text-foreground">
+            {row.code || `SCH-${row.id}`}
+          </div>
+        </div>
+      )
+    },
+    {
       key: 'class.name',
       label: 'Class',
       sortable: true,
@@ -117,42 +131,25 @@ export default function AdminSchedules() {
     },
     {
       key: 'schedule',
-      label: 'Schedule',
+      label: 'Schedule & Repetition',
       sortable: true,
-      width: '100px',
+      width: '140px',
       render: (value: any, row: any) => (
-        <div className="text-sm font-medium text-foreground">
-          {formatTime(row.startTime)} - {formatTime(row.endTime)}
-        </div>
-      )
-    },
-    {
-      key: 'repetition',
-      label: 'Repetition',
-      sortable: true,
-      width: '80px',
-      render: (value: any, row: any) => (
-        <div className="text-sm text-foreground">
-          {getRepetitionLabel(row.repetitionType || 'weekly')}
+        <div className="space-y-1">
+          <div className="text-sm font-medium text-foreground">
+            {formatTime(row.startTime)} - {formatTime(row.endTime)}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {getRepetitionLabel(row.repetitionType || 'weekly')}
+          </div>
         </div>
       )
     },
     {
       key: 'capacity',
-      label: 'Capacity',
+      label: 'Capacity & Attendance',
       sortable: true,
-      width: '60px',
-      render: (value: any, row: any) => (
-        <div className="text-sm font-medium text-center text-foreground">
-          {row.class?.max_capacity || 0}
-        </div>
-      )
-    },
-    {
-      key: 'attendance',
-      label: 'Attendance',
-      sortable: true,
-      width: '70px',
+      width: '120px',
       render: (value: any, row: any) => {
         const attendedMembers = getScheduleCheckins(row.id);
         const maxCapacity = row.class?.max_capacity || 0;
@@ -163,25 +160,16 @@ export default function AdminSchedules() {
           : 0;
         
         return (
-          <div className="text-sm font-medium text-center text-foreground">
-            {attendanceRate}%
+          <div className="space-y-1">
+            <div className="text-sm font-medium text-foreground">
+              {maxCapacity} people
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {attendanceRate}% attendance
+            </div>
           </div>
         );
       }
-    },
-    {
-      key: 'status',
-      label: 'Status',
-      sortable: true,
-      width: '60px',
-      render: (value: any, row: any) => (
-        <div className="flex items-center justify-center">
-          <div 
-            className={`w-3 h-3 rounded-full ${row.is_active ? 'bg-green-500' : 'bg-red-500'}`}
-            title={row.is_active ? 'Active' : 'Inactive'}
-          />
-        </div>
-      )
     },
     {
       key: 'actions',
@@ -209,15 +197,33 @@ export default function AdminSchedules() {
               <Eye className="mr-2 h-4 w-4" />
               View Details
             </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation();
-                handleEdit(row);
-              }}
-            >
-              <Edit className="mr-2 h-4 w-4" />
-              Edit
-            </DropdownMenuItem>
+            {canEditSchedule(row.id) ? (
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleEdit(row);
+                }}
+              >
+                <Edit className="mr-2 h-4 w-4" />
+                Edit
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toast({
+                    title: "Cannot Edit Schedule",
+                    description: "This schedule has member registrations or check-ins. Please cancel all registrations first.",
+                    variant: "destructive"
+                  });
+                }}
+                className="text-muted-foreground"
+                disabled
+              >
+                <Edit className="mr-2 h-4 w-4" />
+                Edit (Has Registrations)
+              </DropdownMenuItem>
+            )}
             {canDeleteSchedule(row.id) ? (
               <DropdownMenuItem
                 onClick={(e) => {
@@ -318,6 +324,8 @@ export default function AdminSchedules() {
       console.log('Schedules queryFn called');
       const result = await apiRequest("GET", "/api/schedules");
       console.log('Schedules queryFn result:', result);
+      console.log('Schedules queryFn result type:', typeof result);
+      console.log('Schedules queryFn result length:', Array.isArray(result) ? result.length : 'not array');
       return result;
     },
     staleTime: 0, // Always consider data stale
@@ -325,13 +333,15 @@ export default function AdminSchedules() {
     refetchOnWindowFocus: true,
   });
 
-  console.log('Raw schedules from API:', rawSchedules);
+  console.log('Raw schedules from useQuery:', rawSchedules);
+  console.log('Raw schedules type:', typeof rawSchedules);
+  console.log('Raw schedules length:', Array.isArray(rawSchedules) ? rawSchedules.length : 'not array');
 
   // Map snake_case fields to camelCase for UI
   const schedules = ((rawSchedules as any[]) || []).map((sch: any) => ({
     ...sch,
-    class: sch.class || sch.classes || {}, // Ensure .class is always present
-    classId: Number((sch.class?.id ?? sch.classes?.id ?? sch.class_id)),
+    class: sch.classes || sch.class || {}, // Use classes from API response
+    classId: Number((sch.classes?.id ?? sch.class?.id ?? sch.class_id)),
     trainerId: Number(sch.trainer?.user_id ?? sch.trainer_id),
     startTime: sch.start_time,
     endTime: sch.end_time,
@@ -351,7 +361,19 @@ export default function AdminSchedules() {
       lastName: "",
     },
   }));
-  console.log('Transformed schedules:', schedules);
+  
+  // Debug category data
+  console.log('Schedules after transformation:', schedules);
+  if (schedules.length > 0) {
+    console.log('Schedule count:', schedules.length);
+    console.log('First schedule class data:', schedules[0].class);
+    console.log('First schedule category data:', schedules[0].class?.category);
+    console.log('First schedule trainer data:', schedules[0].trainer);
+    console.log('First schedule raw data:', rawSchedules[0]);
+  } else {
+    console.log('No schedules found after transformation');
+    console.log('Raw schedules data:', rawSchedules);
+  }
 
   const { data: registrations = [] } = useQuery({
     queryKey: ["registrations"],
@@ -505,15 +527,38 @@ export default function AdminSchedules() {
       setIsModalOpen(false);
       setEditingSchedule(null);
       form.reset();
-      toast({ title: "Schedule updated successfully" });
+      
+      // Show success message with course regeneration info
+      const regeneratedCourses = data.regeneratedCourses || 0;
+      toast({ 
+        title: "Schedule updated successfully",
+        description: `Schedule updated and ${regeneratedCourses} course${regeneratedCourses !== 1 ? 's' : ''} regenerated`
+      });
     },
     onError: (error) => {
       console.error('Update schedule mutation error:', error);
-      toast({ 
-        title: "Error updating schedule", 
-        description: error.message,
-        variant: "destructive" 
-      });
+      
+      // Handle specific error for schedules with registrations
+      if (error.message?.includes('Cannot edit schedule with existing registrations')) {
+        const details = (error as any).details || {};
+        toast({ 
+          title: "Cannot Edit Schedule", 
+          description: `This schedule has ${details.totalRegistrations || 0} registrations and ${details.totalCheckins || 0} check-ins. Please cancel all registrations first.`,
+          variant: "destructive" 
+        });
+      } else if (error.message?.includes('failed to regenerate courses')) {
+        toast({ 
+          title: "Schedule Updated with Warning", 
+          description: "Schedule was updated but some courses could not be regenerated. Please check the schedule and regenerate courses manually.",
+          variant: "destructive" 
+        });
+      } else {
+        toast({ 
+          title: "Error updating schedule", 
+          description: error.message,
+          variant: "destructive" 
+        });
+      }
     },
   });
 
@@ -610,6 +655,24 @@ export default function AdminSchedules() {
     return scheduleRegistrations.length === 0 && scheduleCheckins.length === 0;
   };
 
+  const canEditSchedule = (scheduleId: number) => {
+    // Get all courses for this schedule
+    const scheduleCourses = courses.filter((course: any) => course.schedule_id === scheduleId);
+    const courseIds = scheduleCourses.map((course: any) => course.id);
+    
+    // Check if any of these courses have registrations
+    const scheduleRegistrations = registrations.filter((reg: any) => 
+      courseIds.includes(reg.course_id)
+    );
+    
+    // Check if any of these courses have checkins
+    const scheduleCheckins = checkins.filter((checkin: any) => 
+      courseIds.includes(checkin.registration?.course_id)
+    );
+    
+    return scheduleRegistrations.length === 0 && scheduleCheckins.length === 0;
+  };
+
   const getRepetitionLabel = (type: string) => {
     switch (type) {
       case 'once': return 'One-time';
@@ -630,6 +693,17 @@ export default function AdminSchedules() {
 
   const handleEdit = (schedule: any) => {
     console.log('Editing schedule:', schedule);
+    
+    // Check if schedule can be edited
+    if (!canEditSchedule(schedule.id)) {
+      toast({
+        title: "Cannot Edit Schedule",
+        description: "This schedule has member registrations or check-ins. Please cancel all registrations first.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setEditingSchedule(schedule);
     form.reset({
       classId: schedule.classId || 0,
@@ -693,7 +767,9 @@ export default function AdminSchedules() {
               <div className="flex items-center gap-2 mb-1">
                 <span className="font-semibold text-base truncate">{schedule.class?.name}</span>
                 <Badge variant="outline" className="text-xs">{schedule.code || `SCH-${schedule.id}`}</Badge>
-                <Badge variant="outline" className="text-xs">{schedule.class?.category}</Badge>
+                <Badge variant="outline" className="text-xs">
+                  {schedule.class?.category?.name || 'No Category'}
+                </Badge>
                 <Badge variant="secondary" className="text-xs flex items-center gap-1">
                   <RepeatIcon className="w-3 h-3" />
                   {getRepetitionLabel(schedule.repetitionType || 'weekly')}
@@ -725,6 +801,16 @@ export default function AdminSchedules() {
             </div>
           </div>
           <div className="flex gap-2 mt-2">
+            {canEditSchedule(schedule.id) ? (
+              <Button size="icon" variant="ghost" className="border border-border text-primary" onClick={() => onEdit(schedule)}>
+                <Edit className="w-4 h-4" />
+              </Button>
+            ) : (
+              <div className="text-xs text-muted-foreground px-2 py-1 bg-gray-100 rounded flex items-center gap-1">
+                <Edit className="w-3 h-3" />
+                Has registrations
+              </div>
+            )}
             {canDeleteSchedule(schedule.id) ? (
               <Button size="icon" variant="ghost" className="border border-border text-destructive" onClick={() => onDelete(schedule)}>
                 <Trash2 className="w-4 h-4" />

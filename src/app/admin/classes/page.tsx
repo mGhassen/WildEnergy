@@ -71,6 +71,8 @@ export default function AdminClasses() {
     isActive: cls.is_active,
     createdAt: cls.created_at,
     updatedAt: cls.updated_at,
+    // Map category and group data from API response
+    categories: cls.category,
   })) : [];
 
   const { data: rawCategories = [], isLoading: categoriesLoading } = useQuery({
@@ -231,8 +233,13 @@ export default function AdminClasses() {
     setIsModalOpen(true);
   };
 
-  const getCategoryColor = (categoryId: number) => {
-    const category = categories.find((cat: any) => cat && cat.id === categoryId);
+  const getCategoryColor = (categoryId: number, classItem: any) => {
+    // First try to get color from the class's category data (from API)
+    let category = classItem?.categories;
+    if (!category || !category.color) {
+      // Fallback to categories list
+      category = categories.find((cat: any) => cat && cat.id === categoryId);
+    }
     if (category && category.color) {
       // Convert hex color to RGB and create very subtle versions
       const hex = category.color.replace('#', '');
@@ -482,7 +489,7 @@ export default function AdminClasses() {
                       <div className="flex items-center space-x-3">
                         <div 
                           className="w-12 h-12 rounded-lg flex items-center justify-center"
-                          style={getCategoryColor(classItem.categoryId)}
+                          style={getCategoryColor(classItem.categoryId, classItem)}
                         >
                           <span className="text-xs font-medium">
                             {classItem.categories?.name?.charAt(0)?.toUpperCase() || 
@@ -502,12 +509,12 @@ export default function AdminClasses() {
                         {/* Long vertical bullet */}
                         <div 
                           className="w-1 h-8 rounded-full mt-0.5"
-                          style={{ backgroundColor: classItem.categories?.groups?.color || '#94a3b8' }}
+                          style={{ backgroundColor: classItem.categories?.group?.color || '#94a3b8' }}
                         />
                         <div className="flex flex-col space-y-1">
                           {/* Group */}
                           <span className="text-xs text-muted-foreground font-medium">
-                            {classItem.categories?.groups?.name || 'No group'}
+                            {classItem.categories?.group?.name || 'No group'}
                           </span>
                           {/* Category */}
                           <span className="text-sm font-semibold text-foreground">

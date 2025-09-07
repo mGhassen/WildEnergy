@@ -198,7 +198,13 @@ export default function DataTable({
     const groups: { [key: string]: any[] } = {};
     
     sortedData.forEach((row) => {
-      const groupKey = String(row[groupBy] || "Unknown");
+      // Handle dot notation for nested properties
+      const getNestedValue = (obj: any, path: string) => {
+        return path.split('.').reduce((current, key) => current?.[key], obj);
+      };
+      
+      const groupValue = getNestedValue(row, groupBy);
+      const groupKey = String(groupValue || "Unknown");
       if (!groups[groupKey]) {
         groups[groupKey] = [];
       }

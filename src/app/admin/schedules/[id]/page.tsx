@@ -326,7 +326,12 @@ export default function ScheduleDetailsPage() {
             Back to Schedules
           </Button>
           <div>
-            <h1 className="text-3xl font-bold">{schedule.class?.name || 'Unknown Class'}</h1>
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-3xl font-bold">{schedule.class?.name || 'Unknown Class'}</h1>
+              <Badge variant="outline" className="font-mono">
+                {schedule.code || `SCH-${schedule.id}`}
+              </Badge>
+            </div>
             <p className="text-muted-foreground">
               Schedule ID: {schedule.id} • Created {formatEuropeanDate(schedule.created_at)}
             </p>
@@ -438,6 +443,12 @@ export default function ScheduleDetailsPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground font-medium">Schedule Code:</span>
+                <Badge variant="outline" className="font-mono text-xs">
+                  {schedule.code || `SCH-${schedule.id}`}
+                </Badge>
+              </div>
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-muted-foreground" />
                 <span className="text-sm text-foreground">
