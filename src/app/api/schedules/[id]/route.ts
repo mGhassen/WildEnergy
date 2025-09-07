@@ -1,20 +1,176 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { supabaseServer } from '@/lib/supabase';
 
 function extractIdFromUrl(request: NextRequest): string | null {
   const match = request.nextUrl.pathname.match(/\/schedules\/([^/]+)/);
   return match ? match[1] : null;
 }
 
+export async function GET(request: NextRequest) {
+  try {
+    const id = extractIdFromUrl(request);
+    if (!id) {
+      return NextResponse.json({ error: 'Schedule ID is required' }, { status: 400 });
+    }
+
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.split(' ')[1];
+    if (!token) {
+      return NextResponse.json({ error: 'No token provided' }, { status: 401 });
+    }
+
+    // Verify admin
+    const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
+    if (authError || !adminUser) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+    }
+
+    const { data: adminCheck } = await supabaseServer()
+      .from('users')
+      .select('is_admin')
+      .eq('auth_user_id', adminUser.id)
+      .single();
+
+    if (!adminCheck?.is_admin) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
+
+    // Fetch schedule with all related data - including category and group details
+    const { data: schedule, error: scheduleError } = await supabaseServer()
+      .from('schedules')
+      .select(`
+        *,
+        classes (
+          id, name, max_capacity, duration, category_id,
+          category:categories (
+            id, name, color,
+            group:groups (
+              id, name, color
+            )
+          )
+        ),
+        trainers!trainer_id (
+          id, user_id, specialization, experience_years, bio, certification
+        )
+      `)
+      .eq('id', id)
+      .single();
+
+    if (scheduleError || !schedule) {
+      return NextResponse.json({ error: 'Schedule not found' }, { status: 404 });
+    }
+
+    // Get trainer user details separately (same as list API)
+    let trainerUser = null;
+    if (schedule.trainers?.user_id) {
+      const { data: userData } = await supabaseServer()
+        .from('users')
+        .select('id, first_name, last_name, email, phone')
+        .eq('id', schedule.trainers.user_id)
+        .single();
+      
+      if (userData) {
+        trainerUser = userData;
+      }
+    }
+
+    // Transform the data to match frontend expectations
+    const transformedSchedule = {
+      ...schedule,
+      classId: schedule.class_id,
+      trainerId: schedule.trainer_id,
+      startTime: schedule.start_time,
+      endTime: schedule.end_time,
+      dayOfWeek: schedule.day_of_week,
+      repetitionType: schedule.repetition_type,
+      scheduleDate: schedule.schedule_date ? schedule.schedule_date.split('T')[0] : "",
+      startDate: schedule.start_date ? schedule.start_date.split('T')[0] : "",
+      endDate: schedule.end_date ? schedule.end_date.split('T')[0] : "",
+      isActive: schedule.is_active,
+      class: schedule.classes ? {
+        ...schedule.classes,
+        category: schedule.classes.category,
+        group: schedule.classes.category?.group,
+      } : null,
+      trainer: schedule.trainers ? {
+        id: schedule.trainers.id,
+        firstName: trainerUser?.first_name || "",
+        lastName: trainerUser?.last_name || "",
+        email: trainerUser?.email || "",
+        phone: trainerUser?.phone || "",
+        specialization: schedule.trainers.specialization,
+        experience_years: schedule.trainers.experience_years,
+        bio: schedule.trainers.bio,
+        certification: schedule.trainers.certification,
+      } : null,
+    };
+
+    return NextResponse.json(transformedSchedule);
+  } catch (error) {
+    console.error('Error fetching schedule:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
 export async function PUT(request: NextRequest) {
-  const id = extractIdFromUrl(request);
-  // TODO: Implement logic to update schedule by ID
-  return NextResponse.json({ message: `Update schedule ${id}` });
+  try {
+    const id = extractIdFromUrl(request);
+    if (!id) {
+      return NextResponse.json({ error: 'Schedule ID is required' }, { status: 400 });
+    }
+
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.split(' ')[1];
+    if (!token) {
+      return NextResponse.json({ error: 'No token provided' }, { status: 401 });
+    }
+
+    // Verify admin
+    const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
+    if (authError || !adminUser) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+    }
+
+    const { data: adminCheck } = await supabaseServer()
+      .from('users')
+      .select('is_admin')
+      .eq('auth_user_id', adminUser.id)
+      .single();
+
+    if (!adminCheck?.is_admin) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
+
+    const body = await request.json();
+    
+    // Update the schedule
+    const { data: updatedSchedule, error: updateError } = await supabaseServer()
+      .from('schedules')
+      .update({
+        class_id: body.class_id,
+        trainer_id: body.trainer_id,
+        day_of_week: body.day_of_week,
+        start_time: body.start_time,
+        end_time: body.end_time,
+        repetition_type: body.repetition_type,
+        schedule_date: body.schedule_date,
+        start_date: body.start_date,
+        end_date: body.end_date,
+        is_active: body.is_active,
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (updateError) {
+      return NextResponse.json({ error: 'Failed to update schedule', details: updateError.message }, { status: 500 });
+    }
+
+    return NextResponse.json(updatedSchedule);
+  } catch (error) {
+    console.error('Error updating schedule:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 }
 
 export async function DELETE(request: NextRequest) {
@@ -31,12 +187,12 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Verify admin
-    const { data: { user: adminUser }, error: authError } = await supabase.auth.getUser(token);
+    const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
 
-    const { data: adminCheck } = await supabase
+    const { data: adminCheck } = await supabaseServer()
       .from('users')
       .select('is_admin')
       .eq('auth_user_id', adminUser.id)
@@ -47,7 +203,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Check if schedule exists and get related courses with registrations and checkins
-    const { data: schedule, error: scheduleError } = await supabase
+    const { data: schedule, error: scheduleError } = await supabaseServer()
       .from('schedules')
       .select(`
         id,
@@ -115,7 +271,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Get trainer user details
-    const { data: trainerUser } = await supabase
+    const { data: trainerUser } = await supabaseServer()
       .from('users')
       .select('first_name, last_name')
       .eq('id', (schedule.trainers as any)?.user_id)
@@ -123,7 +279,7 @@ export async function DELETE(request: NextRequest) {
 
     // Delete the schedule (courses will be deleted automatically due to CASCADE)
     // No need to delete registrations/checkins since we verified there are none
-    const { error: deleteError } = await supabase
+    const { error: deleteError } = await supabaseServer()
       .from('schedules')
       .delete()
       .eq('id', id);
@@ -151,7 +307,7 @@ export async function POST(request: NextRequest) {
   if (!id) return NextResponse.json({ error: 'No schedule id' }, { status: 400 });
 
   // Fetch the schedule
-  const { data: schedule, error } = await supabase
+  const { data: schedule, error } = await supabaseServer()
     .from('schedules')
     .select('*')
     .eq('id', id)
@@ -163,7 +319,7 @@ export async function POST(request: NextRequest) {
   console.log('Fetched schedule:', schedule);
 
   // Fetch class for max_capacity
-  const { data: classData } = await supabase
+  const { data: classData } = await supabaseServer()
     .from('classes')
     .select('id, max_capacity')
     .eq('id', schedule.class_id)
@@ -234,7 +390,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'No courses to insert' }, { status: 400 });
   }
 
-  const { error: insertError } = await supabase
+  const { error: insertError } = await supabaseServer()
     .from('courses')
     .insert(coursesToInsert);
   if (insertError) {

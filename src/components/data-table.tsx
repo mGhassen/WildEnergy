@@ -265,9 +265,9 @@ export default function DataTable({
       const groupCount = rows.length;
       
       return (
-        <div key={groupKey} className="border-b border-gray-200">
+        <div key={groupKey} className="border-b border-border">
           <div 
-            className="flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 cursor-pointer"
+            className="flex items-center justify-between p-3 bg-muted/30 hover:bg-muted/50 cursor-pointer"
             onClick={() => toggleGroup(groupKey)}
           >
             <div className="flex items-center gap-2">
@@ -281,7 +281,7 @@ export default function DataTable({
             </div>
           </div>
           {isExpanded && (
-            <div className="bg-white">
+            <div className="bg-background">
               {renderRows(rows)}
             </div>
           )}
@@ -295,7 +295,7 @@ export default function DataTable({
     return rows.map((row, index) => (
       <div
         key={row.id || index}
-        className={`flex items-center border-b border-gray-200 hover:bg-gray-50 ${
+        className={`flex items-center border-b border-border hover:bg-muted/30 ${
           onRowClick ? "cursor-pointer" : ""
         }`}
         onClick={() => onRowClick?.(row)}
@@ -325,27 +325,49 @@ export default function DataTable({
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold">{title}</h2>
-          <p className="text-muted-foreground">{description}</p>
+      {/* Header - Only show if title or description is provided */}
+      {(title && title !== "Data Table") || (description && description !== "Manage your data") ? (
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="text-2xl font-bold">{title}</h2>
+            <p className="text-muted-foreground">{description}</p>
+          </div>
+          <div className="flex gap-2">
+            {onRefresh && (
+              <Button variant="outline" onClick={onRefresh} disabled={loading}>
+                <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
+            )}
+            {onExport && (
+              <Button variant="outline" onClick={() => onExport(sortedData)}>
+                <Download className="w-4 h-4 mr-2" />
+                Export
+              </Button>
+            )}
+          </div>
         </div>
-        <div className="flex gap-2">
-          {onRefresh && (
-            <Button variant="outline" onClick={onRefresh} disabled={loading}>
-              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-              Refresh
-            </Button>
-          )}
-          {onExport && (
-            <Button variant="outline" onClick={() => onExport(sortedData)}>
-              <Download className="w-4 h-4 mr-2" />
-              Export
-            </Button>
-          )}
-        </div>
-      </div>
+      ) : (
+        /* Show only action buttons if no title/description */
+        (onRefresh || onExport) && (
+          <div className="flex justify-end">
+            <div className="flex gap-2">
+              {onRefresh && (
+                <Button variant="outline" onClick={onRefresh} disabled={loading}>
+                  <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+                  Refresh
+                </Button>
+              )}
+              {onExport && (
+                <Button variant="outline" onClick={() => onExport(sortedData)}>
+                  <Download className="w-4 h-4 mr-2" />
+                  Export
+                </Button>
+              )}
+            </div>
+          </div>
+        )
+      )}
 
       {/* Controls */}
       <Card>
@@ -354,7 +376,7 @@ export default function DataTable({
             {searchable && (
               <div className="flex-1 min-w-64">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                   <Input
                     placeholder="Search..."
                     value={searchTerm}
@@ -471,7 +493,7 @@ export default function DataTable({
       <Card>
         <CardContent className="p-0">
           {/* Table Header */}
-          <div className="flex items-center border-b border-gray-200 bg-gray-50">
+          <div className="flex items-center border-b border-border bg-muted/30">
             {selectable && (
               <div className="p-3">
                 <Checkbox
@@ -484,8 +506,8 @@ export default function DataTable({
             {columns.map((column) => (
               <div
                 key={column.key}
-                className={`p-3 flex-1 font-medium ${
-                  column.sortable ? "cursor-pointer hover:bg-gray-100" : ""
+                className={`p-3 flex-1 font-medium text-foreground ${
+                  column.sortable ? "cursor-pointer hover:bg-muted/50" : ""
                 }`}
                 style={{ width: column.width }}
                 onClick={() => column.sortable && handleSort(column.key)}
@@ -505,8 +527,8 @@ export default function DataTable({
           {/* Table Body */}
           {loading ? (
             <div className="p-8 text-center">
-              <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2" />
-              <p>Loading...</p>
+              <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-muted-foreground" />
+              <p className="text-muted-foreground">Loading...</p>
             </div>
           ) : (
             <div className="max-h-96 overflow-y-auto">
