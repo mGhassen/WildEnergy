@@ -60,7 +60,9 @@ export const formatCurrency = (amount: number | string): string => {
   }).format(numAmount);
   
   // Always append TND
-  return `${formattedNumber} TND`;
+  const result = `${formattedNumber} TND`;
+  console.log('formatCurrency:', { amount, numAmount, formattedNumber, result });
+  return result;
 };
 
 export const formatNumber = (amount: number | string): string => {

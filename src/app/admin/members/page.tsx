@@ -21,6 +21,7 @@ import {
   CheckCircle,
   XCircle} from "lucide-react";
 import { formatDate } from "@/lib/date";
+import { formatCurrency } from "@/lib/config";
 import "./member-details-dialog.css";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -469,7 +470,7 @@ export default function MembersPage() {
                 <Card className="flex items-center gap-3 px-4 py-2 bg-gradient-to-r from-green-100 to-green-50 border-green-200 shadow-none">
                   <span className="inline-flex items-center gap-1 text-green-700 font-semibold text-lg">
                     <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3-1.343-3-3-3zm0 0V4m0 16v-4m8-4a8 8 0 11-16 0 8 8 0 0116 0z" /></svg>
-                    {selectedMember.credit} TND
+                    {formatCurrency(selectedMember.credit)}
                   </span>
                   <Badge variant="default" className="ml-2 px-2 py-1 rounded-full text-xs">
                     Credit Available
@@ -596,7 +597,7 @@ export default function MembersPage() {
                                   {subscription.sessionsRemaining} sessions left
                                 </p>
                                 <p className="text-sm font-medium">
-                                  ${subscription.plan?.price}
+                                  {formatCurrency(subscription.plan?.price || 0)}
                                 </p>
                               </div>
                             </div>
@@ -637,7 +638,7 @@ export default function MembersPage() {
                             {(memberData.payments || []).map((payment: Payment) => (
                               <tr key={payment.id} className="border-b last:border-b-0">
                                 <td className="px-2 py-1">{formatDate(payment.payment_date || "")}</td>
-                                <td className="px-2 py-1 font-medium">${payment.amount}</td>
+                                <td className="px-2 py-1 font-medium">{formatCurrency(payment.amount)}</td>
                                 <td className="px-2 py-1">{payment.payment_type || '-'}</td>
                                 <td className="px-2 py-1">
                                   <Badge variant={payment.payment_status === 'paid' ? 'default' : 'secondary'}>
