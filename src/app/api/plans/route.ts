@@ -74,10 +74,21 @@ export async function POST(req: NextRequest) {
     }
     const { planGroups, ...planData } = await req.json();
     
+    // Calculate max_sessions from plan groups
+    const maxSessions = planGroups && planGroups.length > 0 
+      ? planGroups.reduce((sum: number, group: any) => sum + (group.sessionCount || 0), 0)
+      : 0;
+    
+    // Add max_sessions to plan data
+    const planDataWithMaxSessions = {
+      ...planData,
+      max_sessions: maxSessions
+    };
+    
     // Create the plan first
     const { data: plan, error: planError } = await supabase
       .from('plans')
-      .insert(planData)
+      .insert(planDataWithMaxSessions)
       .select('*')
       .single();
     
@@ -164,10 +175,24 @@ export async function PUT(req: NextRequest) {
     }
     const { id, planGroups, ...updates } = await req.json();
     
+    // Calculate max_sessions from plan groups if provided
+    let maxSessions = updates.max_sessions; // Keep existing if not updating groups
+    if (planGroups !== undefined) {
+      maxSessions = planGroups && planGroups.length > 0 
+        ? planGroups.reduce((sum: number, group: any) => sum + (group.sessionCount || 0), 0)
+        : 0;
+    }
+    
+    // Add max_sessions to updates
+    const updatesWithMaxSessions = {
+      ...updates,
+      max_sessions: maxSessions
+    };
+    
     // Update the plan
     const { data: plan, error: planError } = await supabase
       .from('plans')
-      .update(updates)
+      .update(updatesWithMaxSessions)
       .eq('id', id)
       .select('*')
       .single();
