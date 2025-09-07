@@ -18,6 +18,17 @@ import { apiRequest } from "@/lib/queryClient";
 import { Plus, Search, Edit, Trash2, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const classFormSchema = insertClassSchema;
 type ClassFormData = z.infer<typeof classFormSchema>;
@@ -27,7 +38,7 @@ function mapClassToApi(data: any) {
   return {
     name: data.name,
     description: data.description,
-    category_id: Number(data.categoryId),
+    category_id: data.categoryId ? Number(data.categoryId) : null,
     difficulty: data.difficulty,
     duration: data.durationMinutes,
     max_capacity: data.maxCapacity,
@@ -40,6 +51,9 @@ export default function AdminClasses() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClass, setEditingClass] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [classToDelete, setClassToDelete] = useState<any>(null);
+  const [linkedRegistrationsCount, setLinkedRegistrationsCount] = useState<number>(0);
+  const [linkedCheckinsCount, setLinkedCheckinsCount] = useState<number>(0);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -64,6 +78,16 @@ export default function AdminClasses() {
     queryFn: () => apiRequest("GET", "/api/admin/categories"),
   });
 
+  const { data: registrations = [] } = useQuery({
+    queryKey: ["/api/admin/registrations"],
+    queryFn: () => apiRequest("GET", "/api/admin/registrations"),
+  });
+
+  const { data: checkins = [] } = useQuery({
+    queryKey: ["/api/admin/checkins"],
+    queryFn: () => apiRequest("GET", "/api/admin/checkins"),
+  });
+
   // Ensure categories is always an array
   const categories = Array.isArray(rawCategories) ? rawCategories : [];
 
@@ -72,7 +96,7 @@ export default function AdminClasses() {
     defaultValues: {
       name: "",
       description: "",
-      categoryId: 0,
+      categoryId: null,
       difficulty: "beginner",
       durationMinutes: 60,
       maxCapacity: 20,
@@ -163,7 +187,7 @@ export default function AdminClasses() {
     form.reset({
       name: classItem.name,
       description: classItem.description,
-      categoryId: classItem.categoryId || 0,
+      categoryId: classItem.categoryId || null,
       difficulty: classItem.difficulty || "beginner",
       durationMinutes: classItem.durationMinutes,
       maxCapacity: classItem.maxCapacity,
@@ -173,23 +197,31 @@ export default function AdminClasses() {
     setIsModalOpen(true);
   };
 
+  const handleDeleteClick = async (classItem: any) => {
+    setClassToDelete(classItem);
+    
+    // Check for linked registrations
+    const linkedRegistrations = registrations.filter((reg: any) => reg.classId === classItem.id);
+    setLinkedRegistrationsCount(linkedRegistrations.length);
+    
+    // Check for linked checkins
+    const linkedCheckins = checkins.filter((checkin: any) => checkin.classId === classItem.id);
+    setLinkedCheckinsCount(linkedCheckins.length);
+  };
+
   const handleDelete = (id: number) => {
-    if (confirm("Are you sure you want to delete this class?")) {
-      deleteClassMutation.mutate(id);
-    }
+    deleteClassMutation.mutate(id);
+    setClassToDelete(null);
+    setLinkedRegistrationsCount(0);
+    setLinkedCheckinsCount(0);
   };
 
   const openCreateModal = () => {
     setEditingClass(null);
-    // If there are no categories, do not open the modal and show a toast
-    if (!categoriesOptions.length) {
-      toast({ title: "No categories available. Please create a category first.", variant: "destructive" });
-      return;
-    }
     form.reset({
       name: "",
       description: "",
-      categoryId: categoriesOptions[0].value,
+      categoryId: null,
       difficulty: "beginner",
       durationMinutes: 60,
       maxCapacity: 20,
@@ -285,8 +317,14 @@ export default function AdminClasses() {
                     <FormItem>
                       <FormLabel>Category</FormLabel>
                       <Select 
-                        onValueChange={(value) => field.onChange(Number(value))} 
-                        value={field.value?.toString()}
+                        onValueChange={(value) => {
+                          if (value === "none") {
+                            field.onChange(null);
+                          } else {
+                            field.onChange(Number(value));
+                          }
+                        }} 
+                        value={field.value === null || field.value === undefined ? "none" : field.value.toString()}
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -294,6 +332,7 @@ export default function AdminClasses() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
+                          <SelectItem value="none">No category</SelectItem>
                           {categoriesOptions.map((option) => (
                             <SelectItem key={option.value} value={option.value.toString()}>
                               {option.label}
@@ -461,22 +500,18 @@ export default function AdminClasses() {
                     <TableCell>
                       <div className="flex items-start space-x-2">
                         {/* Long vertical bullet */}
-                        {classItem.categories?.groups && (
-                          <div 
-                            className="w-1 h-8 rounded-full mt-0.5"
-                            style={{ backgroundColor: classItem.categories.groups.color || '#94a3b8' }}
-                          />
-                        )}
+                        <div 
+                          className="w-1 h-8 rounded-full mt-0.5"
+                          style={{ backgroundColor: classItem.categories?.groups?.color || '#94a3b8' }}
+                        />
                         <div className="flex flex-col space-y-1">
                           {/* Group */}
-                          {classItem.categories?.groups && (
-                            <span className="text-xs text-muted-foreground font-medium">
-                              {classItem.categories.groups.name}
-                            </span>
-                          )}
+                          <span className="text-xs text-muted-foreground font-medium">
+                            {classItem.categories?.groups?.name || 'No group'}
+                          </span>
                           {/* Category */}
                           <span className="text-sm font-semibold text-foreground">
-                            {classItem.categories?.name || categories.find((cat: any) => cat && cat.id === classItem.categoryId)?.name || 'Unknown'}
+                            {classItem.categories?.name || categories.find((cat: any) => cat && cat.id === classItem.categoryId)?.name || 'No category'}
                           </span>
                         </div>
                       </div>
@@ -504,13 +539,64 @@ export default function AdminClasses() {
                         >
                           <Edit className="w-4 h-4" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(classItem.id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              onClick={() => handleDeleteClick(classItem)}
+                            >
+                              <Trash2 className="w-4 h-4 text-red-500" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Class</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                {(linkedRegistrationsCount > 0 || linkedCheckinsCount > 0) ? (
+                                  <div className="space-y-2">
+                                    <p className="text-red-600 font-medium">Cannot delete this class!</p>
+                                    <p>
+                                      This class has:
+                                    </p>
+                                    <ul className="list-disc list-inside space-y-1">
+                                      {linkedRegistrationsCount > 0 && (
+                                        <li><strong>{linkedRegistrationsCount}</strong> registration{linkedRegistrationsCount > 1 ? 's' : ''}</li>
+                                      )}
+                                      {linkedCheckinsCount > 0 && (
+                                        <li><strong>{linkedCheckinsCount}</strong> check-in{linkedCheckinsCount > 1 ? 's' : ''}</li>
+                                      )}
+                                    </ul>
+                                    <p className="text-sm text-muted-foreground">
+                                      Please remove all registrations and check-ins first before deleting this class.
+                                    </p>
+                                  </div>
+                                ) : (
+                                  <>
+                                    Are you sure you want to delete &quot;{classItem.name}&quot;? This action cannot be undone.
+                                  </>
+                                )}
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel onClick={() => {
+                                setClassToDelete(null);
+                                setLinkedRegistrationsCount(0);
+                                setLinkedCheckinsCount(0);
+                              }}>
+                                {(linkedRegistrationsCount > 0 || linkedCheckinsCount > 0) ? 'Close' : 'Cancel'}
+                              </AlertDialogCancel>
+                              {(linkedRegistrationsCount === 0 && linkedCheckinsCount === 0) && (
+                                <AlertDialogAction
+                                  onClick={() => handleDelete(classItem.id)}
+                                  className="bg-red-600 hover:bg-red-700"
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              )}
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     </TableCell>
                   </TableRow>

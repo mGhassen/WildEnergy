@@ -43,14 +43,14 @@ export async function PATCH(request: NextRequest) {
     const { name, description, category_id, difficulty, duration, max_capacity, equipment, is_active } = await request.json();
 
     // Validate required fields
-    if (!name || !category_id || !duration || !max_capacity) {
+    if (!name || !duration || !max_capacity) {
       return NextResponse.json({ error: 'Missing required class fields' }, { status: 400 });
     }
 
     const updateData = {
       name: name.trim(),
       description: description ? String(description).trim() : null,
-      category_id: Number(category_id),
+      category_id: category_id ? Number(category_id) : null,
       difficulty: difficulty || 'beginner',
       duration: Number(duration),
       max_capacity: Number(max_capacity),
