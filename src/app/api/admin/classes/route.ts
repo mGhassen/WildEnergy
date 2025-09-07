@@ -72,19 +72,19 @@ export async function POST(req: NextRequest) {
     if (!adminCheck?.is_admin) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
-    const { name, description, categoryId, duration, maxCapacity, equipment, isActive, difficulty } = await req.json();
-    if (!name || !categoryId || !duration || !maxCapacity) {
+    const { name, description, category_id, duration, max_capacity, equipment, is_active, difficulty } = await req.json();
+    if (!name || !category_id || !duration || !max_capacity) {
       return NextResponse.json({ error: 'Missing required class fields' }, { status: 400 });
     }
     const classData = {
       name: name.trim(),
       description: description ? String(description).trim() : undefined,
-      category_id: Number(categoryId),
+      category_id: Number(category_id),
       difficulty: difficulty || 'beginner',
       duration: Number(duration),
-      max_capacity: Number(maxCapacity),
+      max_capacity: Number(max_capacity),
       equipment: equipment || null,
-      is_active: isActive !== undefined ? Boolean(isActive) : true,
+      is_active: is_active !== undefined ? Boolean(is_active) : true,
     };
     const { data: newClass, error } = await supabase
       .from('classes')
