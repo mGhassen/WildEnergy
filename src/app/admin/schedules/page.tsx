@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,6 +55,27 @@ function mapScheduleToApi(data: any) {
     end_date: data.endDate,
     is_active: data.isActive,
   };
+}
+
+// Helper function to calculate end time based on start time and class duration
+function calculateEndTime(startTime: string, durationMinutes: number): string {
+  if (!startTime || !durationMinutes) return '';
+  
+  // Parse start time (HH:MM format)
+  const [hours, minutes] = startTime.split(':').map(Number);
+  
+  // Convert to total minutes from midnight
+  const startMinutes = hours * 60 + minutes;
+  
+  // Add duration
+  const endMinutes = startMinutes + durationMinutes;
+  
+  // Convert back to HH:MM format
+  const endHours = Math.floor(endMinutes / 60);
+  const endMins = endMinutes % 60;
+  
+  // Format with leading zeros
+  return `${endHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`;
 }
 
 export default function AdminSchedules() {
@@ -172,6 +193,28 @@ export default function AdminSchedules() {
       isActive: true,
     },
   });
+
+  // Watch for class selection and start time changes to auto-fill end time
+  const watchedClassId = form.watch("classId");
+  const watchedStartTime = form.watch("startTime");
+
+  useEffect(() => {
+    if (watchedClassId && watchedStartTime && classes) {
+      // Find the selected class
+      const selectedClass = (classes as any[]).find((cls: any) => cls.id === watchedClassId);
+      
+      if (selectedClass && selectedClass.duration) {
+        // Calculate end time based on class duration
+        const endTime = calculateEndTime(watchedStartTime, selectedClass.duration);
+        
+        // Only update if the end time field is empty or if we're creating a new schedule
+        const currentEndTime = form.getValues("endTime");
+        if (!currentEndTime || !editingSchedule) {
+          form.setValue("endTime", endTime);
+        }
+      }
+    }
+  }, [watchedClassId, watchedStartTime, classes, form, editingSchedule]);
 
   const createScheduleMutation = useMutation({
     mutationFn: async (data: ScheduleFormData) => {
@@ -517,26 +560,54 @@ export default function AdminSchedules() {
                 <FormField
                   control={form.control}
                   name="classId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Class</FormLabel>
-                      <Select onValueChange={value => field.onChange(Number(value))} value={String(field.value)}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select class" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {((classes as any[]) || []).map((classItem: any) => (
-                            <SelectItem key={classItem.id} value={String(classItem.id)}>
-                              {classItem.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  render={({ field }) => {
+                    const selectedClass = classes ? (classes as any[]).find((cls: any) => cls.id === field.value) : null;
+                    
+                    return (
+                      <FormItem>
+                        <FormLabel>Class</FormLabel>
+                        <Select onValueChange={value => field.onChange(Number(value))} value={String(field.value)}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select class" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {((classes as any[]) || []).map((classItem: any) => (
+                              <SelectItem key={classItem.id} value={String(classItem.id)}>
+                                {classItem.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                        
+                        {/* Class Info Display */}
+                        {selectedClass && (
+                          <div className="mt-2 p-3 bg-muted/30 rounded-md border">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div 
+                                className="w-3 h-3 rounded-full border border-white/20" 
+                                style={{ backgroundColor: selectedClass.category?.color || '#6B7280' }}
+                              />
+                              <span className="text-sm font-medium text-foreground">
+                                {selectedClass.category?.name || 'No Category'}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                              <div>Duration: {selectedClass.duration || 0} min</div>
+                              <div>Capacity: {selectedClass.max_capacity || 0} members</div>
+                            </div>
+                            {selectedClass.description && (
+                              <div className="mt-2 text-xs text-muted-foreground">
+                                {selectedClass.description}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </FormItem>
+                    );
+                  }}
                 />
 
                 <FormField
