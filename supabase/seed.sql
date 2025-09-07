@@ -1,3 +1,10 @@
+-- Seed data for Wild Energy platform
+-- Note: Users are created via the create-users.js script, not in this seed file
+-- New users will go through mandatory onboarding process to complete:
+-- - Personal information (firstName, lastName, age, profession, address, phone)
+-- - Terms and conditions acceptance
+-- - Account activation after onboarding completion
+
 -- Groups (must be created first)
 INSERT INTO groups (name, description, color, is_active)
 VALUES
@@ -30,14 +37,14 @@ VALUES
   ('Salsa Basics', 'Learn basic salsa steps.', 7, 60, 15, NULL, true, NOW(), NOW()),
   ('Kickboxing', 'High-energy martial arts workout.', 8, 50, 18, 'Gloves', true, NOW(), NOW());
 
--- Plans
+-- Plans (prices in TND)
 INSERT INTO plans (name, description, price, duration_days, is_active)
 VALUES
-  ('Basic Monthly', 'Basic monthly plan with limited sessions', 49.99, 30, true),
-  ('Premium Monthly', 'Premium monthly plan with more variety', 79.99, 30, true),
-  ('Pole Dance Special', 'Specialized pole dance plan', 89.99, 30, true),
-  ('Flexibility Focus', 'Plan focused on stretching and mobility', 59.99, 30, true),
-  ('Mixed Fitness', 'Balanced fitness plan', 99.99, 30, true);
+  ('Basic Monthly', 'Basic monthly plan with limited sessions', 150.00, 30, true),
+  ('Premium Monthly', 'Premium monthly plan with more variety', 250.00, 30, true),
+  ('Pole Dance Special', 'Specialized pole dance plan', 280.00, 30, true),
+  ('Flexibility Focus', 'Plan focused on stretching and mobility', 180.00, 30, true),
+  ('Mixed Fitness', 'Balanced fitness plan', 320.00, 30, true);
 
 
 -- Plan Groups (defining which groups and how many sessions each plan includes)

@@ -275,6 +275,8 @@ export default function AdminCourses() {
             schedules={coursesAsSchedules}
             registrations={registrations || []}
             checkins={checkins || []}
+            members={activeMembers || []}
+            subscriptions={subscriptions || []}
             viewMode={isMobile ? 'daily' : calendarView}
             onViewModeChange={isMobile ? () => {} : setCalendarView}
             onNavigateToDate={handleNavigateToDate}
