@@ -48,18 +48,28 @@ export async function POST(request: NextRequest) {
     const supabase = supabaseServer();
 
     // Update user with personal information
+    const updateData: any = {
+      first_name: firstName,
+      last_name: lastName,
+      phone: phone,
+      email: email,
+      updated_at: new Date().toISOString(),
+    };
+
+    // Only add onboarding fields if they exist in the database
+    try {
+      // Try to update with onboarding fields
+      updateData.age = age;
+      updateData.profession = profession;
+      updateData.address = address;
+    } catch (error) {
+      // If onboarding fields don't exist, just update basic fields
+      console.log("Onboarding fields not available, updating basic fields only");
+    }
+
     const { error } = await supabase
       .from("users")
-      .update({
-        first_name: firstName,
-        last_name: lastName,
-        age: age,
-        profession: profession,
-        address: address,
-        phone: phone,
-        email: email,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq("id", user.id);
 
     if (error) {

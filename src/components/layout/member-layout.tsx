@@ -73,6 +73,11 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
       </div>
     );
   }
+
+  // Don't render the member layout for onboarding pages
+  if (pathname.startsWith("/member/onboarding")) {
+    return <>{children}</>;
+  }
   
   const handleLogout = async () => {
     try {
