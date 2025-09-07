@@ -58,8 +58,7 @@ export async function GET(request: NextRequest) {
         plans (
           id,
           name,
-          price,
-          max_sessions
+          price
         )
       `)
       .eq('user_id', id)
@@ -140,7 +139,7 @@ export async function GET(request: NextRequest) {
           id: sub.plans.id,
           name: sub.plans.name,
           price: sub.plans.price,
-          sessionsIncluded: sub.plans.max_sessions
+          sessionsIncluded: sub.plans.plan_groups?.reduce((sum: number, group: any) => sum + (group.session_count || 0), 0) || 0
         } : null
       })) || [],
       registrations: registrations?.map(reg => ({

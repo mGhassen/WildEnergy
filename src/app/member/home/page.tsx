@@ -61,7 +61,7 @@ interface Plan {
   name: string;
   description: string;
   price: number;
-  max_sessions: number;
+  // max_sessions removed - now calculated from plan_groups
   duration_days: number;
   features: string[];
   is_popular?: boolean;
@@ -104,6 +104,14 @@ export default function MemberHome() {
   const schedulesArr = Array.isArray(schedules) ? schedules : [];
   const plansArr = Array.isArray(plans) ? plans : [];
   const currentPlan = plansArr[currentPlanIndex];
+
+  // Helper function to get total sessions from plan groups
+  const getTotalSessions = (plan: any) => {
+    if (plan?.plan_groups && plan.plan_groups.length > 0) {
+      return plan.plan_groups.reduce((total: number, group: any) => total + (group.session_count || 0), 0);
+    }
+    return 0;
+  };
 
   // Auto-slide functionality with gentle animation
   useEffect(() => {
@@ -373,7 +381,7 @@ export default function MemberHome() {
                             <div className="flex items-center gap-4 text-sm text-muted-foreground">
                               <span className="flex items-center gap-1">
                                 <Zap className="w-4 h-4" />
-                                {currentPlan.max_sessions} sessions
+                                {getTotalSessions(currentPlan)} sessions
                               </span>
                               <span>{currentPlan.duration_days} days</span>
                             </div>

@@ -89,7 +89,7 @@ export async function PUT(request: NextRequest) {
       plan_id: parseInt(planId),
       start_date: startDate,
       end_date: endDate,
-      sessions_remaining: plan.max_sessions || 0,
+      // sessions_remaining removed - now handled by subscription_group_sessions
       updated_at: new Date().toISOString(),
     };
 
@@ -117,7 +117,6 @@ export async function PUT(request: NextRequest) {
           id,
           name,
           price,
-          max_sessions,
           duration_days
         )
       `)
@@ -156,7 +155,7 @@ export async function PUT(request: NextRequest) {
         id: planData.id,
         name: planData.name,
         price: planData.price,
-        sessionsIncluded: planData.max_sessions,
+        sessionsIncluded: planData.plan_groups?.reduce((sum: number, group: any) => sum + (group.session_count || 0), 0) || 0,
         duration: planData.duration_days,
       } : null,
     };

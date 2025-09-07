@@ -14,16 +14,16 @@ export default function PlansPage() {
     queryFn: () => apiRequest("GET", "/api/plans"),
   });
 
-  // Find the plan with the most sessions for 'Popular' badge
-  const maxSessions = Math.max(...(plans?.map(p => p.max_sessions) || [0]));
-
   // Helper function to get total sessions from plan groups
   const getTotalSessions = (plan: any) => {
     if (plan.plan_groups && plan.plan_groups.length > 0) {
       return plan.plan_groups.reduce((total: number, group: any) => total + group.session_count, 0);
     }
-    return plan.max_sessions || 0;
+    return 0;
   };
+
+  // Find the plan with the most sessions for 'Popular' badge
+  const maxSessions = Math.max(...(plans?.map(p => getTotalSessions(p)) || [0]));
 
   // Helper function to get categories from a group
   const getGroupCategories = (group: any) => {
@@ -47,7 +47,7 @@ export default function PlansPage() {
                 <CardHeader>
                   <div className="flex items-center justify-between mb-2">
                     <CardTitle className="text-2xl font-bold">{plan.name}</CardTitle>
-                    {plan.max_sessions === maxSessions && (
+                    {getTotalSessions(plan) === maxSessions && getTotalSessions(plan) > 0 && (
                       <Badge className="bg-primary text-white ml-2">Popular</Badge>
                     )}
                   </div>

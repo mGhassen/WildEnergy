@@ -184,7 +184,7 @@ export default function MembersPage() {
     status: typeof sub.status === 'string' ? sub.status : '',
     plan: sub.plan && typeof sub.plan === 'object' ? {
       id: typeof (sub.plan as any)?.id === 'number' ? (sub.plan as any).id : 0,
-      sessionsIncluded: (sub.plan as any).sessionsIncluded ?? (sub.plan as any).max_sessions ?? 0,
+      sessionsIncluded: (sub.plan as any).sessionsIncluded ?? ((sub.plan as any).plan_groups?.reduce((sum: number, group: any) => sum + (group.session_count || 0), 0) ?? 0),
       price: (sub.plan as any).price ?? 0,
       name: (sub.plan as any).name ?? '',
     } : undefined,

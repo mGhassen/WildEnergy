@@ -23,6 +23,7 @@ import { z } from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar } from "@/components/ui/avatar";
 import { DialogClose } from "@/components/ui/dialog";
+import { SubscriptionDetails } from "@/components/subscription-details";
 
 // Type definitions
 type Member = {
@@ -41,7 +42,6 @@ type Plan = {
   sessionsIncluded: number;
   durationDays: number;
   duration: number;
-  max_sessions?: number;
   plan_groups?: Array<{
     id: number;
     group_id: number;
@@ -179,7 +179,7 @@ export default function AdminSubscriptions() {
   const mappedPlans = Array.isArray(plans)
     ? plans.map((plan: any) => ({
         ...plan,
-        sessionsIncluded: plan.max_sessions ?? plan.sessionsIncluded ?? 0,
+        sessionsIncluded: plan.plan_groups?.reduce((sum: number, group: any) => sum + (group.session_count || 0), 0) ?? 0,
         duration: plan.duration_days ?? plan.duration ?? 0,
         isActive: plan.is_active ?? plan.isActive ?? true,
       }))
@@ -1374,151 +1374,14 @@ export default function AdminSubscriptions() {
             </TabsList>
             <div className="p-6">
               <TabsContent value="details">
-                <Card className="shadow-none border-none bg-transparent">
-                  <CardHeader className="p-0 mb-4">
-                    <CardTitle className="text-lg">Subscription Information</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-0 space-y-3">
-                    <div className="flex flex-wrap gap-4">
-                      <div className="flex-1 min-w-[180px]">
-                        <div className="text-sm text-muted-foreground">Plan</div>
-                        <div className="font-medium">{selectedSubscription?.plan?.name}</div>
-                      </div>
-                      <div className="flex-1 min-w-[180px]">
-                        <div className="text-sm text-muted-foreground">Price</div>
-                        <div className="font-medium">{formatPrice(selectedSubscription?.plan?.price || 0)}</div>
-                      </div>
-                      <div className="flex-1 min-w-[180px]">
-                        <div className="text-sm text-muted-foreground">Sessions Remaining</div>
-                        <div className="font-medium">
-                          {selectedSubscription?.subscription_group_sessions?.reduce((sum: number, group: any) => sum + (group.sessions_remaining || 0), 0) || 0} / {selectedSubscription?.plan?.max_sessions ?? 0}
-                        </div>
-                      </div>
-                      <div className="flex-1 min-w-[180px]">
-                        <div className="text-sm text-muted-foreground">Start Date</div>
-                        <div className="font-medium">{selectedSubscription?.start_date ? formatDate(selectedSubscription.start_date) : '-'}</div>
-                      </div>
-                      <div className="flex-1 min-w-[180px]">
-                        <div className="text-sm text-muted-foreground">End Date</div>
-                        <div className="font-medium">{selectedSubscription?.end_date ? formatDate(selectedSubscription.end_date) : '-'}</div>
-                      </div>
-                      <div className="flex-1 min-w-[180px]">
-                        <div className="text-sm text-muted-foreground">Status</div>
-                        <div className="font-medium">
-                          <Badge variant={selectedSubscription?.status === 'active' ? 'default' : selectedSubscription?.status === 'pending' ? 'secondary' : 'destructive'}>
-                            {selectedSubscription?.status}
-                          </Badge>
-                        </div>
-                      </div>
-                    </div>
-                    {selectedSubscription?.notes && (
-                      <div className="mt-4">
-                        <div className="text-sm text-muted-foreground mb-1">Notes</div>
-                        <div className="text-sm whitespace-pre-wrap">{selectedSubscription.notes}</div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Groups & Sessions */}
-                <Card className="shadow-none border-none bg-transparent mt-6">
-                  <CardHeader className="p-0 mb-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-1 h-4 bg-primary rounded-full"></div>
-                      <CardTitle className="text-lg">Groups & Sessions</CardTitle>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Groups and categories included in this subscription plan with session tracking
-                    </p>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    {(() => {
-                      const planGroups = selectedSubscription?.plan?.plan_groups || [];
-                      const groupSessions = selectedSubscription?.subscription_group_sessions || [];
-                      
-                      if (planGroups.length === 0) {
-                        return (
-                          <div className="text-center py-8 text-muted-foreground">
-                            <div className="text-sm">No groups assigned to this plan</div>
-                          </div>
-                        );
-                      }
-
-                      return (
-                        <div className="space-y-4">
-                          {planGroups.map((planGroup: any) => {
-                            const groupSession = groupSessions.find((gs: any) => gs.group_id === planGroup.groups.id);
-                            const sessionsRemaining = groupSession?.sessions_remaining || 0;
-                            const totalSessions = groupSession?.total_sessions || planGroup.session_count || 0;
-                            const sessionsUsed = totalSessions - sessionsRemaining;
-                            const progressPercentage = totalSessions > 0 ? (sessionsUsed / totalSessions) * 100 : 0;
-
-                            return (
-                              <div key={planGroup.id} className="border rounded-lg p-4 space-y-3">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-3">
-                                    <div 
-                                      className="w-4 h-4 rounded-full" 
-                                      style={{ backgroundColor: planGroup.groups.color }}
-                                    ></div>
-                                    <div>
-                                      <div className="font-medium">{planGroup.groups.name}</div>
-                                      <div className="text-sm text-muted-foreground">
-                                        {planGroup.groups.description}
-                                      </div>
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    {planGroup.is_free && (
-                                      <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                                        Free
-                                      </Badge>
-                                    )}
-                                    <Badge variant="outline">
-                                      {planGroup.session_count} sessions
-                                    </Badge>
-                                  </div>
-                                </div>
-
-                                {/* Session Progress */}
-                                <div className="space-y-2">
-                                  <div className="flex justify-between text-sm">
-                                    <span>Sessions Used</span>
-                                    <span className="font-medium">{sessionsUsed} / {totalSessions}</span>
-                                  </div>
-                                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                                    <div 
-                                      className="bg-primary h-2 rounded-full transition-all duration-300" 
-                                      style={{ width: `${Math.min(progressPercentage, 100)}%` }}
-                                    ></div>
-                                  </div>
-                                  <div className="flex justify-between text-xs text-muted-foreground">
-                                    <span>Remaining: {sessionsRemaining}</span>
-                                    <span>{Math.round(progressPercentage)}% used</span>
-                                  </div>
-                                </div>
-
-                                {/* Categories */}
-                                {planGroup.categories && planGroup.categories.length > 0 && (
-                                  <div className="space-y-2">
-                                    <div className="text-sm font-medium text-muted-foreground">Categories</div>
-                                    <div className="flex flex-wrap gap-2">
-                                      {planGroup.categories.map((category: any) => (
-                                        <Badge key={category.id} variant="outline" className="text-xs">
-                                          {category.name}
-                                        </Badge>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      );
-                    })()}
-                  </CardContent>
-                </Card>
+                {selectedSubscription && (
+                  <SubscriptionDetails 
+                    subscription={selectedSubscription as any} 
+                    payments={payments as any}
+                    showTabs={false}
+                    isAdmin={true}
+                  />
+                )}
               </TabsContent>
               <TabsContent value="payments">
                 <Card className="shadow-none border-none bg-transparent">
