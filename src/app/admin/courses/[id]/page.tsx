@@ -1,9 +1,14 @@
 "use client";
 
 import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { useParams, useRouter } from 'next/navigation';
-import { apiRequest } from '@/lib/queryClient';
+import { 
+  useCourse, 
+  useDeleteCourse, 
+  useAddMembersToCourse 
+} from '@/hooks/useCourse';
+import { useMembers, useCheckMemberSessions } from '@/hooks/useMembers';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -172,7 +177,6 @@ export default function CourseDetailsPage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [memberManagementOpen, setMemberManagementOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -180,41 +184,14 @@ export default function CourseDetailsPage() {
 
   const courseId = params.id as string;
 
-  const { data: course, isLoading, error } = useQuery({
-    queryKey: ['course', courseId],
-    queryFn: () => apiRequest('GET', `/api/courses/${courseId}`),
-    enabled: !!courseId,
-  });
+  const { data: course, isLoading, error } = useCourse(parseInt(courseId));
 
   // Fetch all members for management
-  const { data: allMembers = [] } = useQuery({
-    queryKey: ['members'],
-    queryFn: () => apiRequest('GET', '/api/members'),
-  });
+  const { data: allMembers = [] } = useMembers();
 
-  const deleteCourseMutation = useMutation({
-    mutationFn: () => apiRequest('DELETE', `/api/courses/${courseId}`),
-    onSuccess: () => {
-      toast({
-        title: 'Course deleted',
-        description: 'The course has been successfully deleted.',
-      });
-      queryClient.invalidateQueries({ queryKey: ['courses'] });
-      router.push('/admin/courses');
-    },
-    onError: (error: any) => {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to delete course',
-        variant: 'destructive',
-      });
-    },
-  });
+  const deleteCourseMutation = useDeleteCourse();
+  const addMembersToCourseMutation = useAddMembersToCourse();
 
-  const handleDelete = () => {
-    deleteCourseMutation.mutate();
-    setDeleteDialogOpen(false);
-  };
 
   // Member management functions
   const handleMemberSelect = (memberId: string) => {
@@ -226,11 +203,13 @@ export default function CourseDetailsPage() {
   };
 
   // Function to check if a member has remaining sessions for this course's group
+  const checkMemberSessionsMutation = useCheckMemberSessions();
+  
   const checkMemberSessions = async (memberId: string) => {
     try {
-      const response = await apiRequest('POST', '/api/check-member-sessions', {
+      const response = await checkMemberSessionsMutation.mutateAsync({
         memberId,
-        courseId: courseId
+        courseId: parseInt(courseId)
       });
       return response;
     } catch (error) {
@@ -748,45 +727,28 @@ export default function CourseDetailsPage() {
               Cancel
             </Button>
             <Button
-              onClick={async () => {
-                try {
-                  const response = await fetch(`/api/courses/${courseData.id}`, {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    },
-                    body: JSON.stringify({
-                      memberIds: selectedMembers
-                    })
-                  });
-
-                  const result = await response.json();
-
-                  if (response.ok) {
+              onClick={() => {
+                addMembersToCourseMutation.mutate({
+                  courseId: course.id,
+                  data: { memberIds: selectedMembers }
+                }, {
+                  onSuccess: (result) => {
                     toast({
                       title: 'Members Added',
                       description: result.message,
                     });
                     setMemberManagementOpen(false);
                     setSelectedMembers([]);
-                    // Refresh course data
-                    window.location.reload();
-                  } else {
+                  },
+                  onError: (error: any) => {
+                    console.error('Error adding members:', error);
                     toast({
                       title: 'Error',
-                      description: result.error,
+                      description: error.message || 'Failed to add members. Please try again.',
                       variant: 'destructive'
                     });
                   }
-                } catch (error) {
-                  console.error('Error adding members:', error);
-                  toast({
-                    title: 'Error',
-                    description: 'Failed to add members. Please try again.',
-                    variant: 'destructive'
-                  });
-                }
+                });
               }}
               disabled={selectedMembers.length === 0}
             >
@@ -814,7 +776,25 @@ export default function CourseDetailsPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDelete}
+              onClick={() => {
+                deleteCourseMutation.mutate(parseInt(courseId), {
+                  onSuccess: () => {
+                    toast({
+                      title: 'Course deleted',
+                      description: 'The course has been successfully deleted.',
+                    });
+                    router.push('/admin/courses');
+                  },
+                  onError: (error: any) => {
+                    toast({
+                      title: 'Error',
+                      description: error.message || 'Failed to delete course',
+                      variant: 'destructive',
+                    });
+                  },
+                });
+                setDeleteDialogOpen(false);
+              }}
               disabled={courseData.statistics.totalRegistrations > 0}
               className="bg-red-600 hover:bg-red-700"
             >

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,8 +18,9 @@ import { insertGroupSchema } from "@/shared/zod-schemas";
 import { Plus, Search, Edit, Trash2, X, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
-import { apiFetch } from "@/lib/api";
 import { useRouter } from "next/navigation";
+import { useGroups, useCreateGroup, useUpdateGroup, useDeleteGroup, useCheckGroupDeletion } from "@/hooks/useGroups";
+import { useCategories } from "@/hooks/useCategories";
 
 const groupFormSchema = z.object({
   name: z.string().min(1, 'Group name is required'),
@@ -42,15 +43,8 @@ export default function AdminGroups() {
   const { toast } = useToast();
   const router = useRouter();
 
-  const { data: groups, isLoading } = useQuery({
-    queryKey: ["/api/groups"],
-    queryFn: () => apiFetch("/api/groups"),
-  });
-
-  const { data: categories } = useQuery({
-    queryKey: ["/api/categories"],
-    queryFn: () => apiFetch("/api/categories"),
-  });
+  const { data: groups, isLoading } = useGroups();
+  const { data: categories } = useCategories();
 
   const form = useForm<GroupFormData>({
     resolver: zodResolver(groupFormSchema),
@@ -63,84 +57,30 @@ export default function AdminGroups() {
     },
   });
 
-  const createGroupMutation = useMutation({
-    mutationFn: async (data: any) => {
-      return await apiFetch("/api/groups", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/groups"] });
-      setIsModalOpen(false);
-      form.reset();
-      toast({ title: "Group created successfully" });
-    },
-    onError: (error) => {
-      toast({ 
-        title: "Error creating group", 
-        description: error.message,
-        variant: "destructive" 
-      });
-    },
-  });
+  const createGroupMutation = useCreateGroup();
+  const updateGroupMutation = useUpdateGroup();
+  const deleteGroupMutation = useDeleteGroup();
+  const checkDeletionMutation = useCheckGroupDeletion();
 
-  const updateGroupMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: any }) => {
-      return await apiFetch(`/api/groups/${id}`, {
-        method: "PUT",
-        body: JSON.stringify(data),
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/groups"] });
-      setIsModalOpen(false);
-      setEditingGroup(null);
-      form.reset();
-      toast({ title: "Group updated successfully" });
-    },
-    onError: (error) => {
-      toast({ 
-        title: "Error updating group", 
-        description: error.message,
-        variant: "destructive" 
-      });
-    },
-  });
+  // Handle success for create and update mutations
+  if (createGroupMutation.isSuccess) {
+    setIsModalOpen(false);
+    form.reset();
+    createGroupMutation.reset();
+  }
 
-  const deleteGroupMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const response = await apiFetch(`/api/groups/${id}`, {
-        method: "DELETE",
-      });
-      return response;
-    },
-    onSuccess: (response) => {
-      if (response.canDelete) {
-        queryClient.invalidateQueries({ queryKey: ["/api/groups"] });
-        toast({ title: "Group deleted successfully" });
-        setDeletingGroup(null);
-        setLinkedPlans([]);
-      }
-    },
-    onError: (error: any) => {
-      if (error.linkedPlans && error.linkedPlans.length > 0) {
-        setLinkedPlans(error.linkedPlans);
-        toast({ 
-          title: "Cannot delete group", 
-          description: `This group is used in the following plans: ${error.linkedPlans.join(', ')}. Please remove it from these plans first.`,
-          variant: "destructive" 
-        });
-      } else {
-        toast({ 
-          title: "Error deleting group", 
-          description: error.message,
-          variant: "destructive" 
-        });
-        setDeletingGroup(null);
-      }
-    },
-  });
+  if (updateGroupMutation.isSuccess) {
+    setIsModalOpen(false);
+    setEditingGroup(null);
+    form.reset();
+    updateGroupMutation.reset();
+  }
+
+  if (deleteGroupMutation.isSuccess) {
+    setDeletingGroup(null);
+    setLinkedPlans([]);
+    deleteGroupMutation.reset();
+  }
 
   const filteredGroups = Array.isArray(groups) ? groups.filter((group: any) =>
     `${group.name} ${group.description}`
@@ -157,7 +97,7 @@ export default function AdminGroups() {
       categoryIds: data.categoryIds || [],
     };
     if (editingGroup) {
-      updateGroupMutation.mutate({ id: editingGroup.id, data: submitData });
+      updateGroupMutation.mutate({ groupId: editingGroup.id, data: submitData });
     } else {
       createGroupMutation.mutate(submitData);
     }
@@ -180,23 +120,21 @@ export default function AdminGroups() {
     setLinkedPlans([]); // Clear any previous error state
     
     // Check if group is used in plans before showing dialog
-    try {
-      const response = await apiFetch(`/api/groups/${group.id}/check-deletion`, {
-        method: "GET",
-      });
-      
-      if (response.canDelete) {
+    checkDeletionMutation.mutate(group.id, {
+      onSuccess: (response) => {
+        if (response.canDelete) {
+          setLinkedPlans([]);
+        } else {
+          setLinkedPlans(response.linkedPlans || []);
+        }
+        setIsDeleteDialogOpen(true);
+      },
+      onError: (error: any) => {
+        console.error('Error checking group deletion:', error);
         setLinkedPlans([]);
-      } else {
-        setLinkedPlans(response.linkedPlans || []);
+        setIsDeleteDialogOpen(true);
       }
-    } catch (error: any) {
-      console.error('Error checking group deletion:', error);
-      setLinkedPlans([]);
-    }
-    
-    // Open the dialog after checking
-    setIsDeleteDialogOpen(true);
+    });
   };
 
   const confirmDelete = () => {

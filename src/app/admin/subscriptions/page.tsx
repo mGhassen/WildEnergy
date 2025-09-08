@@ -13,7 +13,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { apiRequest } from "@/lib/queryClient";
+import { useSubscriptions, useCreateSubscription, useUpdateSubscription, useDeleteSubscription } from "@/hooks/useSubscriptions";
+import { useMembers } from "@/hooks/useMembers";
+import { usePlans } from "@/hooks/usePlans";
+import { usePayments, useCreatePayment, useUpdatePayment, useDeletePayment } from "@/hooks/usePayments";
+import { Payment } from "@/lib/api/payments";
 import { Plus, Search, Edit, Trash2, Eye, CreditCard, MoreVertical, RefreshCw } from "lucide-react";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { getInitials } from "@/lib/auth";
@@ -25,6 +29,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar } from "@/components/ui/avatar";
 import { DialogClose } from "@/components/ui/dialog";
 import { SubscriptionDetails } from "@/components/subscription-details";
+import { apiRequest } from "@/lib/queryClient";
 
 // Type definitions
 type Member = {
@@ -89,19 +94,6 @@ type Subscription = {
   }[];
 };
 
-type Payment = {
-  id: number;
-  subscription_id: number;
-  user_id: string;
-  amount: number;
-  payment_type: string;
-  payment_status: string;
-  payment_date: string;
-  transaction_id?: string;
-  notes?: string;
-  created_at: string;
-  updated_at: string;
-};
 
 // Simplified subscription form schema (no payment fields)
 const subscriptionFormSchema = z.object({
@@ -115,13 +107,11 @@ const subscriptionFormSchema = z.object({
 // Payment form schema
 const paymentFormSchema = z.object({
   subscription_id: z.number(),
-  user_id: z.string(),
   amount: z.number().min(0.01, "Amount must be greater than 0"),
-  payment_type: z.enum(['credit', 'cash', 'card', 'bank_transfer', 'check', 'other']),
-  payment_status: z.enum(['pending', 'paid', 'failed', 'cancelled', 'refunded']).optional(),
+  payment_method: z.enum(['credit', 'cash', 'card', 'bank_transfer', 'check', 'other']),
+  status: z.enum(['pending', 'paid', 'failed', 'cancelled', 'refunded']).optional(),
   payment_date: z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/, "Invalid date"),
-  transaction_id: z.string().optional(),
-  notes: z.string().optional(),
+  payment_reference: z.string().optional(),
 });
 
 type SubscriptionFormData = z.infer<typeof subscriptionFormSchema>;
@@ -144,25 +134,10 @@ export default function AdminSubscriptions() {
   const { toast } = useToast();
 
   // Queries
-  const { data: subscriptions } = useQuery({
-    queryKey: ["/api/subscriptions"],
-    queryFn: () => apiRequest("GET", "/api/subscriptions"),
-  });
-
-  const { data: members = [] } = useQuery<Member[]>({
-    queryKey: ["/api/members"],
-    queryFn: () => apiRequest("GET", "/api/members"),
-  });
-
-  const { data: plans = [] } = useQuery<Plan[]>({
-    queryKey: ["/api/plans"],
-    queryFn: () => apiRequest("GET", "/api/plans"),
-  });
-
-  const { data: payments = [] } = useQuery<Payment[]>({
-    queryKey: ["/api/payments"],
-    queryFn: () => apiRequest("GET", "/api/payments"),
-  });
+  const { data: subscriptions } = useSubscriptions();
+  const { data: members = [] } = useMembers();
+  const { data: plans = [] } = usePlans();
+  const { data: payments = [] } = usePayments();
 
   // Map members from snake_case to camelCase for UI
   const mappedMembers = Array.isArray(members)
@@ -211,13 +186,11 @@ export default function AdminSubscriptions() {
     resolver: zodResolver(paymentFormSchema),
     defaultValues: {
       subscription_id: 0,
-      user_id: "",
       amount: 0,
-      payment_type: "cash",
-      payment_status: "paid",
+      payment_method: "cash",
+      status: "paid",
       payment_date: new Date().toISOString().split('T')[0],
-      transaction_id: "",
-      notes: "",
+      payment_reference: "",
     },
   });
 
@@ -295,96 +268,22 @@ export default function AdminSubscriptions() {
     },
   });
 
-  const deleteSubscriptionMutation = useMutation({
-    mutationFn: async (id: number) => {
-      return await apiRequest("DELETE", `/api/subscriptions/${id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/subscriptions"] });
-      toast({ title: "Subscription deleted successfully" });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error deleting subscription",
-        description: error.message,
-        variant: "destructive"
-      });
-    },
-  });
+  const deleteSubscriptionMutation = useDeleteSubscription();
 
   // Update createPaymentMutation to accept snake_case fields
-  const createPaymentMutation = useMutation({
-    mutationFn: async (data: any) => {
-      console.log('Creating payment with data:', data);
-      return await apiRequest("POST", "/api/payments", data);
-    },
-    onSuccess: (data) => {
-      console.log('Payment created successfully:', data);
-      queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/members"] }); // After payment, refetch members to update credit
-      queryClient.invalidateQueries({ queryKey: ["/api/subscriptions"] });
-      setIsPaymentModalOpen(false);
-      setEditingPayment(null);
-      toast({ title: "Payment created successfully" });
-    },
-    onError: (error) => {
-      console.error('Payment creation error:', error);
-      toast({
-        title: "Error creating payment",
-        description: error.message,
-        variant: "destructive"
-      });
-    },
-  });
+  const createPaymentMutation = useCreatePayment();
 
   // Update updatePaymentMutation to accept snake_case fields
-  const updatePaymentMutation = useMutation({
-    mutationFn: async (data: any) => {
-      return await apiRequest("PUT", `/api/payments/${data.id}`, data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/subscriptions"] });
-      setIsPaymentModalOpen(false);
-      setEditingPayment(null);
-      toast({ title: "Payment updated successfully" });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error updating payment",
-        description: error.message,
-        variant: "destructive"
-      });
-    },
-  });
+  const updatePaymentMutation = useUpdatePayment();
 
   // Add a mutation for deleting a payment
-  const deletePaymentMutation = useMutation({
-    mutationFn: async (id: number) => {
-      return await apiRequest("DELETE", `/api/payments/${id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/members"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/subscriptions"] });
-      setIsDeletePaymentModalOpen(false);
-      setPaymentToDelete(null);
-      toast({ title: "Payment deleted successfully" });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error deleting payment",
-        description: error.message,
-        variant: "destructive"
-      });
-    },
-  });
+  const deletePaymentMutation = useDeletePayment();
 
   // Helper function to calculate remaining amount for a subscription
   const getRemainingAmount = (subscription: Subscription) => {
     const subscriptionPayments = getPaymentsForSubscription(subscription.id);
     const totalPaid = subscriptionPayments
-      .filter(p => p.payment_status === 'paid')
+      .filter(p => p.status === 'paid')
       .reduce((sum, p) => sum + (p.amount || 0), 0);
     
     // Plan price is a number from the API
@@ -414,8 +313,8 @@ export default function AdminSubscriptions() {
     setIsEditModalOpen(true);
   };
 
-  // 1. Fix openPaymentModal to accept an optional override for payment_type and amount
-  const openPaymentModal = (subscription: Subscription, override?: { amount?: number; payment_type?: PaymentFormData['payment_type'] }) => {
+  // 1. Fix openPaymentModal to accept an optional override for payment_method and amount
+  const openPaymentModal = (subscription: Subscription, override?: { amount?: number; payment_type?: PaymentFormData['payment_method'] }) => {
     setSelectedSubscriptionForPayment(subscription);
     setSelectedSubscription(subscription); // Set selectedSubscription for the credit button
     
@@ -424,13 +323,11 @@ export default function AdminSubscriptions() {
     
     paymentForm.reset({
       subscription_id: subscription.id,
-      user_id: subscription.user_id,
       amount: remainingAmount,
-      payment_type: override?.payment_type ?? "cash",
-      payment_status: "paid",
+      payment_method: override?.payment_type ?? "cash",
+      status: "paid",
       payment_date: new Date().toISOString().split('T')[0],
-      transaction_id: "",
-      notes: "",
+      payment_reference: "",
     });
     setIsPaymentModalOpen(true);
   };
@@ -448,24 +345,22 @@ export default function AdminSubscriptions() {
     updateSubscriptionMutation.mutate(data);
   };
 
-  // 3. In handlePaymentSubmit, do not override payment_type, just use data.payment_type
+  // 3. In handlePaymentSubmit, do not override payment_method, just use data.payment_method
   const handlePaymentSubmit = (data: PaymentFormData) => {
     console.log('Payment form data:', data);
     const paymentPayload = {
       subscription_id: data.subscription_id,
-      user_id: data.user_id,
       amount: data.amount,
-      payment_type: data.payment_type,
-      payment_status: data.payment_status,
+      payment_method: data.payment_method,
+      status: data.status,
       payment_date: data.payment_date,
-      transaction_id: data.transaction_id,
-      notes: data.notes,
+      payment_reference: data.payment_reference,
     };
     console.log('Payment payload:', paymentPayload);
     if (editingPayment) {
       updatePaymentMutation.mutate({
-        ...paymentPayload,
-        id: editingPayment.id,
+        paymentId: editingPayment.id,
+        data: paymentPayload
       });
     } else {
       createPaymentMutation.mutate(paymentPayload);
@@ -482,13 +377,11 @@ export default function AdminSubscriptions() {
     setEditingPayment(payment);
     paymentForm.reset({
       subscription_id: payment.subscription_id,
-      user_id: payment.user_id,
       amount: payment.amount,
-      payment_type: (payment.payment_type as "cash" | "card" | "bank_transfer" | "check" | "other") || "cash",
-      payment_status: (payment.payment_status as "pending" | "paid" | "failed" | "cancelled") || "paid",
+      payment_method: (payment.payment_method as "cash" | "card" | "bank_transfer" | "check" | "other") || "cash",
+      status: (payment.status as "pending" | "paid" | "failed" | "cancelled") || "paid",
       payment_date: payment.payment_date.split('T')[0],
-      transaction_id: payment.transaction_id || '',
-      notes: payment.notes || '',
+      payment_reference: payment.payment_reference || '',
     });
     setIsPaymentModalOpen(true);
   }
@@ -682,7 +575,7 @@ export default function AdminSubscriptions() {
                       (() => {
                         const subscriptionPayments = getPaymentsForSubscription(subscription.id);
                         const totalPaid = subscriptionPayments
-                          .filter((p) => p.payment_status === 'paid')
+                          .filter((p) => p.status === 'paid')
                           .reduce((sum, p) => sum + (p.amount || 0), 0);
                         const planPrice = subscription.plan?.price || 0;
                         let status = 'Not Paid';
@@ -732,7 +625,7 @@ export default function AdminSubscriptions() {
                           {(() => {
                             const subscriptionPayments = getPaymentsForSubscription(subscription.id);
                             const totalPaid = subscriptionPayments
-                              .filter((p) => p.payment_status === 'paid')
+                              .filter((p) => p.status === 'paid')
                               .reduce((sum, p) => sum + (p.amount || 0), 0);
                             const planPrice = subscription.plan?.price || 0;
                             if (totalPaid >= planPrice) {
@@ -1215,8 +1108,9 @@ export default function AdminSubscriptions() {
           </DialogHeader>
           {/* Show member credit at the top */}
           {(() => {
-            const userId = paymentForm.getValues('user_id');
-            const member = mappedMembers.find(m => m.id === userId);
+            const subscriptionId = paymentForm.getValues('subscription_id');
+            const subscription = mappedSubscriptions.find(s => s.id === subscriptionId);
+            const member = subscription?.member;
             if (!member) return null;
             return (
               <div className="flex items-center justify-between mb-4">
@@ -1262,15 +1156,16 @@ export default function AdminSubscriptions() {
                 />
 
                 <Controller
-                  name="payment_type"
+                  name="payment_method"
                   control={paymentForm.control}
                   render={({ field }) => {
-                    const userId = paymentForm.getValues('user_id');
-                    const member = mappedMembers.find(m => m.id === userId);
+                    const subscriptionId = paymentForm.getValues('subscription_id');
+                    const subscription = mappedSubscriptions.find(s => s.id === subscriptionId);
+                    const member = subscription?.member;
                     const hasCredit = member && Number(member.credit) > 0;
                     return (
                       <FormItem>
-                        <FormLabel>Payment Type</FormLabel>
+                        <FormLabel>Payment Method</FormLabel>
                         <Select
                           value={field.value}
                           onValueChange={val => {
@@ -1280,7 +1175,7 @@ export default function AdminSubscriptions() {
                         >
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Select payment type" />
+                              <SelectValue placeholder="Select payment method" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -1299,7 +1194,7 @@ export default function AdminSubscriptions() {
                 />
 
                 <Controller
-                  name="payment_status"
+                  name="status"
                   control={paymentForm.control}
                   render={({ field }) => (
                     <FormItem>
@@ -1344,13 +1239,13 @@ export default function AdminSubscriptions() {
                 />
 
                 <Controller
-                  name="transaction_id"
+                  name="payment_reference"
                   control={paymentForm.control}
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Transaction ID (Optional)</FormLabel>
+                      <FormLabel>Payment Reference (Optional)</FormLabel>
                       <FormControl>
-                        <Input placeholder="Transaction ID..." {...field} />
+                        <Input placeholder="Payment reference..." {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1358,19 +1253,6 @@ export default function AdminSubscriptions() {
                 />
               </div>
 
-              <Controller
-                name="notes"
-                control={paymentForm.control}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Notes</FormLabel>
-                    <FormControl>
-                      <Textarea placeholder="Optional notes..." {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
 
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsPaymentModalOpen(false)}>
@@ -1418,7 +1300,7 @@ export default function AdminSubscriptions() {
                     {(() => {
                       const subscriptionPayments = selectedSubscription ? getPaymentsForSubscription(selectedSubscription.id) : [];
                       const totalPaid = subscriptionPayments
-                        .filter((p) => p.payment_status === 'paid')
+                        .filter((p) => p.status === 'paid')
                         .reduce((sum, p) => sum + (p.amount || 0), 0);
                       const planPrice = selectedSubscription?.plan?.price || 0;
                       let status = 'Not Paid';
@@ -1461,12 +1343,12 @@ export default function AdminSubscriptions() {
                             <div key={payment.id} className="border rounded-lg p-3 text-xs flex flex-col md:flex-row md:items-center md:justify-between bg-muted/30 shadow-sm gap-2">
                               <div className="flex flex-col md:flex-row md:items-center gap-2 flex-1">
                                 <span className="font-semibold text-base text-primary">{formatPrice(payment.amount)}</span>
-                                <Badge variant={payment.payment_status === 'paid' ? 'default' : payment.payment_status === 'pending' ? 'secondary' : 'destructive'} className="ml-2 text-xs capitalize">
-                                  {payment.payment_status}
+                                <Badge variant={payment.status === 'paid' ? 'default' : payment.status === 'pending' ? 'secondary' : 'destructive'} className="ml-2 text-xs capitalize">
+                                  {payment.status}
                                 </Badge>
-                                <span className="text-muted-foreground ml-2">{payment.payment_type} • {formatDate(payment.payment_date)}</span>
-                                {payment.transaction_id && (
-                                  <span className="text-muted-foreground text-xs ml-2">ID: {payment.transaction_id}</span>
+                                <span className="text-muted-foreground ml-2">{payment.payment_method} • {formatDate(payment.payment_date)}</span>
+                                {payment.payment_reference && (
+                                  <span className="text-muted-foreground text-xs ml-2">Ref: {payment.payment_reference}</span>
                                 )}
                               </div>
                               <div className="flex gap-2 mt-2 md:mt-0 md:ml-4">

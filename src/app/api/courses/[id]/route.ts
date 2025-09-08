@@ -174,7 +174,7 @@ export async function POST(
     const { data: profile } = await supabaseServer()
       .from('users')
       .select('is_admin')
-      .eq('id', user.id)
+      .eq('auth_user_id', user.id)
       .single();
 
     if (!profile?.is_admin) {

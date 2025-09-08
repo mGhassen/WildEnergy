@@ -1,16 +1,18 @@
 "use client";
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { apiRequest } from "@/lib/queryClient";
+import { useCancelRegistration, useForceRegistration } from "@/hooks/useRegistrations";
+import { useMemberCourses, useMemberSubscriptions, useMemberCategories } from "@/hooks/useMember";
+import { useMemberCourseRegistration } from "@/hooks/useMemberRegistration";
+import { apiFetch } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 import { Search, Clock, Users, Calendar, Star, Check, AlertTriangle, QrCode } from "lucide-react";
 import { formatTime, getDayName } from "@/lib/date";
-import { useToast } from "@/hooks/use-toast";
-import { apiFetch, getAuthToken } from "@/lib/api";
 import { formatDate } from "@/lib/date";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -90,21 +92,10 @@ export default function MemberClasses() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: courses, isLoading } = useQuery({
-    queryKey: ["/api/member/courses"],
-    queryFn: () => apiFetch("/api/member/courses"),
-  });
-
-  // Fetch categories from API
-  const { data: categories, isLoading: categoriesLoading } = useQuery({
-    queryKey: ["/api/categories"],
-    queryFn: () => apiFetch("/api/categories"),
-  });
-
-  const { data: subscriptionsRaw } = useQuery({
-    queryKey: ["/api/member/subscriptions"],
-    queryFn: () => apiFetch("/api/member/subscriptions"),
-  });
+  const { data: courses, isLoading } = useMemberCourses();
+  const { data: categories, isLoading: categoriesLoading } = useMemberCategories();
+  const { data: subscriptionsRaw } = useMemberSubscriptions();
+  
   const subscriptions = Array.isArray(subscriptionsRaw) ? subscriptionsRaw : [];
   const activeSubscriptions = subscriptions.filter((sub: Subscription) => sub.status === 'active');
   const totalSessionsRemaining = activeSubscriptions.reduce((sum: number, sub: Subscription) => sum + (sub.sessions_remaining || 0), 0);
@@ -114,193 +105,21 @@ export default function MemberClasses() {
     queryFn: () => apiFetch("/api/registrations"),
   });
 
-  const registerMutation = useMutation({
-    mutationFn: async (courseId: number) => {
-      // Get token using the shared utility
-      const token = getAuthToken();
-      console.log('Registration attempt with token:', token ? 'present' : 'missing');
-      
-      const response = await fetch("/api/registrations", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        credentials: "include",
-        body: JSON.stringify({ courseId })
-      });
-      
-      console.log('Registration response status:', response.status);
-      
-      if (!response.ok) {
-        if (response.status === 409) {
-          const overlapData = await response.json();
-          throw { type: 'OVERLAP', ...overlapData };
-        } else {
-          let message = `${response.status}: ${response.statusText}`;
-          try {
-            const text = await response.text();
-            if (text.startsWith('{') || text.startsWith('[')) {
-              const errorData = JSON.parse(text);
-              message = errorData.error || errorData.message || message;
-            } else if (text.length > 0 && text.length < 200) {
-              message = text;
-            }
-          } catch {
-            // If text parsing fails, use the status message
-          }
-          throw new Error(message);
-        }
-      }
-      
-      const contentType = response.headers.get("content-type");
-      if (contentType && contentType.includes("application/json")) {
-        return await response.json();
-      }
-      
-      return response;
-    },
-    onMutate: async (courseId: number) => {
-      // Optimistically update the registrations
-      await queryClient.cancelQueries({ queryKey: ["/api/registrations"] });
-      
-      const previousRegistrations = queryClient.getQueryData(["/api/registrations"]);
-      
-      // Optimistically add the new registration
-      queryClient.setQueryData(["/api/registrations"], (old: Registration[]) => {
-        const newRegistration = {
-          id: Date.now(), // temporary ID
-          course_id: courseId,
-          user_id: "temp",
-          status: "registered",
-          registration_date: new Date().toISOString(),
-          qr_code: "temp",
-          notes: null
-        };
-        return old ? [...old, newRegistration] : [newRegistration];
-      });
-      
-      return { previousRegistrations };
-    },
-    onError: (error: unknown, courseId: number, context: unknown) => {
-      // Rollback on error
-      if (context && typeof context === 'object' && 'previousRegistrations' in context) {
-        queryClient.setQueryData(["/api/registrations"], context.previousRegistrations);
-      }
-      
-      console.log('Registration error:', error);
-      console.log('Error type:', typeof error);
-      console.log('Error keys:', error && typeof error === 'object' ? Object.keys(error) : 'not an object');
-      
-      // Check if this is an overlap error
-      if (typeof error === 'object' && error && 'type' in error && error.type === 'OVERLAP') {
-        const overlapData = error as any;
-        console.log('Overlap detected:', overlapData);
-        setOverlapDialog({
-          isOpen: true,
-          courseId: courseId,
-          overlappingCourses: overlapData.overlappingCourses || []
-        });
-        return;
-      }
-      
-      // Check if this is an overlap error by looking at the error message
-      if (typeof error === 'object' && error && 'message' in error && typeof error.message === 'string') {
-        const errorMessage = error.message;
-        
-        // Handle other specific error messages
-        let errorMessageToShow = "Failed to book course";
-        if (errorMessage.includes("Already registered")) {
-          errorMessageToShow = "You are already registered for this course";
-        } else if (errorMessage.includes("No active subscription")) {
-          errorMessageToShow = "No active subscription with sessions remaining";
-        } else if (errorMessage.includes("Course is full")) {
-          errorMessageToShow = "This course is full";
-        } else {
-          errorMessageToShow = errorMessage;
-        }
-        
-        toast({
-          title: "Booking failed",
-          description: errorMessageToShow,
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      // Fallback error handling
-      toast({
-        title: "Booking failed",
-        description: "An unexpected error occurred while registering for the course.",
-        variant: "destructive",
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/registrations"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/member/courses"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/member/subscriptions"] });
-      toast({
-        title: "Registration successful!",
-        description: "You are now registered for this course. Your QR code has been generated.",
-      });
-    },
-  });
+  const registerMutation = useMemberCourseRegistration();
+  
+  // Handle overlap errors from registration
+  if (registerMutation.error && typeof registerMutation.error === 'object' && registerMutation.error && 'type' in registerMutation.error && registerMutation.error.type === 'OVERLAP') {
+    const overlapData = registerMutation.error as any;
+    console.log('Overlap detected:', overlapData);
+    setOverlapDialog({
+      isOpen: true,
+      courseId: registerMutation.variables || 0,
+      overlappingCourses: overlapData.overlappingCourses || []
+    });
+  }
 
-  const cancelMutation = useMutation({
-    mutationFn: async (registrationId: number) => {
-      return await apiRequest("POST", `/api/registrations/${registrationId}/cancel`, {});
-    },
-    onMutate: async (registrationId: number) => {
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ["/api/registrations"] });
-      
-      // Snapshot the previous value
-      const previousRegistrations = queryClient.getQueryData(["/api/registrations"]);
-      
-      // Optimistically update to remove the registration
-      queryClient.setQueryData(["/api/registrations"], (old: Registration[]) => {
-        if (!old) return old;
-        return old.map((reg: Registration) => 
-          reg.id === registrationId ? { ...reg, status: 'cancelled' } : reg
-        );
-      });
-      
-      return { previousRegistrations };
-    },
-    onSuccess: (data) => {
-      // Invalidate and refetch
-      queryClient.invalidateQueries({ queryKey: ["/api/registrations"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/member/subscriptions"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/member/courses"] });
-      
-      if (data.isWithin24Hours) {
-        toast({
-          title: "Registration cancelled",
-          description: "Your registration has been cancelled. Session forfeited due to late cancellation.",
-        });
-      } else {
-        toast({
-          title: "Registration cancelled",
-          description: "Your registration has been cancelled and session refunded to your account.",
-        });
-      }
-    },
-    onError: (error: unknown, registrationId: number, context: unknown) => {
-      // Rollback on error
-      if (context && typeof context === 'object' && 'previousRegistrations' in context) {
-        queryClient.setQueryData(["/api/registrations"], context.previousRegistrations);
-      }
-      let errorMessage = "Failed to cancel registration";
-      if (typeof error === 'object' && error && 'message' in error && typeof error.message === 'string') {
-        errorMessage = error.message;
-      }
-      toast({
-        title: "Cannot cancel registration",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    },
-  });
+  const cancelMutation = useCancelRegistration();
+  const forceRegistrationMutation = useForceRegistration();
 
   // Create a set of course IDs that the user is registered for (only active registrations)
   const registrationsArray = Array.isArray(registrations) ? registrations : [];
@@ -718,34 +537,16 @@ export default function MemberClasses() {
             <Button
               onClick={() => {
                 if (overlapDialog.courseId) {
-                  // Proceed with registration despite overlap using force endpoint
-                  apiRequest("POST", "/api/registrations/force", { courseId: overlapDialog.courseId })
-                    .then(() => {
-                      queryClient.invalidateQueries({ queryKey: ["/api/registrations"] });
-                      queryClient.invalidateQueries({ queryKey: ["/api/member/courses"] });
-                      queryClient.invalidateQueries({ queryKey: ["/api/member/subscriptions"] });
-                      toast({
-                        title: "Registration successful!",
-                        description: "You are now registered for this course despite the time conflict.",
-                      });
+                  forceRegistrationMutation.mutate(overlapDialog.courseId, {
+                    onSuccess: () => {
                       setOverlapDialog(prev => ({ ...prev, isOpen: false }));
-                    })
-                    .catch((error) => {
-                      let errorMessage = "Failed to register for course";
-                      if (typeof error === 'object' && error && 'message' in error && typeof error.message === 'string') {
-                        errorMessage = error.message;
-                      }
-                      toast({
-                        title: "Registration failed",
-                        description: errorMessage,
-                        variant: "destructive",
-                      });
-                    });
+                    }
+                  });
                 }
               }}
-              disabled={registerMutation.isPending}
+              disabled={forceRegistrationMutation.isPending}
             >
-              {registerMutation.isPending ? "Registering..." : "Register Anyway"}
+              {forceRegistrationMutation.isPending ? "Registering..." : "Register Anyway"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,19 +1,15 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Star, Calendar, Users, CheckCircle } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
 import { formatCurrency } from "@/lib/config";
 import MemberLayout from "@/components/layout/member-layout";
+import { useMemberPlans } from "@/hooks/useMemberPlans";
 
 export default function PlansPage() {
-  const { data: plans, isLoading: plansLoading } = useQuery<any[]>({
-    queryKey: ["/api/plans"],
-    queryFn: () => apiRequest("GET", "/api/plans"),
-  });
+  const { data: plans, isLoading: plansLoading } = useMemberPlans();
 
   // Helper function to get total sessions from plan groups
   const getTotalSessions = (plan: any) => {

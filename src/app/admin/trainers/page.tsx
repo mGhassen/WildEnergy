@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTrainerSchema } from "@/shared/zod-schemas";
-import { apiRequest } from "@/lib/queryClient";
+import { useTrainers, useCreateTrainer, useUpdateTrainer, useDeleteTrainer } from "@/hooks/useTrainers";
 import { Plus, Search, Edit, Trash2 } from "lucide-react";
 import { getInitials } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
@@ -42,54 +42,15 @@ export default function AdminTrainers() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: trainersData = [], isLoading } = useQuery({
-    queryKey: ["trainers"],
-    queryFn: async () => {
-      try {
-        const data = await apiRequest("GET", "/api/trainers");
-        console.log('Raw trainers data:', data);
-        
-        // Transform the data to match the expected structure
-        const transformedData = data.map((trainer: any) => {
-          return {
-            id: trainer.id,
-            user_id: trainer.user_id, // always present
-            firstName: trainer.first_name || trainer.firstName || "",
-            lastName: trainer.last_name || trainer.lastName || "",
-            email: trainer.email || "",
-            phone: trainer.phone || "",
-            bio: trainer.bio || "",
-            status: trainer.status || "active",
-            specialization: trainer.specialization || "",
-            experience_years: trainer.experience_years || 0,
-            certification: trainer.certification || "",
-            created_at: trainer.created_at,
-            updated_at: trainer.updated_at
-          };
-        });
-        
-        console.log('Transformed trainers data:', transformedData);
-        return transformedData;
-      } catch (err) {
-        console.error('Error fetching trainers:', err);
-        toast({
-          title: "Error",
-          description: "Failed to load trainers. Please try again.",
-          variant: "destructive"
-        });
-        return [];
-      }
-    },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
+  const { data: trainersData = [], isLoading } = useTrainers();
   
   // Filter trainers based on search term
   const filteredTrainers = trainersData.filter((trainer: any) => {
     if (!searchTerm) return true;
     const search = searchTerm.toLowerCase();
     return (
-      (trainer.firstName?.toLowerCase().includes(search) ||
-      trainer.lastName?.toLowerCase().includes(search) ||
+      (trainer.first_name?.toLowerCase().includes(search) ||
+      trainer.last_name?.toLowerCase().includes(search) ||
       trainer.email?.toLowerCase().includes(search) ||
       trainer.phone?.includes(search))
     );
@@ -107,88 +68,23 @@ export default function AdminTrainers() {
     },
   });
 
-  const createTrainerMutation = useMutation({
-    mutationFn: async (data: TrainerFormData) => {
-      const response = await apiRequest("POST", "/api/trainers", data);
-      return response;
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["trainers"] });
-      setIsModalOpen(false);
-      form.reset();
-      toast({ 
-        title: "Trainer created successfully",
-        description: `${data.trainer.first_name} ${data.trainer.last_name} has been added.`
-      });
-      // The page will automatically refresh the trainers list due to the query invalidation
-    },
-    onError: (error) => {
-      toast({ 
-        title: "Error creating trainer", 
-        description: error.message,
-        variant: "destructive" 
-      });
-    },
-  });
+  const createTrainerMutation = useCreateTrainer();
 
-  const updateTrainerMutation = useMutation({
-    mutationFn: async ({ id, user_id, data }: { id: number; user_id: number; data: Partial<TrainerFormData> }) => {
-      // Convert camelCase to snake_case for the API
-      const apiData = {
-        id,
-        user_id,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        email: data.email,
-        phone: data.phone,
-        bio: data.bio,
-        status: data.status, // trainer's status
-        specialization: data.specialization,
-        experience_years: data.experience_years,
-        certification: data.certification,
-      };
-      const response = await apiRequest("PUT", "/api/trainers", apiData);
-      return response;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["trainers"] });
-      setIsModalOpen(false);
-      setEditingTrainer(null);
-      form.reset();
-      toast({ title: "Trainer updated successfully" });
-    },
-    onError: (error) => {
-      toast({ 
-        title: "Error updating trainer", 
-        description: error.message,
-        variant: "destructive" 
-      });
-    },
-  });
+  const updateTrainerMutation = useUpdateTrainer();
 
-  const deleteTrainerMutation = useMutation({
-    mutationFn: async (user_id: number) => {
-      const response = await apiRequest("DELETE", "/api/trainers", { id: user_id });
-      return response;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["trainers"] });
-      toast({ title: "Trainer deleted successfully" });
-    },
-    onError: (error: any) => {
-      toast({ 
-        title: "Error deleting trainer", 
-        description: error.message,
-        variant: "destructive" 
-      });
-    },
-  });
+  const deleteTrainerMutation = useDeleteTrainer();
 
   // Filtering is now handled above with the transformed data
 
   const handleSubmit = (data: TrainerFormData) => {
     if (editingTrainer) {
-      updateTrainerMutation.mutate({ id: editingTrainer.id, user_id: editingTrainer.user_id, data });
+      updateTrainerMutation.mutate({ 
+        trainerId: editingTrainer.id, 
+        data: {
+          ...data,
+          user_id: editingTrainer.user_id
+        }
+      });
     } else {
       createTrainerMutation.mutate(data);
     }
@@ -197,8 +93,8 @@ export default function AdminTrainers() {
   const handleEdit = (trainer: any) => {
     setEditingTrainer(trainer);
     form.reset({
-      firstName: trainer.firstName,
-      lastName: trainer.lastName,
+      firstName: trainer.first_name,
+      lastName: trainer.last_name,
       email: trainer.email,
       phone: trainer.phone,
       bio: trainer.bio,
@@ -210,9 +106,9 @@ export default function AdminTrainers() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (user_id: number) => {
+  const handleDelete = (trainer: any) => {
     if (confirm("Are you sure you want to delete this trainer?")) {
-      deleteTrainerMutation.mutate(user_id);
+      deleteTrainerMutation.mutate(trainer.user_id);
     }
   };
 
@@ -402,12 +298,12 @@ export default function AdminTrainers() {
                       <div className="flex items-center space-x-3">
                         <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
                           <span className="text-sm font-medium text-primary">
-                            {getInitials(trainer.firstName, trainer.lastName)}
+                            {getInitials(trainer.first_name, trainer.last_name)}
                           </span>
                         </div>
                         <div>
                           <p className="font-medium text-foreground">
-                            {trainer.firstName} {trainer.lastName}
+                            {trainer.first_name} {trainer.last_name}
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {trainer.specialization}
@@ -427,9 +323,14 @@ export default function AdminTrainers() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Button variant="outline" size="icon" onClick={() => handleEdit(trainer)}>
-                        <Edit className="w-4 h-4" />
-                      </Button>
+                      <div className="flex space-x-2">
+                        <Button variant="outline" size="icon" onClick={() => handleEdit(trainer)}>
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button variant="outline" size="icon" onClick={() => handleDelete(trainer)}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

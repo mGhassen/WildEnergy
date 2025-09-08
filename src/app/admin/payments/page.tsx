@@ -16,7 +16,10 @@ import { Search, DollarSign, Filter, Calendar, TrendingUp, CreditCard, Edit, Tra
 import { getInitials } from "@/lib/auth";
 import { formatDate } from "@/lib/date";
 import { formatCurrency } from "@/lib/config";
-import { apiRequest } from "@/lib/queryClient";
+import { usePayments, useUpdatePayment, useDeletePayment } from "@/hooks/usePayments";
+import { useMembers } from "@/hooks/useMembers";
+import { useSubscriptions } from "@/hooks/useSubscriptions";
+import { usePlans } from "@/hooks/usePlans";
 
 type Payment = {
   id: number;
@@ -81,69 +84,18 @@ export default function AdminPayments() {
     notes: "",
   });
 
-  const { data: payments = [], isLoading } = useQuery<Payment[]>({
-    queryKey: ["/api/payments"],
-    queryFn: () => apiRequest("GET", "/api/payments"),
-  });
-
-  const { data: members = [] } = useQuery({
-    queryKey: ["/api/members"],
-    queryFn: () => apiRequest("GET", "/api/members"),
-  });
-
-  const { data: subscriptions = [] } = useQuery({
-    queryKey: ["/api/subscriptions"],
-    queryFn: () => apiRequest("GET", "/api/subscriptions"),
-  });
-
-  const { data: plans = [] } = useQuery({
-    queryKey: ["/api/plans"],
-    queryFn: () => apiRequest("GET", "/api/plans"),
-  });
+  const { data: payments = [], isLoading } = usePayments();
+  const { data: members = [] } = useMembers();
+  const { data: subscriptions = [] } = useSubscriptions();
+  const { data: plans = [] } = usePlans();
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   // Mutations
-  const updatePaymentMutation = useMutation({
-    mutationFn: async (data: any) => {
-      return await apiRequest("PUT", `/api/payments/${data.id}`, data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/subscriptions"] });
-      setIsEditModalOpen(false);
-      setEditingPayment(null);
-      toast({ title: "Payment updated successfully" });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error updating payment",
-        description: error.message,
-        variant: "destructive"
-      });
-    },
-  });
+  const updatePaymentMutation = useUpdatePayment();
 
-  const deletePaymentMutation = useMutation({
-    mutationFn: async (id: number) => {
-      return await apiRequest("DELETE", `/api/payments/${id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/subscriptions"] });
-      setIsDeleteModalOpen(false);
-      setPaymentToDelete(null);
-      toast({ title: "Payment deleted successfully" });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error deleting payment",
-        description: error.message,
-        variant: "destructive"
-      });
-    },
-  });
+  const deletePaymentMutation = useDeletePayment();
 
   // Map members from snake_case to camelCase for UI
   const mappedMembers = Array.isArray(members)
@@ -321,9 +273,6 @@ export default function AdminPayments() {
     if (!editingPayment) return;
     
     const updateData = {
-      id: editingPayment.id,
-      subscription_id: editingPayment.subscription_id,
-      user_id: editingPayment.user_id,
       amount: parseFloat(editFormData.amount),
       payment_type: editFormData.payment_type,
       payment_status: editFormData.payment_status,
@@ -332,7 +281,10 @@ export default function AdminPayments() {
       notes: editFormData.notes || null,
     };
     
-    updatePaymentMutation.mutate(updateData);
+    updatePaymentMutation.mutate({
+      paymentId: editingPayment.id,
+      data: updateData
+    });
   };
 
   const handleDeleteConfirm = () => {

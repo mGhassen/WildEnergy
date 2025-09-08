@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,12 +15,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertPlanSchema, insertPlanGroupSchema } from "@/shared/zod-schemas";
-// Removed broken apiRequest imports
 import { Plus, Search, Edit, Trash2, Clock, X, Star, Users, Calendar, DollarSign, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
-import { apiFetch } from "@/lib/api";
 import { formatCurrency } from "@/lib/config";
+import { usePlans, useCreatePlan, useUpdatePlan, useDeletePlan, useCheckPlanDeletion } from "@/hooks/usePlans";
+import { useGroups } from "@/hooks/useGroups";
 
 const planFormSchema = z.object({
   name: z.string().min(1, 'Plan name is required'),
@@ -50,15 +50,8 @@ export default function AdminPlans() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: plans, isLoading } = useQuery({
-    queryKey: ["/api/plans"],
-    queryFn: () => apiFetch("/api/plans"),
-  });
-
-  const { data: groups } = useQuery({
-    queryKey: ["/api/groups"],
-    queryFn: () => apiFetch("/api/groups"),
-  });
+  const { data: plans, isLoading } = usePlans();
+  const { data: groups } = useGroups();
 
   const form = useForm<PlanFormUi>({
     resolver: zodResolver(planFormSchema),
@@ -77,77 +70,31 @@ export default function AdminPlans() {
     name: "planGroups",
   });
 
-  const createPlanMutation = useMutation({
-    mutationFn: async (data: any) => {
-      return await apiFetch("/api/plans", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/plans"] });
-      setIsModalOpen(false);
-      form.reset();
-      toast({ title: "Plan created successfully" });
-    },
-    onError: (error) => {
-      toast({ 
-        title: "Error creating plan", 
-        description: error.message,
-        variant: "destructive" 
-      });
-    },
-  });
+  const createPlanMutation = useCreatePlan();
+  const updatePlanMutation = useUpdatePlan();
+  const deletePlanMutation = useDeletePlan();
+  const checkDeletionMutation = useCheckPlanDeletion();
 
-  const updatePlanMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: any }) => {
-      return await apiFetch(`/api/plans/${id}`, {
-        method: "PUT",
-        body: JSON.stringify(data),
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/plans"] });
-      setIsModalOpen(false);
-      setEditingPlan(null);
-      form.reset();
-      toast({ title: "Plan updated successfully" });
-    },
-    onError: (error) => {
-      toast({ 
-        title: "Error updating plan", 
-        description: error.message,
-        variant: "destructive" 
-      });
-    },
-  });
+  // Handle success for create and update mutations
+  if (createPlanMutation.isSuccess) {
+    setIsModalOpen(false);
+    form.reset();
+    createPlanMutation.reset();
+  }
 
-  const deletePlanMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await apiFetch(`/api/plans/${id}`, {
-        method: "DELETE",
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/plans"] });
-      setIsDeleteDialogOpen(false);
-      setDeletingPlan(null);
-      setLinkedSubscriptions([]);
-      toast({ title: "Plan deleted successfully" });
-    },
-    onError: (error: any) => {
-      if (error.status === 400 && error.linkedSubscriptions) {
-        setLinkedSubscriptions(error.linkedSubscriptions);
-        setIsDeleteDialogOpen(true);
-      } else {
-        toast({ 
-          title: "Error deleting plan", 
-          description: error.message,
-          variant: "destructive" 
-        });
-      }
-    },
-  });
+  if (updatePlanMutation.isSuccess) {
+    setIsModalOpen(false);
+    setEditingPlan(null);
+    form.reset();
+    updatePlanMutation.reset();
+  }
+
+  if (deletePlanMutation.isSuccess) {
+    setIsDeleteDialogOpen(false);
+    setDeletingPlan(null);
+    setLinkedSubscriptions([]);
+    deletePlanMutation.reset();
+  }
 
   const filteredPlans = Array.isArray(plans) ? plans.filter((plan: any) =>
     `${plan.name} ${plan.description}`
@@ -177,7 +124,7 @@ export default function AdminPlans() {
       })) || [],
     };
     if (editingPlan) {
-      updatePlanMutation.mutate({ id: editingPlan.id, data: submitData });
+      updatePlanMutation.mutate({ planId: editingPlan.id, data: submitData });
     } else {
       createPlanMutation.mutate(submitData);
     }
@@ -200,31 +147,26 @@ export default function AdminPlans() {
     setIsModalOpen(true);
   };
 
-  const checkDeletion = async (planId: number) => {
-    try {
-      const response = await apiFetch(`/api/plans/${planId}/check-deletion`);
-      return response;
-    } catch (error) {
-      console.error('Error checking deletion:', error);
-      return { canDelete: false, linkedSubscriptions: [] };
-    }
-  };
-
   const handleDelete = async (plan: any) => {
     setDeletingPlan(plan);
     setLinkedSubscriptions([]);
     
     // Check if plan can be deleted
-    const deletionCheck = await checkDeletion(plan.id);
-    
-    if (deletionCheck.canDelete) {
-      // Safe to delete - show confirmation
-      setIsDeleteDialogOpen(true);
-    } else {
-      // Has active subscriptions - show error dialog
-      setLinkedSubscriptions(deletionCheck.linkedSubscriptions || []);
-      setIsDeleteDialogOpen(true);
-    }
+    checkDeletionMutation.mutate(plan.id, {
+      onSuccess: (response) => {
+        if (response.canDelete) {
+          setLinkedSubscriptions([]);
+        } else {
+          setLinkedSubscriptions(response.linkedSubscriptions || []);
+        }
+        setIsDeleteDialogOpen(true);
+      },
+      onError: (error: any) => {
+        console.error('Error checking deletion:', error);
+        setLinkedSubscriptions([]);
+        setIsDeleteDialogOpen(true);
+      }
+    });
   };
 
   const confirmDelete = () => {

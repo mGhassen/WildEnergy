@@ -10,8 +10,14 @@ export async function GET(req: NextRequest) {
   try {
     const { data: categories, error } = await supabase
       .from('categories')
-      .select('*')
-      .eq('is_active', true)
+      .select(`
+        *,
+        groups:group_id (
+          id,
+          name,
+          color
+        )
+      `)
       .order('name', { ascending: true });
     if (error) {
       return NextResponse.json({ error: 'Failed to fetch categories' }, { status: 500 });
