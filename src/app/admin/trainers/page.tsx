@@ -85,9 +85,21 @@ export default function AdminTrainers() {
           ...data,
           user_id: editingTrainer.user_id
         }
+      }, {
+        onSuccess: () => {
+          setIsModalOpen(false);
+          setEditingTrainer(null);
+          form.reset();
+        }
       });
     } else {
-      createTrainerMutation.mutate(data);
+      createTrainerMutation.mutate(data, {
+        onSuccess: () => {
+          setIsModalOpen(false);
+          setEditingTrainer(null);
+          form.reset();
+        }
+      });
     }
   };
 

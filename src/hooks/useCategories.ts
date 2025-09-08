@@ -79,9 +79,17 @@ export function useDeleteCategory() {
       });
     },
     onError: (error: any) => {
+      let errorMessage = error.message || 'Please try again';
+      
+      // If the category is being used by classes, show specific message
+      if (error.classes && error.classes.length > 0) {
+        const classNames = error.classes.map((cls: any) => cls.name).join(', ');
+        errorMessage = `Cannot delete category. It is being used by the following classes: ${classNames}. Please remove the category from these classes first.`;
+      }
+      
       toast({
         title: 'Failed to delete category',
-        description: error.message || 'Please try again',
+        description: errorMessage,
         variant: 'destructive',
       });
     },
