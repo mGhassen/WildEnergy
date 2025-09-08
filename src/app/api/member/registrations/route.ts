@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Course ID is required' }, { status: 400 });
     }
 
-    console.log('Force registration attempt:', { userId: userProfile.id, courseId });
+    console.log('Member registration attempt:', { userId: userProfile.id, courseId });
 
     // Check if course exists and is active
     const { data: course, error: courseError } = await supabaseServer()
@@ -103,10 +103,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to create registration' }, { status: 500 });
     }
 
-    console.log('Force registration successful:', result);
+    console.log('Member registration successful:', result);
     return NextResponse.json({ success: true, registration: result });
   } catch (error) {
-    console.error('POST force registration error:', error);
+    console.error('POST member registration error:', error);
     return NextResponse.json({ error: 'Failed to create registration' }, { status: 500 });
   }
-} 
+}

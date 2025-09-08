@@ -69,7 +69,7 @@ export const registrationApi = {
   },
 
   async forceRegistration(courseId: number): Promise<Registration> {
-    return apiRequest('POST', '/api/registrations/force', { courseId });
+    return apiRequest('POST', '/api/member/registrations', { courseId });
   },
 
   async getMemberRegistrations(): Promise<Registration[]> {

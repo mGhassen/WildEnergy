@@ -290,7 +290,7 @@ export default function ScheduleCalendar({
   // Admin registration mutation
   const registerMembersMutation = useMutation({
     mutationFn: async ({ courseId, memberIds }: { courseId: number; memberIds: string[] }) => {
-      return await apiRequest('POST', '/api/registrations/admin', { courseId, memberIds });
+      return await apiRequest('POST', '/api/admin/registrations/bulk', { courseId, memberIds });
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/registrations"] });
