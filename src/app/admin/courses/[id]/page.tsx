@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Avatar, AvatarFallback, AvatarInitials } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { 
   Calendar, 
   Clock, 
@@ -227,7 +227,7 @@ export default function CourseDetailsPage() {
 
   const handleSelectAll = () => {
     const availableMembers = getAvailableMembers();
-    setSelectedMembers(availableMembers.map(m => m.id));
+    setSelectedMembers(availableMembers.map((m: any) => m.id));
   };
 
   const handleDeselectAll = () => {
@@ -237,13 +237,13 @@ export default function CourseDetailsPage() {
   const getAvailableMembers = () => {
     if (!courseData || !allMembers) return [];
     const registeredIds = courseData.registrations.map(r => r.user.id);
-    return allMembers.filter(member => !registeredIds.includes(member.id));
+    return allMembers.filter((member: any) => !registeredIds.includes(member.id));
   };
 
   const getFilteredMembers = () => {
     const available = getAvailableMembers();
     if (!searchTerm) return available;
-    return available.filter(member => 
+    return available.filter((member: any) => 
       `${member.first_name} ${member.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
       member.email.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -659,7 +659,7 @@ export default function CourseDetailsPage() {
                   <p>No available members found</p>
                 </div>
               ) : (
-                getFilteredMembers().map((member) => (
+                getFilteredMembers().map((member: any) => (
                   <div
                     key={member.id}
                     className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
