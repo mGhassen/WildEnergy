@@ -60,26 +60,27 @@ export interface UpdatePlanData {
 
 export const planApi = {
   async getPlans(): Promise<Plan[]> {
-    return apiRequest('GET', '/api/plans');
+    return apiRequest('GET', '/api/admin/plans');
   },
 
   async getPlan(planId: number): Promise<Plan> {
-    return apiRequest('GET', `/api/plans/${planId}`);
+    return apiRequest('GET', `/api/admin/plans/${planId}`);
   },
 
   async createPlan(data: CreatePlanData): Promise<Plan> {
-    return apiRequest('POST', '/api/plans', data);
+    return apiRequest('POST', '/api/admin/plans', data);
   },
 
   async updatePlan(planId: number, data: UpdatePlanData): Promise<Plan> {
-    return apiRequest('PUT', `/api/plans/${planId}`, data);
+    return apiRequest('PUT', `/api/admin/plans/${planId}`, data);
   },
 
   async deletePlan(planId: number): Promise<void> {
-    return apiRequest('DELETE', `/api/plans/${planId}`);
+    return apiRequest('DELETE', `/api/admin/plans/${planId}`);
   },
 
   async checkPlanDeletion(planId: number): Promise<{ canDelete: boolean; linkedSubscriptions?: any[] }> {
-    return apiRequest('GET', `/api/plans/${planId}/check-deletion`);
+    return apiRequest('GET', `/api/admin/plans/${planId}/check-deletion`);
   }
 };
+

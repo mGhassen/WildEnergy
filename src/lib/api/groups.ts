@@ -34,26 +34,26 @@ export interface UpdateGroupData {
 
 export const groupApi = {
   async getGroups(): Promise<Group[]> {
-    return apiRequest('GET', '/api/groups');
+    return apiRequest('GET', '/api/admin/groups');
   },
 
   async getGroup(groupId: number): Promise<Group> {
-    return apiRequest('GET', `/api/groups/${groupId}`);
+    return apiRequest('GET', `/api/admin/groups/${groupId}`);
   },
 
   async createGroup(data: CreateGroupData): Promise<Group> {
-    return apiRequest('POST', '/api/groups', data);
+    return apiRequest('POST', '/api/admin/groups', data);
   },
 
   async updateGroup(groupId: number, data: UpdateGroupData): Promise<Group> {
-    return apiRequest('PUT', `/api/groups/${groupId}`, data);
+    return apiRequest('PUT', `/api/admin/groups/${groupId}`, data);
   },
 
   async deleteGroup(groupId: number): Promise<void> {
-    return apiRequest('DELETE', `/api/groups/${groupId}`);
+    return apiRequest('DELETE', `/api/admin/groups/${groupId}`);
   },
 
   async checkGroupDeletion(groupId: number): Promise<{ canDelete: boolean; linkedPlans?: string[] }> {
-    return apiRequest('GET', `/api/groups/${groupId}/check-deletion`);
+    return apiRequest('GET', `/api/admin/groups/${groupId}/check-deletion`);
   }
 };

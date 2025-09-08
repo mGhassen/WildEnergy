@@ -34,11 +34,11 @@ export interface UpdateCategoryData {
 
 export const categoryApi = {
   async getCategories(): Promise<Category[]> {
-    return apiRequest('GET', '/api/categories');
+    return apiRequest('GET', '/api/admin/categories');
   },
 
   async getCategory(categoryId: number): Promise<Category> {
-    return apiRequest('GET', `/api/categories/${categoryId}`);
+    return apiRequest('GET', `/api/admin/categories/${categoryId}`);
   },
 
   async createCategory(data: CreateCategoryData): Promise<Category> {
@@ -49,7 +49,7 @@ export const categoryApi = {
       is_active: data.isActive ?? true,
       group_id: data.groupId,
     };
-    return apiRequest('POST', '/api/categories', apiData);
+    return apiRequest('POST', '/api/admin/categories', apiData);
   },
 
   async updateCategory(categoryId: number, data: UpdateCategoryData): Promise<Category> {
@@ -60,10 +60,17 @@ export const categoryApi = {
       is_active: data.isActive,
       group_id: data.groupId,
     };
-    return apiRequest('PUT', `/api/categories/${categoryId}`, apiData);
+    return apiRequest('PATCH', `/api/admin/categories/${categoryId}`, apiData);
   },
 
   async deleteCategory(categoryId: number): Promise<void> {
-    return apiRequest('DELETE', `/api/categories/${categoryId}`);
+    return apiRequest('DELETE', `/api/admin/categories/${categoryId}`);
+  }
+};
+
+// Member category API for member access
+export const memberCategoryApi = {
+  async getCategories(): Promise<Category[]> {
+    return apiRequest('GET', '/api/member/categories');
   }
 };

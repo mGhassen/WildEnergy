@@ -43,30 +43,30 @@ export interface Course {
 
 export const courseApi = {
   async getCourse(courseId: number): Promise<Course> {
-    return apiRequest('GET', `/api/courses/${courseId}`);
+    return apiRequest('GET', `/api/admin/courses/${courseId}`);
   },
 
   async getCourses(): Promise<Course[]> {
-    return apiRequest('GET', '/api/courses');
+    return apiRequest('GET', '/api/admin/courses');
   },
 
   async createCourse(data: Partial<Course>): Promise<Course> {
-    return apiRequest('POST', '/api/courses', data);
+    return apiRequest('POST', '/api/admin/courses', data);
   },
 
   async updateCourse(courseId: number, data: Partial<Course>): Promise<Course> {
-    return apiRequest('PUT', `/api/courses/${courseId}`, data);
+    return apiRequest('PUT', `/api/admin/courses/${courseId}`, data);
   },
 
   async deleteCourse(courseId: number): Promise<void> {
-    return apiRequest('DELETE', `/api/courses/${courseId}`);
+    return apiRequest('DELETE', `/api/admin/courses/${courseId}`);
   },
 
   async addMembersToCourse(
     courseId: number, 
     data: AddMembersToCourseRequest
   ): Promise<AddMembersToCourseResponse> {
-    return apiRequest('POST', `/api/courses/${courseId}`, data);
+    return apiRequest('POST', `/api/admin/courses/${courseId}`, data);
   },
 
   async getMemberCourses(): Promise<Course[]> {
@@ -90,11 +90,11 @@ export const courseApi = {
   },
 
   async getMemberCoursePlans(): Promise<Plan[]> {
-    return apiRequest('GET', '/api/plans');
+    return apiRequest('GET', '/api/member/plans');
   },
 
   async getMemberCourseCategories(): Promise<Category[]> {
-    return apiRequest('GET', '/api/categories');
+    return apiRequest('GET', '/api/member/categories');
   },
 
   async getMemberCourseSchedules(): Promise<Schedule[]> {
@@ -106,7 +106,7 @@ export const courseApi = {
   },
 
   async getMemberCourseCheckins(): Promise<Checkin[]> {
-    return apiRequest('GET', '/api/checkins');
+    return apiRequest('GET', '/api/member/checkins');
   },
 
   async getMemberCoursePayments(): Promise<Payment[]> {

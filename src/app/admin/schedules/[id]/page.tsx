@@ -115,7 +115,7 @@ export default function ScheduleDetailsPage() {
   // Fetch schedule details
   const { data: schedule, isLoading: scheduleLoading, error: scheduleError } = useQuery({
     queryKey: ["schedule", scheduleId],
-    queryFn: () => apiRequest("GET", `/api/schedules/${scheduleId}`),
+    queryFn: () => apiRequest("GET", `/api/admin/schedules/${scheduleId}`),
     enabled: !!scheduleId,
   });
 
@@ -128,23 +128,23 @@ export default function ScheduleDetailsPage() {
   // Fetch trainers for edit dialog
   const { data: trainers = [] } = useQuery({
     queryKey: ["trainers"],
-    queryFn: () => apiRequest("GET", "/api/trainers"),
+    queryFn: () => apiRequest("GET", "/api/admin/trainers"),
   });
 
   // Fetch related data
   const { data: courses = [] } = useQuery({
     queryKey: ["courses"],
-    queryFn: () => apiRequest("GET", "/api/courses"),
+    queryFn: () => apiRequest("GET", "/api/admin/courses"),
   });
 
   const { data: registrations = [] } = useQuery({
     queryKey: ["registrations"],
-    queryFn: () => apiRequest("GET", "/api/registrations"),
+    queryFn: () => apiRequest("GET", "/api/admin/registrations"),
   });
 
   const { data: checkins = [] } = useQuery({
     queryKey: ["checkins"],
-    queryFn: () => apiRequest("GET", "/api/checkins"),
+    queryFn: () => apiRequest("GET", "/api/admin/checkins"),
   });
 
   // Get schedule-specific data

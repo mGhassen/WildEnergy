@@ -45,22 +45,22 @@ export interface UpdateScheduleData {
 
 export const scheduleApi = {
   async getSchedules(): Promise<Schedule[]> {
-    return apiRequest('GET', '/api/schedules');
+    return apiRequest('GET', '/api/admin/schedules');
   },
 
   async getSchedule(scheduleId: number): Promise<Schedule> {
-    return apiRequest('GET', `/api/schedules/${scheduleId}`);
+    return apiRequest('GET', `/api/admin/schedules/${scheduleId}`);
   },
 
   async createSchedule(data: CreateScheduleData): Promise<Schedule> {
-    return apiRequest('POST', '/api/schedules', data);
+    return apiRequest('POST', '/api/admin/schedules', data);
   },
 
   async updateSchedule(scheduleId: number, data: UpdateScheduleData): Promise<Schedule> {
-    return apiRequest('PUT', `/api/schedules/${scheduleId}`, data);
+    return apiRequest('PUT', `/api/admin/schedules/${scheduleId}`, data);
   },
 
   async deleteSchedule(scheduleId: number): Promise<void> {
-    return apiRequest('DELETE', `/api/schedules/${scheduleId}`);
+    return apiRequest('DELETE', `/api/admin/schedules/${scheduleId}`);
   }
 };

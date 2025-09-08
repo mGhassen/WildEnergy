@@ -1,6 +1,61 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 
+export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  try {
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.split(' ')[1];
+    if (!token) {
+      return NextResponse.json({ error: 'No token provided' }, { status: 401 });
+    }
+
+    // Verify admin
+    const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
+    if (authError || !adminUser) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+    }
+
+    const { data: adminCheck } = await supabaseServer()
+      .from('users')
+      .select('is_admin')
+      .eq('auth_user_id', adminUser.id)
+      .single();
+
+    if (!adminCheck?.is_admin) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
+
+    const { id } = await context.params;
+
+    const { data: category, error } = await supabaseServer()
+      .from('categories')
+      .select(`
+        *,
+        groups (
+          id,
+          name,
+          color
+        )
+      `)
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      console.error('Category fetch error:', error);
+      return NextResponse.json({ error: 'Failed to fetch category' }, { status: 500 });
+    }
+
+    if (!category) {
+      return NextResponse.json({ error: 'Category not found' }, { status: 404 });
+    }
+
+    return NextResponse.json(category);
+  } catch (error) {
+    console.error('Category fetch error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
 export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const authHeader = request.headers.get('authorization');

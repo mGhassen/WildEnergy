@@ -24,10 +24,10 @@ export interface CheckMemberSessionsResponse {
 
 export const memberApi = {
   async getMembers(): Promise<Member[]> {
-    return apiRequest('GET', '/api/members');
+    return apiRequest('GET', '/api/admin/members');
   },
 
   async checkMemberSessions(data: CheckMemberSessionsRequest): Promise<CheckMemberSessionsResponse> {
-    return apiRequest('POST', '/api/check-member-sessions', data);
+    return apiRequest('POST', '/api/admin/registrations/check-member-sessions', data);
   }
 };

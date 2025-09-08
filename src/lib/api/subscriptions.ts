@@ -48,23 +48,23 @@ export interface UpdateSubscriptionData {
 
 export const subscriptionApi = {
   async getSubscriptions(): Promise<Subscription[]> {
-    return apiRequest('GET', '/api/subscriptions');
+    return apiRequest('GET', '/api/admin/subscriptions');
   },
 
   async getSubscription(subscriptionId: number): Promise<Subscription> {
-    return apiRequest('GET', `/api/subscriptions/${subscriptionId}`);
+    return apiRequest('GET', `/api/admin/subscriptions/${subscriptionId}`);
   },
 
   async createSubscription(data: CreateSubscriptionData): Promise<Subscription> {
-    return apiRequest('POST', '/api/subscriptions', data);
+    return apiRequest('POST', '/api/admin/subscriptions', data);
   },
 
   async updateSubscription(subscriptionId: number, data: UpdateSubscriptionData): Promise<Subscription> {
-    return apiRequest('PUT', `/api/subscriptions/${subscriptionId}`, data);
+    return apiRequest('PUT', `/api/admin/subscriptions/${subscriptionId}`, data);
   },
 
   async deleteSubscription(subscriptionId: number): Promise<void> {
-    return apiRequest('DELETE', `/api/subscriptions/${subscriptionId}`);
+    return apiRequest('DELETE', `/api/admin/subscriptions/${subscriptionId}`);
   },
 
   async getMemberSubscriptions(): Promise<Subscription[]> {

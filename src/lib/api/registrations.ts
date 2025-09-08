@@ -41,23 +41,23 @@ export interface UpdateRegistrationData {
 
 export const registrationApi = {
   async getRegistrations(): Promise<Registration[]> {
-    return apiRequest('GET', '/api/registrations');
+    return apiRequest('GET', '/api/admin/registrations');
   },
 
   async getRegistration(registrationId: number): Promise<Registration> {
-    return apiRequest('GET', `/api/registrations/${registrationId}`);
+    return apiRequest('GET', `/api/admin/registrations/${registrationId}`);
   },
 
   async createRegistration(data: CreateRegistrationData): Promise<Registration> {
-    return apiRequest('POST', '/api/registrations', data);
+    return apiRequest('POST', '/api/admin/registrations', data);
   },
 
   async updateRegistration(registrationId: number, data: UpdateRegistrationData): Promise<Registration> {
-    return apiRequest('PUT', `/api/registrations/${registrationId}`, data);
+    return apiRequest('PUT', `/api/admin/registrations/${registrationId}`, data);
   },
 
   async deleteRegistration(registrationId: number): Promise<void> {
-    return apiRequest('DELETE', `/api/registrations/${registrationId}`);
+    return apiRequest('DELETE', `/api/admin/registrations/${registrationId}`);
   },
 
   async registerForClass(classId: number, data: { subscription_id?: number }): Promise<Registration> {

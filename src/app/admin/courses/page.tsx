@@ -90,8 +90,8 @@ export default function AdminCourses() {
   console.log('Courses query date range:', startOfMonth.toISOString().split('T')[0], endOfMonth.toISOString().split('T')[0]);
 
   const { data: courses, isLoading: coursesLoading, error: coursesError } = useQuery({
-    queryKey: ["/api/courses"],
-    queryFn: () => apiRequest("GET", "/api/courses"),
+    queryKey: ["/api/admin/courses"],
+    queryFn: () => apiRequest("GET", "/api/admin/courses"),
   });
 
   // Debug: Log loading and error state
@@ -113,30 +113,30 @@ export default function AdminCourses() {
 
   // Fetch trainers for dropdown
   const { data: trainers } = useQuery({
-    queryKey: ["/api/trainers"],
-    queryFn: () => apiRequest("GET", "/api/trainers"),
+    queryKey: ["/api/admin/trainers"],
+    queryFn: () => apiRequest("GET", "/api/admin/trainers"),
   });
 
   // Fetch registrations and checkins for the calendar
   const { data: registrations = [] } = useQuery({
-    queryKey: ["/api/registrations"],
-    queryFn: () => apiRequest("GET", "/api/registrations"),
+    queryKey: ["/api/admin/registrations"],
+    queryFn: () => apiRequest("GET", "/api/admin/registrations"),
   });
 
   const { data: checkins = [] } = useQuery({
-    queryKey: ["/api/checkins"],
-    queryFn: () => apiRequest("GET", "/api/checkins"),
+    queryKey: ["/api/admin/checkins"],
+    queryFn: () => apiRequest("GET", "/api/admin/checkins"),
   });
 
   // Fetch members
   const { data: members = [] } = useQuery({
-    queryKey: ["/api/members"],
-    queryFn: () => apiRequest("GET", "/api/members"),
+    queryKey: ["/api/admin/members"],
+    queryFn: () => apiRequest("GET", "/api/admin/members"),
   });
   // Fetch subscriptions
   const { data: subscriptions = [] } = useQuery({
-    queryKey: ["/api/subscriptions"],
-    queryFn: () => apiRequest("GET", "/api/subscriptions"),
+    queryKey: ["/api/admin/subscriptions"],
+    queryFn: () => apiRequest("GET", "/api/admin/subscriptions"),
   });
 
   // Filter members to only those with an active subscription

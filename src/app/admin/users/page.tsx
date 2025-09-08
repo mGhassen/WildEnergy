@@ -223,15 +223,15 @@ export default function UsersPage() {
         mutationFn: async ({ id, action, data }: { id: string; action: string; data?: any }) => {
             switch (action) {
                 case 'approve':
-                    return await apiRequest("PUT", `/api/users/${id}`, { status: 'active' });
+                    return await apiRequest("PUT", `/api/admin/users/${id}`, { status: 'active' });
                 case 'archive':
-                    return await apiRequest("PUT", `/api/users/${id}`, { status: 'archived' });
+                    return await apiRequest("PUT", `/api/admin/users/${id}`, { status: 'archived' });
                 case 'suspend':
-                    return await apiRequest("PUT", `/api/users/${id}`, { status: 'suspended' });
+                    return await apiRequest("PUT", `/api/admin/users/${id}`, { status: 'suspended' });
                 case 'reset-password':
-                    return await apiRequest("POST", `/api/users/${id}/reset-password`);
+                    return await apiRequest("POST", `/api/admin/users/${id}/reset-password`);
                 case 'resend-invitation':
-                    return await apiRequest("POST", `/api/users/${id}/resend-invitation`);
+                    return await apiRequest("POST", `/api/admin/users/${id}/resend-invitation`);
                 default:
                     throw new Error('Unknown action');
             }
