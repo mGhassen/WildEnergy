@@ -16,6 +16,7 @@ import { useTrainers } from "@/hooks/useTrainers";
 import { useSchedules } from "@/hooks/useSchedules";
 import { useCourses } from "@/hooks/useCourse";
 import { useMembers } from "@/hooks/useMembers";
+import { TableSkeleton } from "@/components/skeletons";
 
 // Utility function for European date formatting (DD/MM/YYYY)
 const formatEuropeanDate = (dateString: string) => {

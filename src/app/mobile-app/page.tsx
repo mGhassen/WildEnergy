@@ -25,6 +25,7 @@ import { useMemberCourses } from "@/hooks/useMemberCourses";
 import { useMemberRegistrations } from "@/hooks/useMemberRegistrations";
 import { useMemberSubscription } from "@/hooks/useMemberSubscriptions";
 import { registrationApi } from "@/lib/api/registrations";
+import { MobileAppSkeleton } from "@/components/skeletons";
 import { formatTime } from "@/lib/date";
 import QRGenerator from "@/components/qr-generator";
 import { useToast } from "@/hooks/use-toast";
@@ -84,9 +85,9 @@ export default function MobileApp() {
   const [showQRCode, setShowQRCode] = useState<string | null>(null);
 
   // Queries
-  const { data: courses = [] } = useMemberCourses();
-  const { data: registrations = [] } = useMemberRegistrations();
-  const { data: subscription } = useMemberSubscription();
+  const { data: courses = [], isLoading: coursesLoading } = useMemberCourses();
+  const { data: registrations = [], isLoading: registrationsLoading } = useMemberRegistrations();
+  const { data: subscription, isLoading: subscriptionLoading } = useMemberSubscription();
 
   // Mutations
   const registerMutation = useMutation({
@@ -106,6 +107,11 @@ export default function MobileApp() {
       });
     }
   });
+
+  // Show loading state
+  if (coursesLoading || registrationsLoading || subscriptionLoading) {
+    return <MobileAppSkeleton />;
+  }
 
   // Get today's and upcoming courses
   const today = new Date();

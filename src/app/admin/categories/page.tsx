@@ -7,6 +7,7 @@ import { z } from "zod";
 import { useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory } from "@/hooks/useCategories";
 import { useGroups } from "@/hooks/useGroups";
 import { useAdminClasses } from "@/hooks/useAdmin";
+import { TableSkeleton, FormSkeleton } from "@/components/skeletons";
 import { Category } from "@/lib/api/categories";
 import { AdminClass } from "@/lib/api/admin";
 import { Button } from "@/components/ui/button";
@@ -150,8 +151,15 @@ export default function AdminCategories() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <div className="h-8 w-48 bg-muted rounded animate-pulse mb-2"></div>
+            <div className="h-4 w-64 bg-muted rounded animate-pulse"></div>
+          </div>
+          <div className="h-10 w-32 bg-muted rounded animate-pulse"></div>
+        </div>
+        <TableSkeleton rows={8} columns={6} />
       </div>
     );
   }

@@ -12,6 +12,7 @@ import { useCheckins } from "@/hooks/useCheckins";
 import { useSchedules } from "@/hooks/useSchedules";
 import { useRegistrations } from "@/hooks/useRegistrations";
 import { Sidebar } from "@/components/ui/sidebar";
+import { DashboardSkeleton } from "@/components/skeletons";
 
 interface DashboardStats {
   totalUsers: number;
@@ -91,23 +92,8 @@ export default function AdminDashboard() {
     );
   };
 
-  if (statsLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[...Array(4)].map((_, i) => (
-            <Card key={i}>
-              <CardContent className="p-6">
-                <div className="animate-pulse">
-                  <div className="h-4 bg-muted rounded w-1/2 mb-2"></div>
-                  <div className="h-8 bg-muted rounded w-3/4"></div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-    );
+  if (statsLoading || schedulesLoading) {
+    return <DashboardSkeleton />;
   }
 
   interface StatCard {

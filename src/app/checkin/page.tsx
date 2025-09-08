@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle, XCircle, Loader2, ArrowLeft, User, Calendar, Clock, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCheckinInfo, useValidateCheckin, useUnvalidateCheckin } from "@/hooks/useCheckins";
+import { CardSkeleton, FormSkeleton } from "@/components/skeletons";
 
 interface CheckinInfo {
   member: {
@@ -199,6 +200,14 @@ export default function CheckinPage() {
           <div className="text-center">
             <p className="text-lg font-medium">{message}</p>
           </div>
+
+          {/* Loading Skeleton */}
+          {status === 'loading' && (
+            <div className="space-y-6">
+              <CardSkeleton showImage={false} lines={4} />
+              <CardSkeleton showImage={false} lines={3} />
+            </div>
+          )}
 
           {/* Check-in Information */}
           {status === 'info' && checkinInfo && (

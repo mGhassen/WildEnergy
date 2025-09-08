@@ -17,6 +17,7 @@ import { useSubscriptions, useCreateSubscription, useUpdateSubscription, useDele
 import { useMembers } from "@/hooks/useMembers";
 import { usePlans } from "@/hooks/usePlans";
 import { usePayments, useCreatePayment, useUpdatePayment, useDeletePayment } from "@/hooks/usePayments";
+import { TableSkeleton, FormSkeleton } from "@/components/skeletons";
 import { Payment } from "@/lib/api/payments";
 import { Plus, Search, Edit, Trash2, Eye, CreditCard, MoreVertical, RefreshCw } from "lucide-react";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
@@ -464,9 +465,25 @@ export default function AdminSubscriptions() {
 
   if (isLoadingAny) {
     return (
-      <div className="flex flex-col items-center justify-center py-24">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mb-4"></div>
-        <p className="text-muted-foreground">Loading subscriptions...</p>
+      <div className="space-y-8">
+        <div className="flex justify-between items-center">
+          <div>
+            <div className="h-8 w-48 bg-muted rounded animate-pulse mb-2"></div>
+            <div className="h-4 w-64 bg-muted rounded animate-pulse"></div>
+          </div>
+          <div className="h-10 w-32 bg-muted rounded animate-pulse"></div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="rounded-lg border bg-card p-6">
+              <div className="space-y-2">
+                <div className="h-4 w-20 bg-muted rounded animate-pulse"></div>
+                <div className="h-8 w-16 bg-muted rounded animate-pulse"></div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <TableSkeleton rows={10} columns={7} />
       </div>
     );
   }

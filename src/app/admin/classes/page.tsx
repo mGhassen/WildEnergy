@@ -16,6 +16,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { insertClassSchema } from "@/shared/zod-schemas";
 import { useAdminClasses, useAdminCategories, useAdminRegistrations, useAdminCheckins } from "@/hooks/useAdmin";
 import { useCreateAdminClass, useUpdateAdminClass, useDeleteAdminClass } from "@/hooks/useClasses";
+import { TableSkeleton, FormSkeleton } from "@/components/skeletons";
 import { Plus, Search, Edit, Trash2, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
@@ -393,17 +394,7 @@ export default function AdminClasses() {
         </CardHeader>
         <CardContent>
           {(isLoading || categoriesLoading) ? (
-            <div className="space-y-4">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="animate-pulse flex items-center space-x-4 p-4">
-                  <div className="w-12 h-12 bg-muted rounded-lg"></div>
-                  <div className="flex-1 space-y-2">
-                    <div className="h-4 bg-muted rounded w-1/4"></div>
-                    <div className="h-3 bg-muted rounded w-1/3"></div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <TableSkeleton rows={8} columns={6} />
           ) : (
             <Table>
               <TableHeader>

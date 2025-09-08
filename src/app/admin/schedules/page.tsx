@@ -25,6 +25,7 @@ import { useTrainers } from "@/hooks/useTrainers";
 import { useCourses } from "@/hooks/useCourse";
 import { Plus, Search, Edit, Trash2, Calendar, Users, TrendingUp, RepeatIcon, Clock, MapPin, Activity, MoreHorizontal, Eye } from "lucide-react";
 import { getDayName, formatTime } from "@/lib/date";
+import { TableSkeleton, FormSkeleton } from "@/components/skeletons";
 
 // Utility function for European date formatting (DD/MM/YYYY)
 const formatEuropeanDate = (dateString: string) => {

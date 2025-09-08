@@ -25,6 +25,7 @@ import { formatDate } from "@/lib/date";
 import { formatCurrency } from "@/lib/config";
 import "./member-details-dialog.css";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { TableSkeleton, ListSkeleton } from "@/components/skeletons";
 
 // Types for member details
 interface Member {
@@ -220,10 +221,14 @@ export default function MembersPage() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Loading members...</p>
+        <div className="flex justify-between items-center">
+          <div>
+            <div className="h-8 w-48 bg-muted rounded animate-pulse mb-2"></div>
+            <div className="h-4 w-64 bg-muted rounded animate-pulse"></div>
+          </div>
+          <div className="h-10 w-32 bg-muted rounded animate-pulse"></div>
         </div>
+        <TableSkeleton rows={10} columns={6} />
       </div>
     );
   }
@@ -478,9 +483,22 @@ export default function MembersPage() {
           </DialogHeader>
 
           {isLoadingDetails ? (
-            <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
-              <p className="mt-2 text-sm text-muted-foreground">Loading member details...</p>
+            <div className="space-y-6 p-6">
+              <div className="flex items-center space-x-4">
+                <div className="h-16 w-16 bg-muted rounded-full animate-pulse"></div>
+                <div className="space-y-2">
+                  <div className="h-6 w-32 bg-muted rounded animate-pulse"></div>
+                  <div className="h-4 w-24 bg-muted rounded animate-pulse"></div>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="space-y-2">
+                    <div className="h-4 w-20 bg-muted rounded animate-pulse"></div>
+                    <div className="h-6 w-24 bg-muted rounded animate-pulse"></div>
+                  </div>
+                ))}
+              </div>
             </div>
           ) : (
             <Tabs defaultValue="overview" className="w-full">

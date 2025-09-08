@@ -24,6 +24,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from "@/hooks/useUsers";
 import { apiRequest } from "@/lib/queryClient";
 import { useMutation } from "@tanstack/react-query";
+import { TableSkeleton, FormSkeleton } from "@/components/skeletons";
 
 // Form schemas
 const createUserSchema = z.object({
@@ -483,10 +484,14 @@ export default function UsersPage() {
     if (isLoading) {
         return (
             <div className="space-y-6">
-                <div className="text-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-                    <p className="mt-4 text-muted-foreground">Loading users...</p>
+                <div className="flex justify-between items-center">
+                    <div>
+                        <div className="h-8 w-48 bg-muted rounded animate-pulse mb-2"></div>
+                        <div className="h-4 w-64 bg-muted rounded animate-pulse"></div>
+                    </div>
+                    <div className="h-10 w-32 bg-muted rounded animate-pulse"></div>
                 </div>
+                <TableSkeleton rows={10} columns={6} />
             </div>
         );
     }

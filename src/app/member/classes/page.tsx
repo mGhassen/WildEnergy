@@ -10,6 +10,7 @@ import { useCancelRegistration, useForceRegistration } from "@/hooks/useRegistra
 import { useMemberCourses, useMemberSubscriptions, useMemberCategories } from "@/hooks/useMember";
 import { useMemberCourseRegistration } from "@/hooks/useMemberRegistration";
 import { apiFetch } from "@/lib/api";
+import { CardSkeleton, ListSkeleton } from "@/components/skeletons";
 import { useToast } from "@/hooks/use-toast";
 import { Search, Clock, Users, Calendar, Star, Check, AlertTriangle, QrCode } from "lucide-react";
 import { formatTime, getDayName } from "@/lib/date";
@@ -361,17 +362,8 @@ export default function MemberClasses() {
       <TooltipProvider>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {isLoading ? (
-          [...Array(6)].map((_, i) => (
-            <Card key={i}>
-              <CardContent className="p-6">
-                <div className="animate-pulse space-y-4">
-                  <div className="h-6 bg-muted rounded w-3/4"></div>
-                  <div className="h-4 bg-muted rounded w-1/2"></div>
-                  <div className="h-20 bg-muted rounded"></div>
-                  <div className="h-10 bg-muted rounded"></div>
-                </div>
-              </CardContent>
-            </Card>
+          Array.from({ length: 6 }).map((_, i) => (
+            <CardSkeleton key={i} showImage={false} lines={4} />
           ))
         ) : filteredCourses.length > 0 ? (
           filteredCourses.map((course: Course) => {

@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { FileText, CheckCircle, AlertCircle, LogOut, Sun, Moon } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 import { useUpdateUser } from "@/hooks/useUsers";
+import { FormSkeleton } from "@/components/skeletons";
 
 export default function TermsOnboarding() {
   const { user, logout, isLoading } = useAuth();
@@ -104,9 +105,12 @@ export default function TermsOnboarding() {
   if (isLoading || !user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center p-4">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Chargement de vos informations...</p>
+        <div className="w-full max-w-2xl">
+          <div className="text-center mb-8">
+            <div className="h-8 w-48 bg-muted rounded animate-pulse mx-auto mb-2"></div>
+            <div className="h-4 w-64 bg-muted rounded animate-pulse mx-auto"></div>
+          </div>
+          <FormSkeleton fields={6} showSubmit={true} />
         </div>
       </div>
     );
