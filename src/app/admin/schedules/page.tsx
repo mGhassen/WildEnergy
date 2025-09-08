@@ -14,7 +14,15 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useForm } from "react-hook-form";
 import DataTable from "@/components/data-table";
 
-import { apiRequest } from "@/lib/queryClient";
+import { useSchedules } from "@/hooks/useSchedules";
+import { useCreateScheduleWithCourses, useUpdateScheduleWithCourses, useDeleteScheduleWithCourses } from "@/hooks/useScheduleWithCourses";
+import { useRegistrations } from "@/hooks/useRegistrations";
+import { useCheckins } from "@/hooks/useCheckins";
+import { useAdminClasses } from "@/hooks/useAdmin";
+import { usePlans } from "@/hooks/usePlans";
+import { useSubscriptions } from "@/hooks/useSubscriptions";
+import { useTrainers } from "@/hooks/useTrainers";
+import { useCourses } from "@/hooks/useCourse";
 import { Plus, Search, Edit, Trash2, Calendar, Users, TrendingUp, RepeatIcon, Clock, MapPin, Activity, MoreHorizontal, Eye } from "lucide-react";
 import { getDayName, formatTime } from "@/lib/date";
 
@@ -44,18 +52,19 @@ interface ScheduleFormData {
 }
 
 // Helper to map camelCase to snake_case for API
-function mapScheduleToApi(data: any) {
+function mapScheduleToApi(data: any, classes: any[] = []) {
+  const selectedClass = classes.find(c => c.id === Number(data.classId));
+  const className = selectedClass?.name || 'Class';
+  
   return {
-    class_id: Number(data.classId),
+    name: `Schedule for ${className}`,
+    description: `Schedule for ${className} on ${getDayName(data.dayOfWeek)}`,
     trainer_id: Number(data.trainerId),
     day_of_week: data.dayOfWeek,
     start_time: data.startTime,
     end_time: data.endTime,
-    repetition_type: data.repetitionType,
-    schedule_date: data.scheduleDate,
-    start_date: data.startDate,
-    end_date: data.endDate,
-    is_active: data.isActive,
+    max_capacity: 20, // Default capacity
+    is_active: data.isActive ?? true,
   };
 }
 
@@ -318,20 +327,7 @@ export default function AdminSchedules() {
     window.location.href = `/admin/schedules/${schedule.id}`;
   };
 
-  const { data: rawSchedules = [], isLoading, refetch } = useQuery({
-    queryKey: ["schedules"],
-    queryFn: async () => {
-      console.log('Schedules queryFn called');
-      const result = await apiRequest("GET", "/api/schedules");
-      console.log('Schedules queryFn result:', result);
-      console.log('Schedules queryFn result type:', typeof result);
-      console.log('Schedules queryFn result length:', Array.isArray(result) ? result.length : 'not array');
-      return result;
-    },
-    staleTime: 0, // Always consider data stale
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
-  });
+  const { data: rawSchedules = [], isLoading, refetch } = useSchedules();
 
   console.log('Raw schedules from useQuery:', rawSchedules);
   console.log('Raw schedules type:', typeof rawSchedules);
@@ -375,40 +371,13 @@ export default function AdminSchedules() {
     console.log('Raw schedules data:', rawSchedules);
   }
 
-  const { data: registrations = [] } = useQuery({
-    queryKey: ["registrations"],
-    queryFn: () => apiRequest("GET", "/api/registrations"),
-  });
-
-  const { data: checkins = [] } = useQuery({
-    queryKey: ["checkins"],
-    queryFn: () => apiRequest("GET", "/api/checkins"),
-  });
-
-  const { data: classes } = useQuery({
-    queryKey: ["admin", "classes"],
-    queryFn: () => apiRequest("GET", "/api/admin/classes"),
-  });
-
-  const { data: plans = [] } = useQuery({
-    queryKey: ["plans"],
-    queryFn: () => apiRequest("GET", "/api/plans"),
-  });
-
-  const { data: subscriptions = [] } = useQuery({
-    queryKey: ["subscriptions"],
-    queryFn: () => apiRequest("GET", "/api/subscriptions"),
-  });
-
-  const { data: trainers } = useQuery({
-    queryKey: ["trainers"],
-    queryFn: () => apiRequest("GET", "/api/trainers"),
-  });
-
-  const { data: courses = [] } = useQuery({
-    queryKey: ["courses"],
-    queryFn: () => apiRequest("GET", "/api/courses"),
-  });
+  const { data: registrations = [] } = useRegistrations();
+  const { data: checkins = [] } = useCheckins();
+  const { data: classes } = useAdminClasses();
+  const { data: plans = [] } = usePlans();
+  const { data: subscriptions = [] } = useSubscriptions();
+  const { data: trainers } = useTrainers();
+  const { data: courses = [] } = useCourses();
 
   const coursesCountBySchedule: Record<number, number> = {};
   ((courses as any[]) || []).forEach((course) => {
@@ -462,159 +431,11 @@ export default function AdminSchedules() {
     }
   }, [watchedClassId, watchedStartTime, classes, form, editingSchedule]);
 
-  const createScheduleMutation = useMutation({
-    mutationFn: async (data: ScheduleFormData) => {
-      console.log('Creating schedule:', data);
-      const result = await apiRequest("POST", "/api/schedules", mapScheduleToApi(data));
-      console.log('Create schedule response:', result);
-      return result;
-    },
-    onSuccess: async (data) => {
-      console.log('Create schedule mutation succeeded, invalidating queries...');
-      // Generate courses for the new schedule
-      if (data?.schedule?.id) {
-        try {
-          const genResult = await apiRequest("POST", `/api/schedules/${data.schedule.id}`);
-          console.log('Course generation result:', genResult);
-        } catch (err) {
-          toast({ title: "Failed to generate courses for schedule", variant: "destructive" });
-        }
-      }
-      // Clear all queries and refetch
-      queryClient.clear();
-      queryClient.invalidateQueries({ queryKey: ["schedules"] });
-      // Force a refetch to ensure we get the latest data
-      setTimeout(() => refetch(), 100);
-      setIsModalOpen(false);
-      form.reset({
-        classId: 0,
-        trainerId: 0,
-        dayOfWeek: 1,
-        startTime: "",
-        endTime: "",
-        repetitionType: "once",
-        scheduleDate: new Date().toISOString().split('T')[0],
-        startDate: new Date().toISOString().split('T')[0],
-        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        isActive: true,
-      });
-      toast({ title: "Schedule created successfully" });
-    },
-    onError: (error) => {
-      console.error('Create schedule mutation error:', error);
-      toast({ 
-        title: "Error creating schedule", 
-        description: error.message,
-        variant: "destructive" 
-      });
-    },
-  });
+  const createScheduleMutation = useCreateScheduleWithCourses();
 
-  const updateScheduleMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: ScheduleFormData }) => {
-      console.log('Updating schedule:', { id, data });
-      const result = await apiRequest("PUT", `/api/schedules/${id}`, mapScheduleToApi(data));
-      console.log('Update schedule response:', result);
-      return result;
-    },
-    onSuccess: (data) => {
-      console.log('Update schedule mutation succeeded, invalidating queries...');
-      // Clear all queries and refetch
-      queryClient.clear();
-      queryClient.invalidateQueries({ queryKey: ["schedules"] });
-      // Force a refetch to ensure we get the latest data
-      setTimeout(() => refetch(), 100);
-      setIsModalOpen(false);
-      setEditingSchedule(null);
-      form.reset();
-      
-      // Show success message with course regeneration info
-      const regeneratedCourses = data.regeneratedCourses || 0;
-      toast({ 
-        title: "Schedule updated successfully",
-        description: `Schedule updated and ${regeneratedCourses} course${regeneratedCourses !== 1 ? 's' : ''} regenerated`
-      });
-    },
-    onError: (error) => {
-      console.error('Update schedule mutation error:', error);
-      
-      // Handle specific error for schedules with registrations
-      if (error.message?.includes('Cannot edit schedule with existing registrations')) {
-        const details = (error as any).details || {};
-        toast({ 
-          title: "Cannot Edit Schedule", 
-          description: `This schedule has ${details.totalRegistrations || 0} registrations and ${details.totalCheckins || 0} check-ins. Please cancel all registrations first.`,
-          variant: "destructive" 
-        });
-      } else if (error.message?.includes('failed to regenerate courses')) {
-        toast({ 
-          title: "Schedule Updated with Warning", 
-          description: "Schedule was updated but some courses could not be regenerated. Please check the schedule and regenerate courses manually.",
-          variant: "destructive" 
-        });
-      } else {
-        toast({ 
-          title: "Error updating schedule", 
-          description: error.message,
-          variant: "destructive" 
-        });
-      }
-    },
-  });
+  const updateScheduleMutation = useUpdateScheduleWithCourses();
 
-  const deleteScheduleMutation = useMutation({
-    mutationFn: async (id: number) => {
-      console.log('Deleting schedule:', id);
-      const result = await apiRequest("DELETE", `/api/schedules/${id}`);
-      console.log('Delete schedule response:', result);
-      return result;
-    },
-    onSuccess: (data) => {
-      console.log('Delete schedule mutation succeeded, invalidating queries...');
-      // Clear all queries and refetch
-      queryClient.clear();
-      queryClient.invalidateQueries({ queryKey: ["schedules"] });
-      // Force a refetch to ensure we get the latest data
-      setTimeout(() => refetch(), 100);
-      
-      // Show success message with course counts
-      const courseCount = data.deletedCourses || 0;
-      const activeCourseCount = data.activeCourses || 0;
-      const scheduleName = data.scheduleName || 'Schedule';
-      
-      toast({ 
-        title: "Schedule deleted successfully",
-        description: `Deleted ${scheduleName} and ${courseCount} related course${courseCount !== 1 ? 's' : ''} (${activeCourseCount} active)`
-      });
-      
-      // Close dialog
-      setDeleteDialogOpen(false);
-      setScheduleToDelete(null);
-    },
-    onError: (error) => {
-      console.error('Delete schedule mutation error:', error);
-      
-      // Handle specific error for schedules with registrations
-      if (error.message?.includes('Cannot delete schedule with existing registrations')) {
-        const details = (error as any).details || {};
-        toast({ 
-          title: "Cannot Delete Schedule", 
-          description: `This schedule has ${details.registeredMembers || 0} registered members and ${details.attendedMembers || 0} who have attended. Please cancel all registrations first.`,
-          variant: "destructive" 
-        });
-      } else {
-        toast({ 
-          title: "Error deleting schedule", 
-          description: error.message,
-          variant: "destructive" 
-        });
-      }
-      
-      // Close dialog on error
-      setDeleteDialogOpen(false);
-      setScheduleToDelete(null);
-    },
-  });
+  const deleteScheduleMutation = useDeleteScheduleWithCourses();
 
   const filteredSchedules = schedules?.filter((schedule: any) =>
     `${schedule.class?.name} ${schedule.trainer?.firstName} ${schedule.trainer?.lastName} ${getDayName(schedule.dayOfWeek)}`
@@ -685,9 +506,9 @@ export default function AdminSchedules() {
 
   const handleSubmit = (data: ScheduleFormData) => {
     if (editingSchedule) {
-      updateScheduleMutation.mutate({ id: editingSchedule.id, data });
+      updateScheduleMutation.mutate({ scheduleId: editingSchedule.id, data: mapScheduleToApi(data, classes) });
     } else {
-      createScheduleMutation.mutate(data);
+      createScheduleMutation.mutate(mapScheduleToApi(data, classes));
     }
   };
 

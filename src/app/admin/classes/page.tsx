@@ -14,7 +14,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertClassSchema } from "@/shared/zod-schemas";
-import { apiRequest } from "@/lib/queryClient";
+import { useAdminClasses, useAdminCategories, useAdminRegistrations, useAdminCheckins } from "@/hooks/useAdmin";
+import { useCreateAdminClass, useUpdateAdminClass, useDeleteAdminClass } from "@/hooks/useClasses";
 import { Plus, Search, Edit, Trash2, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
@@ -57,10 +58,10 @@ export default function AdminClasses() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: rawClasses = [], isLoading } = useQuery({
-    queryKey: ["/api/admin/classes"],
-    queryFn: () => apiRequest("GET", "/api/admin/classes"),
-  });
+  const { data: rawClasses = [], isLoading } = useAdminClasses();
+  const { data: rawCategories = [], isLoading: categoriesLoading } = useAdminCategories();
+  const { data: registrations = [] } = useAdminRegistrations();
+  const { data: checkins = [] } = useAdminCheckins();
 
   // Map snake_case fields to camelCase for UI
   const classes = Array.isArray(rawClasses) ? rawClasses.map((cls: any) => ({
@@ -74,21 +75,6 @@ export default function AdminClasses() {
     // Map category and group data from API response
     categories: cls.category,
   })) : [];
-
-  const { data: rawCategories = [], isLoading: categoriesLoading } = useQuery({
-    queryKey: ["/api/admin/categories"],
-    queryFn: () => apiRequest("GET", "/api/admin/categories"),
-  });
-
-  const { data: registrations = [] } = useQuery({
-    queryKey: ["/api/admin/registrations"],
-    queryFn: () => apiRequest("GET", "/api/admin/registrations"),
-  });
-
-  const { data: checkins = [] } = useQuery({
-    queryKey: ["/api/admin/checkins"],
-    queryFn: () => apiRequest("GET", "/api/admin/checkins"),
-  });
 
   // Ensure categories is always an array
   const categories = Array.isArray(rawCategories) ? rawCategories : [];
@@ -107,63 +93,11 @@ export default function AdminClasses() {
     },
   });
 
-  const createClassMutation = useMutation({
-    mutationFn: async (data: ClassFormData) => {
-      const response = await apiRequest("POST", "/api/admin/classes", mapClassToApi(data));
-      return response;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/classes"] });
-      setIsModalOpen(false);
-      form.reset();
-      toast({ title: "Class created successfully" });
-    },
-    onError: (error) => {
-      toast({ 
-        title: "Error creating class", 
-        description: error.message,
-        variant: "destructive" 
-      });
-    },
-  });
+  const createClassMutation = useCreateAdminClass();
 
-  const updateClassMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: Partial<ClassFormData> }) => {
-      const response = await apiRequest("PATCH", `/api/admin/classes/${id}`, mapClassToApi(data));
-      return response;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/classes"] });
-      setIsModalOpen(false);
-      setEditingClass(null);
-      form.reset();
-      toast({ title: "Class updated successfully" });
-    },
-    onError: (error) => {
-      toast({ 
-        title: "Error updating class", 
-        description: error.message,
-        variant: "destructive" 
-      });
-    },
-  });
+  const updateClassMutation = useUpdateAdminClass();
 
-  const deleteClassMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/admin/classes/${id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/classes"] });
-      toast({ title: "Class deleted successfully" });
-    },
-    onError: (error) => {
-      toast({ 
-        title: "Error deleting class", 
-        description: error.message,
-        variant: "destructive" 
-      });
-    },
-  });
+  const deleteClassMutation = useDeleteAdminClass();
 
   const categoriesOptions = categories.map((cat: any) => ({
     value: cat.id,
@@ -178,9 +112,9 @@ export default function AdminClasses() {
 
   const handleSubmit = (data: ClassFormData) => {
     if (editingClass) {
-      updateClassMutation.mutate({ id: editingClass.id, data });
+      updateClassMutation.mutate({ classId: editingClass.id, data: mapClassToApi(data) });
     } else {
-      createClassMutation.mutate(data);
+      createClassMutation.mutate(mapClassToApi(data));
     }
   };
 

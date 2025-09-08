@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { apiRequest } from "@/lib/queryClient";
+import { useMembers } from "@/hooks/useMembers";
+import { useMemberDetails } from "@/hooks/useMemberDetails";
 import { 
   Search, 
   Eye, 
@@ -133,10 +134,7 @@ export default function MembersPage() {
   const [showMemberDetails, setShowMemberDetails] = useState(false);
 
   // Fetch members with related data
-  const { data: members = [], isLoading } = useQuery({
-    queryKey: ["/api/members"],
-    queryFn: () => apiRequest("GET", "/api/members"),
-  });
+  const { data: members = [], isLoading } = useMembers();
 
   // Map members from snake_case to camelCase for UI
   const mappedMembers: Member[] = Array.isArray(members)
@@ -155,11 +153,7 @@ export default function MembersPage() {
     : [];
 
   // Fetch member details when selected
-  const { data: memberDetails, isLoading: isLoadingDetails } = useQuery<MemberDetails>({
-    queryKey: ["/api/members", selectedMember?.id, "details"],
-    queryFn: () => apiRequest("GET", `/api/members/${selectedMember?.id}/details`),
-    enabled: !!selectedMember?.id,
-  });
+  const { data: memberDetails, isLoading: isLoadingDetails } = useMemberDetails(selectedMember?.id || null);
 
   // Helper function to safely get member details
   const getMemberDetails = () => {

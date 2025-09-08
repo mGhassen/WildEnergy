@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +11,6 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { apiRequest } from "@/lib/queryClient";
 import { Search, Plus, Edit, Trash2, User, Shield, MoreHorizontal, Key, Archive, CheckCircle, XCircle, Mail, Star, X, Phone, Calendar, Clock, Activity, FileText, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -23,6 +21,9 @@ import { formatDate } from "@/lib/date";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from "@/hooks/useUsers";
+import { apiRequest } from "@/lib/queryClient";
+import { useMutation } from "@tanstack/react-query";
 
 // Form schemas
 const createUserSchema = z.object({
@@ -91,15 +92,11 @@ export default function UsersPage() {
     const [deletingUser, setDeletingUser] = useState<User | null>(null);
     const [settingPasswordUser, setSettingPasswordUser] = useState<User | null>(null);
     const [setPasswordValue, setSetPasswordValue] = useState("");
-    const queryClient = useQueryClient();
     const { toast } = useToast();
     const isMobile = useIsMobile();
 
     // Fetch users
-    const { data: users = [], isLoading } = useQuery({
-        queryKey: ["/api/users"],
-        queryFn: () => apiRequest("GET", "/api/users"),
-    });
+    const { data: users = [], isLoading } = useUsers();
 
     // Helper function to format date for HTML date input
     const formatDateForInput = (dateString: string | null | undefined): string => {
@@ -212,75 +209,15 @@ export default function UsersPage() {
     });
 
     // Create user mutation
-    const createUserMutation = useMutation({
-        mutationFn: async (data: CreateUserForm) => {
-            // No password field anymore, so just send the data as is
-            return await apiRequest("POST", "/api/users", data);
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-            setShowCreateDialog(false);
-            createForm.reset();
-            toast({
-                title: "User created successfully",
-                description: "An invitation email has been sent to the user.",
-            });
-        },
-        onError: (error: any) => {
-            toast({
-                title: "Failed to create user",
-                description: error.message || "An error occurred.",
-                variant: "destructive",
-            });
-        },
-    });
+    const createUserMutation = useCreateUser();
 
     // Update user mutation
-    const updateUserMutation = useMutation({
-        mutationFn: async ({ id, data }: { id: string; data: Partial<EditUserForm> }) => {
-            return await apiRequest("PUT", `/api/users/${id}`, data);
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-            setEditingUser(null);
-            editForm.reset();
-            toast({
-                title: "User updated successfully",
-                description: "The user information has been updated.",
-            });
-        },
-        onError: (error: any) => {
-            toast({
-                title: "Failed to update user",
-                description: error.message || "An error occurred.",
-                variant: "destructive",
-            });
-        },
-    });
+    const updateUserMutation = useUpdateUser();
 
     // Delete user mutation
-    const deleteUserMutation = useMutation({
-        mutationFn: async (id: string) => {
-            return await apiRequest("DELETE", `/api/users/${id}`);
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-            setDeletingUser(null);
-            toast({
-                title: "User deleted",
-                description: "The user has been permanently deleted.",
-            });
-        },
-        onError: (error: any) => {
-            toast({
-                title: "Failed to delete user",
-                description: error.message || "An error occurred.",
-                variant: "destructive",
-            });
-        },
-    });
+    const deleteUserMutation = useDeleteUser();
 
-    // Quick action mutations
+    // Quick action mutations - we'll need to create custom hooks for these
     const quickActionMutation = useMutation({
         mutationFn: async ({ id, action, data }: { id: string; action: string; data?: any }) => {
             switch (action) {
@@ -298,8 +235,7 @@ export default function UsersPage() {
                     throw new Error('Unknown action');
             }
         },
-        onSuccess: (data, variables) => {
-            queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+        onSuccess: (data: any, variables: any) => {
             const actionMessages = {
                 'approve': 'User approved successfully',
                 'archive': 'User archived successfully',
@@ -323,13 +259,45 @@ export default function UsersPage() {
 
     // Handle create user
     const handleCreateUser = (data: z.infer<typeof createUserSchema>) => {
-        createUserMutation.mutate(data);
+        const createData = {
+            email: data.email,
+            password: '', // Will be generated by the backend
+            full_name: `${data.firstName} ${data.lastName}`,
+            first_name: data.firstName,
+            last_name: data.lastName,
+            is_admin: data.isAdmin,
+            is_member: data.isMember,
+            is_trainer: data.isTrainer
+        };
+        createUserMutation.mutate(createData, {
+            onSuccess: () => {
+                setShowCreateDialog(false);
+                createForm.reset();
+            }
+        });
     };
 
     // Handle edit user
     const handleEditUser = (data: EditUserForm) => {
         if (editingUser) {
-            updateUserMutation.mutate({ id: editingUser.id, data });
+            const updateData = {
+                first_name: data.firstName,
+                last_name: data.lastName,
+                email: data.email,
+                phone: data.phone,
+                date_of_birth: data.dateOfBirth,
+                member_notes: data.memberNotes,
+                is_admin: data.isAdmin,
+                is_member: data.isMember,
+                is_trainer: data.isTrainer,
+                status: data.status
+            };
+            updateUserMutation.mutate({ userId: editingUser.id, data: updateData }, {
+                onSuccess: () => {
+                    setEditingUser(null);
+                    editForm.reset();
+                }
+            });
         }
     };
 
@@ -1265,7 +1233,11 @@ export default function UsersPage() {
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
                         <AlertDialogAction
-                            onClick={() => deletingUser && deleteUserMutation.mutate(deletingUser.id)}
+                            onClick={() => deletingUser && deleteUserMutation.mutate(deletingUser.id, {
+                                onSuccess: () => {
+                                    setDeletingUser(null);
+                                }
+                            })}
                             className="bg-red-600 hover:bg-red-700"
                         >
                             Delete User

@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import QRGenerator from "@/components/qr-generator";
-import { apiRequest } from "@/lib/queryClient";
+import { useCheckins } from "@/hooks/useCheckins";
 import { CheckCircle, Clock, Users, QrCode, Copy, Eye } from "lucide-react";
 import { getInitials } from "@/lib/auth";
 import { formatDateTime } from "@/lib/date";
@@ -32,10 +32,7 @@ export default function AdminCheckins() {
   }, [testQRCode]);
 
   // Fetch all check-ins (not just today)
-  const { data: allCheckins = [], isLoading } = useQuery({
-    queryKey: ["/api/checkins", "all"],
-    queryFn: () => apiRequest("GET", `/api/checkins`),
-  });
+  const { data: allCheckins = [], isLoading } = useCheckins();
 
   // Map checkins to ensure member data has camelCase fields
   const mappedCheckins = Array.isArray(allCheckins)

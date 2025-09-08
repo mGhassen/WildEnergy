@@ -10,8 +10,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { User, Mail, Phone, MapPin, Briefcase, Calendar, LogOut, Sun, Moon } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
 import { useTheme } from "@/components/theme-provider";
+import { useUpdateUser } from "@/hooks/useUsers";
 
 interface PersonalInfoForm {
   firstName: string;
@@ -28,7 +28,7 @@ export default function PersonalInfoOnboarding() {
   const router = useRouter();
   const { toast } = useToast();
   const { theme, toggleTheme } = useTheme();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const updateUserMutation = useUpdateUser();
   
   const [formData, setFormData] = useState<PersonalInfoForm>({
     firstName: "",
@@ -138,30 +138,41 @@ export default function PersonalInfoOnboarding() {
     
     if (!validateForm()) return;
     
-    setIsSubmitting(true);
-    
-    try {
-      const response = await apiRequest("POST", "/api/member/onboarding/personal-info", formData);
-      
-      if (response.success) {
+    if (!user?.id) {
+      toast({
+        title: "Erreur",
+        description: "Utilisateur non trouvé",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const updateData = {
+      first_name: formData.firstName,
+      last_name: formData.lastName,
+      age: formData.age,
+      profession: formData.profession,
+      address: formData.address,
+      phone: formData.phone,
+      email: formData.email
+    };
+
+    updateUserMutation.mutate({ userId: user.id, data: updateData }, {
+      onSuccess: () => {
         toast({
           title: "Succès",
           description: "Informations personnelles sauvegardées",
         });
         router.push("/member/onboarding/terms");
-      } else {
-        throw new Error(response.error || "Erreur lors de la sauvegarde");
+      },
+      onError: (error: any) => {
+        toast({
+          title: "Erreur",
+          description: error.message || "Une erreur est survenue",
+          variant: "destructive",
+        });
       }
-    } catch (error) {
-      console.error("Error saving personal info:", error);
-      toast({
-        title: "Erreur",
-        description: error instanceof Error ? error.message : "Une erreur est survenue",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+    });
   };
 
   const handleLogout = async () => {
@@ -348,8 +359,8 @@ export default function PersonalInfoOnboarding() {
             </div>
             
             <div className="flex justify-end pt-4">
-              <Button type="submit" disabled={isSubmitting} className="w-full md:w-auto">
-                {isSubmitting ? "Enregistrement..." : "Continuer"}
+              <Button type="submit" disabled={updateUserMutation.isPending} className="w-full md:w-auto">
+                {updateUserMutation.isPending ? "Enregistrement..." : "Continuer"}
               </Button>
             </div>
           </form>

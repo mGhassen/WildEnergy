@@ -10,7 +10,8 @@ import { Calendar, Clock, User, Search, CheckCircle, XCircle, AlertCircle, QrCod
 import { formatTime, getDayName, formatDateTime } from "@/lib/date";
 import QRGenerator from "@/components/qr-generator";
 import { formatDate } from "@/lib/date";
-import { apiRequest } from "@/lib/queryClient";
+import { useRegistrations } from "@/hooks/useRegistrations";
+import { useCheckins } from "@/hooks/useCheckins";
 
 // Types for member history page
 interface Trainer {
@@ -81,22 +82,15 @@ export default function MemberHistory() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedQR, setSelectedQR] = useState<string | null>(null);
 
-  const { data: registrations = [], isLoading: registrationsLoading } = useQuery<Registration[]>({
-    queryKey: ["/api/registrations"],
-    queryFn: () => apiRequest("GET", "/api/registrations"),
-  });
-
-  const { data: checkins = [], isLoading: checkinsLoading } = useQuery<Checkin[]>({
-    queryKey: ["/api/member/checkins"],
-    queryFn: () => apiRequest("GET", "/api/member/checkins"),
-  });
+  const { data: registrations = [], isLoading: registrationsLoading } = useRegistrations();
+  const { data: checkins = [], isLoading: checkinsLoading } = useCheckins();
 
   // Get all registrations and map them properly
   const allRegistrations = (registrations || []).map(mapRegistration);
 
   // Create a set of registration IDs that have check-ins (attended)
   const attendedRegistrationIds = new Set(
-    (checkins || []).map((checkin: Checkin) => checkin.registration?.id).filter(Boolean)
+    (checkins || []).map((checkin: any) => checkin.registration?.id || checkin.registration_id).filter(Boolean)
   );
 
   // Categorize registrations by status

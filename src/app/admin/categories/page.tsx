@@ -1,11 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory } from "@/hooks/useCategories";
+import { useGroups } from "@/hooks/useGroups";
+import { useAdminClasses } from "@/hooks/useAdmin";
+import { Category } from "@/lib/api/categories";
+import { AdminClass } from "@/lib/api/admin";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -60,73 +63,35 @@ const categoryFormSchema = z.object({
 
 type CategoryFormData = z.infer<typeof categoryFormSchema>;
 
-interface Category {
-  id: number;
-  name: string;
-  description?: string;
-  color?: string;
-  is_active: boolean;
+interface CategoryWithUI extends Category {
   isActive: boolean;
-  group_id?: number;
-  groups?: {
-    id: number;
-    name: string;
-    color: string;
-  };
 }
 
-interface Class {
-  id: number;
-  category_id: number;
-  categoryId: number;
-  name: string;
-}
 
 export default function AdminCategories() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [editingCategory, setEditingCategory] = useState<CategoryWithUI | null>(null);
   const { toast } = useToast();
 
-  const { data: rawCategories = [], isLoading, refetch } = useQuery({
-    queryKey: ["admin", "categories"],
-    queryFn: async () => {
-      console.log('Categories queryFn called');
-      const result = await apiRequest("GET", "/api/admin/categories");
-      console.log('Categories queryFn result:', result);
-      return result;
-    },
-    staleTime: 0, // Always consider data stale
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
-  });
+  const { data: rawCategories = [], isLoading, refetch } = useCategories();
 
   console.log('Raw categories from API:', rawCategories);
   console.log('Query loading state:', isLoading);
 
   // Map is_active (from API) to isActive (for UI)
-  const categories = (rawCategories || []).map((cat: Category) => ({
+  const categories: CategoryWithUI[] = (rawCategories || []).map((cat: Category) => ({
     ...cat,
     isActive: cat.is_active,
   }));
 
   console.log('Transformed categories:', categories);
 
-  const { data: rawClasses = [] } = useQuery({
-    queryKey: ["admin", "classes"],
-    queryFn: () => apiRequest("GET", "/api/admin/classes"),
-  });
+  const { data: classes = [] } = useAdminClasses();
 
-  const { data: groups = [] } = useQuery({
-    queryKey: ["/api/groups"],
-    queryFn: () => apiRequest("GET", "/api/groups"),
-  });
-  const classes = (rawClasses || []).map((cls: Class) => ({
-    ...cls,
-    categoryId: cls.category_id,
-  }));
+  const { data: groups = [] } = useGroups();
 
   const getClassCount = (categoryId: number) =>
-    classes.filter((cls: Class) => cls.categoryId === categoryId).length;
+    classes.filter((cls: AdminClass) => cls.category_id === categoryId).length;
 
   const form = useForm<CategoryFormData>({
     resolver: zodResolver(categoryFormSchema),
@@ -139,110 +104,24 @@ export default function AdminCategories() {
     },
   });
 
-  const createMutation = useMutation({
-    mutationFn: async (data: CategoryFormData) => {
-      console.log('Creating category:', data);
-      const response = await apiRequest("POST", "/api/admin/categories", data);
-      console.log('Create response:', response);
-      return response;
-    },
-    onSuccess: (data) => {
-      console.log('Create mutation succeeded, invalidating queries...');
-      // Clear all queries and refetch
-      queryClient.clear();
-      queryClient.invalidateQueries({ queryKey: ["admin", "categories"] });
-      // Force a refetch to ensure we get the latest data
-      setTimeout(() => refetch(), 100);
-      setIsCreateDialogOpen(false);
-      form.reset();
-      toast({
-        title: "Success",
-        description: "Category created successfully",
-      });
-    },
-    onError: (error: Error) => {
-      console.error('Create mutation error:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create category",
-        variant: "destructive",
-      });
-    },
-  });
+  const createMutation = useCreateCategory();
 
-  const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: Partial<CategoryFormData> }) => {
-      console.log('Updating category:', { id, data });
-      const response = await apiRequest("PUT", `/api/admin/categories`, { id, ...data });
-      console.log('Update response:', response);
-      return response;
-    },
-    onSuccess: (data) => {
-      console.log('Update mutation succeeded, invalidating queries...');
-      // Clear all queries and refetch
-      queryClient.clear();
-      queryClient.invalidateQueries({ queryKey: ["admin", "categories"] });
-      // Force a refetch to ensure we get the latest data
-      setTimeout(() => refetch(), 100);
-      setEditingCategory(null);
-      toast({
-        title: "Success",
-        description: "Category updated successfully",
-      });
-    },
-    onError: (error: Error) => {
-      console.error('Update mutation error:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update category",
-        variant: "destructive",
-      });
-    },
-  });
+  const updateMutation = useUpdateCategory();
 
-  const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      console.log('Deleting category:', id);
-      const response = await apiRequest("DELETE", `/api/admin/categories`, { id });
-      console.log('Delete response:', response);
-      return response;
-    },
-    onSuccess: (data) => {
-      console.log('Delete mutation succeeded, invalidating queries...');
-      // Clear all queries and refetch
-      queryClient.clear();
-      queryClient.invalidateQueries({ queryKey: ["admin", "categories"] });
-      // Force a refetch to ensure we get the latest data
-      setTimeout(() => refetch(), 100);
-      toast({
-        title: "Success",
-        description: "Category deleted successfully",
-      });
-    },
-    onError: (error: any) => {
-      console.error('Delete mutation error:', error);
-      
-      // Show toast for all errors
-      toast({
-        title: "Cannot Delete Category",
-        description: error.message || "Failed to delete category",
-        variant: "destructive",
-      });
-    },
-  });
+  const deleteMutation = useDeleteCategory();
 
   const onSubmit = (data: CategoryFormData) => {
     console.log('Form submitted:', { data, editingCategory });
     console.log('groupId in form data:', data.groupId, 'type:', typeof data.groupId);
     if (editingCategory) {
-      console.log('Calling update mutation with:', { id: editingCategory.id, data });
-      updateMutation.mutate({ id: editingCategory.id, data });
+      console.log('Calling update mutation with:', { categoryId: editingCategory.id, data });
+      updateMutation.mutate({ categoryId: editingCategory.id, data });
     } else {
       createMutation.mutate(data);
     }
   };
 
-  const handleEdit = (category: Category) => {
+  const handleEdit = (category: CategoryWithUI) => {
     setEditingCategory(category);
     form.reset({
       name: category.name,
@@ -465,7 +344,7 @@ export default function AdminCategories() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {categories.map((category: Category) => (
+              {categories.map((category: CategoryWithUI) => (
                 <TableRow key={category.id}>
                   <TableCell>
                     <div className="flex items-center space-x-3">

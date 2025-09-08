@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle, XCircle, Loader2, ArrowLeft, User, Calendar, Clock, Users } from "lucide-react";
-import { apiFetch } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { useCheckinInfo, useValidateCheckin, useUnvalidateCheckin } from "@/hooks/useCheckins";
 
 interface CheckinInfo {
   member: {
@@ -54,8 +54,10 @@ export default function CheckinPage() {
   const [message, setMessage] = useState('');
   const [checkinInfo, setCheckinInfo] = useState<CheckinInfo | null>(null);
   const [qrCode, setQrCode] = useState<string>('');
-  const [isValidating, setIsValidating] = useState(false);
-  const [isUnvalidating, setIsUnvalidating] = useState(false);
+
+  const { data: checkinData, isLoading, error } = useCheckinInfo(qrCode);
+  const validateCheckinMutation = useValidateCheckin();
+  const unvalidateCheckinMutation = useUnvalidateCheckin();
 
   useEffect(() => {
     // Extract QR code from URL path
@@ -70,50 +72,27 @@ export default function CheckinPage() {
       return;
     }
     setQrCode(qrCodeFromPath);
-    fetchCheckinInfo(qrCodeFromPath);
   }, []);
 
-  const fetchCheckinInfo = async (qrCodeValue: string) => {
-    try {
+  useEffect(() => {
+    if (checkinData) {
+      setStatus('info');
+      setCheckinInfo(checkinData);
+      setMessage('Please validate the check-in information below');
+    } else if (error) {
+      setStatus('error');
+      setMessage(error.message || 'Failed to fetch check-in information');
+    } else if (isLoading) {
       setStatus('loading');
       setMessage('Fetching check-in information...');
-
-      // Call the new QR code info endpoint
-      const response = await apiFetch(`/checkin/qr/${qrCodeValue}`, {
-        method: 'GET'
-      });
-
-      if (response.success) {
-        setStatus('info');
-        setCheckinInfo(response.data);
-        setMessage('Please validate the check-in information below');
-      } else {
-        setStatus('error');
-        setMessage(response.message || 'Failed to fetch check-in information');
-      }
-    } catch (error: any) {
-      console.error('Fetch check-in info error:', error);
-      setStatus('error');
-      setMessage(error.message || 'Failed to fetch check-in information. Please try again.');
     }
-  };
+  }, [checkinData, error, isLoading]);
 
   const validateCheckin = async () => {
     if (!checkinInfo) return;
 
-    try {
-      setIsValidating(true);
-      setMessage('Processing check-in...');
-
-      // Call the check-in API
-      const response = await apiFetch('/checkins', {
-        method: 'POST',
-        body: JSON.stringify({
-          qr_code: qrCode
-        })
-      });
-
-      if (response.success) {
+    validateCheckinMutation.mutate(qrCode, {
+      onSuccess: () => {
         setStatus('success');
         setMessage('Check-in successful!');
         toast({
@@ -121,30 +100,20 @@ export default function CheckinPage() {
           description: `Welcome ${checkinInfo.member?.firstName || ''} to your class!`,
         });
         // Refetch check-in info to update UI
-        fetchCheckinInfo(qrCode);
-      } else {
+        // The data will be refreshed automatically by React Query
+      },
+      onError: (error: any) => {
         setStatus('error');
-        setMessage(response.message || 'Check-in failed');
+        setMessage(error.message || 'Check-in failed');
       }
-    } catch (error: any) {
-      console.error('Check-in error:', error);
-      setStatus('error');
-      setMessage(error.message || 'Check-in failed. Please try again.');
-    } finally {
-      setIsValidating(false);
-    }
+    });
   };
 
   const unvalidateCheckin = async () => {
     if (!checkinInfo) return;
-    try {
-      setIsUnvalidating(true);
-      setMessage('Unvalidating check-in...');
-      const registrationId = checkinInfo.registration.id;
-      const response = await apiFetch(`/checkins/${registrationId}/unvalidate`, {
-        method: 'POST',
-      });
-      if (response.success) {
+
+    unvalidateCheckinMutation.mutate(checkinInfo.registration.id, {
+      onSuccess: () => {
         setStatus('info');
         setMessage('Check-in unvalidated.');
         toast({
@@ -152,23 +121,18 @@ export default function CheckinPage() {
           description: `Check-in has been removed for this member.`,
         });
         // Refetch check-in info to update UI
-        fetchCheckinInfo(qrCode);
-      } else {
+        // The data will be refreshed automatically by React Query
+      },
+      onError: (error: any) => {
         setStatus('error');
-        setMessage(response.message || 'Failed to unvalidate check-in');
+        setMessage(error.message || 'Failed to unvalidate check-in');
       }
-    } catch (error: any) {
-      console.error('Unvalidate check-in error:', error);
-      setStatus('error');
-      setMessage(error.message || 'Failed to unvalidate check-in. Please try again.');
-    } finally {
-      setIsUnvalidating(false);
-    }
+    });
   };
 
   const handleRetry = () => {
     setStatus('loading');
-    fetchCheckinInfo(qrCode);
+    // The data will be refreshed automatically by React Query
   };
 
   const handleBack = () => {
@@ -364,10 +328,10 @@ export default function CheckinPage() {
             {status === 'info' && !checkinInfo?.alreadyCheckedIn && (
               <Button 
                 onClick={validateCheckin} 
-                disabled={isValidating}
+                disabled={validateCheckinMutation.isPending}
                 className="flex-1"
               >
-                {isValidating ? (
+                {validateCheckinMutation.isPending ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     Processing...
@@ -383,11 +347,11 @@ export default function CheckinPage() {
             {status === 'info' && checkinInfo?.alreadyCheckedIn && (
               <Button 
                 onClick={unvalidateCheckin} 
-                disabled={isUnvalidating}
+                disabled={unvalidateCheckinMutation.isPending}
                 variant="destructive"
                 className="flex-1"
               >
-                {isUnvalidating ? (
+                {unvalidateCheckinMutation.isPending ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     Processing...

@@ -7,7 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Users, UserCheck, TrendingUp, Calendar, Clock, ChevronLeft, ChevronRight } from "lucide-react";
 import { formatDateTime, formatTime, formatDate } from "@/lib/date";
 import { useState } from "react";
-import { apiRequest } from "@/lib/queryClient";
+import { useAdminDashboardStats } from "@/hooks/useAdmin";
+import { useCheckins } from "@/hooks/useCheckins";
+import { useSchedules } from "@/hooks/useSchedules";
+import { useRegistrations } from "@/hooks/useRegistrations";
 import { Sidebar } from "@/components/ui/sidebar";
 
 interface DashboardStats {
@@ -59,15 +62,8 @@ export default function AdminDashboard() {
   const [scheduleViewDate, setScheduleViewDate] = useState(0); // 0 = today, 1 = tomorrow
   
   // Always provide queryFn for useQuery
-  const { data: stats, isLoading: statsLoading } = useQuery<DashboardStats>({
-    queryKey: ["/api/dashboard/stats"],
-    queryFn: () => apiRequest("GET", "/api/dashboard/stats"),
-  });
-
-  const { data: recentCheckins = [] } = useQuery({
-    queryKey: ["/api/checkins"],
-    queryFn: () => apiRequest("GET", "/api/checkins"),
-  });
+  const { data: stats, isLoading: statsLoading } = useAdminDashboardStats();
+  const { data: recentCheckins = [] } = useCheckins();
 
   // Map checkins to ensure member data has camelCase fields
   const mappedCheckins = Array.isArray(recentCheckins)
@@ -86,19 +82,12 @@ export default function AdminDashboard() {
     .sort((a: any, b: any) => new Date(b.checkinTime).getTime() - new Date(a.checkinTime).getTime())
     .slice(0, 5);
 
-  const { data: schedules = [], isLoading: schedulesLoading } = useQuery<Schedule[]>({
-    queryKey: ["/api/schedules"],
-    queryFn: () => apiRequest("GET", "/api/schedules"),
-  });
-
-  const { data: registrations = [] } = useQuery<Registration[]>({
-    queryKey: ["/api/registrations"],
-    queryFn: () => apiRequest("GET", "/api/registrations"),
-  });
+  const { data: schedules = [], isLoading: schedulesLoading } = useSchedules();
+  const { data: registrations = [] } = useRegistrations();
 
   const getScheduleRegistrations = (scheduleId: string) => {
-    return registrations.filter(reg => 
-      reg.schedule?.id === scheduleId && reg.status !== "cancelled"
+    return registrations.filter((reg: any) => 
+      reg.course?.schedule_id === scheduleId && reg.status !== "cancelled"
     );
   };
 
@@ -281,7 +270,7 @@ export default function AdminDashboard() {
 
                 const getScheduleRegistrations = (scheduleId: number) => {
                   return registrations?.filter((reg: any) => 
-                    reg.schedule?.id === scheduleId && reg.status !== "cancelled"
+                    reg.course?.schedule_id === scheduleId && reg.status !== "cancelled"
                   ) || [];
                 };
 

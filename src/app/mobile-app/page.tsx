@@ -19,8 +19,12 @@ import {
   CreditCard,
   Settings
 } from "lucide-react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useMutation } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
+import { useMemberCourses } from "@/hooks/useMemberCourses";
+import { useMemberRegistrations } from "@/hooks/useMemberRegistrations";
+import { useMemberSubscription } from "@/hooks/useMemberSubscriptions";
+import { registrationApi } from "@/lib/api/registrations";
 import { formatTime } from "@/lib/date";
 import QRGenerator from "@/components/qr-generator";
 import { useToast } from "@/hooks/use-toast";
@@ -76,29 +80,22 @@ export default function MobileApp() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("home");
-  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [selectedCourse, setSelectedCourse] = useState<any | null>(null);
   const [showQRCode, setShowQRCode] = useState<string | null>(null);
 
   // Queries
-  const { data: courses = [] } = useQuery<Course[]>({
-    queryKey: ['/api/member/courses'],
-    enabled: !!user
-  });
-
-  const { data: registrations = [] } = useQuery<Registration[]>({
-    queryKey: ['/api/registrations'],
-    enabled: !!user
-  });
-
-  const { data: subscription } = useQuery<Subscription>({
-    queryKey: ['/api/member/subscription'],
-    enabled: !!user
-  });
+  const { data: courses = [] } = useMemberCourses();
+  const { data: registrations = [] } = useMemberRegistrations();
+  const { data: subscription } = useMemberSubscription();
 
   // Mutations
   const registerMutation = useMutation({
     mutationFn: async (courseId: number) => {
-      return apiRequest(`/api/registrations`, "POST", { courseId });
+      return registrationApi.createRegistration({ 
+        user_id: user?.id || '', 
+        class_id: courseId, 
+        course_id: courseId 
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/registrations'] });
@@ -112,27 +109,27 @@ export default function MobileApp() {
 
   // Get today's and upcoming courses
   const today = new Date();
-  const todayCourses = courses.filter(course => {
-    const courseDate = new Date(course.courseDate);
+  const todayCourses = courses.filter((course: any) => {
+    const courseDate = new Date(course.course_date);
     return courseDate.toDateString() === today.toDateString();
   });
 
-  const upcomingCourses = courses.filter(course => {
-    const courseDate = new Date(course.courseDate);
+  const upcomingCourses = courses.filter((course: any) => {
+    const courseDate = new Date(course.course_date);
     return courseDate > today;
   }).slice(0, 5);
 
   const isRegistered = (courseId: number) => {
-    return registrations.some(reg => reg.course.id === courseId);
+    return registrations.some((reg: any) => reg.course?.id === courseId);
   };
 
   const getRegistrationQR = (courseId: number) => {
-    const reg = registrations.find(reg => reg.course.id === courseId);
-    return reg?.qrCode;
+    const reg = registrations.find((reg: any) => reg.course?.id === courseId);
+    return (reg as any)?.qrCode;
   };
 
   const handleRegister = (courseId: number) => {
-    if (!subscription || subscription.sessionsRemaining <= 0) {
+    if (!subscription || (subscription as any).sessionsRemaining <= 0) {
       toast({
         title: "No sessions remaining",
         description: "Please purchase a subscription to register for classes",
@@ -172,9 +169,9 @@ export default function MobileApp() {
           <CardContent className="pt-0">
             <div className="flex justify-between items-center">
               <div>
-                <p className="font-medium">{subscription.plan.name}</p>
+                <p className="font-medium">{(subscription as any).plan?.name}</p>
                 <p className="text-sm text-muted-foreground">
-                  {subscription.sessionsRemaining} sessions remaining
+                  {(subscription as any).sessionsRemaining} sessions remaining
                 </p>
               </div>
               <Badge variant={subscription.status === "active" ? "default" : "secondary"}>
@@ -203,7 +200,7 @@ export default function MobileApp() {
                   <div>
                     <p className="font-medium">{course.class.name}</p>
                     <p className="text-sm text-muted-foreground">
-                      {formatTime(course.startTime)} - {formatTime(course.endTime)}
+                      {formatTime(course.start_time)} - {formatTime(course.end_time)}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       with {course.trainer.user.first_name} {course.trainer.user.last_name}
@@ -308,18 +305,18 @@ export default function MobileApp() {
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="grid grid-cols-2 gap-4 text-sm">
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-muted-foreground" />
-                  <span>{formatDate(course.courseDate)}</span>
+                  <span>{formatDate(course.course_date)}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Clock className="w-4 h-4 text-muted-foreground" />
-                  <span>{formatTime(course.startTime)} - {formatTime(course.endTime)}</span>
+                  <span>{formatTime(course.start_time)} - {formatTime(course.end_time)}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Users className="w-4 h-4 text-muted-foreground" />
-                  <span>{course.currentParticipants}/{course.maxParticipants} people</span>
+                  <span>{course.current_participants}/{course.max_participants} people</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Activity className="w-4 h-4 text-muted-foreground" />
@@ -353,9 +350,9 @@ export default function MobileApp() {
             <CardContent className="p-4">
               <div className="flex justify-between items-start mb-3">
                 <div className="flex-1">
-                  <h3 className="font-semibold">{registration.course.class.name}</h3>
+                  <h3 className="font-semibold">{(registration as any).course?.class?.name}</h3>
                   <p className="text-sm text-muted-foreground">
-                    {registration.course.trainer.user.first_name} {registration.course.trainer.user.last_name}
+                    {(registration as any).course?.trainer?.user?.first_name} {(registration as any).course?.trainer?.user?.last_name}
                   </p>
                 </div>
                 <Badge variant={registration.status === "registered" ? "default" : "secondary"}>
@@ -366,18 +363,18 @@ export default function MobileApp() {
               <div className="grid grid-cols-2 gap-4 text-sm mb-3">
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-muted-foreground" />
-                  <span>{formatDate(registration.course.courseDate)}</span>
+                  <span>{formatDate((registration as any).course?.course_date)}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Clock className="w-4 h-4 text-muted-foreground" />
-                  <span>{formatTime(registration.course.startTime)}</span>
+                  <span>{formatTime((registration as any).course?.start_time)}</span>
                 </div>
               </div>
 
               <Button 
                 variant="outline" 
                 className="w-full"
-                onClick={() => setShowQRCode(registration.qrCode)}
+                onClick={() => setShowQRCode((registration as any).qrCode)}
               >
                 <QrCode className="w-4 h-4 mr-2" />
                 Show QR Code for Check-in
@@ -422,11 +419,11 @@ export default function MobileApp() {
           <CardContent className="space-y-3">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Plan</span>
-              <span className="font-medium">{subscription.plan.name}</span>
+              <span className="font-medium">{(subscription as any).plan?.name}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Sessions Remaining</span>
-              <span className="font-medium">{subscription.sessionsRemaining}</span>
+              <span className="font-medium">{(subscription as any).sessionsRemaining}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Status</span>
@@ -436,7 +433,7 @@ export default function MobileApp() {
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Valid Until</span>
-              <span className="font-medium">{formatDate(subscription.endDate)}</span>
+              <span className="font-medium">{formatDate((subscription as any).endDate)}</span>
             </div>
           </CardContent>
         </Card>
@@ -546,11 +543,11 @@ export default function MobileApp() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Date</span>
-                    <span>{formatDate(selectedCourse.courseDate)}</span>
+                    <span>{formatDate(selectedCourse.course_date)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Time</span>
-                    <span>{formatTime(selectedCourse.startTime)} - {formatTime(selectedCourse.endTime)}</span>
+                    <span>{formatTime(selectedCourse.start_time)} - {formatTime(selectedCourse.end_time)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Category</span>
@@ -558,7 +555,7 @@ export default function MobileApp() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Capacity</span>
-                    <span>{selectedCourse.currentParticipants}/{selectedCourse.maxParticipants} people</span>
+                    <span>{selectedCourse.current_participants}/{selectedCourse.max_participants} people</span>
                   </div>
                 </div>
               </div>

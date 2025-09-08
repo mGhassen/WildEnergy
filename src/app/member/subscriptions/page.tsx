@@ -1,19 +1,23 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/date";
 import { formatCurrency, CURRENCY_SYMBOL } from "@/lib/config";
-import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/hooks/use-auth";
 import React, { useState, useEffect } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { CreditCard, Clock, CheckCircle, XCircle, Info, Calendar, Users, Eye } from "lucide-react";
 import { SubscriptionDetails } from "@/components/subscription-details";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useMemberSubscriptions } from "@/hooks/useMemberSubscriptions";
+import { useMemberPayments } from "@/hooks/useMemberPayments";
+import { useMemberRegistrations } from "@/hooks/useMemberRegistrations";
+import { useMemberAuthSession } from "@/hooks/useMemberAuth";
+import { Subscription as ApiSubscription } from "@/lib/api/subscriptions";
+import { Payment as ApiPayment } from "@/lib/api/payments";
 
-interface Plan {
+interface MemberPlan {
   id: number;
   name: string;
   price: string;
@@ -37,7 +41,7 @@ interface Plan {
   }>;
 }
 
-interface Payment {
+interface MemberPayment {
   id: number;
   subscription_id: number;
   amount: number;
@@ -50,9 +54,9 @@ interface Payment {
   notes?: string;
 }
 
-interface Subscription {
+interface MemberSubscription {
   id: number;
-  plan?: Plan;
+  plan?: MemberPlan;
   start_date: string;
   end_date: string;
   status: string;
@@ -79,51 +83,23 @@ interface Profile {
 export default function MemberSubscriptions() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [mainTab, setMainTab] = useState<'active' | 'history'>('active');
-  const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
+  const [selectedSubscription, setSelectedSubscription] = useState<any | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 
   // Fetch user credit
-  const { data: profile, isLoading: loadingProfile, error: errorProfile } = useQuery<Profile>({
-    queryKey: ["/api/auth/session"],
-    queryFn: () => apiFetch("/api/auth/session"),
-    enabled: isAuthenticated && !authLoading,
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
-    staleTime: 0, // Always consider data stale to force refetch
-  });
+  const { data: profile, isLoading: loadingProfile, error: errorProfile } = useMemberAuthSession();
   const credit = profile?.user?.credit ?? 0;
 
   // Fetch all subscriptions
-  const { data: subscriptionsRaw, isLoading, error } = useQuery<Subscription[]>({
-    queryKey: ["/api/member/subscriptions"],
-    queryFn: () => apiFetch("/api/member/subscriptions"),
-    enabled: isAuthenticated && !authLoading,
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
-    staleTime: 0, // Always consider data stale to force refetch
-  });
-  const subscriptions: Subscription[] = Array.isArray(subscriptionsRaw) ? subscriptionsRaw : [];
+  const { data: subscriptionsRaw, isLoading, error } = useMemberSubscriptions();
+  const subscriptions: any[] = Array.isArray(subscriptionsRaw) ? subscriptionsRaw : [];
 
   // Fetch all payments for the user
-  const { data: allPaymentsRaw, isLoading: loadingPayments } = useQuery<Payment[]>({
-    queryKey: ["/api/member/payments"],
-    queryFn: () => apiFetch("/api/member/payments"),
-    enabled: isAuthenticated && !authLoading,
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
-    staleTime: 0, // Always consider data stale to force refetch
-  });
-  const allPayments: Payment[] = Array.isArray(allPaymentsRaw) ? allPaymentsRaw : [];
+  const { data: allPaymentsRaw, isLoading: loadingPayments } = useMemberPayments();
+  const allPayments: any[] = Array.isArray(allPaymentsRaw) ? allPaymentsRaw : [];
 
   // Fetch all registrations to calculate actual sessions used
-  const { data: allRegistrationsRaw, isLoading: loadingRegistrations } = useQuery({
-    queryKey: ["/api/registrations"],
-    queryFn: () => apiFetch("/api/registrations"),
-    enabled: isAuthenticated && !authLoading,
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
-    staleTime: 0,
-  });
+  const { data: allRegistrationsRaw, isLoading: loadingRegistrations } = useMemberRegistrations();
   const allRegistrations = Array.isArray(allRegistrationsRaw) ? allRegistrationsRaw : [];
 
   if (authLoading || isLoading || loadingProfile || loadingPayments || loadingRegistrations) {
@@ -157,7 +133,7 @@ export default function MemberSubscriptions() {
   const getPaymentsForSub = (subId: number) => allPayments.filter(p => p.subscription_id === subId);
 
   // Handle opening subscription details
-  const openSubscriptionDetails = (subscription: Subscription) => {
+  const openSubscriptionDetails = (subscription: any) => {
     setSelectedSubscription(subscription);
     setIsDetailsModalOpen(true);
   };
@@ -291,7 +267,7 @@ export default function MemberSubscriptions() {
               .map((sub) => {
                 const subscriptionPayments = getPaymentsForSub(sub.id);
                 const totalPaid = subscriptionPayments
-                  .filter(p => p.payment_status === 'paid')
+                  .filter(p => p.status === 'paid')
                   .reduce((sum, p) => sum + (p.amount || 0), 0);
                 const planPrice = Number(sub.plan?.price) || 0;
                 const remainingAmount = Math.max(0, planPrice - totalPaid);
@@ -411,7 +387,7 @@ export default function MemberSubscriptions() {
                             </Badge>
                           </td>
                           <td className="px-4 py-2">{sub?.plan?.name || 'N/A'}</td>
-                          <td className="px-4 py-2">{payment.method}</td>
+                          <td className="px-4 py-2">{payment.payment_method}</td>
                         </tr>
                       );
                     })}

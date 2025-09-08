@@ -10,15 +10,15 @@ import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { FileText, CheckCircle, AlertCircle, LogOut, Sun, Moon } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
 import { useTheme } from "@/components/theme-provider";
+import { useUpdateUser } from "@/hooks/useUsers";
 
 export default function TermsOnboarding() {
   const { user, logout, isLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const { theme, toggleTheme } = useTheme();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const updateUserMutation = useUpdateUser();
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [termsContent, setTermsContent] = useState("");
   const [isLoadingTerms, setIsLoadingTerms] = useState(true);
@@ -122,12 +122,22 @@ export default function TermsOnboarding() {
       return;
     }
 
-    setIsSubmitting(true);
+    if (!user?.id) {
+      toast({
+        title: "Erreur",
+        description: "Utilisateur non trouvé",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    try {
-      const response = await apiRequest("POST", "/api/member/onboarding/accept-terms", { termsAccepted: true });
+    const updateData = {
+      terms_accepted: true,
+      onboarding_completed: true
+    };
 
-      if (response.success) {
+    updateUserMutation.mutate({ userId: user.id, data: updateData }, {
+      onSuccess: () => {
         // Clear all onboarding data from localStorage
         localStorage.removeItem('onboarding-personal-info');
         localStorage.removeItem('onboarding-terms-accepted');
@@ -137,19 +147,15 @@ export default function TermsOnboarding() {
           description: "Votre inscription est maintenant complète. Bienvenue chez Wild Energy !",
         });
         router.push("/member");
-      } else {
-        throw new Error(response.error || "Erreur lors de l'acceptation des conditions");
+      },
+      onError: (error: any) => {
+        toast({
+          title: "Erreur",
+          description: error.message || "Une erreur est survenue",
+          variant: "destructive",
+        });
       }
-    } catch (error) {
-      console.error("Error accepting terms:", error);
-      toast({
-        title: "Erreur",
-        description: error instanceof Error ? error.message : "Une erreur est survenue",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+    });
   };
 
   const formatMarkdown = (content: string) => {
@@ -281,7 +287,7 @@ export default function TermsOnboarding() {
             <Button
               variant="outline"
               onClick={() => router.back()}
-              disabled={isSubmitting}
+              disabled={updateUserMutation.isPending}
             >
               Retour
             </Button>
@@ -291,10 +297,10 @@ export default function TermsOnboarding() {
                   <div>
                     <Button
                       onClick={handleAcceptTerms}
-                      disabled={!termsAccepted || !hasScrolledToBottom || isSubmitting}
+                      disabled={!termsAccepted || !hasScrolledToBottom || updateUserMutation.isPending}
                       className="min-w-[200px]"
                     >
-                      {isSubmitting ? (
+                      {updateUserMutation.isPending ? (
                         "Finalisation..."
                       ) : (
                         <>
@@ -305,7 +311,7 @@ export default function TermsOnboarding() {
                     </Button>
                   </div>
                 </TooltipTrigger>
-                {(!termsAccepted || !hasScrolledToBottom) && !isSubmitting && (
+                {(!termsAccepted || !hasScrolledToBottom) && !updateUserMutation.isPending && (
                   <TooltipContent>
                     <p>
                       {!hasScrolledToBottom 

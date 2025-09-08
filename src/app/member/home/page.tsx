@@ -1,6 +1,5 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +11,13 @@ import { formatCurrency } from "@/lib/config";
 import { useState, useEffect } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { apiFetch } from "@/lib/api";
+import { useRegistrations } from "@/hooks/useRegistrations";
+import { useSchedules } from "@/hooks/useSchedules";
+import { useMemberSubscriptions } from "@/hooks/useSubscriptions";
+import { usePlans } from "@/hooks/usePlans";
+import { Registration } from "@/lib/api/registrations";
+import { Subscription } from "@/lib/api/subscriptions";
+import { Plan } from "@/lib/api/plans";
 
 // Types for member home page
 interface Trainer {
@@ -44,61 +49,21 @@ interface Course {
   courseDate?: string;
 }
 
-interface Registration {
-  id: number;
-  course: Course;
-  status: string;
-  qrCode?: string; // Make optional if sometimes missing
-}
-
-interface Subscription {
-  id: number;
-  status: string;
-  sessions_remaining: number;
-}
-
-interface Plan {
-  id: number;
-  name: string;
-  description: string;
-  price: number;
-  // max_sessions removed - now calculated from plan_groups
-  duration_days: number;
-  features: string[];
-  is_popular?: boolean;
-  is_premium?: boolean;
-}
-
 export default function MemberHome() {
   const { user } = useAuth();
   const isMobile = useIsMobile();
-  const [selectedQR, setSelectedQR] = useState<Registration | null>(null);
+  const [selectedQR, setSelectedQR] = useState<any>(null);
   const [tab, setTab] = useState<'today' | 'upcoming'>('today');
   const [currentPlanIndex, setCurrentPlanIndex] = useState(0);
 
-  const { data: registrations, isLoading: registrationsLoading } = useQuery({
-    queryKey: ["/api/registrations"],
-    queryFn: () => apiFetch("/api/registrations"),
-  });
-
-  const { data: schedules } = useQuery({
-    queryKey: ["/api/schedules"],
-    queryFn: () => apiFetch("/api/schedules"),
-  });
-
-  const { data: subscriptions, isLoading: subscriptionsLoading } = useQuery({
-    queryKey: ["/api/member/subscriptions"],
-    queryFn: () => apiFetch("/api/member/subscriptions"),
-  });
-
-  const { data: plans, isLoading: plansLoading } = useQuery({
-    queryKey: ["/api/plans"],
-    queryFn: () => apiFetch("/api/plans"),
-  });
+  const { data: registrations, isLoading: registrationsLoading } = useRegistrations();
+  const { data: schedules } = useSchedules();
+  const { data: subscriptions, isLoading: subscriptionsLoading } = useMemberSubscriptions();
+  const { data: plans, isLoading: plansLoading } = usePlans();
 
   // Calculate insights
-  const activeSubs = Array.isArray(subscriptions) ? subscriptions.filter((s: Subscription) => s.status === "active") : [];
-  const totalSessionsRemaining = activeSubs.reduce((sum: number, s: Subscription) => sum + (s.sessions_remaining || 0), 0);
+  const activeSubs = Array.isArray(subscriptions) ? subscriptions.filter((s: any) => s.status === "active") : [];
+  const totalSessionsRemaining = activeSubs.reduce((sum: number, s: any) => sum + (s.sessions_remaining || 0), 0);
   const totalActive = activeSubs.length;
 
   const registrationsArr = Array.isArray(registrations) ? registrations : [];
@@ -125,7 +90,7 @@ export default function MemberHome() {
     return () => clearInterval(interval);
   }, [plansArr.length]);
 
-  const upcomingRegistrations = registrationsArr.filter((reg: Registration) => {
+  const upcomingRegistrations = registrationsArr.filter((reg: any) => {
     const today = new Date();
     const classDate = new Date();
     classDate.setDate(today.getDate() + (reg.course?.schedule?.dayOfWeek - today.getDay() + 7) % 7);
@@ -133,7 +98,7 @@ export default function MemberHome() {
   });
 
   const todayDay = new Date().getDay();
-  const registrationsToday = registrationsArr.filter((reg: Registration) => 
+  const registrationsToday = registrationsArr.filter((reg: any) => 
     reg.course?.schedule?.dayOfWeek === todayDay && reg.status === 'registered'
   );
 
@@ -231,7 +196,7 @@ export default function MemberHome() {
               {tab === 'today' ? (
                 registrationsToday.length > 0 ? (
                   <div className="space-y-4">
-                    {registrationsToday.map((reg: Registration) => (
+                    {registrationsToday.map((reg: any) => (
                       <div key={reg.id} className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors">
                         <div className="flex items-center gap-4">
                           <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
@@ -279,7 +244,7 @@ export default function MemberHome() {
               ) : (
                 upcomingRegistrations.length > 0 ? (
                   <div className="space-y-4">
-                    {upcomingRegistrations.map((registration: Registration) => (
+                    {upcomingRegistrations.map((registration: any) => (
                       <div key={registration.id} className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors">
                         <div className="flex items-center gap-4">
                           <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center">

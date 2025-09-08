@@ -52,7 +52,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Course not found' }, { status: 404 });
     }
 
-    const groupId = course.class?.category?.group?.id;
+    const classData = Array.isArray(course.class) ? course.class[0] : course.class;
+    const categoryData = Array.isArray(classData?.category) ? classData.category[0] : classData?.category;
+    const groupData = Array.isArray(categoryData?.group) ? categoryData.group[0] : categoryData?.group;
+    const groupId = groupData?.id;
     if (!groupId) {
       return NextResponse.json({ 
         can_register: false, 
@@ -105,7 +108,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ 
         can_register: false, 
         error: 'No group sessions allocated for this course type',
-        group_name: course.class?.category?.group?.name
+        group_name: groupData?.name
       });
     }
 
@@ -116,8 +119,8 @@ export async function POST(req: NextRequest) {
       can_register: remainingSessions > 0,
       remaining_sessions: remainingSessions,
       total_sessions: totalSessions,
-      group_name: groupSession.groups?.name || course.class?.category?.group?.name,
-      group_color: groupSession.groups?.color || course.class?.category?.group?.color,
+      group_name: (Array.isArray(groupSession.groups) ? groupSession.groups[0] : groupSession.groups)?.name || groupData?.name,
+      group_color: (Array.isArray(groupSession.groups) ? groupSession.groups[0] : groupSession.groups)?.color || groupData?.color,
       error: remainingSessions <= 0 ? 'No remaining sessions for this group' : null
     });
 
