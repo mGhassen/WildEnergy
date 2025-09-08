@@ -14,6 +14,7 @@ import { useMemberSubscriptions } from "@/hooks/useMemberSubscriptions";
 import { useMemberPayments } from "@/hooks/useMemberPayments";
 import { useMemberRegistrations } from "@/hooks/useMemberRegistrations";
 import { useMemberAuthSession } from "@/hooks/useMemberAuth";
+import { CardSkeleton, ListSkeleton } from "@/components/skeletons";
 import { Subscription as ApiSubscription } from "@/lib/api/subscriptions";
 import { Payment as ApiPayment } from "@/lib/api/payments";
 
@@ -104,8 +105,19 @@ export default function MemberSubscriptions() {
 
   if (authLoading || isLoading || loadingProfile || loadingPayments || loadingRegistrations) {
     return (
-      <div className="flex items-center justify-center min-h-[40vh]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="max-w-4xl mx-auto py-8 px-4 space-y-8">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+          <div>
+            <div className="h-8 w-48 bg-muted rounded animate-pulse mb-2"></div>
+            <div className="h-4 w-64 bg-muted rounded animate-pulse"></div>
+          </div>
+          <div className="h-16 w-32 bg-muted rounded animate-pulse"></div>
+        </div>
+        <div className="space-y-6">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <CardSkeleton key={i} showImage={false} lines={6} />
+          ))}
+        </div>
       </div>
     );
   }

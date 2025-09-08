@@ -19,6 +19,7 @@ import { Plus, Search, Edit, Trash2 } from "lucide-react";
 import { getInitials } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
+import { TableSkeleton, FormSkeleton } from "@/components/skeletons";
 
 const trainerFormSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
@@ -270,17 +271,7 @@ export default function AdminTrainers() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="space-y-4">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="animate-pulse flex items-center space-x-4 p-4">
-                  <div className="w-10 h-10 bg-muted rounded-full"></div>
-                  <div className="flex-1 space-y-2">
-                    <div className="h-4 bg-muted rounded w-1/4"></div>
-                    <div className="h-3 bg-muted rounded w-1/3"></div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <TableSkeleton rows={8} columns={5} />
           ) : (
             <Table>
               <TableHeader>

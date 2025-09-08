@@ -21,6 +21,7 @@ import { z } from "zod";
 import { useRouter } from "next/navigation";
 import { useGroups, useCreateGroup, useUpdateGroup, useDeleteGroup, useCheckGroupDeletion } from "@/hooks/useGroups";
 import { useCategories } from "@/hooks/useCategories";
+import { TableSkeleton, FormSkeleton } from "@/components/skeletons";
 
 const groupFormSchema = z.object({
   name: z.string().min(1, 'Group name is required'),
@@ -315,17 +316,7 @@ export default function AdminGroups() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="space-y-4">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="animate-pulse flex items-center space-x-4 p-4">
-                  <div className="w-12 h-12 bg-muted rounded-lg"></div>
-                  <div className="flex-1 space-y-2">
-                    <div className="h-4 bg-muted rounded w-1/4"></div>
-                    <div className="h-3 bg-muted rounded w-1/3"></div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <TableSkeleton rows={8} columns={5} />
           ) : (
             <Table>
               <TableHeader>

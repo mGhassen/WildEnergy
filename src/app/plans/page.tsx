@@ -7,6 +7,7 @@ import { Star, Calendar, Users, CheckCircle } from "lucide-react";
 import { formatCurrency } from "@/lib/config";
 import MemberLayout from "@/components/layout/member-layout";
 import { useMemberPlans } from "@/hooks/useMemberPlans";
+import { CardSkeleton } from "@/components/skeletons";
 
 export default function PlansPage() {
   const { data: plans, isLoading: plansLoading } = useMemberPlans();
@@ -36,7 +37,11 @@ export default function PlansPage() {
           Choose the plan that fits your goals. Flexible options, great value, and all the features you need to succeed!
         </p>
         {plansLoading ? (
-          <div className="text-center">Loading plans...</div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <CardSkeleton key={i} showImage={false} lines={6} />
+            ))}
+          </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {plans?.map((plan) => (

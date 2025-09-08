@@ -15,6 +15,7 @@ import { useRegistrations } from "@/hooks/useRegistrations";
 import { useSchedules } from "@/hooks/useSchedules";
 import { useMemberSubscriptions } from "@/hooks/useSubscriptions";
 import { usePlans } from "@/hooks/usePlans";
+import { CardSkeleton, ListSkeleton } from "@/components/skeletons";
 import { Registration } from "@/lib/api/registrations";
 import { Subscription } from "@/lib/api/subscriptions";
 import { Plan } from "@/lib/api/plans";
@@ -104,14 +105,20 @@ export default function MemberHome() {
 
   const nextClass = upcomingRegistrations[0];
 
-  if (registrationsLoading) {
+  if (registrationsLoading || subscriptionsLoading || plansLoading) {
     return (
       <div className={isMobile ? "max-w-full mx-auto p-2 space-y-4" : "max-w-6xl mx-auto p-6 space-y-8"}>
-        <div className="animate-pulse space-y-6">
-          <div className={isMobile ? "h-8 bg-muted rounded-lg w-1/2" : "h-12 bg-muted rounded-lg w-1/3"}></div>
+        <div className="space-y-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <div className="h-8 w-48 bg-muted rounded animate-pulse mb-2"></div>
+              <div className="h-4 w-64 bg-muted rounded animate-pulse"></div>
+            </div>
+            <div className="h-10 w-24 bg-muted rounded animate-pulse"></div>
+          </div>
           <div className={isMobile ? "grid grid-cols-1 gap-3" : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"}>
-            {[...Array(isMobile ? 3 : 6)].map((_, i) => (
-              <div key={i} className={isMobile ? "h-24 bg-muted rounded-lg" : "h-48 bg-muted rounded-lg"}></div>
+            {Array.from({ length: isMobile ? 3 : 6 }).map((_, i) => (
+              <CardSkeleton key={i} showImage={false} lines={4} />
             ))}
           </div>
         </div>
