@@ -41,22 +41,22 @@ export interface UpdateTrainerData {
 
 export const trainerApi = {
   async getTrainers(): Promise<Trainer[]> {
-    return apiRequest('GET', '/api/trainers');
+    return apiRequest('GET', '/api/admin/trainers');
   },
 
   async getTrainer(trainerId: number): Promise<Trainer> {
-    return apiRequest('GET', `/api/trainers/${trainerId}`);
+    return apiRequest('GET', `/api/admin/trainers/${trainerId}`);
   },
 
   async createTrainer(data: CreateTrainerData): Promise<Trainer> {
-    return apiRequest('POST', '/api/trainers', data);
+    return apiRequest('POST', '/api/admin/trainers', data);
   },
 
   async updateTrainer(trainerId: number, data: UpdateTrainerData): Promise<Trainer> {
-    return apiRequest('PUT', `/api/trainers/${trainerId}`, data);
+    return apiRequest('PUT', `/api/admin/trainers/${trainerId}`, data);
   },
 
   async deleteTrainer(trainerId: number): Promise<void> {
-    return apiRequest('DELETE', `/api/trainers/${trainerId}`);
+    return apiRequest('DELETE', `/api/admin/trainers/${trainerId}`);
   }
 };

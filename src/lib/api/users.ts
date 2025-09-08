@@ -44,23 +44,23 @@ export interface UpdateUserData {
 
 export const userApi = {
   async getUsers(): Promise<User[]> {
-    return apiRequest('GET', '/api/users');
+    return apiRequest('GET', '/api/admin/users');
   },
 
   async getUser(userId: string): Promise<User> {
-    return apiRequest('GET', `/api/users/${userId}`);
+    return apiRequest('GET', `/api/admin/users/${userId}`);
   },
 
   async createUser(data: CreateUserData): Promise<User> {
-    return apiRequest('POST', '/api/users', data);
+    return apiRequest('POST', '/api/admin/users', data);
   },
 
   async updateUser(userId: string, data: UpdateUserData): Promise<User> {
-    return apiRequest('PUT', `/api/users/${userId}`, data);
+    return apiRequest('PUT', `/api/admin/users/${userId}`, data);
   },
 
   async deleteUser(userId: string): Promise<void> {
-    return apiRequest('DELETE', `/api/users/${userId}`);
+    return apiRequest('DELETE', `/api/admin/users/${userId}`);
   },
 
   async createAdmin(data: CreateUserData): Promise<User> {

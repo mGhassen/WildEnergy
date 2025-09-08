@@ -1,5 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { classApi, Class, CreateClassData, UpdateClassData, CreateAdminClassData, UpdateAdminClassData } from '@/lib/api/classes';
+import { classApi, Class, CreateClassData, UpdateClassData } from '@/lib/api/classes';
+import { adminApi } from '@/lib/api/admin';
+import { CreateAdminClassData, UpdateAdminClassData } from '@/lib/api/classes';
 import { useToast } from '@/hooks/use-toast';
 
 export function useClasses() {
@@ -94,7 +96,7 @@ export function useCreateAdminClass() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: (data: CreateAdminClassData) => classApi.createAdminClass(data),
+    mutationFn: (data: CreateAdminClassData) => adminApi.createAdminClass(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['adminClasses'] });
       toast({
@@ -118,7 +120,7 @@ export function useUpdateAdminClass() {
 
   return useMutation({
     mutationFn: ({ classId, data }: { classId: number; data: UpdateAdminClassData }) => 
-      classApi.updateAdminClass(classId, data),
+      adminApi.updateAdminClass(classId, data),
     onSuccess: (_, { classId }) => {
       queryClient.invalidateQueries({ queryKey: ['adminClasses'] });
       toast({
@@ -141,7 +143,7 @@ export function useDeleteAdminClass() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: (classId: number) => classApi.deleteAdminClass(classId),
+    mutationFn: (classId: number) => adminApi.deleteAdminClass(classId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['adminClasses'] });
       toast({

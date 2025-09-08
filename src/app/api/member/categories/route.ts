@@ -1,0 +1,51 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { supabaseServer } from '@/lib/supabase';
+
+export async function GET(req: NextRequest) {
+  try {
+    const authHeader = req.headers.get('authorization');
+    const token = authHeader?.split(' ')[1];
+    if (!token) {
+      return NextResponse.json({ error: 'No token provided' }, { status: 401 });
+    }
+
+    // Verify user
+    const { data: { user }, error: authError } = await supabaseServer().auth.getUser(token);
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+    }
+
+    // Check if user is a member
+    const { data: userCheck } = await supabaseServer()
+      .from('users')
+      .select('is_member, status')
+      .eq('auth_user_id', user.id)
+      .single();
+
+    if (!userCheck?.is_member || userCheck.status !== 'active') {
+      return NextResponse.json({ error: 'Member access required' }, { status: 403 });
+    }
+
+    // Fetch active categories with group information
+    const { data: categories, error } = await supabaseServer()
+      .from('categories')
+      .select(`
+        *,
+        groups:group_id (
+          id,
+          name,
+          color
+        )
+      `)
+      .eq('is_active', true)
+      .order('name', { ascending: true });
+    
+    if (error) {
+      return NextResponse.json({ error: 'Failed to fetch categories' }, { status: 500 });
+    }
+    
+    return NextResponse.json(categories);
+  } catch (error) {
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}

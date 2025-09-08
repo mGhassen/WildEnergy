@@ -1,4 +1,5 @@
 import { apiRequest } from '@/lib/queryClient';
+import { CreateAdminClassData, UpdateAdminClassData } from './classes';
 
 export interface AdminClass {
   id: number;
@@ -25,6 +26,7 @@ export interface AdminClass {
     day_of_week: number;
   };
 }
+
 
 export const adminApi = {
   async getClasses(): Promise<AdminClass[]> {
@@ -61,5 +63,18 @@ export const adminApi = {
 
   async getDashboardStats(): Promise<any> {
     return apiRequest('GET', '/api/admin/dashboard');
+  },
+
+  // Admin class management methods
+  async createAdminClass(data: CreateAdminClassData): Promise<AdminClass> {
+    return apiRequest('POST', '/api/admin/classes', data);
+  },
+
+  async updateAdminClass(classId: number, data: UpdateAdminClassData): Promise<AdminClass> {
+    return apiRequest('PATCH', `/api/admin/classes/${classId}`, data);
+  },
+
+  async deleteAdminClass(classId: number): Promise<void> {
+    return apiRequest('DELETE', `/api/admin/classes/${classId}`);
   }
 };

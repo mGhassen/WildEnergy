@@ -41,23 +41,23 @@ export interface UpdatePaymentData {
 
 export const paymentApi = {
   async getPayments(): Promise<Payment[]> {
-    return apiRequest('GET', '/api/payments');
+    return apiRequest('GET', '/api/admin/payments');
   },
 
   async getPayment(paymentId: number): Promise<Payment> {
-    return apiRequest('GET', `/api/payments/${paymentId}`);
+    return apiRequest('GET', `/api/admin/payments/${paymentId}`);
   },
 
   async createPayment(data: CreatePaymentData): Promise<Payment> {
-    return apiRequest('POST', '/api/payments', data);
+    return apiRequest('POST', '/api/admin/payments', data);
   },
 
   async updatePayment(paymentId: number, data: UpdatePaymentData): Promise<Payment> {
-    return apiRequest('PUT', `/api/payments/${paymentId}`, data);
+    return apiRequest('PUT', `/api/admin/payments/${paymentId}`, data);
   },
 
   async deletePayment(paymentId: number): Promise<void> {
-    return apiRequest('DELETE', `/api/payments/${paymentId}`);
+    return apiRequest('DELETE', `/api/admin/payments/${paymentId}`);
   },
 
   async getMemberPayments(): Promise<Payment[]> {

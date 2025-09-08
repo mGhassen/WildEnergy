@@ -42,23 +42,23 @@ export interface UpdateCheckinData {
 
 export const checkinApi = {
   async getCheckins(): Promise<Checkin[]> {
-    return apiRequest('GET', '/api/checkins');
+    return apiRequest('GET', '/api/admin/checkins');
   },
 
   async getCheckin(checkinId: number): Promise<Checkin> {
-    return apiRequest('GET', `/api/checkins/${checkinId}`);
+    return apiRequest('GET', `/api/admin/checkins/${checkinId}`);
   },
 
   async createCheckin(data: CreateCheckinData): Promise<Checkin> {
-    return apiRequest('POST', '/api/checkins', data);
+    return apiRequest('POST', '/api/admin/checkins', data);
   },
 
   async updateCheckin(checkinId: number, data: UpdateCheckinData): Promise<Checkin> {
-    return apiRequest('PUT', `/api/checkins/${checkinId}`, data);
+    return apiRequest('PUT', `/api/admin/checkins/${checkinId}`, data);
   },
 
   async deleteCheckin(checkinId: number): Promise<void> {
-    return apiRequest('DELETE', `/api/checkins/${checkinId}`);
+    return apiRequest('DELETE', `/api/admin/checkins/${checkinId}`);
   },
 
   async checkinUser(userId: string, data: { class_id?: number; course_id?: number }): Promise<Checkin> {

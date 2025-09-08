@@ -72,35 +72,22 @@ export interface UpdateAdminClassData {
 
 export const classApi = {
   async getClasses(): Promise<Class[]> {
-    return apiRequest('GET', '/api/classes');
+    return apiRequest('GET', '/api/admin/classes');
   },
 
   async getClass(classId: number): Promise<Class> {
-    return apiRequest('GET', `/api/classes/${classId}`);
+    return apiRequest('GET', `/api/admin/classes/${classId}`);
   },
 
   async createClass(data: CreateClassData): Promise<Class> {
-    return apiRequest('POST', '/api/classes', data);
-  },
-
-  async updateClass(classId: number, data: UpdateClassData): Promise<Class> {
-    return apiRequest('PUT', `/api/classes/${classId}`, data);
-  },
-
-  async deleteClass(classId: number): Promise<void> {
-    return apiRequest('DELETE', `/api/classes/${classId}`);
-  },
-
-  // Admin class functions
-  async createAdminClass(data: CreateAdminClassData): Promise<Class> {
     return apiRequest('POST', '/api/admin/classes', data);
   },
 
-  async updateAdminClass(classId: number, data: UpdateAdminClassData): Promise<Class> {
-    return apiRequest('PUT', `/api/admin/classes/${classId}`, data);
+  async updateClass(classId: number, data: UpdateClassData): Promise<Class> {
+    return apiRequest('PATCH', `/api/admin/classes/${classId}`, data);
   },
 
-  async deleteAdminClass(classId: number): Promise<void> {
+  async deleteClass(classId: number): Promise<void> {
     return apiRequest('DELETE', `/api/admin/classes/${classId}`);
   }
 };
