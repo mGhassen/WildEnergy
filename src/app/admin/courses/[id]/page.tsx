@@ -225,9 +225,23 @@ export default function CourseDetailsPage() {
     );
   };
 
+  // Function to check if a member has remaining sessions for this course's group
+  const checkMemberSessions = async (memberId: string) => {
+    try {
+      const response = await apiRequest('POST', '/api/check-member-sessions', {
+        memberId,
+        courseId: courseId
+      });
+      return response;
+    } catch (error) {
+      console.error('Error checking member sessions:', error);
+      return { can_register: false, error: 'Failed to check sessions' };
+    }
+  };
+
   const handleSelectAll = () => {
     const availableMembers = getAvailableMembers();
-    setSelectedMembers(availableMembers.map((m: any) => m.id));
+    setSelectedMembers(availableMembers.map((member: any) => member.id));
   };
 
   const handleDeselectAll = () => {
@@ -659,35 +673,52 @@ export default function CourseDetailsPage() {
                   <p>No available members found</p>
                 </div>
               ) : (
-                getFilteredMembers().map((member: any) => (
-                  <div
-                    key={member.id}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Checkbox
-                        checked={selectedMembers.includes(member.id)}
-                        onCheckedChange={() => handleMemberSelect(member.id)}
-                      />
-                      <Avatar>
-                        <AvatarFallback>
-                          {member.first_name[0]}{member.last_name[0]}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-medium">
-                          {member.first_name} {member.last_name}
-                        </p>
-                        <p className="text-sm text-muted-foreground">{member.email}</p>
+                getFilteredMembers().map((member: any) => {
+                  // Get remaining sessions for this course's group
+                  const courseGroupId = course?.class?.category?.group?.id;
+                  const groupSession = member.groupSessions?.find((gs: any) => gs.group_id === courseGroupId);
+                  const remainingSessions = groupSession?.sessions_remaining || 0;
+                  const totalSessions = groupSession?.total_sessions || 0;
+                  
+                  return (
+                    <div
+                      key={member.id}
+                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Checkbox
+                          checked={selectedMembers.includes(member.id)}
+                          onCheckedChange={() => handleMemberSelect(member.id)}
+                        />
+                        <Avatar>
+                          <AvatarFallback>
+                            {member.first_name[0]}{member.last_name[0]}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="font-medium">
+                            {member.first_name} {member.last_name}
+                          </p>
+                          <p className="text-sm text-muted-foreground">{member.email}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {/* Simple remaining sessions display */}
+                        <div className="text-right">
+                          <div className="text-sm font-medium">
+                            {remainingSessions > 0 ? `${remainingSessions} sessions left` : 'No sessions'}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {totalSessions > 0 ? `of ${totalSessions} total` : 'No subscription'}
+                          </div>
+                        </div>
+                        <Badge variant="outline" className="text-xs">
+                          {member.phone || 'No phone'}
+                        </Badge>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs">
-                        {member.phone || 'No phone'}
-                      </Badge>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
 
@@ -700,6 +731,11 @@ export default function CourseDetailsPage() {
                 <p className="text-xs text-muted-foreground">
                   Will be added to the course
                 </p>
+            <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <p className="text-xs text-blue-800">
+                ℹ️ <strong>Note:</strong> Members with remaining sessions will have sessions deducted from their group allocation. Members without sessions will be added as free guests.
+              </p>
+            </div>
               </div>
             )}
           </div>
