@@ -63,25 +63,6 @@ export default function AdminGroups() {
   const deleteGroupMutation = useDeleteGroup();
   const checkDeletionMutation = useCheckGroupDeletion();
 
-  // Handle success for create and update mutations
-  if (createGroupMutation.isSuccess) {
-    setIsModalOpen(false);
-    form.reset();
-    createGroupMutation.reset();
-  }
-
-  if (updateGroupMutation.isSuccess) {
-    setIsModalOpen(false);
-    setEditingGroup(null);
-    form.reset();
-    updateGroupMutation.reset();
-  }
-
-  if (deleteGroupMutation.isSuccess) {
-    setDeletingGroup(null);
-    setLinkedPlans([]);
-    deleteGroupMutation.reset();
-  }
 
   const filteredGroups = Array.isArray(groups) ? groups.filter((group: any) =>
     `${group.name} ${group.description}`
@@ -98,9 +79,21 @@ export default function AdminGroups() {
       categoryIds: data.categoryIds || [],
     };
     if (editingGroup) {
-      updateGroupMutation.mutate({ groupId: editingGroup.id, data: submitData });
+      updateGroupMutation.mutate({ groupId: editingGroup.id, data: submitData }, {
+        onSuccess: () => {
+          setIsModalOpen(false);
+          setEditingGroup(null);
+          form.reset();
+        }
+      });
     } else {
-      createGroupMutation.mutate(submitData);
+      createGroupMutation.mutate(submitData, {
+        onSuccess: () => {
+          setIsModalOpen(false);
+          setEditingGroup(null);
+          form.reset();
+        }
+      });
     }
   };
 
@@ -140,8 +133,13 @@ export default function AdminGroups() {
 
   const confirmDelete = () => {
     if (deletingGroup) {
-      deleteGroupMutation.mutate(deletingGroup.id);
-      setIsDeleteDialogOpen(false);
+      deleteGroupMutation.mutate(deletingGroup.id, {
+        onSuccess: () => {
+          setIsDeleteDialogOpen(false);
+          setDeletingGroup(null);
+          setLinkedPlans([]);
+        }
+      });
     }
   };
 

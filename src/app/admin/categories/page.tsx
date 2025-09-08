@@ -72,6 +72,9 @@ interface CategoryWithUI extends Category {
 export default function AdminCategories() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<CategoryWithUI | null>(null);
+  const [deletingCategory, setDeletingCategory] = useState<CategoryWithUI | null>(null);
+  const [linkedClasses, setLinkedClasses] = useState<any[]>([]);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const { toast } = useToast();
 
   const { data: rawCategories = [], isLoading, refetch } = useCategories();
@@ -116,9 +119,21 @@ export default function AdminCategories() {
     console.log('groupId in form data:', data.groupId, 'type:', typeof data.groupId);
     if (editingCategory) {
       console.log('Calling update mutation with:', { categoryId: editingCategory.id, data });
-      updateMutation.mutate({ categoryId: editingCategory.id, data });
+      updateMutation.mutate({ categoryId: editingCategory.id, data }, {
+        onSuccess: () => {
+          setIsCreateDialogOpen(false);
+          setEditingCategory(null);
+          form.reset();
+        }
+      });
     } else {
-      createMutation.mutate(data);
+      createMutation.mutate(data, {
+        onSuccess: () => {
+          setIsCreateDialogOpen(false);
+          setEditingCategory(null);
+          form.reset();
+        }
+      });
     }
   };
 
@@ -133,8 +148,36 @@ export default function AdminCategories() {
     });
   };
 
-  const handleDelete = (id: number) => {
-    deleteMutation.mutate(id);
+  const handleDelete = (category: CategoryWithUI) => {
+    setDeletingCategory(category);
+    
+    // Check if category has linked classes
+    const linkedClassesForCategory = classes.filter((cls: AdminClass) => cls.category_id === category.id);
+    setLinkedClasses(linkedClassesForCategory);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (deletingCategory) {
+      console.log('Attempting to delete category with ID:', deletingCategory.id);
+      deleteMutation.mutate(deletingCategory.id, {
+        onSuccess: () => {
+          console.log('Category deleted successfully');
+          setIsDeleteDialogOpen(false);
+          setDeletingCategory(null);
+          setLinkedClasses([]);
+        },
+        onError: (error: any) => {
+          console.error('Delete category error:', error);
+          console.error('Error details:', {
+            message: error.message,
+            status: error.status,
+            data: error.data,
+            classes: error.classes
+          });
+        }
+      });
+    }
   };
 
   const openCreateDialog = () => {
@@ -335,6 +378,60 @@ export default function AdminCategories() {
             </Form>
           </DialogContent>
         </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Category</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete the category &quot;{deletingCategory?.name}&quot;?
+                {linkedClasses.length > 0 && (
+                  <span className="block mt-2 text-amber-600 dark:text-amber-400">
+                    This category is currently linked to {linkedClasses.length} class{linkedClasses.length !== 1 ? 'es' : ''}. 
+                    The classes will be unlinked and remain without a category assignment.
+                  </span>
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            {linkedClasses.length > 0 && (
+              <div className="my-4">
+                <p className="text-sm font-medium mb-2">Linked classes that will be unlinked:</p>
+                <div className="space-y-2 max-h-32 overflow-y-auto">
+                  {linkedClasses.map((cls: AdminClass) => (
+                    <div key={cls.id} className="flex items-center justify-between p-2 bg-muted rounded">
+                      <div>
+                        <p className="text-sm font-medium">{cls.name}</p>
+                        <p className="text-xs text-muted-foreground">{cls.description || 'No description'}</p>
+                      </div>
+                      <Badge variant="outline" className="text-xs">
+                        Class #{cls.id}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <AlertDialogDescription className="mt-4">
+              This action cannot be undone.
+            </AlertDialogDescription>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => {
+                setIsDeleteDialogOpen(false);
+                setDeletingCategory(null);
+                setLinkedClasses([]);
+              }}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmDelete}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                Delete Category
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
 
       <Card>
@@ -402,32 +499,13 @@ export default function AdminCategories() {
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="outline" size="sm">
-                            <Trash2 className="h-4 w-4 text-red-500" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete Category</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Are you sure you want to delete &quot;{category.name}&quot;? 
-                              Any linked classes will be unlinked and remain without a category assignment.
-                              This action cannot be undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleDelete(category.id)}
-                              className="bg-red-600 hover:bg-red-700"
-                            >
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleDelete(category)}
+                      >
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>

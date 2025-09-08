@@ -75,26 +75,6 @@ export default function AdminPlans() {
   const deletePlanMutation = useDeletePlan();
   const checkDeletionMutation = useCheckPlanDeletion();
 
-  // Handle success for create and update mutations
-  if (createPlanMutation.isSuccess) {
-    setIsModalOpen(false);
-    form.reset();
-    createPlanMutation.reset();
-  }
-
-  if (updatePlanMutation.isSuccess) {
-    setIsModalOpen(false);
-    setEditingPlan(null);
-    form.reset();
-    updatePlanMutation.reset();
-  }
-
-  if (deletePlanMutation.isSuccess) {
-    setIsDeleteDialogOpen(false);
-    setDeletingPlan(null);
-    setLinkedSubscriptions([]);
-    deletePlanMutation.reset();
-  }
 
   const filteredPlans = Array.isArray(plans) ? plans.filter((plan: any) =>
     `${plan.name} ${plan.description}`
@@ -124,9 +104,21 @@ export default function AdminPlans() {
       })) || [],
     };
     if (editingPlan) {
-      updatePlanMutation.mutate({ planId: editingPlan.id, data: submitData });
+      updatePlanMutation.mutate({ planId: editingPlan.id, data: submitData }, {
+        onSuccess: () => {
+          setIsModalOpen(false);
+          setEditingPlan(null);
+          form.reset();
+        }
+      });
     } else {
-      createPlanMutation.mutate(submitData);
+      createPlanMutation.mutate(submitData, {
+        onSuccess: () => {
+          setIsModalOpen(false);
+          setEditingPlan(null);
+          form.reset();
+        }
+      });
     }
   };
 
@@ -171,7 +163,13 @@ export default function AdminPlans() {
 
   const confirmDelete = () => {
     if (deletingPlan) {
-      deletePlanMutation.mutate(deletingPlan.id);
+      deletePlanMutation.mutate(deletingPlan.id, {
+        onSuccess: () => {
+          setIsDeleteDialogOpen(false);
+          setDeletingPlan(null);
+          setLinkedSubscriptions([]);
+        }
+      });
     }
   };
 

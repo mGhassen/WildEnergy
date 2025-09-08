@@ -4,6 +4,7 @@ import { getAuthToken } from "./api";
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     let message = `${res.status}: ${res.statusText}`;
+    let errorData: any = {};
     
     try {
       const text = await res.text();
@@ -11,7 +12,7 @@ async function throwIfResNotOk(res: Response) {
       // Check if response is JSON
       if (text.startsWith('{') || text.startsWith('[')) {
         try {
-          const errorData = JSON.parse(text);
+          errorData = JSON.parse(text);
           message = errorData.error || errorData.message || message;
         } catch {
           // JSON parsing failed, use original message
@@ -26,7 +27,15 @@ async function throwIfResNotOk(res: Response) {
       // If text parsing fails, use the status message
     }
 
-    throw new Error(message);
+    const error = new Error(message);
+    // Preserve all error data properties
+    Object.keys(errorData).forEach(key => {
+      (error as any)[key] = errorData[key];
+    });
+    (error as any).status = res.status;
+    (error as any).data = errorData;
+    
+    throw error;
   }
 }
 
