@@ -130,6 +130,7 @@ interface ScheduleCalendarProps {
   viewMode: "daily" | "weekly" | "monthly";
   onViewModeChange: (mode: "daily" | "weekly" | "monthly") => void;
   onNavigateToDate?: (date: Date) => void;
+  onCourseClick?: (courseId: number) => void;
   currentDate?: Date;
   hideViewModeSwitcher?: boolean;
 }
@@ -143,6 +144,7 @@ export default function ScheduleCalendar({
   viewMode, 
   onViewModeChange,
   onNavigateToDate,
+  onCourseClick,
   currentDate: externalCurrentDate,
   hideViewModeSwitcher = false
 }: ScheduleCalendarProps) {
@@ -520,7 +522,7 @@ export default function ScheduleCalendar({
             
             return (
               <Card key={schedule.id} className={`cursor-pointer hover:shadow-md transition-shadow ${isPast ? 'opacity-60 bg-gray-50' : ''}`}
-                    onClick={() => setSelectedSchedule(schedule)}>
+                    onClick={() => onCourseClick ? onCourseClick(schedule.id) : setSelectedSchedule(schedule)}>
                 <CardContent className={isMobile ? 'p-2' : 'p-4'}>
                   <div className={isMobile ? 'flex flex-col gap-2' : 'flex items-center justify-between'}>
                     <div className={isMobile ? '' : 'flex-1'}>
@@ -605,7 +607,7 @@ export default function ScheduleCalendar({
                              ? 'bg-gray-100 text-gray-500 hover:bg-gray-200' 
                              : 'bg-primary/10 hover:bg-primary/20'
                          }`}
-                         onClick={() => setSelectedSchedule(schedule)}>
+                         onClick={() => onCourseClick ? onCourseClick(schedule.id) : setSelectedSchedule(schedule)}>
                       <div className={`font-medium truncate ${isPast ? 'text-gray-500' : ''}`}>{schedule.class?.name || 'Unknown Class'}</div>
                       <div className={isPast ? 'text-gray-400' : 'text-muted-foreground'}>{formatTime(schedule.startTime)}</div>
                       <div className="flex justify-between mt-1">
@@ -689,7 +691,7 @@ export default function ScheduleCalendar({
                                  ? 'bg-gray-100 text-gray-500 hover:bg-gray-200' 
                                  : 'bg-primary/10 hover:bg-primary/20'
                              }`}
-                             onClick={() => setSelectedSchedule(schedule)}>
+                             onClick={() => onCourseClick ? onCourseClick(schedule.id) : setSelectedSchedule(schedule)}>
                           <div className={`truncate font-medium ${isPast ? 'text-gray-500' : ''}`}>{schedule.class?.name || 'Unknown Class'}</div>
                           <div className="flex justify-between">
                             <span className={isPast ? 'text-gray-400' : ''}>{formatTime(schedule.startTime)}</span>
