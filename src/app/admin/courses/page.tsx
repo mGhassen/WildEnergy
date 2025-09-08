@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import ScheduleCalendar from '@/components/schedule-calendar';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useRouter } from 'next/navigation';
 
 interface Course {
   id: number;
@@ -70,9 +71,14 @@ export default function AdminCourses() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
+  const router = useRouter();
 
   const handleNavigateToDate = (date: Date) => {
     setCurrentDate(date);
+  };
+
+  const handleCourseClick = (courseId: number) => {
+    router.push(`/admin/courses/${courseId}`);
   };
 
   const today = new Date();
@@ -280,6 +286,7 @@ export default function AdminCourses() {
             viewMode={isMobile ? 'daily' : calendarView}
             onViewModeChange={isMobile ? () => {} : setCalendarView}
             onNavigateToDate={handleNavigateToDate}
+            onCourseClick={handleCourseClick}
             currentDate={currentDate}
             hideViewModeSwitcher={isMobile}
           />
