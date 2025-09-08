@@ -619,7 +619,7 @@ export default function CourseDetailsPage() {
             </DialogDescription>
           </DialogHeader>
           
-          <div className="flex-1 overflow-hidden flex flex-col space-y-4">
+          <div className="flex-1 overflow-hidden flex flex-col space-y-4 p-1">
             {/* Search and Controls */}
             <div className="flex items-center gap-4">
               <div className="relative flex-1">

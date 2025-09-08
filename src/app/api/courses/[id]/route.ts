@@ -103,7 +103,7 @@ export async function GET(
           phone
         )
       `)
-      .eq('schedule_id', course.schedule_id);
+      .eq('course_id', course.id);
 
     if (regError) {
       console.error('Registrations fetch error:', regError);
@@ -373,12 +373,16 @@ export async function DELETE(
     const { data: registrations } = await supabaseServer()
       .from('class_registrations')
       .select('id')
-      .eq('schedule_id', (await supabaseServer().from('courses').select('schedule_id').eq('id', courseId).single()).data?.schedule_id);
+      .eq('course_id', courseId);
 
     const { data: checkins } = await supabaseServer()
       .from('checkins')
-      .select('id')
-      .eq('course_id', courseId);
+      .select(`
+        id,
+        registration_id,
+        class_registrations!inner(course_id)
+      `)
+      .eq('class_registrations.course_id', courseId);
 
     if ((registrations?.length || 0) > 0 || (checkins?.length || 0) > 0) {
       return NextResponse.json({ 
