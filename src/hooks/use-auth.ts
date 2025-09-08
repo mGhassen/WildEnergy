@@ -15,6 +15,7 @@ export interface User {
   isAdmin: boolean;
   status?: string;
   role?: 'admin' | 'member';
+  credit?: number;
 }
 
 interface AuthState {
@@ -129,6 +130,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (!token) {
         setIsLoading(false);
         return;
+      }
+
+      // Ensure window token is synchronized
+      if (typeof window !== 'undefined' && !window.__authToken) {
+        window.__authToken = token;
       }
 
       try {

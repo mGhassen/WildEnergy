@@ -13,7 +13,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useMemberSubscriptions } from "@/hooks/useMemberSubscriptions";
 import { useMemberPayments } from "@/hooks/useMemberPayments";
 import { useMemberRegistrations } from "@/hooks/useMemberRegistrations";
-import { useMemberAuthSession } from "@/hooks/useMemberAuth";
 import { CardSkeleton, ListSkeleton } from "@/components/skeletons";
 import { Subscription as ApiSubscription } from "@/lib/api/subscriptions";
 import { Payment as ApiPayment } from "@/lib/api/payments";
@@ -87,9 +86,8 @@ export default function MemberSubscriptions() {
   const [selectedSubscription, setSelectedSubscription] = useState<any | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 
-  // Fetch user credit
-  const { data: profile, isLoading: loadingProfile, error: errorProfile } = useMemberAuthSession();
-  const credit = profile?.user?.credit ?? 0;
+  // Get user credit from auth context
+  const credit = user?.credit ?? 0;
 
   // Fetch all subscriptions
   const { data: subscriptionsRaw, isLoading, error } = useMemberSubscriptions();
@@ -103,7 +101,7 @@ export default function MemberSubscriptions() {
   const { data: allRegistrationsRaw, isLoading: loadingRegistrations } = useMemberRegistrations();
   const allRegistrations = Array.isArray(allRegistrationsRaw) ? allRegistrationsRaw : [];
 
-  if (authLoading || isLoading || loadingProfile || loadingPayments || loadingRegistrations) {
+  if (authLoading || isLoading || loadingPayments || loadingRegistrations) {
     return (
       <div className="max-w-4xl mx-auto py-8 px-4 space-y-8">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
@@ -130,7 +128,7 @@ export default function MemberSubscriptions() {
     );
   }
 
-  if (error || errorProfile) {
+  if (error) {
     return (
       <div className="flex items-center justify-center min-h-[40vh] text-red-600">
         Error loading subscriptions. Please try again later.
