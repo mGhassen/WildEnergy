@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 
-function extractIdFromUrl(request: NextRequest): string | null {
-  const match = request.nextUrl.pathname.match(/\/members\/([^/]+)\/details/);
-  return match ? match[1] : null;
-}
-
-export async function GET(request: NextRequest) {
+export async function GET(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   try {
-    const id = extractIdFromUrl(request);
+    const { id } = await context.params;
     
     if (!id) {
       return NextResponse.json({ error: 'Member ID is required' }, { status: 400 });

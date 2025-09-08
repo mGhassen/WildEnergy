@@ -12,9 +12,12 @@ async function getUserFromToken(token: string) {
   return userProfile;
 }
 
-export async function POST(request: NextRequest, context: { params: Promise<{ registrationId: string }> }) {
+export async function POST(
+  req: NextRequest,
+  context: { params: Promise<{ id: string; registrationId: string }> }
+) {
   try {
-    const authHeader = request.headers.get('authorization');
+    const authHeader = req.headers.get('authorization');
     const token = authHeader?.split(' ')[1];
     if (!token) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
@@ -30,13 +33,13 @@ export async function POST(request: NextRequest, context: { params: Promise<{ re
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const params = await context.params;
-    const registrationId = parseInt(params.registrationId);
-    if (!registrationId || isNaN(registrationId)) {
+    const { registrationId } = await context.params;
+    const registrationIdNum = parseInt(registrationId);
+    if (!registrationId || isNaN(registrationIdNum)) {
       return NextResponse.json({ error: 'Invalid registration ID' }, { status: 400 });
     }
 
-    // Get the registration details - allow both 'registered' and 'attended' statuses
+    // Get the registration details - allow both 'registered' and 'absent' statuses
     const { data: registration, error: registrationError } = await supabaseServer()
       .from('class_registrations')
       .select(`
@@ -50,18 +53,18 @@ export async function POST(request: NextRequest, context: { params: Promise<{ re
           class:classes(name)
         )
       `)
-      .eq('id', registrationId)
-      .in('status', ['registered', 'attended'])
+      .eq('id', registrationIdNum)
+      .in('status', ['registered', 'absent'])
       .single();
 
     if (registrationError || !registration) {
-      return NextResponse.json({ error: 'Registration not found or not valid for unvalidation' }, { status: 404 });
+      return NextResponse.json({ error: 'Registration not found or not valid for check-in' }, { status: 404 });
     }
 
-    // Check if there's an existing check-in to remove
+    // Check if already checked in
     const { data: existingCheckin, error: checkinError } = await supabaseServer()
       .from('checkins')
-      .select('id, checkin_time, session_consumed')
+      .select('id')
       .eq('registration_id', registrationId)
       .single();
 
@@ -70,45 +73,17 @@ export async function POST(request: NextRequest, context: { params: Promise<{ re
       return NextResponse.json({ error: 'Failed to check existing check-in status' }, { status: 500 });
     }
 
-    if (!existingCheckin) {
-      return NextResponse.json({ error: 'No check-in found to unvalidate' }, { status: 404 });
+    if (existingCheckin) {
+      return NextResponse.json({ error: 'Member is already checked in' }, { status: 400 });
     }
 
-    // Delete the check-in record
-    const { error: deleteError } = await supabaseServer()
-      .from('checkins')
-      .delete()
-      .eq('id', existingCheckin.id);
-
-    if (deleteError) {
-      console.error('Error deleting checkin:', deleteError);
-      return NextResponse.json({ error: 'Failed to unvalidate check-in' }, { status: 500 });
-    }
-
-    // Determine the appropriate status based on whether the class has finished
-    const now = new Date();
-    const currentDate = now.toISOString().split('T')[0];
-    const currentTime = now.toTimeString().split(' ')[0];
+    console.log(`Updating registration ${registrationId} from status '${registration.status}' to 'attended'`);
     
-    const courseDate = registration.course.course_date;
-    const courseEndTime = registration.course.end_time;
-    
-    // Check if course has finished
-    const isPastDate = courseDate < currentDate;
-    const isTodayButEnded = courseDate === currentDate && courseEndTime < currentTime;
-    const hasFinished = isPastDate || isTodayButEnded;
-    
-    // Set status based on whether class has finished
-    const newStatus = hasFinished ? 'absent' : 'registered';
-    
-    console.log(`[UNVALIDATE] Registration ${registrationId}: Course finished: ${hasFinished}, Setting status to: ${newStatus}`);
-    console.log(`[UNVALIDATE] Course date: ${courseDate}, end time: ${courseEndTime}, Current: ${currentDate} ${currentTime}`);
-
-    // Update registration status based on class timing
+    // Update registration status to 'attended' and create check-in record
     const { data: updatedRegistration, error: updateError } = await supabaseServer()
       .from('class_registrations')
-      .update({ status: newStatus })
-      .eq('id', registrationId)
+      .update({ status: 'attended' })
+      .eq('id', registrationIdNum)
       .select()
       .single();
 
@@ -117,20 +92,35 @@ export async function POST(request: NextRequest, context: { params: Promise<{ re
       return NextResponse.json({ error: 'Failed to update registration status' }, { status: 500 });
     }
 
+    console.log(`Successfully updated registration ${registrationId} to status: ${updatedRegistration?.status}`);
+
+    // Create the check-in record
+    const { data: checkin, error: createError } = await supabaseServer()
+      .from('checkins')
+      .insert({
+        registration_id: registrationId,
+        user_id: registration.user_id,
+        checkin_time: new Date().toISOString(),
+        session_consumed: true,
+        notes: 'Validated by admin'
+      })
+      .select()
+      .single();
+
+    if (createError) {
+      console.error('Error creating checkin:', createError);
+      return NextResponse.json({ error: 'Failed to create check-in' }, { status: 500 });
+    }
+
     return NextResponse.json({
       success: true,
-      message: `Check-in unvalidated successfully. Registration status set to '${newStatus}'`,
-      removedCheckin: {
-        id: existingCheckin.id,
-        registrationId: registrationId,
-        checkinTime: existingCheckin.checkin_time,
-        sessionConsumed: existingCheckin.session_consumed
-      },
-      registration: {
-        id: updatedRegistration.id,
-        status: updatedRegistration.status,
-        newStatus: newStatus,
-        courseFinished: hasFinished
+      checkin: {
+        id: checkin.id,
+        registrationId: checkin.registration_id,
+        userId: checkin.user_id,
+        checkinTime: checkin.checkin_time,
+        sessionConsumed: checkin.session_consumed,
+        notes: checkin.notes
       },
       member: {
         id: registration.member.id,
@@ -148,7 +138,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ re
     });
 
   } catch (error) {
-    console.error('Unvalidate checkin error:', error);
+    console.error('Validate checkin error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 } 

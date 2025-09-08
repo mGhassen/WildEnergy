@@ -14,6 +14,6 @@ export interface MemberDetails {
 
 export const memberDetailsApi = {
   async getMemberDetails(memberId: string): Promise<MemberDetails> {
-    return apiRequest('GET', `/api/members/${memberId}/details`);
+    return apiRequest('GET', `/api/admin/members/${memberId}`);
   }
 };

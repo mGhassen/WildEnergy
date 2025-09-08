@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { Outfit } from "next/font/google";
 import "./globals.css";
-import ClientLayout from "./ClientLayout";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
+import { AuthProvider } from "@/hooks/use-auth";
 
 const outfit = Outfit({
   variable: "--font-outfit",
@@ -41,7 +43,9 @@ export default function RootLayout({
       <body className={`${outfit.variable} antialiased`}>
         <TooltipProvider>
           <ThemeProvider>
-            <ClientLayout>{children}</ClientLayout>
+            <QueryClientProvider client={queryClient}>
+              <AuthProvider>{children}</AuthProvider>
+            </QueryClientProvider>
           </ThemeProvider>
         </TooltipProvider>
       </body>
