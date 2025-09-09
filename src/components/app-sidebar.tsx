@@ -46,10 +46,6 @@ const data = {
       icon: Users,
       items: [
         {
-          title: "Users",
-          url: "/admin/users",
-        },
-        {
           title: "Members",
           url: "/admin/members",
         },
@@ -117,6 +113,10 @@ const data = {
       url: "/admin/settings",
       icon: Settings2,
       items: [
+        {
+          title: "Accounts",
+          url: "/admin/settings/accounts",
+        },
         {
           title: "Categories",
           url: "/admin/categories",
