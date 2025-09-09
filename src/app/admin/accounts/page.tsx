@@ -6,39 +6,22 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Search, Plus, Edit, Trash2, User, Shield, MoreHorizontal, Key, Archive, CheckCircle, XCircle, Mail, Star, X, Phone, Calendar, Clock, Activity, FileText, Loader2, Eye, Users, UserCheck, UserX, Crown, GraduationCap, CreditCard, MapPin, Briefcase, Heart, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { formatDate } from "@/lib/date";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { useAccounts, useCreateAccount, useUpdateAccount, useDeleteAccount } from "@/hooks/useAccounts";
+import { useAccounts, useUpdateAccount, useDeleteAccount } from "@/hooks/useAccounts";
 import { Account } from "@/lib/api/accounts";
 import { apiRequest } from "@/lib/queryClient";
 import { useMutation } from "@tanstack/react-query";
 import { TableSkeleton, FormSkeleton } from "@/components/skeletons";
 
-// Form schemas
-const createUserSchema = z.object({
-    email: z.string().email("Please enter a valid email"),
-    firstName: z.string().min(1, "First name is required"),
-    lastName: z.string().min(1, "Last name is required"),
-    role: z.enum(["admin", "member", "trainer"]),
-    isAdmin: z.boolean(),
-    isMember: z.boolean(),
-    isTrainer: z.boolean(),
-});
-
-type CreateUserForm = z.infer<typeof createUserSchema>;
 
 // Helper functions
 const getInitials = (firstName: string, lastName: string): string => {
@@ -89,7 +72,6 @@ export default function AccountsPage() {
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
     const [roleFilter, setRoleFilter] = useState("all");
-    const [showCreateDialog, setShowCreateDialog] = useState(false);
     const [deletingUser, setDeletingUser] = useState<Account | null>(null);
     const [settingPasswordUser, setSettingPasswordUser] = useState<Account | null>(null);
     const [setPasswordValue, setSetPasswordValue] = useState("");
@@ -99,30 +81,6 @@ export default function AccountsPage() {
     // Fetch accounts
     const { data: accounts = [], isLoading, error } = useAccounts();
 
-    // Create user form
-    const createForm = useForm<z.infer<typeof createUserSchema>>({
-        resolver: zodResolver(createUserSchema),
-        defaultValues: {
-            email: "",
-            firstName: "",
-            lastName: "",
-            role: "member",
-            isAdmin: false,
-            isMember: false,
-            isTrainer: false,
-        },
-    });
-
-    // Watch role changes and update boolean fields
-    const watchedRole = createForm.watch("role");
-    useEffect(() => {
-        createForm.setValue("isAdmin", watchedRole === "admin");
-        createForm.setValue("isMember", watchedRole === "member");
-        createForm.setValue("isTrainer", watchedRole === "trainer");
-    }, [watchedRole, createForm]);
-
-    // Create account mutation
-    const createAccountMutation = useCreateAccount();
 
     // Delete account mutation
     const deleteAccountMutation = useDeleteAccount();
@@ -173,23 +131,6 @@ export default function AccountsPage() {
         },
     });
 
-    // Handle create account
-    const handleCreateAccount = (data: z.infer<typeof createUserSchema>) => {
-        const createData = {
-            email: data.email,
-            firstName: data.firstName,
-            lastName: data.lastName,
-            isAdmin: data.isAdmin,
-            memberData: data.isMember ? { memberNotes: '', credit: 0 } : undefined,
-            trainerData: data.isTrainer ? { specialization: '', experienceYears: 0, bio: '', certification: '', hourlyRate: 0 } : undefined
-        };
-        createAccountMutation.mutate(createData, {
-            onSuccess: () => {
-                setShowCreateDialog(false);
-                createForm.reset();
-            }
-        });
-    };
 
     // Navigate to account detail page
     const navigateToAccount = (account: Account) => {
@@ -273,7 +214,6 @@ export default function AccountsPage() {
         );
     }
 
-    const isCreatingAccount = createAccountMutation.isPending;
 
     return (
         <div className="space-y-6">
@@ -285,104 +225,13 @@ export default function AccountsPage() {
                         Manage user accounts, roles, and permissions
                     </p>
                 </div>
-                <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-                    <DialogTrigger asChild>
-                        <Button className="w-full sm:w-auto">
-                            <Plus className="w-4 h-4 mr-2" />
-                            Add Account
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-md">
-                        <DialogHeader>
-                            <DialogTitle>Create New Account</DialogTitle>
-                            <DialogDescription>
-                                Create a new user account. An invitation email will be sent automatically.
-                            </DialogDescription>
-                        </DialogHeader>
-                        <Form {...createForm}>
-                            <form onSubmit={createForm.handleSubmit(handleCreateAccount)} className="space-y-4">
-                                <FormField
-                                    control={createForm.control}
-                                    name="email"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Email</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="user@example.com" type="email" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <FormField
-                                    control={createForm.control}
-                                    name="firstName"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>First Name</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="First Name" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <FormField
-                                    control={createForm.control}
-                                    name="lastName"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Last Name</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="Last Name" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <FormField
-                                    control={createForm.control}
-                                    name="role"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Role</FormLabel>
-                                            <FormControl>
-                                                <RadioGroup
-                                                    value={field.value}
-                                                    onValueChange={field.onChange}
-                                                    className="flex flex-row gap-4"
-                                                >
-                                                    <RadioGroupItem value="admin" id="role-admin" />
-                                                    <FormLabel htmlFor="role-admin">Admin</FormLabel>
-                                                    <RadioGroupItem value="member" id="role-member" />
-                                                    <FormLabel htmlFor="role-member">Member</FormLabel>
-                                                    <RadioGroupItem value="trainer" id="role-trainer" />
-                                                    <FormLabel htmlFor="role-trainer">Trainer</FormLabel>
-                                                </RadioGroup>
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <div className="flex justify-end gap-2">
-                                    <Button type="button" variant="outline" onClick={() => setShowCreateDialog(false)}>
-                                        Cancel
-                                    </Button>
-                                    <Button type="submit" disabled={isCreatingAccount}>
-                                        {isCreatingAccount ? (
-                                            <>
-                                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                                Creating...
-                                            </>
-                                        ) : (
-                                            'Create Account'
-                                        )}
-                                    </Button>
-                                </div>
-                            </form>
-                        </Form>
-                    </DialogContent>
-                </Dialog>
+                <Button 
+                    className="w-full sm:w-auto" 
+                    onClick={() => window.location.href = '/admin/accounts/create'}
+                >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Account
+                </Button>
             </div>
 
             {/* Statistics Cards */}
