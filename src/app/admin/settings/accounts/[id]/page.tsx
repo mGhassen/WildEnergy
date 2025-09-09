@@ -45,46 +45,13 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useAccount, useUpdateAccount, useDeleteAccount } from "@/hooks/useAccounts";
+import { Account } from "@/lib/api/accounts";
 import { apiRequest } from "@/lib/queryClient";
 import { formatDate } from "@/lib/date";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
-interface Account {
-  account_id: string;
-  email: string;
-  account_status: string;
-  last_login?: string;
-  is_admin: boolean;
-  is_member: boolean;
-  is_trainer: boolean;
-  first_name?: string;
-  last_name?: string;
-  phone?: string;
-  date_of_birth?: string;
-  address?: string;
-  profession?: string;
-  emergency_contact_name?: string;
-  emergency_contact_phone?: string;
-  profile_image_url?: string;
-  member_id?: string;
-  member_notes?: string;
-  credit?: number;
-  member_status?: string;
-  subscription_status?: string;
-  trainer_id?: string;
-  specialization?: string;
-  experience_years?: number;
-  bio?: string;
-  certification?: string;
-  hourly_rate?: number;
-  trainer_status?: string;
-  user_type: string;
-  accessible_portals: string[];
-  created_at?: string;
-  confirmed_at?: string | null;
-}
 
 export default function AccountDetailPage() {
     const params = useParams();
@@ -552,13 +519,13 @@ export default function AccountDetailPage() {
                                         <span>Administrator</span>
                                     </Label>
                                 </div>
-                                {account.is_member && (
+                                {account.member_id && (
                                     <div className="flex items-center space-x-2">
                                         <User className="w-4 h-4 text-blue-600" />
                                         <span className="text-sm font-medium">Member</span>
                                     </div>
                                 )}
-                                {account.is_trainer && (
+                                {account.trainer_id && (
                                     <div className="flex items-center space-x-2">
                                         <GraduationCap className="w-4 h-4 text-green-600" />
                                         <span className="text-sm font-medium">Trainer</span>

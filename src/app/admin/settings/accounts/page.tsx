@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useAccounts, useCreateAccount, useUpdateAccount, useDeleteAccount } from "@/hooks/useAccounts";
+import { Account } from "@/lib/api/accounts";
 import { apiRequest } from "@/lib/queryClient";
 import { useMutation } from "@tanstack/react-query";
 import { TableSkeleton, FormSkeleton } from "@/components/skeletons";
@@ -83,40 +84,6 @@ const getRoleColor = (role: string) => {
 };
 
 // Updated Account interface for new system
-interface Account {
-  account_id: string;
-  email: string;
-  account_status: string;
-  last_login?: string;
-  is_admin: boolean;
-  is_member: boolean;
-  is_trainer: boolean;
-  first_name?: string;
-  last_name?: string;
-  phone?: string;
-  date_of_birth?: string;
-  address?: string;
-  profession?: string;
-  emergency_contact_name?: string;
-  emergency_contact_phone?: string;
-  profile_image_url?: string;
-  member_id?: string;
-  member_notes?: string;
-  credit?: number;
-  member_status?: string;
-  subscription_status?: string;
-  trainer_id?: string;
-  specialization?: string;
-  experience_years?: number;
-  bio?: string;
-  certification?: string;
-  hourly_rate?: number;
-  trainer_status?: string;
-  user_type: string;
-  accessible_portals: string[];
-  created_at?: string;
-  confirmed_at?: string | null;
-}
 
 export default function AccountsPage() {
     const [searchTerm, setSearchTerm] = useState("");
@@ -248,8 +215,8 @@ export default function AccountsPage() {
         
         const matchesRole = roleFilter === "all" || 
             (roleFilter === "admin" && account.is_admin) ||
-            (roleFilter === "member" && account.is_member) ||
-            (roleFilter === "trainer" && account.is_trainer);
+            (roleFilter === "member" && account.member_id) ||
+            (roleFilter === "trainer" && account.trainer_id);
         
         return matchesSearch && matchesStatus && matchesRole;
     }) : [];
@@ -262,8 +229,8 @@ export default function AccountsPage() {
         archived: accounts.filter((u: any) => u.account_status === 'archived').length,
         suspended: accounts.filter((u: any) => u.account_status === 'suspended').length,
         admins: accounts.filter((u: any) => u.is_admin).length,
-        members: accounts.filter((u: any) => u.is_member).length,
-        trainers: accounts.filter((u: any) => u.is_trainer).length,
+        members: accounts.filter((u: any) => u.member_id).length,
+        trainers: accounts.filter((u: any) => u.trainer_id).length,
     };
 
     if (isLoading) {
@@ -617,13 +584,13 @@ export default function AccountsPage() {
                                                         Admin
                                                     </Badge>
                                                 )}
-                                                {account.is_member && (
+                                                {account.member_id && (
                                                     <Badge className={`${getRoleColor('member')} text-xs`}>
                                                         <User className="w-3 h-3 mr-1" />
                                                         Member
                                                     </Badge>
                                                 )}
-                                                {account.is_trainer && (
+                                                {account.trainer_id && (
                                                     <Badge className={`${getRoleColor('trainer')} text-xs`}>
                                                         <GraduationCap className="w-3 h-3 mr-1" />
                                                         Trainer
@@ -649,17 +616,6 @@ export default function AccountsPage() {
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex items-center space-x-2">
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        navigateToAccount(account);
-                                                    }}
-                                                >
-                                                    <Eye className="w-3 h-3 mr-1" />
-                                                    View
-                                                </Button>
                                                 {account.account_status === 'pending' && (
                                                     <Button
                                                         variant="outline"
@@ -793,13 +749,13 @@ export default function AccountsPage() {
                                                                 Admin
                                                             </Badge>
                                                         )}
-                                                        {account.is_member && (
+                                                        {account.member_id && (
                                                             <Badge className={`${getRoleColor('member')} text-xs`}>
                                                                 <User className="w-3 h-3 mr-1" />
                                                                 Member
                                                             </Badge>
                                                         )}
-                                                        {account.is_trainer && (
+                                                        {account.trainer_id && (
                                                             <Badge className={`${getRoleColor('trainer')} text-xs`}>
                                                                 <GraduationCap className="w-3 h-3 mr-1" />
                                                                 Trainer

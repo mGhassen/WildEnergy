@@ -1,18 +1,18 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { userApi, User, CreateUserData, UpdateUserData } from '@/lib/api/users';
+import { accountApi, Account, CreateAccountData, UpdateAccountData } from '@/lib/api/accounts';
 import { useToast } from '@/hooks/use-toast';
 
 export function useAccounts() {
-  return useQuery<User[], Error>({
+  return useQuery<Account[], Error>({
     queryKey: ['accounts'],
-    queryFn: () => userApi.getUsers(),
+    queryFn: () => accountApi.getAccounts(),
   });
 }
 
 export function useAccount(accountId: string) {
-  return useQuery<User, Error>({
+  return useQuery<Account, Error>({
     queryKey: ['account', accountId],
-    queryFn: () => userApi.getUser(accountId),
+    queryFn: () => accountApi.getAccount(accountId),
     enabled: !!accountId,
   });
 }
@@ -22,7 +22,7 @@ export function useCreateAccount() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: (data: CreateUserData) => userApi.createUser(data),
+    mutationFn: (data: CreateAccountData) => accountApi.createAccount(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
       toast({
@@ -45,7 +45,7 @@ export function useUpdateAccount() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: (data: UpdateUserData) => userApi.updateUser(data),
+    mutationFn: (data: UpdateAccountData) => accountApi.updateAccount(data),
     onSuccess: (_, data) => {
       queryClient.invalidateQueries({ queryKey: ['account', data.accountId] });
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
@@ -69,7 +69,7 @@ export function useDeleteAccount() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: (accountId: string) => userApi.deleteUser(accountId),
+    mutationFn: (accountId: string) => accountApi.deleteAccount(accountId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
       toast({
@@ -92,7 +92,7 @@ export function useCreateAdmin() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: (data: CreateUserData) => userApi.createAdmin(data),
+    mutationFn: (data: CreateAccountData) => accountApi.createAdmin(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
       toast({
@@ -115,7 +115,7 @@ export function useCreateTestAccount() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: () => userApi.createTestUser(),
+    mutationFn: () => accountApi.createTestAccount(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
       toast({
