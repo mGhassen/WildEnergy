@@ -193,7 +193,7 @@ export default function AccountsPage() {
 
     // Navigate to account detail page
     const navigateToAccount = (account: Account) => {
-        window.location.href = `/admin/settings/accounts/${account.account_id}`;
+        window.location.href = `/admin/accounts/${account.account_id}`;
     };
 
     function generatePassword(length = 12) {
@@ -741,7 +741,7 @@ export default function AccountsPage() {
                                                     </div>
                                                     <p className="text-sm text-muted-foreground truncate mb-2">{account.email}</p>
                                                     
-                                                    {/* Role badges */}
+                                                    {/* Role badges and status */}
                                                     <div className="flex flex-wrap gap-1 mb-2">
                                                         {account.is_admin && (
                                                             <Badge className={`${getRoleColor('admin')} text-xs`}>
@@ -761,14 +761,14 @@ export default function AccountsPage() {
                                                                 Trainer
                                                             </Badge>
                                                         )}
-                                                    </div>
-                                                    
-                                                    {/* Status and date */}
-                                                    <div className="flex items-center justify-between">
                                                         <Badge className={`${getStatusColor(account.account_status)} text-xs`}>
                                                             {getStatusIcon(account.account_status)}
                                                             <span className="ml-1 capitalize">{account.account_status}</span>
                                                         </Badge>
+                                                    </div>
+                                                    
+                                                    {/* Date */}
+                                                    <div className="flex items-center justify-end">
                                                         <p className="text-xs text-muted-foreground">
                                                             {account.created_at ? formatDate(account.created_at) : 'N/A'}
                                                         </p>

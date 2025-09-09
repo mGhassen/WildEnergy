@@ -171,7 +171,7 @@ export default function AccountDetailPage() {
         
         deleteAccountMutation.mutate(account.account_id, {
             onSuccess: () => {
-                router.push('/admin/settings/accounts');
+                router.push('/admin/accounts');
             }
         });
     };
@@ -258,7 +258,7 @@ export default function AccountDetailPage() {
         return (
             <div className="space-y-6">
                 <div className="flex items-center space-x-4">
-                    <Button variant="ghost" size="icon" onClick={() => router.push('/admin/settings/accounts')}>
+                    <Button variant="ghost" size="icon" onClick={() => router.push('/admin/accounts')}>
                         <ArrowLeft className="w-4 h-4" />
                     </Button>
                     <h1 className="text-2xl font-bold">Account Not Found</h1>
@@ -268,7 +268,7 @@ export default function AccountDetailPage() {
                         <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
                         <h3 className="text-lg font-semibold mb-2">Account not found</h3>
                         <p className="text-muted-foreground mb-4">The requested account could not be found.</p>
-                        <Button onClick={() => router.push('/admin/settings/accounts')}>
+                        <Button onClick={() => router.push('/admin/accounts')}>
                             Back to Accounts
                         </Button>
                     </CardContent>
@@ -282,7 +282,7 @@ export default function AccountDetailPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
-                    <Button variant="ghost" size="icon" onClick={() => router.push('/admin/settings/accounts')}>
+                    <Button variant="ghost" size="icon" onClick={() => router.push('/admin/accounts')}>
                         <ArrowLeft className="w-4 h-4" />
                     </Button>
                     <div>
