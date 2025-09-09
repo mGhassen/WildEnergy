@@ -326,17 +326,17 @@ export default function CreateAccountPage() {
                                                             </SelectTrigger>
                                                         </FormControl>
                                                         <SelectContent>
-                                                            <SelectItem value="active" className="flex items-center gap-2">
-                                                                <CheckCircle className="w-4 h-4 text-green-500" />
-                                                                Active - Can log in immediately
+                                                            <SelectItem value="active" className="flex items-center gap-3 py-2">
+                                                                <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                                                                <span>Active - Can log in immediately</span>
                                                             </SelectItem>
-                                                            <SelectItem value="pending" className="flex items-center gap-2">
-                                                                <AlertCircle className="w-4 h-4 text-yellow-500" />
-                                                                Pending - Needs approval
+                                                            <SelectItem value="pending" className="flex items-center gap-3 py-2">
+                                                                <AlertCircle className="w-4 h-4 text-yellow-500 flex-shrink-0" />
+                                                                <span>Pending - Needs approval</span>
                                                             </SelectItem>
-                                                            <SelectItem value="suspended" className="flex items-center gap-2">
-                                                                <AlertCircle className="w-4 h-4 text-red-500" />
-                                                                Suspended - Temporarily disabled
+                                                            <SelectItem value="suspended" className="flex items-center gap-3 py-2">
+                                                                <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                                                                <span>Suspended - Temporarily disabled</span>
                                                             </SelectItem>
                                                         </SelectContent>
                                                     </Select>
@@ -369,13 +369,13 @@ export default function CreateAccountPage() {
                                                             </SelectTrigger>
                                                         </FormControl>
                                                         <SelectContent>
-                                                            <SelectItem value="invite" className="flex items-center gap-2">
-                                                                <Mail className="w-4 h-4 text-blue-500" />
-                                                                Send Invitation Email
+                                                            <SelectItem value="invite" className="flex items-center gap-3 py-2">
+                                                                <Mail className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                                                                <span>Send Invitation Email</span>
                                                             </SelectItem>
-                                                            <SelectItem value="password" className="flex items-center gap-2">
-                                                                <Key className="w-4 h-4 text-green-500" />
-                                                                Set Password Directly
+                                                            <SelectItem value="password" className="flex items-center gap-3 py-2">
+                                                                <Key className="w-4 h-4 text-green-500 flex-shrink-0" />
+                                                                <span>Set Password Directly</span>
                                                             </SelectItem>
                                                         </SelectContent>
                                                     </Select>
