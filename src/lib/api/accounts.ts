@@ -1,6 +1,6 @@
 import { apiRequest } from '@/lib/queryClient';
 
-export interface User {
+export interface Account {
   account_id: string;
   email: string;
   account_status: string;
@@ -31,7 +31,7 @@ export interface User {
   accessible_portals: string[];
 }
 
-export interface CreateUserData {
+export interface CreateAccountData {
   email: string;
   password?: string;
   firstName: string;
@@ -50,7 +50,7 @@ export interface CreateUserData {
   };
 }
 
-export interface UpdateUserData {
+export interface UpdateAccountData {
   accountId: string;
   profileData?: {
     firstName?: string;
@@ -82,32 +82,32 @@ export interface UpdateUserData {
   };
 }
 
-export const userApi = {
-  async getUsers(): Promise<User[]> {
+export const accountApi = {
+  async getAccounts(): Promise<Account[]> {
     return apiRequest('GET', '/api/admin/users');
   },
 
-  async getUser(accountId: string): Promise<User> {
+  async getAccount(accountId: string): Promise<Account> {
     return apiRequest('GET', `/api/admin/users/${accountId}`);
   },
 
-  async createUser(data: CreateUserData): Promise<User> {
+  async createAccount(data: CreateAccountData): Promise<Account> {
     return apiRequest('POST', '/api/admin/users', data);
   },
 
-  async updateUser(data: UpdateUserData): Promise<User> {
+  async updateAccount(data: UpdateAccountData): Promise<Account> {
     return apiRequest('PUT', '/api/admin/users', data);
   },
 
-  async deleteUser(accountId: string): Promise<void> {
+  async deleteAccount(accountId: string): Promise<void> {
     return apiRequest('DELETE', '/api/admin/users', { accountId });
   },
 
-  async createAdmin(data: CreateUserData): Promise<User> {
+  async createAdmin(data: CreateAccountData): Promise<Account> {
     return apiRequest('POST', '/api/create-admin', data);
   },
 
-  async createTestUser(): Promise<User> {
+  async createTestAccount(): Promise<Account> {
     return apiRequest('POST', '/api/create-test-user');
   }
 };
