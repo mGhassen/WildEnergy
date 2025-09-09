@@ -183,6 +183,22 @@ export default function AdminCategories() {
             data: error.data,
             classes: error.classes
           });
+          
+          // Show detailed error message with classes that are using this category
+          if (error.status === 400 && error.classes && error.classes.length > 0) {
+            const classNames = error.classes.map((cls: any) => cls.name).join(', ');
+            toast({
+              title: "Cannot delete category",
+              description: `This category is being used by the following classes: ${classNames}. Please reassign or delete these classes first.`,
+              variant: "destructive",
+            });
+          } else {
+            toast({
+              title: "Error",
+              description: error.message || "Failed to delete category",
+              variant: "destructive",
+            });
+          }
         }
       });
     }
@@ -397,29 +413,21 @@ export default function AdminCategories() {
               <AlertDialogTitle>Delete Category</AlertDialogTitle>
               <AlertDialogDescription>
                 Are you sure you want to delete the category &quot;{deletingCategory?.name}&quot;?
-                {linkedClasses.length > 0 && (
-                  <span className="block mt-2 text-amber-600 dark:text-amber-400">
-                    This category is currently linked to {linkedClasses.length} class{linkedClasses.length !== 1 ? 'es' : ''}. 
-                    The classes will be unlinked and remain without a category assignment.
-                  </span>
-                )}
               </AlertDialogDescription>
             </AlertDialogHeader>
+            
             {linkedClasses.length > 0 && (
-              <div className="my-4">
-                <p className="text-sm font-medium mb-2">Linked classes that will be unlinked:</p>
-                <div className="space-y-2 max-h-32 overflow-y-auto">
+              <div className="my-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md">
+                <div className="text-amber-800 dark:text-amber-200 font-medium">
+                  ⚠️ This category is currently used by {linkedClasses.length} class{linkedClasses.length !== 1 ? 'es' : ''}:
+                </div>
+                <ul className="mt-2 text-sm text-amber-700 dark:text-amber-300">
                   {linkedClasses.map((cls: AdminClass) => (
-                    <div key={cls.id} className="flex items-center justify-between p-2 bg-muted rounded">
-                      <div>
-                        <p className="text-sm font-medium">{cls.name}</p>
-                        <p className="text-xs text-muted-foreground">{cls.description || 'No description'}</p>
-                      </div>
-                      <Badge variant="outline" className="text-xs">
-                        Class #{cls.id}
-                      </Badge>
-                    </div>
+                    <li key={cls.id}>• {cls.name}</li>
                   ))}
+                </ul>
+                <div className="mt-2 text-sm text-amber-700 dark:text-amber-300">
+                  <strong>Deletion will be blocked</strong> to maintain data integrity. Please reassign or delete these classes first.
                 </div>
               </div>
             )}
@@ -436,9 +444,10 @@ export default function AdminCategories() {
               </AlertDialogCancel>
               <AlertDialogAction
                 onClick={confirmDelete}
-                className="bg-red-600 hover:bg-red-700"
+                className={linkedClasses.length > 0 ? "bg-amber-600 hover:bg-amber-700" : "bg-red-600 hover:bg-red-700"}
+                disabled={linkedClasses.length > 0}
               >
-                Delete Category
+                {linkedClasses.length > 0 ? "Cannot Delete (Has Classes)" : "Delete Category"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
