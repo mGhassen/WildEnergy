@@ -11,7 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { User, Mail, Phone, MapPin, Briefcase, Calendar, LogOut, Sun, Moon } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
-import { useUpdateUser } from "@/hooks/useUsers";
+import { useProfile, useUpdateProfile } from "@/hooks/useProfile";
+import { useMemberOnboarding, useUpdateMemberOnboarding } from "@/hooks/useMemberOnboarding";
 import { FormSkeleton } from "@/components/skeletons";
 
 interface PersonalInfoForm {
@@ -29,7 +30,15 @@ export default function PersonalInfoOnboarding() {
   const router = useRouter();
   const { toast } = useToast();
   const { theme, toggleTheme } = useTheme();
-  const updateUserMutation = useUpdateUser();
+  
+  // Get member ID from user
+  const memberId = user?.member_id;
+  
+  // Fetch profile and onboarding data
+  const { data: profile, isLoading: profileLoading } = useProfile(memberId || '');
+  const { data: onboarding } = useMemberOnboarding(memberId || '');
+  const updateProfileMutation = useUpdateProfile();
+  const updateOnboardingMutation = useUpdateMemberOnboarding();
   
   const [formData, setFormData] = useState<PersonalInfoForm>({
     firstName: "",
@@ -41,24 +50,22 @@ export default function PersonalInfoOnboarding() {
     email: "",
   });
 
-  // Initialize form with user data from database
+  // Initialize form with profile data from database
   useEffect(() => {
-    console.log('User data in personal info:', user);
-    if (user) {
+    if (profile) {
       const baseData = {
-        firstName: user.firstName || "",
-        lastName: user.lastName || "",
-        age: user.age || 0,
-        profession: user.profession || "",
-        address: user.address || "",
-        phone: user.phone || "",
-        email: user.email || "",
+        firstName: profile.first_name || "",
+        lastName: profile.last_name || "",
+        age: profile.date_of_birth ? new Date().getFullYear() - new Date(profile.date_of_birth).getFullYear() : 0,
+        profession: profile.profession || "",
+        address: profile.address || "",
+        phone: profile.phone || "",
+        email: user?.email || "", // Email comes from account, not profile
       };
 
-      console.log('Setting form data with:', baseData);
       setFormData(baseData);
     }
-  }, [user]);
+  }, [profile, user]);
 
   const handleInputChange = (field: keyof PersonalInfoForm, value: string | number) => {
     setFormData(prev => ({
@@ -139,32 +146,41 @@ export default function PersonalInfoOnboarding() {
     
     if (!validateForm()) return;
     
-    if (!user?.id) {
+    if (!accountId || !memberId) {
       toast({
         title: "Erreur",
-        description: "Utilisateur non trouvé",
+        description: "Compte ou membre non trouvé",
         variant: "destructive",
       });
       return;
     }
 
-    const updateData = {
+    // Calculate date of birth from age
+    const currentYear = new Date().getFullYear();
+    const birthYear = currentYear - formData.age;
+    const dateOfBirth = `${birthYear}-01-01`; // Approximate date
+
+    const profileData = {
       first_name: formData.firstName,
       last_name: formData.lastName,
-      age: formData.age,
+      date_of_birth: dateOfBirth,
       profession: formData.profession,
       address: formData.address,
       phone: formData.phone,
-      email: formData.email
     };
 
-    updateUserMutation.mutate({ userId: user.id, data: updateData }, {
+    // Update profile
+    updateProfileMutation.mutate({ accountId, data: profileData }, {
       onSuccess: () => {
-        toast({
-          title: "Succès",
-          description: "Informations personnelles sauvegardées",
+        // Mark personal info as completed in onboarding
+        updateOnboardingMutation.mutate({ 
+          memberId, 
+          data: { personal_info_completed: true } 
+        }, {
+          onSuccess: () => {
+            router.push("/member/onboarding/terms");
+          }
         });
-        router.push("/member/onboarding/terms");
       },
       onError: (error: any) => {
         toast({
@@ -185,7 +201,7 @@ export default function PersonalInfoOnboarding() {
   };
 
   // Show loading while user data is being fetched
-  if (isLoading) {
+  if (isLoading || profileLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center p-4">
         <div className="w-full max-w-2xl">
@@ -363,8 +379,8 @@ export default function PersonalInfoOnboarding() {
             </div>
             
             <div className="flex justify-end pt-4">
-              <Button type="submit" disabled={updateUserMutation.isPending} className="w-full md:w-auto">
-                {updateUserMutation.isPending ? "Enregistrement..." : "Continuer"}
+              <Button type="submit" disabled={updateProfileMutation.isPending || updateOnboardingMutation.isPending} className="w-full md:w-auto">
+                {(updateProfileMutation.isPending || updateOnboardingMutation.isPending) ? "Enregistrement..." : "Continuer"}
               </Button>
             </div>
           </form>

@@ -11,7 +11,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useToast } from "@/hooks/use-toast";
 import { FileText, CheckCircle, AlertCircle, LogOut, Sun, Moon } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
-import { useUpdateUser } from "@/hooks/useUsers";
+import { useMemberOnboarding, useAcceptTerms } from "@/hooks/useMemberOnboarding";
 import { FormSkeleton } from "@/components/skeletons";
 
 export default function TermsOnboarding() {
@@ -19,7 +19,13 @@ export default function TermsOnboarding() {
   const router = useRouter();
   const { toast } = useToast();
   const { theme, toggleTheme } = useTheme();
-  const updateUserMutation = useUpdateUser();
+  
+  // Get member ID from user
+  const memberId = user?.member_id;
+  
+  // Fetch onboarding data
+  const { data: onboarding, isLoading: onboardingLoading } = useMemberOnboarding(memberId || '');
+  const acceptTermsMutation = useAcceptTerms();
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [termsContent, setTermsContent] = useState("");
   const [isLoadingTerms, setIsLoadingTerms] = useState(true);
@@ -38,10 +44,10 @@ export default function TermsOnboarding() {
     // Load terms content from markdown file
     const loadTerms = async () => {
       try {
-        const response = await fetch("/general-conditions.md");
+        const response = await fetch("/api/terms");
         if (response.ok) {
-          const content = await response.text();
-          setTermsContent(content);
+          const termsData = await response.json();
+          setTermsContent(termsData.content);
         } else {
           throw new Error("Impossible de charger les conditions générales");
         }
@@ -102,7 +108,7 @@ export default function TermsOnboarding() {
   };
 
   // Show loading while user data is being fetched
-  if (isLoading || !user) {
+  if (isLoading || !user || onboardingLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center p-4">
         <div className="w-full max-w-2xl">
@@ -126,21 +132,16 @@ export default function TermsOnboarding() {
       return;
     }
 
-    if (!user?.id) {
+    if (!memberId) {
       toast({
         title: "Erreur",
-        description: "Utilisateur non trouvé",
+        description: "Membre non trouvé",
         variant: "destructive",
       });
       return;
     }
 
-    const updateData = {
-      terms_accepted: true,
-      onboarding_completed: true
-    };
-
-    updateUserMutation.mutate({ userId: user.id, data: updateData }, {
+    acceptTermsMutation.mutate({ memberId }, {
       onSuccess: () => {
         // Clear all onboarding data from localStorage
         localStorage.removeItem('onboarding-personal-info');
@@ -291,7 +292,7 @@ export default function TermsOnboarding() {
             <Button
               variant="outline"
               onClick={() => router.back()}
-              disabled={updateUserMutation.isPending}
+              disabled={acceptTermsMutation.isPending}
             >
               Retour
             </Button>
@@ -301,10 +302,10 @@ export default function TermsOnboarding() {
                   <div>
                     <Button
                       onClick={handleAcceptTerms}
-                      disabled={!termsAccepted || !hasScrolledToBottom || updateUserMutation.isPending}
+                      disabled={!termsAccepted || !hasScrolledToBottom || acceptTermsMutation.isPending}
                       className="min-w-[200px]"
                     >
-                      {updateUserMutation.isPending ? (
+                      {acceptTermsMutation.isPending ? (
                         "Finalisation..."
                       ) : (
                         <>
@@ -315,7 +316,7 @@ export default function TermsOnboarding() {
                     </Button>
                   </div>
                 </TooltipTrigger>
-                {(!termsAccepted || !hasScrolledToBottom) && !updateUserMutation.isPending && (
+                {(!termsAccepted || !hasScrolledToBottom) && !acceptTermsMutation.isPending && (
                   <TooltipContent>
                     <p>
                       {!hasScrolledToBottom 

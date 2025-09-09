@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 
 export interface User {
   id: string;
+  account_id: string;
   email: string;
   firstName?: string;
   lastName?: string;
@@ -18,6 +19,8 @@ export interface User {
   credit?: number;
   userType?: string;
   accessiblePortals?: string[];
+  member_id?: string;
+  trainer_id?: string;
 }
 
 interface AuthState {
