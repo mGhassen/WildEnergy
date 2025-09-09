@@ -84,6 +84,8 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     const updates = await request.json();
     
     console.log('Category update request:', { id, updates });
+    console.log('groupId value:', updates.groupId, 'type:', typeof updates.groupId);
+    console.log('group_id value:', updates.group_id, 'type:', typeof updates.group_id);
 
     // Convert camelCase to snake_case for database
     const dbUpdates: any = {};
@@ -91,8 +93,15 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     if (updates.description !== undefined) dbUpdates.description = updates.description;
     if (updates.color !== undefined) dbUpdates.color = updates.color;
     if (updates.isActive !== undefined) dbUpdates.is_active = updates.isActive;
+    // Handle both groupId (camelCase) and group_id (snake_case)
+    if (updates.hasOwnProperty('groupId')) {
+      dbUpdates.group_id = updates.groupId;
+    } else if (updates.hasOwnProperty('group_id')) {
+      dbUpdates.group_id = updates.group_id;
+    }
     
     console.log('Database updates:', dbUpdates);
+    console.log('group_id value being set:', dbUpdates.group_id);
 
     const { data: category, error } = await supabaseServer()
       .from('categories')

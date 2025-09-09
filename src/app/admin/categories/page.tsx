@@ -59,7 +59,7 @@ const categoryFormSchema = z.object({
   description: z.string().optional(),
   color: z.string().optional(),
   isActive: z.boolean(),
-  groupId: z.union([z.number(), z.null(), z.undefined()]).optional(),
+  groupId: z.union([z.number(), z.null()]).optional(),
 });
 
 type CategoryFormData = z.infer<typeof categoryFormSchema>;
@@ -117,18 +117,25 @@ export default function AdminCategories() {
   const onSubmit = (data: CategoryFormData) => {
     console.log('Form submitted:', { data, editingCategory });
     console.log('groupId in form data:', data.groupId, 'type:', typeof data.groupId);
+    console.log('Form values:', form.getValues());
+    
     if (editingCategory) {
       console.log('Calling update mutation with:', { categoryId: editingCategory.id, data });
       updateMutation.mutate({ categoryId: editingCategory.id, data }, {
         onSuccess: () => {
+          console.log('Update successful');
           setIsCreateDialogOpen(false);
           setEditingCategory(null);
           form.reset();
+        },
+        onError: (error) => {
+          console.error('Update error:', error);
         }
       });
     } else {
       createMutation.mutate(data, {
         onSuccess: () => {
+          console.log('Create successful');
           setIsCreateDialogOpen(false);
           setEditingCategory(null);
           form.reset();
@@ -146,6 +153,7 @@ export default function AdminCategories() {
       isActive: category.isActive,
       groupId: (category as any).group_id ?? null,
     });
+    setIsCreateDialogOpen(true);
   };
 
   const handleDelete = (category: CategoryWithUI) => {
@@ -303,10 +311,13 @@ export default function AdminCategories() {
                         onValueChange={(value) => {
                           console.log('Select onValueChange:', value, 'current field.value:', field.value);
                           if (value === "none") {
+                            console.log('Setting groupId to null');
                             field.onChange(null);
                           } else {
+                            console.log('Setting groupId to:', Number(value));
                             field.onChange(Number(value));
                           }
+                          console.log('Field value after change:', field.value);
                         }} 
                         value={field.value === null || field.value === undefined ? "none" : field.value.toString()}
                       >

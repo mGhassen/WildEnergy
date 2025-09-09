@@ -53,13 +53,15 @@ export const categoryApi = {
   },
 
   async updateCategory(categoryId: number, data: UpdateCategoryData): Promise<Category> {
-    const apiData = {
-      name: data.name,
-      description: data.description,
-      color: data.color,
-      is_active: data.isActive,
-      group_id: data.groupId,
-    };
+    const apiData: any = {};
+    if (data.name !== undefined) apiData.name = data.name;
+    if (data.description !== undefined) apiData.description = data.description;
+    if (data.color !== undefined) apiData.color = data.color;
+    if (data.isActive !== undefined) apiData.is_active = data.isActive;
+    // Always include groupId, even if it's null or undefined
+    apiData.group_id = data.groupId;
+    
+    console.log('API update data:', apiData);
     return apiRequest('PATCH', `/api/admin/categories/${categoryId}`, apiData);
   },
 
