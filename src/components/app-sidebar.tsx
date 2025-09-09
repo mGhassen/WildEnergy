@@ -115,7 +115,7 @@ const data = {
       items: [
         {
           title: "Accounts",
-          url: "/admin/settings/accounts",
+          url: "/admin/accounts",
         },
         {
           title: "Categories",
