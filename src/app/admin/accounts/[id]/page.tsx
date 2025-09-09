@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { 
@@ -40,7 +41,8 @@ import {
     Star,
     FileText,
     Users,
-    Settings
+    Settings,
+    MoreHorizontal
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
@@ -294,23 +296,77 @@ export default function AccountDetailPage() {
                 </div>
                 <div className="flex items-center space-x-2">
                     {!isEditing ? (
-                        <>
-                            <Button variant="outline" onClick={() => setIsEditing(true)}>
-                                <Edit className="w-4 h-4 mr-2" />
-                                Edit Account
-                            </Button>
-                            <Button variant="outline" onClick={() => setSettingPasswordAccount(account)}>
-                                <Key className="w-4 h-4 mr-2" />
-                                Set Password
-                            </Button>
-                            <Button 
-                                variant="destructive" 
-                                onClick={() => setDeletingAccount(account)}
-                            >
-                                <Trash2 className="w-4 h-4 mr-2" />
-                                Delete
-                            </Button>
-                        </>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline">
+                                    <MoreHorizontal className="w-4 h-4 mr-2" />
+                                    Actions
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => setIsEditing(true)}>
+                                    <Edit className="w-4 h-4 mr-2" />
+                                    Edit Account
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setSettingPasswordAccount(account)}>
+                                    <Key className="w-4 h-4 mr-2" />
+                                    Set Password
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => {
+                                    // TODO: Implement reset password
+                                    toast({
+                                        title: "Feature coming soon",
+                                        description: "Password reset functionality will be available soon.",
+                                    });
+                                }}>
+                                    <Mail className="w-4 h-4 mr-2" />
+                                    Reset Password
+                                </DropdownMenuItem>
+                                {!account.confirmed_at && (
+                                    <DropdownMenuItem onClick={() => {
+                                        // TODO: Implement resend invitation
+                                        toast({
+                                            title: "Feature coming soon",
+                                            description: "Resend invitation functionality will be available soon.",
+                                        });
+                                    }}>
+                                        <Mail className="w-4 h-4 mr-2" />
+                                        Resend Invitation
+                                    </DropdownMenuItem>
+                                )}
+                                {account.account_status !== 'archived' && (
+                                    <DropdownMenuItem onClick={() => {
+                                        // TODO: Implement archive functionality
+                                        toast({
+                                            title: "Feature coming soon",
+                                            description: "Archive functionality will be available soon.",
+                                        });
+                                    }}>
+                                        <Archive className="w-4 h-4 mr-2" />
+                                        Archive Account
+                                    </DropdownMenuItem>
+                                )}
+                                {account.account_status !== 'suspended' && (
+                                    <DropdownMenuItem onClick={() => {
+                                        // TODO: Implement suspend functionality
+                                        toast({
+                                            title: "Feature coming soon",
+                                            description: "Suspend functionality will be available soon.",
+                                        });
+                                    }}>
+                                        <XCircle className="w-4 h-4 mr-2" />
+                                        Suspend Account
+                                    </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem
+                                    onClick={() => setDeletingAccount(account)}
+                                    className="text-red-600"
+                                >
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    Delete Account
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     ) : (
                         <>
                             <Button variant="outline" onClick={() => setIsEditing(false)}>
@@ -497,50 +553,24 @@ export default function AccountDetailPage() {
                         </CardContent>
                     </Card>
 
-                    {/* Roles and Permissions */}
+                    {/* Account Status & Roles */}
                     <Card>
                         <CardHeader>
                             <CardTitle className="flex items-center space-x-2">
                                 <Shield className="w-5 h-5" />
-                                <span>Roles & Permissions</span>
+                                <span>Account Status & Roles</span>
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="flex items-center space-x-4">
-                                <div className="flex items-center space-x-2">
-                                    <Checkbox
-                                        id="isAdmin"
-                                        checked={isEditing ? editForm.isAdmin : account.is_admin}
-                                        onCheckedChange={isEditing ? (checked) => setEditForm({...editForm, isAdmin: !!checked}) : undefined}
-                                        disabled={!isEditing}
-                                    />
-                                    <Label htmlFor="isAdmin" className="flex items-center space-x-2">
-                                        <Crown className="w-4 h-4 text-purple-600" />
-                                        <span>Administrator</span>
-                                    </Label>
-                                </div>
-                                {account.member_id && (
-                                    <div className="flex items-center space-x-2">
-                                        <User className="w-4 h-4 text-blue-600" />
-                                        <span className="text-sm font-medium">Member</span>
-                                    </div>
-                                )}
-                                {account.trainer_id && (
-                                    <div className="flex items-center space-x-2">
-                                        <GraduationCap className="w-4 h-4 text-green-600" />
-                                        <span className="text-sm font-medium">Trainer</span>
-                                    </div>
-                                )}
-                            </div>
-
+                        <CardContent className="space-y-6">
+                            {/* Account Status */}
                             <div>
-                                <Label htmlFor="accountStatus">Account Status</Label>
+                                <Label htmlFor="accountStatus" className="text-base font-medium">Account Status</Label>
                                 {isEditing ? (
                                     <Select
                                         value={editForm.accountStatus}
                                         onValueChange={(value) => setEditForm({...editForm, accountStatus: value})}
                                     >
-                                        <SelectTrigger>
+                                        <SelectTrigger className="mt-2">
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -552,19 +582,92 @@ export default function AccountDetailPage() {
                                     </Select>
                                 ) : (
                                     <div className="mt-2">
-                                        <Badge className={`${getStatusColor(account.account_status)} text-xs`}>
+                                        <Badge className={`${getStatusColor(account.account_status)} text-sm px-3 py-1`}>
                                             {getStatusIcon(account.account_status)}
-                                            <span className="ml-1 capitalize">{account.account_status}</span>
+                                            <span className="ml-2 capitalize">{account.account_status}</span>
                                         </Badge>
                                     </div>
                                 )}
                             </div>
 
+                            {/* Roles */}
                             <div>
-                                <Label>Accessible Portals</Label>
+                                <Label className="text-base font-medium">Roles & Permissions</Label>
+                                <div className="mt-3 space-y-4">
+                                    {/* Admin Role */}
+                                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                                        <div className="flex items-center space-x-3">
+                                            <Crown className="w-5 h-5 text-purple-600" />
+                                            <div>
+                                                <p className="font-medium">Administrator</p>
+                                                <p className="text-sm text-muted-foreground">Full system access and admin privileges</p>
+                                            </div>
+                                        </div>
+                                        {isEditing ? (
+                                            <Checkbox
+                                                id="isAdmin"
+                                                checked={editForm.isAdmin}
+                                                onCheckedChange={(checked) => setEditForm({...editForm, isAdmin: !!checked})}
+                                            />
+                                        ) : (
+                                            <Badge variant={account.is_admin ? "default" : "secondary"}>
+                                                {account.is_admin ? "Enabled" : "Disabled"}
+                                            </Badge>
+                                        )}
+                                    </div>
+
+                                    {/* Member Role */}
+                                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                                        <div className="flex items-center space-x-3">
+                                            <User className="w-5 h-5 text-blue-600" />
+                                            <div>
+                                                <p className="font-medium">Member</p>
+                                                <p className="text-sm text-muted-foreground">Gym membership and class access</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                            <Badge variant={account.member_id ? "default" : "secondary"}>
+                                                {account.member_id ? "Enabled" : "Not Assigned"}
+                                            </Badge>
+                                            {account.member_id && account.member_status && (
+                                                <Badge className={`${getStatusColor(account.member_status)} text-xs`}>
+                                                    {getStatusIcon(account.member_status)}
+                                                    <span className="ml-1 capitalize">{account.member_status}</span>
+                                                </Badge>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Trainer Role */}
+                                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                                        <div className="flex items-center space-x-3">
+                                            <GraduationCap className="w-5 h-5 text-green-600" />
+                                            <div>
+                                                <p className="font-medium">Trainer</p>
+                                                <p className="text-sm text-muted-foreground">Class instruction and member training</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                            <Badge variant={account.trainer_id ? "default" : "secondary"}>
+                                                {account.trainer_id ? "Enabled" : "Not Assigned"}
+                                            </Badge>
+                                            {account.trainer_id && account.trainer_status && (
+                                                <Badge className={`${getStatusColor(account.trainer_status)} text-xs`}>
+                                                    {getStatusIcon(account.trainer_status)}
+                                                    <span className="ml-1 capitalize">{account.trainer_status}</span>
+                                                </Badge>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Accessible Portals */}
+                            <div>
+                                <Label className="text-base font-medium">Accessible Portals</Label>
                                 <div className="flex flex-wrap gap-2 mt-2">
                                     {account.accessible_portals?.map((portal) => (
-                                        <Badge key={portal} variant="outline" className="text-xs">
+                                        <Badge key={portal} variant="outline" className="text-sm px-3 py-1">
                                             {portal === 'admin' && <Crown className="w-3 h-3 mr-1" />}
                                             {portal === 'member' && <User className="w-3 h-3 mr-1" />}
                                             {portal === 'trainer' && <GraduationCap className="w-3 h-3 mr-1" />}
@@ -618,9 +721,9 @@ export default function AccountDetailPage() {
                                     </div>
                                 </div>
 
-                                <div>
-                                    <Label htmlFor="memberStatus">Member Status</Label>
-                                    {isEditing ? (
+                                {isEditing && (
+                                    <div>
+                                        <Label htmlFor="memberStatus">Member Status</Label>
                                         <Select
                                             value={editForm.memberStatus}
                                             onValueChange={(value) => setEditForm({...editForm, memberStatus: value})}
@@ -634,15 +737,8 @@ export default function AccountDetailPage() {
                                                 <SelectItem value="suspended">Suspended</SelectItem>
                                             </SelectContent>
                                         </Select>
-                                    ) : (
-                                        <div className="mt-2">
-                                            <Badge className={`${getStatusColor(account.member_status || 'inactive')} text-xs`}>
-                                                {getStatusIcon(account.member_status || 'inactive')}
-                                                <span className="ml-1 capitalize">{account.member_status || 'inactive'}</span>
-                                            </Badge>
-                                        </div>
-                                    )}
-                                </div>
+                                    </div>
+                                )}
                             </CardContent>
                         </Card>
                     )}
@@ -730,9 +826,9 @@ export default function AccountDetailPage() {
                                     </div>
                                 </div>
 
-                                <div>
-                                    <Label htmlFor="trainerStatus">Trainer Status</Label>
-                                    {isEditing ? (
+                                {isEditing && (
+                                    <div>
+                                        <Label htmlFor="trainerStatus">Trainer Status</Label>
                                         <Select
                                             value={editForm.trainerStatus}
                                             onValueChange={(value) => setEditForm({...editForm, trainerStatus: value})}
@@ -746,15 +842,8 @@ export default function AccountDetailPage() {
                                                 <SelectItem value="suspended">Suspended</SelectItem>
                                             </SelectContent>
                                         </Select>
-                                    ) : (
-                                        <div className="mt-2">
-                                            <Badge className={`${getStatusColor(account.trainer_status || 'inactive')} text-xs`}>
-                                                {getStatusIcon(account.trainer_status || 'inactive')}
-                                                <span className="ml-1 capitalize">{account.trainer_status || 'inactive'}</span>
-                                            </Badge>
-                                        </div>
-                                    )}
-                                </div>
+                                    </div>
+                                )}
                             </CardContent>
                         </Card>
                     )}
@@ -762,26 +851,6 @@ export default function AccountDetailPage() {
 
                 {/* Sidebar */}
                 <div className="space-y-6">
-                    {/* Account Status */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-lg">Account Status</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="text-center">
-                                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-3">
-                                    <span className="text-2xl font-medium text-primary">
-                                        {getInitials(account.first_name || "", account.last_name || "")}
-                                    </span>
-                                </div>
-                                <Badge className={`${getStatusColor(account.account_status)} text-sm`}>
-                                    {getStatusIcon(account.account_status)}
-                                    <span className="ml-1 capitalize">{account.account_status}</span>
-                                </Badge>
-                            </div>
-                        </CardContent>
-                    </Card>
-
                     {/* Account Information */}
                     <Card>
                         <CardHeader>
@@ -813,52 +882,6 @@ export default function AccountDetailPage() {
                         </CardContent>
                     </Card>
 
-                    {/* Quick Actions */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-lg">Quick Actions</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2">
-                            <Button 
-                                variant="outline" 
-                                className="w-full justify-start"
-                                onClick={() => setSettingPasswordAccount(account)}
-                            >
-                                <Key className="w-4 h-4 mr-2" />
-                                Set Password
-                            </Button>
-                            <Button 
-                                variant="outline" 
-                                className="w-full justify-start"
-                                onClick={() => {
-                                    // TODO: Implement reset password
-                                    toast({
-                                        title: "Feature coming soon",
-                                        description: "Password reset functionality will be available soon.",
-                                    });
-                                }}
-                            >
-                                <Mail className="w-4 h-4 mr-2" />
-                                Reset Password
-                            </Button>
-                            {!account.confirmed_at && (
-                                <Button 
-                                    variant="outline" 
-                                    className="w-full justify-start"
-                                    onClick={() => {
-                                        // TODO: Implement resend invitation
-                                        toast({
-                                            title: "Feature coming soon",
-                                            description: "Resend invitation functionality will be available soon.",
-                                        });
-                                    }}
-                                >
-                                    <Mail className="w-4 h-4 mr-2" />
-                                    Resend Invitation
-                                </Button>
-                            )}
-                        </CardContent>
-                    </Card>
                 </div>
             </div>
 

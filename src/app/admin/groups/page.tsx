@@ -12,6 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertGroupSchema } from "@/shared/zod-schemas";
@@ -75,7 +76,7 @@ export default function AdminGroups() {
       name: data.name,
       description: data.description,
       color: data.color,
-      is_active: data.isActive,
+      isActive: data.isActive,
       categoryIds: data.categoryIds || [],
     };
     if (editingGroup) {
@@ -212,6 +213,26 @@ export default function AdminGroups() {
                         <Input type="color" {...field} />
                       </FormControl>
                       <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="isActive"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                      <div className="space-y-0.5">
+                        <FormLabel className="text-base">Active</FormLabel>
+                        <div className="text-sm text-muted-foreground">
+                          Group is available for use
+                        </div>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
                     </FormItem>
                   )}
                 />
