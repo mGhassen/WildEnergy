@@ -9,7 +9,7 @@ export function useTrainers() {
   });
 }
 
-export function useTrainer(trainerId: number) {
+export function useTrainer(trainerId: string) {
   return useQuery<Trainer, Error>({
     queryKey: ['trainer', trainerId],
     queryFn: () => trainerApi.getTrainer(trainerId),
@@ -45,10 +45,9 @@ export function useUpdateTrainer() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: ({ trainerId, data }: { trainerId: number; data: UpdateTrainerData }) => 
-      trainerApi.updateTrainer(trainerId, data),
-    onSuccess: (_, { trainerId }) => {
-      queryClient.invalidateQueries({ queryKey: ['trainer', trainerId] });
+    mutationFn: (data: UpdateTrainerData) => trainerApi.updateTrainer(data),
+    onSuccess: (_, data) => {
+      queryClient.invalidateQueries({ queryKey: ['trainer', data.trainerId] });
       queryClient.invalidateQueries({ queryKey: ['trainers'] });
       toast({
         title: 'Trainer updated',
@@ -70,7 +69,7 @@ export function useDeleteTrainer() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: (trainerId: number) => trainerApi.deleteTrainer(trainerId),
+    mutationFn: (accountId: string) => trainerApi.deleteTrainer(accountId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['trainers'] });
       toast({

@@ -256,11 +256,11 @@ export default function LoginPage({ searchParams }: { searchParams: Promise<Reco
                 <p className="text-sm text-muted-foreground text-center">
                   Quick Login (Development)
                 </p>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handlePrefilledLogin("admin@wildenergy.gym", "admin123")}
+                    onClick={() => handlePrefilledLogin("admin@wildenergy.tn", "password123")}
                     disabled={isLoading}
                     className="text-xs"
                   >
@@ -276,7 +276,7 @@ export default function LoginPage({ searchParams }: { searchParams: Promise<Reco
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handlePrefilledLogin("member@wildenergy.gym", "member123")}
+                    onClick={() => handlePrefilledLogin("john.member@email.com", "password123")}
                     disabled={isLoading}
                     className="text-xs"
                   >
@@ -287,6 +287,22 @@ export default function LoginPage({ searchParams }: { searchParams: Promise<Reco
                       </>
                     ) : (
                       "Member Login"
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePrefilledLogin("sarah.trainer@wildenergy.tn", "password123")}
+                    disabled={isLoading}
+                    className="text-xs"
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                        Logging in...
+                      </>
+                    ) : (
+                      "Trainer Login"
                     )}
                   </Button>
                 </div>

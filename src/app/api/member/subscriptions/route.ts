@@ -10,9 +10,9 @@ async function getUserFromToken(token: string) {
   const { data: { user }, error } = await supabase.auth.getUser(token);
   if (error || !user) return null;
   const { data: userProfile } = await supabase
-    .from('users')
+    .from('user_profiles')
     .select('id, is_admin')
-    .eq('auth_user_id', user.id)
+    .eq('account_id', user.id)
     .single();
   return userProfile;
 }
@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
           )
         )
       `)
-      .eq('user_id', userProfile.id);
+      .eq('member_id', userProfile.id);
     if (error) {
       return NextResponse.json({ error: 'Failed to fetch subscriptions' }, { status: 500 });
     }

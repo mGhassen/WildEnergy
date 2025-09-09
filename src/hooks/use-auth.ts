@@ -16,6 +16,8 @@ export interface User {
   status?: string;
   role?: 'admin' | 'member';
   credit?: number;
+  userType?: string;
+  accessiblePortals?: string[];
 }
 
 interface AuthState {
@@ -166,10 +168,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       // Only redirect if we're on the root page or login page
       if (currentPath === '/' || currentPath === '/auth/login') {
-        if (user.isAdmin) {
+        // Check accessible portals to determine where to redirect
+        if (user.accessiblePortals?.includes('admin')) {
           router.push('/admin/dashboard');
-        } else if (user.role === 'member' || user.status === 'active') {
+        } else if (user.accessiblePortals?.includes('member')) {
           router.push('/member');
+        } else if (user.accessiblePortals?.includes('trainer')) {
+          router.push('/member'); // Trainers can also access member portal
         } else {
           router.push('/auth/waiting-approval');
         }
@@ -331,7 +336,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const value: AuthState = {
-    user: user ? { ...user, role: user.isAdmin ? 'admin' : 'member' } as User & { role: 'admin' | 'member' } : null,
+    user: user ? { 
+      ...user, 
+      role: user.isAdmin ? 'admin' : 'member' 
+    } as User & { role: 'admin' | 'member' } : null,
     isLoading,
     isAuthenticated: !!user,
     isLoggingIn,

@@ -19,9 +19,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
     const { data: adminCheck } = await supabase
-      .from('users')
+      .from('user_profiles')
       .select('is_admin')
-      .eq('auth_user_id', adminUser.id)
+      .eq('email', adminUser.email)
       .single();
     if (!adminCheck?.is_admin) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
@@ -60,9 +60,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
     const { data: adminCheck } = await supabase
-      .from('users')
+      .from('user_profiles')
       .select('is_admin')
-      .eq('auth_user_id', adminUser.id)
+      .eq('email', adminUser.email)
       .single();
     if (!adminCheck?.is_admin) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });

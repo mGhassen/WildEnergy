@@ -17,9 +17,9 @@ export async function GET(req: NextRequest) {
 
     // Verify user is a member (not admin)
     const { data: userData } = await supabaseServer()
-      .from('users')
-      .select('is_admin')
-      .eq('auth_user_id', user.id)
+      .from('user_profiles')
+      .select('is_admin, accessible_portals')
+      .eq('account_id', user.id)
       .single();
 
     if (userData?.is_admin) {

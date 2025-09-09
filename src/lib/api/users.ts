@@ -1,45 +1,85 @@
 import { apiRequest } from '@/lib/queryClient';
 
 export interface User {
-  id: string;
+  account_id: string;
   email: string;
-  full_name: string;
-  phone?: string;
+  account_status: string;
+  last_login?: string;
   is_admin: boolean;
-  is_member: boolean;
-  is_trainer: boolean;
-  status: string;
-  created_at: string;
-  updated_at: string;
+  first_name?: string;
+  last_name?: string;
+  phone?: string;
+  date_of_birth?: string;
+  address?: string;
+  profession?: string;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
+  profile_image_url?: string;
+  member_id?: string;
+  member_notes?: string;
   credit?: number;
+  member_status?: string;
+  subscription_status?: string;
+  trainer_id?: string;
+  specialization?: string;
+  experience_years?: number;
+  bio?: string;
+  certification?: string;
+  hourly_rate?: number;
+  trainer_status?: string;
+  user_type: string;
+  accessible_portals: string[];
 }
 
 export interface CreateUserData {
   email: string;
-  password: string;
-  full_name: string;
-  phone?: string;
-  is_admin?: boolean;
-  is_member?: boolean;
-  is_trainer?: boolean;
+  password?: string;
+  firstName: string;
+  lastName: string;
+  isAdmin?: boolean;
+  memberData?: {
+    memberNotes?: string;
+    credit?: number;
+  };
+  trainerData?: {
+    specialization?: string;
+    experienceYears?: number;
+    bio?: string;
+    certification?: string;
+    hourlyRate?: number;
+  };
 }
 
 export interface UpdateUserData {
-  full_name?: string;
-  phone?: string;
-  is_admin?: boolean;
-  is_member?: boolean;
-  is_trainer?: boolean;
-  status?: string;
-  credit?: number;
-  first_name?: string;
-  last_name?: string;
-  age?: number;
-  profession?: string;
-  address?: string;
-  email?: string;
-  terms_accepted?: boolean;
-  onboarding_completed?: boolean;
+  accountId: string;
+  profileData?: {
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
+    dateOfBirth?: string;
+    address?: string;
+    profession?: string;
+    emergencyContactName?: string;
+    emergencyContactPhone?: string;
+  };
+  accountData?: {
+    email?: string;
+    status?: string;
+    isAdmin?: boolean;
+  };
+  memberData?: {
+    memberNotes?: string;
+    credit?: number;
+    status?: string;
+  };
+  trainerData?: {
+    specialization?: string;
+    experienceYears?: number;
+    bio?: string;
+    certification?: string;
+    hourlyRate?: number;
+    status?: string;
+  };
 }
 
 export const userApi = {
@@ -47,20 +87,20 @@ export const userApi = {
     return apiRequest('GET', '/api/admin/users');
   },
 
-  async getUser(userId: string): Promise<User> {
-    return apiRequest('GET', `/api/admin/users/${userId}`);
+  async getUser(accountId: string): Promise<User> {
+    return apiRequest('GET', `/api/admin/users/${accountId}`);
   },
 
   async createUser(data: CreateUserData): Promise<User> {
     return apiRequest('POST', '/api/admin/users', data);
   },
 
-  async updateUser(userId: string, data: UpdateUserData): Promise<User> {
-    return apiRequest('PUT', `/api/admin/users/${userId}`, data);
+  async updateUser(data: UpdateUserData): Promise<User> {
+    return apiRequest('PUT', '/api/admin/users', data);
   },
 
-  async deleteUser(userId: string): Promise<void> {
-    return apiRequest('DELETE', `/api/admin/users/${userId}`);
+  async deleteUser(accountId: string): Promise<void> {
+    return apiRequest('DELETE', '/api/admin/users', { accountId });
   },
 
   async createAdmin(data: CreateUserData): Promise<User> {

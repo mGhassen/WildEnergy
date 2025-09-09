@@ -31,9 +31,9 @@ export async function PUT(request: NextRequest) {
     }
     
     const { data: adminCheck } = await supabase
-      .from('users')
+      .from('user_profiles')
       .select('is_admin')
-      .eq('auth_user_id', adminUser.id)
+      .eq('email', adminUser.email)
       .single();
     if (!adminCheck?.is_admin) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
@@ -180,9 +180,9 @@ export async function DELETE(request: NextRequest) {
     }
     
     const { data: adminCheck } = await supabase
-      .from('users')
+      .from('user_profiles')
       .select('is_admin')
-      .eq('auth_user_id', adminUser.id)
+      .eq('email', adminUser.email)
       .single();
     if (!adminCheck?.is_admin) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });

@@ -9,11 +9,11 @@ export function useUsers() {
   });
 }
 
-export function useUser(userId: string) {
+export function useUser(accountId: string) {
   return useQuery<User, Error>({
-    queryKey: ['user', userId],
-    queryFn: () => userApi.getUser(userId),
-    enabled: !!userId,
+    queryKey: ['user', accountId],
+    queryFn: () => userApi.getUser(accountId),
+    enabled: !!accountId,
   });
 }
 
@@ -45,10 +45,9 @@ export function useUpdateUser() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: ({ userId, data }: { userId: string; data: UpdateUserData }) => 
-      userApi.updateUser(userId, data),
-    onSuccess: (_, { userId }) => {
-      queryClient.invalidateQueries({ queryKey: ['user', userId] });
+    mutationFn: (data: UpdateUserData) => userApi.updateUser(data),
+    onSuccess: (_, data) => {
+      queryClient.invalidateQueries({ queryKey: ['user', data.accountId] });
       queryClient.invalidateQueries({ queryKey: ['users'] });
       toast({
         title: 'User updated',
@@ -70,7 +69,7 @@ export function useDeleteUser() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: (userId: string) => userApi.deleteUser(userId),
+    mutationFn: (accountId: string) => userApi.deleteUser(accountId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       toast({

@@ -12,10 +12,10 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    // Get user by email
+    // Get user by email from new user system
     const { data: user, error: userError } = await supabaseServer()
-      .from('users')
-      .select('email, auth_user_id, status')
+      .from('user_profiles')
+      .select('email, account_id, account_status')
       .eq('email', email)
       .single();
 
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
       }, { status: 404 });
     }
 
-    if (!user.auth_user_id) {
+    if (!user.account_id) {
       return NextResponse.json({
         success: false,
         error: 'User has no auth account',
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Check if user is already confirmed in Supabase Auth
-    const { data: authUser, error: authUserError } = await supabaseServer().auth.admin.getUserById(user.auth_user_id);
+    const { data: authUser, error: authUserError } = await supabaseServer().auth.admin.getUserById(user.account_id);
     if (authUserError || !authUser) {
       return NextResponse.json({
         success: false,

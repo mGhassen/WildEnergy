@@ -8,24 +8,24 @@ export async function GET(req: NextRequest) {
     if (!token) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
-    // Verify admin
+    // Verify admin using new user system
     const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
     const { data: adminCheck } = await supabaseServer()
-      .from('users')
-      .select('is_admin')
-      .eq('auth_user_id', adminUser.id)
+      .from('user_profiles')
+      .select('is_admin, accessible_portals')
+      .eq('email', adminUser.email)
       .single();
-    if (!adminCheck?.is_admin) {
+    if (!adminCheck?.is_admin || !adminCheck?.accessible_portals?.includes('admin')) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
-    // Fetch stats
+    // Fetch stats using new user system
     const [{ count: totalUsers }, { count: totalMembers }, { count: totalTrainers }, { count: totalClasses }, { count: totalCheckins }, { data: payments }] = await Promise.all([
-      supabaseServer().from('users').select('*', { count: 'exact', head: true }),
-      supabaseServer().from('users').select('*', { count: 'exact', head: true }).eq('is_member', true),
-      supabaseServer().from('users').select('*', { count: 'exact', head: true }).eq('is_trainer', true),
+      supabaseServer().from('accounts').select('*', { count: 'exact', head: true }),
+      supabaseServer().from('members').select('*', { count: 'exact', head: true }),
+      supabaseServer().from('trainers').select('*', { count: 'exact', head: true }),
       supabaseServer().from('classes').select('*', { count: 'exact', head: true }),
       supabaseServer().from('checkins').select('*', { count: 'exact', head: true }),
       supabaseServer().from('payments').select('*'),

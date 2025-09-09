@@ -17,9 +17,9 @@ export async function GET(req: NextRequest) {
 
     // Check if the user is an admin
     const { data: profile } = await supabaseServer()
-      .from('users')
+      .from('user_profiles')
       .select('is_admin')
-      .eq('auth_user_id', user.id)
+      .eq('email', user.email)
       .single();
 
     if (!profile || !profile.is_admin) {
@@ -156,9 +156,9 @@ export async function POST(req: NextRequest) {
 
     // Check if the user is an admin
     const { data: profile } = await supabaseServer()
-      .from('users')
+      .from('user_profiles')
       .select('is_admin')
-      .eq('auth_user_id', authUser.id)
+      .eq('email', authUser.email)
       .single();
 
     if (!profile || !profile.is_admin) {
@@ -206,7 +206,7 @@ export async function POST(req: NextRequest) {
 
     // Get user and course details
     const { data: memberUser } = await supabaseServer()
-      .from('users')
+      .from('user_profiles')
       .select('*')
       .eq('id', registration.user_id)
       .single();
