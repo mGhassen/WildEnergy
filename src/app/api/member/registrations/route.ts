@@ -5,9 +5,9 @@ async function getUserFromToken(token: string) {
   const { data: { user }, error } = await supabaseServer().auth.getUser(token);
   if (error || !user) return null;
   const { data: userProfile } = await supabaseServer()
-    .from('users')
+    .from('user_profiles')
     .select('*')
-    .eq('auth_user_id', user.id)
+    .eq('account_id', user.id)
     .single();
   return userProfile;
 }
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
     const { data: existing, error: existingError } = await supabaseServer()
       .from('class_registrations')
       .select('*')
-      .eq('user_id', userProfile.id)
+      .eq('member_id', userProfile.id)
       .eq('course_id', courseId)
       .eq('status', 'registered')
       .single();
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
     const { data: activeSubscription, error: subscriptionError } = await supabaseServer()
       .from('subscriptions')
       .select('id, sessions_remaining')
-      .eq('user_id', userProfile.id)
+      .eq('member_id', userProfile.id)
       .eq('status', 'active')
       .gt('sessions_remaining', 0)
       .order('end_date', { ascending: false })

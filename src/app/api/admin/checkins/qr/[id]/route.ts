@@ -35,9 +35,9 @@ export async function GET(
   // 3. Check if the user is an admin
   console.log('Check-in QR API - Checking admin status for user:', user.id);
   const { data: profile, error: profileError } = await supabaseServer()
-    .from('users')
+    .from('user_profiles')
     .select('is_admin')
-    .eq('auth_user_id', user.id)
+    .eq('email', user.email)
     .single();
 
   if (profileError) {

@@ -26,11 +26,11 @@ export async function POST(req: NextRequest) {
       }, { status: 401 });
     }
 
-    // Now get user profile after successful authentication
+    // Now get user profile from new user system by email (since account_id doesn't match auth user ID)
     const { data: userProfile, error: profileError } = await supabaseServer()
-      .from('users')
+      .from('user_profiles')
       .select('*')
-      .eq('auth_user_id', user.id)
+      .eq('email', user.email)
       .single();
 
     if (profileError || !userProfile) {
@@ -41,25 +41,25 @@ export async function POST(req: NextRequest) {
     }
 
     // Check user status after successful authentication
-    if (userProfile.status === 'archived') {
+    if (userProfile.account_status === 'archived') {
       return NextResponse.json({
         success: false,
         error: 'Account is pending admin approval. Please wait for approval before logging in.',
       }, { status: 403 });
     }
-    if (userProfile.status === 'pending') {
+    if (userProfile.account_status === 'pending') {
       return NextResponse.json({
         success: false,
         error: 'Account is pending invitation acceptance. Please check your email and accept the invitation.',
       }, { status: 403 });
     }
-    if (userProfile.status === 'suspended') {
+    if (userProfile.account_status === 'suspended') {
       return NextResponse.json({
         success: false,
         error: 'Account has been suspended. Please contact support.',
       }, { status: 403 });
     }
-    if (userProfile.status !== 'active') {
+    if (userProfile.account_status !== 'active') {
       return NextResponse.json({
         success: false,
         error: 'Account is not active. Please contact support.',
@@ -77,13 +77,15 @@ export async function POST(req: NextRequest) {
       success: true,
       session,
       user: {
-        id: userProfile.id,
+        id: userProfile.account_id,
         email: user.email || '',
         isAdmin: Boolean(userProfile.is_admin),
         firstName: userProfile.first_name || user.email?.split('@')[0] || 'User',
         lastName: userProfile.last_name || '',
-        status: userProfile.status || 'active',
+        status: userProfile.account_status || 'active',
         credit: userProfile.credit ?? 0,
+        userType: userProfile.user_type,
+        accessiblePortals: userProfile.accessible_portals,
       },
     });
   } catch (error: any) {

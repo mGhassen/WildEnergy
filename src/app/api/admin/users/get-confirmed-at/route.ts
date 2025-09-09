@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
     }
     // Find user in users table
     const { data: user, error: userError } = await supabaseServer()
-      .from('users')
+      .from('user_profiles')
       .select('auth_user_id')
       .eq('email', email)
       .single();

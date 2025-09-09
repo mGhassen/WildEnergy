@@ -5,9 +5,9 @@ async function getUserFromToken(token: string) {
   const { data: { user }, error } = await supabaseServer().auth.getUser(token);
   if (error || !user) return null;
   const { data: userProfile } = await supabaseServer()
-    .from('users')
+    .from('user_profiles')
     .select('*')
-    .eq('auth_user_id', user.id)
+    .eq('email', user.email)
     .single();
   return userProfile;
 }
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
 
     // Get all members to validate they exist and are active
     const { data: members, error: membersError } = await supabaseServer()
-      .from('users')
+      .from('user_profiles')
       .select('id, first_name, last_name, email, status, is_member')
       .in('id', memberIds)
       .eq('is_member', true)

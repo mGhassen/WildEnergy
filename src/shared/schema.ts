@@ -3,26 +3,57 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
 
-// Users table - unified user management with Supabase integration
-export const users = pgTable("users", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  authUserId: text("auth_user_id").unique(), // Reference to Supabase auth.users
+// Accounts table - authentication and admin status
+export const accounts = pgTable("accounts", {
+  id: uuid("id").primaryKey(), // Same as Supabase auth.users.id
   email: text("email").notNull().unique(),
+  status: text("status", { enum: ['active', 'pending', 'archived', 'suspended'] }).notNull().default("pending"),
+  isAdmin: boolean("is_admin").notNull().default(false),
+  lastLogin: timestamp("last_login"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Profiles table - personal information
+export const profiles = pgTable("profiles", {
+  id: uuid("id").primaryKey().references(() => accounts.id, { onDelete: "cascade" }),
   firstName: text("first_name"),
   lastName: text("last_name"),
   phone: text("phone"),
   dateOfBirth: timestamp("date_of_birth"),
-  // Role and status management
-  isAdmin: boolean("is_admin").notNull().default(false),
-  isMember: boolean("is_member").notNull().default(true),
-  status: text("status", { enum: ['active', 'pending', 'archived', 'suspended'] }).notNull().default("pending"),
-  subscriptionStatus: text("subscription_status").default("inactive"),
+  address: text("address"),
+  profession: text("profession"),
+  emergencyContactName: text("emergency_contact_name"),
+  emergencyContactPhone: text("emergency_contact_phone"),
   profileImageUrl: text("profile_image_url"),
-  // Member-specific fields (only relevant when isMember = true)
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Members table - member-specific data
+export const members = pgTable("members", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  accountId: uuid("account_id").notNull().references(() => accounts.id, { onDelete: "cascade" }),
+  profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
   memberNotes: text("member_notes"),
-  // Add credit field for member credit system
   credit: numeric("credit").default("0"),
-  // Timestamps
+  status: text("status", { enum: ['active', 'inactive', 'suspended'] }).notNull().default("active"),
+  subscriptionStatus: text("subscription_status").default("inactive"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Trainers table - trainer-specific data
+export const trainers = pgTable("trainers", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  accountId: uuid("account_id").notNull().references(() => accounts.id, { onDelete: "cascade" }),
+  profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  specialization: text("specialization"),
+  experienceYears: integer("experience_years").default(0),
+  bio: text("bio"),
+  certification: text("certification"),
+  hourlyRate: decimal("hourly_rate", { precision: 10, scale: 2 }).default("0"),
+  status: text("status", { enum: ['active', 'inactive', 'suspended'] }).notNull().default("active"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -111,7 +142,7 @@ export const courses = pgTable("courses", {
 export const payments = pgTable("payments", {
   id: serial("id").primaryKey(),
   subscriptionId: integer("subscription_id").references(() => subscriptions.id, { onDelete: "cascade" }).notNull(),
-  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  memberId: uuid("member_id").references(() => members.id, { onDelete: "cascade" }).notNull(),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   paymentType: text("payment_type").notNull().default("cash"),
   paymentStatus: text("payment_status").notNull().default("pending"),
@@ -127,11 +158,10 @@ export const payments = pgTable("payments", {
 // Subscriptions table - updated to remove payment fields
 export const subscriptions = pgTable("subscriptions", {
   id: serial("id").primaryKey(),
-  userId: uuid("user_id").references(() => users.id).notNull(), // Direct reference to users table
+  memberId: uuid("member_id").references(() => members.id).notNull(), // Direct reference to members table
   planId: integer("plan_id").references(() => plans.id).notNull(),
   startDate: timestamp("start_date").notNull(),
   endDate: timestamp("end_date").notNull(),
-  sessionsRemaining: integer("sessions_remaining").notNull(),
   status: text("status").notNull().default("active"), // 'active', 'expired', 'cancelled'
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -141,7 +171,7 @@ export const subscriptions = pgTable("subscriptions", {
 // Class registrations table
 export const classRegistrations = pgTable("class_registrations", {
   id: serial("id").primaryKey(),
-  userId: uuid("user_id").references(() => users.id).notNull(), // Direct reference to users table
+  memberId: uuid("member_id").references(() => members.id).notNull(), // Direct reference to members table
   courseId: integer("course_id").references(() => courses.id).notNull(),
   registrationDate: timestamp("registration_date").defaultNow(),
   qrCode: text("qr_code").notNull().unique(),
@@ -153,7 +183,7 @@ export const classRegistrations = pgTable("class_registrations", {
 // Check-ins table
 export const checkins = pgTable("checkins", {
   id: serial("id").primaryKey(),
-  userId: uuid("user_id").references(() => users.id).notNull(), // Direct reference to users table
+  memberId: uuid("member_id").references(() => members.id).notNull(), // Direct reference to members table
   registrationId: integer("registration_id").references(() => classRegistrations.id).notNull(),
   checkinTime: timestamp("checkin_time").defaultNow(),
   sessionConsumed: boolean("session_consumed").notNull().default(true),

@@ -34,11 +34,11 @@ export async function GET(req: NextRequest) {
 
     console.log('Token validated, user ID:', user.id);
 
-    // Get user profile
+    // Get user profile from new user system by email (since account_id doesn't match auth user ID)
     const { data: userData, error: dbError } = await supabaseServer()
-      .from('users')
+      .from('user_profiles')
       .select('*')
-      .eq('auth_user_id', user.id)
+      .eq('email', user.email)
       .single();
 
     if (dbError) {
@@ -54,24 +54,24 @@ export async function GET(req: NextRequest) {
       }, { status: 404 });
     }
 
-    console.log('User profile found, status:', userData.status);
+    console.log('User profile found, account status:', userData.account_status);
 
     // Status checks
-    if (userData.status === 'archived') {
+    if (userData.account_status === 'archived') {
       return NextResponse.json({
         success: false,
         error: 'Account is pending approval. Please wait for admin approval.',
         status: 'archived',
       }, { status: 403 });
     }
-    if (userData.status === 'pending') {
+    if (userData.account_status === 'pending') {
       return NextResponse.json({
         success: false,
         error: 'Account is pending confirmation. Please check your email for confirmation link.',
         status: 'pending',
       }, { status: 403 });
     }
-    if (userData.status === 'suspended') {
+    if (userData.account_status === 'suspended') {
       return NextResponse.json({
         success: false,
         error: 'Account has been suspended. Please contact support.',
@@ -81,18 +81,20 @@ export async function GET(req: NextRequest) {
 
     // Return user info
     const userResponse = {
-      id: userData.id,
+      id: userData.account_id,
       email: user.email || '',
       isAdmin: Boolean(userData.is_admin),
       firstName: userData.first_name || user.email?.split('@')[0] || 'User',
       lastName: userData.last_name || '',
       phone: userData.phone || '',
-      age: userData.age || 0,
+      age: userData.date_of_birth ? new Date().getFullYear() - new Date(userData.date_of_birth).getFullYear() : 0,
       profession: userData.profession || '',
       address: userData.address || '',
-      status: userData.status || 'active',
+      status: userData.account_status || 'active',
       credit: userData.credit ?? 0,
-      role: userData.is_admin ? 'admin' : 'member',
+      role: userData.user_type === 'admin' || userData.user_type === 'admin_member' || userData.user_type === 'admin_trainer' || userData.user_type === 'admin_member_trainer' ? 'admin' : 'member',
+      userType: userData.user_type,
+      accessiblePortals: userData.accessible_portals,
     };
 
     console.log('Session API returning user:', userResponse.id);

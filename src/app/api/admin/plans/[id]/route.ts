@@ -74,9 +74,9 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
     }
 
     const { data: adminCheck } = await supabase
-      .from('users')
+      .from('user_profiles')
       .select('is_admin')
-      .eq('auth_user_id', adminUser.id)
+      .eq('email', adminUser.email)
       .single();
 
     if (!adminCheck?.is_admin) {
@@ -181,9 +181,9 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
     }
 
     const { data: adminCheck } = await supabase
-      .from('users')
+      .from('user_profiles')
       .select('is_admin')
-      .eq('auth_user_id', adminUser.id)
+      .eq('email', adminUser.email)
       .single();
 
     if (!adminCheck?.is_admin) {

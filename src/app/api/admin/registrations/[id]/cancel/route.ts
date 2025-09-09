@@ -5,9 +5,9 @@ async function getUserFromToken(token: string) {
   const { data: { user }, error } = await supabaseServer().auth.getUser(token);
   if (error || !user) return null;
   const { data: userProfile } = await supabaseServer ()
-    .from('users')
+    .from('user_profiles')
     .select('*')
-    .eq('auth_user_id', user.id)
+    .eq('email', user.email)
     .single();
   return userProfile;
 }

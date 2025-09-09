@@ -17,9 +17,9 @@ export async function GET(req: NextRequest) {
 
     // Check if user is a member
     const { data: userCheck } = await supabaseServer()
-      .from('users')
+      .from('user_profiles')
       .select('is_member, status')
-      .eq('auth_user_id', user.id)
+      .eq('account_id', user.id)
       .single();
 
     if (!userCheck?.is_member || userCheck.status !== 'active') {

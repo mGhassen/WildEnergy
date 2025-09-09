@@ -21,13 +21,12 @@ export async function GET(req: NextRequest) {
         class:classes(id, name, description, category_id, duration, max_capacity),
         trainer:trainers(
           id,
-          user_id,
+          account_id,
           specialization,
           experience_years,
           bio,
           certification,
-          status,
-          user:users(id, first_name, last_name, email)
+          status
         )
       `)
       .order('created_at', { ascending: false });
@@ -50,17 +49,17 @@ export async function POST(req: NextRequest) {
     if (!token) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
-    // Verify admin
+    // Verify admin using new user system
     const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
     const { data: adminCheck } = await supabaseServer()
-      .from('users')
-      .select('is_admin')
-      .eq('auth_user_id', adminUser.id)
+      .from('user_profiles')
+      .select('is_admin, accessible_portals')
+      .eq('email', adminUser.email)
       .single();
-    if (!adminCheck?.is_admin) {
+    if (!adminCheck?.is_admin || !adminCheck?.accessible_portals?.includes('admin')) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
     const courseData = await req.json();

@@ -1,8 +1,8 @@
 import { apiRequest } from '@/lib/queryClient';
 
 export interface Trainer {
-  id: number;
-  user_id: string;
+  id: string; // trainer_id
+  account_id: string;
   first_name: string;
   last_name: string;
   email: string;
@@ -12,6 +12,9 @@ export interface Trainer {
   specialization?: string;
   experience_years?: number;
   certification?: string;
+  hourly_rate?: number;
+  user_type: string;
+  accessible_portals: string[];
 }
 
 export interface CreateTrainerData {
@@ -19,24 +22,26 @@ export interface CreateTrainerData {
   lastName: string;
   email: string;
   phone?: string;
-  bio?: string;
-  status?: string;
   specialization?: string;
-  experience_years?: number;
+  experienceYears?: number;
+  bio?: string;
   certification?: string;
+  hourlyRate?: number;
 }
 
 export interface UpdateTrainerData {
+  trainerId: string;
+  accountId: string;
   firstName?: string;
   lastName?: string;
   email?: string;
   phone?: string;
-  bio?: string;
-  status?: string;
   specialization?: string;
-  experience_years?: number;
+  experienceYears?: number;
+  bio?: string;
   certification?: string;
-  user_id?: string;
+  hourlyRate?: number;
+  status?: string;
 }
 
 export const trainerApi = {
@@ -44,7 +49,7 @@ export const trainerApi = {
     return apiRequest('GET', '/api/admin/trainers');
   },
 
-  async getTrainer(trainerId: number): Promise<Trainer> {
+  async getTrainer(trainerId: string): Promise<Trainer> {
     return apiRequest('GET', `/api/admin/trainers/${trainerId}`);
   },
 
@@ -52,11 +57,11 @@ export const trainerApi = {
     return apiRequest('POST', '/api/admin/trainers', data);
   },
 
-  async updateTrainer(trainerId: number, data: UpdateTrainerData): Promise<Trainer> {
-    return apiRequest('PUT', `/api/admin/trainers/${trainerId}`, data);
+  async updateTrainer(data: UpdateTrainerData): Promise<Trainer> {
+    return apiRequest('PUT', '/api/admin/trainers', data);
   },
 
-  async deleteTrainer(trainerId: number): Promise<void> {
-    return apiRequest('DELETE', `/api/admin/trainers/${trainerId}`);
+  async deleteTrainer(accountId: string): Promise<void> {
+    return apiRequest('DELETE', '/api/admin/trainers', { accountId });
   }
 };

@@ -26,29 +26,29 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
-    // Check if the user is an admin
+    // Check if the user is an admin using new user system
     const { data: profile } = await supabaseServer()
-      .from('users')
-      .select('is_admin')
-      .eq('auth_user_id', authUser.id)
+      .from('user_profiles')
+      .select('is_admin, accessible_portals')
+      .eq('account_id', authUser.id)
       .single();
 
-    if (!profile || !profile.is_admin) {
+    if (!profile || !profile.is_admin || !profile.accessible_portals?.includes('admin')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Get member details
+    // Get member details from new user system
     const { data: member, error: memberError } = await supabaseServer()
-      .from('users')
+      .from('user_profiles')
       .select('*')
-      .eq('id', id)
+      .eq('member_id', id)
       .single();
 
     if (memberError || !member) {
       return NextResponse.json({ error: 'Member not found' }, { status: 404 });
     }
 
-    // Get subscriptions
+    // Get subscriptions using member_id
     const { data: subscriptions } = await supabaseServer()
       .from('subscriptions')
       .select(`
@@ -59,10 +59,10 @@ export async function GET(
           price
         )
       `)
-      .eq('user_id', id)
+      .eq('member_id', id)
       .order('created_at', { ascending: false });
 
-    // Get class registrations
+    // Get class registrations using member_id
     const { data: registrations } = await supabaseServer()
       .from('class_registrations')
       .select(`
@@ -79,10 +79,10 @@ export async function GET(
           )
         )
       `)
-      .eq('user_id', id)
+      .eq('member_id', id)
       .order('registration_date', { ascending: false });
 
-    // Get check-ins
+    // Get check-ins using member_id
     const { data: checkins } = await supabaseServer()
       .from('checkins')
       .select(`
@@ -101,49 +101,53 @@ export async function GET(
           )
         )
       `)
-      .eq('user_id', id)
+      .eq('member_id', id)
       .order('checkin_time', { ascending: false });
 
-    // Get payments
+    // Get payments using member_id
     const { data: payments } = await supabaseServer()
       .from('payments')
       .select('*')
-      .eq('user_id', id)
+      .eq('member_id', id)
       .order('payment_date', { ascending: false });
 
     // Format the response
     const memberDetails = {
       member: {
-        id: member.id,
+        id: member.member_id,
+        account_id: member.account_id,
         firstName: member.first_name,
         lastName: member.last_name,
         email: member.email,
-        status: member.status,
+        status: member.member_status,
+        accountStatus: member.account_status,
         subscriptionStatus: member.subscription_status,
         phone: member.phone,
         dateOfBirth: member.date_of_birth,
-        createdAt: member.created_at,
-        credit: member.credit
+        address: member.address,
+        profession: member.profession,
+        memberNotes: member.member_notes,
+        credit: member.credit,
+        userType: member.user_type,
+        accessiblePortals: member.accessible_portals
       },
       subscriptions: subscriptions?.map(sub => ({
         id: sub.id,
-        user_id: sub.user_id,
+        member_id: sub.member_id,
         plan_id: sub.plan_id,
         startDate: sub.start_date,
         endDate: sub.end_date,
-        sessionsRemaining: sub.sessions_remaining,
         status: sub.status,
         plan: sub.plans ? {
           id: sub.plans.id,
           name: sub.plans.name,
-          price: sub.plans.price,
-          sessionsIncluded: sub.plans.plan_groups?.reduce((sum: number, group: any) => sum + (group.session_count || 0), 0) || 0
+          price: sub.plans.price
         } : null
       })) || [],
       registrations: registrations?.map(reg => ({
         id: reg.id,
         course_id: reg.course_id,
-        user_id: reg.user_id,
+        member_id: reg.member_id,
         status: reg.status,
         registration_date: reg.registration_date,
         qr_code: reg.qr_code,
@@ -176,7 +180,7 @@ export async function GET(
       payments: payments?.map(payment => ({
         id: payment.id,
         subscription_id: payment.subscription_id,
-        user_id: payment.user_id,
+        member_id: payment.member_id,
         amount: payment.amount,
         payment_type: payment.payment_type,
         payment_status: payment.payment_status,

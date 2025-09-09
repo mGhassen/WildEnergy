@@ -9,19 +9,17 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
 
-    // Verify admin
+    // Verify admin using new user system
     const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-
     const { data: adminCheck } = await supabaseServer()
-      .from('users')
-      .select('is_admin')
-      .eq('auth_user_id', adminUser.id)
+      .from('user_profiles')
+      .select('is_admin, accessible_portals')
+      .eq('email', adminUser.email)
       .single();
-
-    if (!adminCheck?.is_admin) {
+    if (!adminCheck?.is_admin || !adminCheck?.accessible_portals?.includes('admin')) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
@@ -64,19 +62,17 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
 
-    // Verify admin
+    // Verify admin using new user system
     const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-
     const { data: adminCheck } = await supabaseServer()
-      .from('users')
-      .select('is_admin')
-      .eq('auth_user_id', adminUser.id)
+      .from('user_profiles')
+      .select('is_admin, accessible_portals')
+      .eq('email', adminUser.email)
       .single();
-
-    if (!adminCheck?.is_admin) {
+    if (!adminCheck?.is_admin || !adminCheck?.accessible_portals?.includes('admin')) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
@@ -131,19 +127,17 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
 
-    // Verify admin
+    // Verify admin using new user system
     const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-
     const { data: adminCheck } = await supabaseServer()
-      .from('users')
-      .select('is_admin')
-      .eq('auth_user_id', adminUser.id)
+      .from('user_profiles')
+      .select('is_admin, accessible_portals')
+      .eq('email', adminUser.email)
       .single();
-
-    if (!adminCheck?.is_admin) {
+    if (!adminCheck?.is_admin || !adminCheck?.accessible_portals?.includes('admin')) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 

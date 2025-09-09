@@ -19,19 +19,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
 
-    // Verify admin
+    // Verify admin using new user system
     const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-
     const { data: adminCheck } = await supabaseServer()
-      .from('users')
-      .select('is_admin')
-      .eq('auth_user_id', adminUser.id)
+      .from('user_profiles')
+      .select('is_admin, accessible_portals')
+      .eq('email', adminUser.email)
       .single();
-
-    if (!adminCheck?.is_admin) {
+    if (!adminCheck?.is_admin || !adminCheck?.accessible_portals?.includes('admin')) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
@@ -64,7 +62,7 @@ export async function GET(request: NextRequest) {
     let trainerUser = null;
     if (schedule.trainers?.user_id) {
       const { data: userData } = await supabaseServer()
-        .from('users')
+        .from('user_profiles')
         .select('id, first_name, last_name, email, phone')
         .eq('id', schedule.trainers.user_id)
         .single();
@@ -125,19 +123,17 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
 
-    // Verify admin
+    // Verify admin using new user system
     const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-
     const { data: adminCheck } = await supabaseServer()
-      .from('users')
-      .select('is_admin')
-      .eq('auth_user_id', adminUser.id)
+      .from('user_profiles')
+      .select('is_admin, accessible_portals')
+      .eq('email', adminUser.email)
       .single();
-
-    if (!adminCheck?.is_admin) {
+    if (!adminCheck?.is_admin || !adminCheck?.accessible_portals?.includes('admin')) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
@@ -363,19 +359,17 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
 
-    // Verify admin
+    // Verify admin using new user system
     const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-
     const { data: adminCheck } = await supabaseServer()
-      .from('users')
-      .select('is_admin')
-      .eq('auth_user_id', adminUser.id)
+      .from('user_profiles')
+      .select('is_admin, accessible_portals')
+      .eq('email', adminUser.email)
       .single();
-
-    if (!adminCheck?.is_admin) {
+    if (!adminCheck?.is_admin || !adminCheck?.accessible_portals?.includes('admin')) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
@@ -449,7 +443,7 @@ export async function DELETE(request: NextRequest) {
 
     // Get trainer user details
     const { data: trainerUser } = await supabaseServer()
-      .from('users')
+      .from('user_profiles')
       .select('first_name, last_name')
       .eq('id', (schedule.trainers as any)?.user_id)
       .single();

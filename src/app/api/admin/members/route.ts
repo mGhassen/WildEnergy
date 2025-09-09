@@ -8,56 +8,53 @@ export async function GET(req: NextRequest) {
     if (!token) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
-    // Verify admin
+    // Verify admin using new user system
     const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
     const { data: adminCheck } = await supabaseServer()
-      .from('users')
-      .select('is_admin')
-      .eq('auth_user_id', adminUser.id)
+      .from('user_profiles')
+      .select('is_admin, accessible_portals')
+      .eq('email', adminUser.email)
       .single();
-    if (!adminCheck?.is_admin) {
+    if (!adminCheck?.is_admin || !adminCheck?.accessible_portals?.includes('admin')) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
-    // Fetch all members with their subscription group sessions
+    
+    // Fetch all members using new system
     const { data: members, error } = await supabaseServer()
-      .from('users')
-      .select(`
-        *,
-        subscriptions(
-          id,
-          status,
-          end_date,
-          subscription_group_sessions(
-            id,
-            group_id,
-            sessions_remaining,
-            total_sessions,
-            groups(
-              id,
-              name,
-              color
-            )
-          )
-        )
-      `)
-      .eq('is_member', true)
-      .order('created_at', { ascending: false });
+      .from('user_profiles')
+      .select('*')
+      .not('member_id', 'is', null) // Only users with member records
+      .eq('member_status', 'active')
+      .order('email', { ascending: true });
     
     if (error) {
+      console.error('Error fetching members:', error);
       return NextResponse.json({ error: 'Failed to fetch members' }, { status: 500 });
     }
     
-    const membersWithCredit = (members || []).map((u: any) => ({ 
-      ...u, 
-      credit: u.credit ?? 0,
-      groupSessions: u.subscriptions?.[0]?.subscription_group_sessions || []
+    const membersWithCredit = (members || []).map((m: any) => ({ 
+      id: m.member_id,
+      account_id: m.account_id,
+      first_name: m.first_name,
+      last_name: m.last_name,
+      email: m.email,
+      phone: m.phone,
+      is_member: true,
+      credit: m.credit ?? 0,
+      member_notes: m.member_notes,
+      member_status: m.member_status,
+      subscription_status: m.subscription_status,
+      user_type: m.user_type,
+      accessible_portals: m.accessible_portals,
+      groupSessions: m.subscriptions?.[0]?.subscription_group_sessions || []
     }));
     
     return NextResponse.json(membersWithCredit);
   } catch (error) {
+    console.error('Internal server error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 } 

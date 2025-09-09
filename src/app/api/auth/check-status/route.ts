@@ -12,9 +12,9 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    // Get user profile
+    // Get user profile from new user system
     const { data: userProfile, error: profileError } = await supabaseServer()
-      .from('users')
+      .from('user_profiles')
       .select('*')
       .eq('email', email)
       .single();
@@ -28,21 +28,19 @@ export async function POST(req: NextRequest) {
 
     // Check if user has auth account
     let authStatus = 'unknown';
-    if (userProfile.auth_user_id) {
-      const { data: authUser, error: authUserError } = await supabaseServer().auth.admin.getUserById(userProfile.auth_user_id);
-      if (!authUserError && authUser?.user) {
-        authStatus = authUser.user.confirmed_at ? 'confirmed' : 'unconfirmed';
-      }
+    const { data: authUser, error: authUserError } = await supabaseServer().auth.admin.getUserById(userProfile.account_id);
+    if (!authUserError && authUser?.user) {
+      authStatus = authUser.user.confirmed_at ? 'confirmed' : 'unconfirmed';
     }
 
     return NextResponse.json({
       success: true,
-      status: userProfile.status,
+      status: userProfile.account_status,
       authStatus,
       email: userProfile.email,
       firstName: userProfile.first_name,
       lastName: userProfile.last_name,
-      message: getStatusMessage(userProfile.status, authStatus),
+      message: getStatusMessage(userProfile.account_status, authStatus),
     });
 
   } catch (error: any) {
