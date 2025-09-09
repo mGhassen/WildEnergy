@@ -57,9 +57,9 @@ export const categoryApi = {
     if (data.name !== undefined) apiData.name = data.name;
     if (data.description !== undefined) apiData.description = data.description;
     if (data.color !== undefined) apiData.color = data.color;
-    if (data.isActive !== undefined) apiData.is_active = data.isActive;
+    if (data.isActive !== undefined) apiData.isActive = data.isActive;
     // Always include groupId, even if it's null or undefined
-    apiData.group_id = data.groupId;
+    apiData.groupId = data.groupId;
     
     console.log('API update data:', apiData);
     return apiRequest('PATCH', `/api/admin/categories/${categoryId}`, apiData);

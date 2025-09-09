@@ -32,7 +32,6 @@ export async function GET(req: NextRequest) {
           color
         )
       `)
-      .eq('is_active', true)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -71,10 +70,17 @@ export async function POST(req: NextRequest) {
 
     const { categoryIds, ...groupData } = await req.json();
     
+    // Convert camelCase to snake_case for database
+    const dbData: any = {};
+    if (groupData.name !== undefined) dbData.name = groupData.name;
+    if (groupData.description !== undefined) dbData.description = groupData.description;
+    if (groupData.color !== undefined) dbData.color = groupData.color;
+    if (groupData.isActive !== undefined) dbData.is_active = groupData.isActive;
+    
     // Create the group first
     const { data: group, error: groupError } = await supabase
       .from('groups')
-      .insert(groupData)
+      .insert(dbData)
       .select('*')
       .single();
     
@@ -147,10 +153,17 @@ export async function PUT(req: NextRequest) {
 
     const { id, categoryIds, ...updates } = await req.json();
     
+    // Convert camelCase to snake_case for database
+    const dbUpdates: any = {};
+    if (updates.name !== undefined) dbUpdates.name = updates.name;
+    if (updates.description !== undefined) dbUpdates.description = updates.description;
+    if (updates.color !== undefined) dbUpdates.color = updates.color;
+    if (updates.isActive !== undefined) dbUpdates.is_active = updates.isActive;
+    
     // Update the group
     const { data: group, error: groupError } = await supabase
       .from('groups')
-      .update(updates)
+      .update(dbUpdates)
       .eq('id', id)
       .select('*')
       .single();

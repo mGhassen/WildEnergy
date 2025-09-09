@@ -56,11 +56,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
     
-    const { email, password, firstName, lastName, isAdmin, memberData, trainerData } = await req.json();
+    const { email, password, firstName, lastName, phone, isAdmin, status, creationMethod, memberData, trainerData } = await req.json();
     let authUserId;
-    let accountStatus = 'pending'; // Default status for invited users
+    let accountStatus = status || 'pending'; // Use provided status or default to pending
     
-    if (!password) {
+    if (creationMethod === 'invite' || !password) {
       // Use Supabase invite flow with correct redirect
       const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
       const inviteUrl = `${baseUrl}/auth/accept-invitation`;
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: signUpError?.message || 'Failed to create user' }, { status: 400 });
       }
       authUserId = authData.user.id;
-      accountStatus = 'archived'; // Users with passwords start with 'archived' status (waiting for admin approval)
+      accountStatus = status || 'active'; // Use provided status or default to active for password users
     }
     
     // Create account record
@@ -105,6 +105,7 @@ export async function POST(req: NextRequest) {
         id: authUserId, // Profile ID matches account ID
         first_name: firstName,
         last_name: lastName,
+        phone: phone || null,
       }])
       .select()
       .single();

@@ -74,10 +74,17 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
     const { id } = await context.params;
     const { categoryIds, ...updates } = await req.json();
     
+    // Convert camelCase to snake_case for database
+    const dbUpdates: any = {};
+    if (updates.name !== undefined) dbUpdates.name = updates.name;
+    if (updates.description !== undefined) dbUpdates.description = updates.description;
+    if (updates.color !== undefined) dbUpdates.color = updates.color;
+    if (updates.isActive !== undefined) dbUpdates.is_active = updates.isActive;
+    
     // Update the group
     const { data: group, error: groupError } = await supabase
       .from('groups')
-      .update(updates)
+      .update(dbUpdates)
       .eq('id', id)
       .select('*')
       .single();

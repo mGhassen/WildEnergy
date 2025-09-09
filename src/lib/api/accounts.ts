@@ -36,7 +36,10 @@ export interface CreateAccountData {
   password?: string;
   firstName: string;
   lastName: string;
+  phone?: string;
   isAdmin?: boolean;
+  status?: string;
+  creationMethod?: "password" | "invite";
   memberData?: {
     memberNotes?: string;
     credit?: number;

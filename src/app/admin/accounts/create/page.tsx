@@ -5,21 +5,14 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import { 
     ArrowLeft, 
     User, 
-    Mail, 
-    Phone, 
-    Key, 
     Crown, 
-    GraduationCap, 
-    Settings,
+    Key, 
     Eye,
     EyeOff,
     Loader2
@@ -38,37 +31,25 @@ const createAccountSchema = z.object({
     lastName: z.string().min(1, "Last name is required"),
     phone: z.string().optional(),
     
-    // Roles - simple checkboxes
+    // Admin status
     isAdmin: z.boolean().default(false),
-    isMember: z.boolean().default(false),
-    isTrainer: z.boolean().default(false),
     
-    // Password
-    generatePassword: z.boolean().default(true),
+    // Account status
+    status: z.enum(["active", "pending", "suspended"]).default("active"),
+    
+    // Account creation method
+    creationMethod: z.enum(["password", "invite"]).default("invite"),
+    
+    // Password (only required if creationMethod is "password")
     customPassword: z.string().optional(),
-    
-    // Advanced fields (optional)
-    memberNotes: z.string().optional(),
-    memberCredit: z.number().min(0).optional(),
-    specialization: z.string().optional(),
-    experienceYears: z.number().min(0).optional(),
-    bio: z.string().optional(),
-    certification: z.string().optional(),
-    hourlyRate: z.number().min(0).optional(),
 }).refine((data) => {
-    // At least one role must be selected
-    return data.isAdmin || data.isMember || data.isTrainer;
-}, {
-    message: "Please select at least one role",
-    path: ["isAdmin"]
-}).refine((data) => {
-    // Password validation
-    if (!data.generatePassword && (!data.customPassword || data.customPassword.length < 8)) {
+    // Password validation - only required if using password method
+    if (data.creationMethod === "password" && (!data.customPassword || data.customPassword.length < 8)) {
         return false;
     }
     return true;
 }, {
-    message: "Please provide a password or enable password generation",
+    message: "Please provide a password (min 8 characters) when using password method",
     path: ["customPassword"]
 });
 
@@ -77,7 +58,6 @@ type CreateAccountForm = z.infer<typeof createAccountSchema>;
 export default function CreateAccountPage() {
     const router = useRouter();
     const { toast } = useToast();
-    const [showAdvanced, setShowAdvanced] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     
     const createAccountMutation = useCreateAccount();
@@ -90,23 +70,13 @@ export default function CreateAccountPage() {
             lastName: "",
             phone: "",
             isAdmin: false,
-            isMember: false,
-            isTrainer: false,
-            generatePassword: true,
+            status: "active",
+            creationMethod: "invite",
             customPassword: "",
-            memberNotes: "",
-            memberCredit: 0,
-            specialization: "",
-            experienceYears: 0,
-            bio: "",
-            certification: "",
-            hourlyRate: 0,
         },
     });
 
-    const watchedGeneratePassword = form.watch("generatePassword");
-    const watchedIsMember = form.watch("isMember");
-    const watchedIsTrainer = form.watch("isTrainer");
+    const watchedCreationMethod = form.watch("creationMethod");
 
     const generatePassword = (length = 12) => {
         const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=";
@@ -118,25 +88,14 @@ export default function CreateAccountPage() {
     };
 
     const handleSubmit = (data: CreateAccountForm) => {
-        const password = data.generatePassword ? generatePassword(12) : data.customPassword;
-        
         const createData = {
             email: data.email,
             firstName: data.firstName,
             lastName: data.lastName,
-            password: password,
             isAdmin: data.isAdmin,
-            memberData: data.isMember ? { 
-                memberNotes: data.memberNotes || '', 
-                credit: data.memberCredit || 0 
-            } : undefined,
-            trainerData: data.isTrainer ? { 
-                specialization: data.specialization || '', 
-                experienceYears: data.experienceYears || 0, 
-                bio: data.bio || '', 
-                certification: data.certification || '', 
-                hourlyRate: data.hourlyRate || 0 
-            } : undefined
+            status: data.status,
+            creationMethod: data.creationMethod,
+            password: data.creationMethod === "password" ? data.customPassword : undefined,
         };
 
         createAccountMutation.mutate(createData, {
@@ -187,146 +146,70 @@ export default function CreateAccountPage() {
                             <Form {...form}>
                                 <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
                                     {/* Basic Information */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <FormField
-                                            control={form.control}
-                                            name="firstName"
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel>First Name *</FormLabel>
-                                                    <FormControl>
-                                                        <Input placeholder="John" {...field} />
-                                                    </FormControl>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                        <FormField
-                                            control={form.control}
-                                            name="lastName"
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel>Last Name *</FormLabel>
-                                                    <FormControl>
-                                                        <Input placeholder="Doe" {...field} />
-                                                    </FormControl>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                    </div>
-
-                                    <FormField
-                                        control={form.control}
-                                        name="email"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Email Address *</FormLabel>
-                                                <FormControl>
-                                                    <Input placeholder="john.doe@example.com" type="email" {...field} />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-
-                                    <FormField
-                                        control={form.control}
-                                        name="phone"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Phone Number</FormLabel>
-                                                <FormControl>
-                                                    <Input placeholder="+1 (555) 123-4567" {...field} />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-
-                                    {/* Role Selection */}
                                     <div className="space-y-4">
-                                        <Label className="text-base font-medium">Roles *</Label>
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <FormField
                                                 control={form.control}
-                                                name="isAdmin"
+                                                name="firstName"
                                                 render={({ field }) => (
-                                                    <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                                                    <FormItem>
+                                                        <FormLabel>First Name *</FormLabel>
                                                         <FormControl>
-                                                            <Checkbox
-                                                                checked={field.value}
-                                                                onCheckedChange={field.onChange}
-                                                            />
+                                                            <Input placeholder="John" {...field} />
                                                         </FormControl>
-                                                        <div className="space-y-1 leading-none">
-                                                            <FormLabel className="flex items-center">
-                                                                <Crown className="w-4 h-4 mr-2" />
-                                                                Administrator
-                                                            </FormLabel>
-                                                            <FormDescription>
-                                                                Full system access
-                                                            </FormDescription>
-                                                        </div>
+                                                        <FormMessage />
                                                     </FormItem>
                                                 )}
                                             />
                                             <FormField
                                                 control={form.control}
-                                                name="isMember"
+                                                name="lastName"
                                                 render={({ field }) => (
-                                                    <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                                                    <FormItem>
+                                                        <FormLabel>Last Name *</FormLabel>
                                                         <FormControl>
-                                                            <Checkbox
-                                                                checked={field.value}
-                                                                onCheckedChange={field.onChange}
-                                                            />
+                                                            <Input placeholder="Doe" {...field} />
                                                         </FormControl>
-                                                        <div className="space-y-1 leading-none">
-                                                            <FormLabel className="flex items-center">
-                                                                <User className="w-4 h-4 mr-2" />
-                                                                Member
-                                                            </FormLabel>
-                                                            <FormDescription>
-                                                                Access to classes
-                                                            </FormDescription>
-                                                        </div>
-                                                    </FormItem>
-                                                )}
-                                            />
-                                            <FormField
-                                                control={form.control}
-                                                name="isTrainer"
-                                                render={({ field }) => (
-                                                    <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                                                        <FormControl>
-                                                            <Checkbox
-                                                                checked={field.value}
-                                                                onCheckedChange={field.onChange}
-                                                            />
-                                                        </FormControl>
-                                                        <div className="space-y-1 leading-none">
-                                                            <FormLabel className="flex items-center">
-                                                                <GraduationCap className="w-4 h-4 mr-2" />
-                                                                Trainer
-                                                            </FormLabel>
-                                                            <FormDescription>
-                                                                Can teach classes
-                                                            </FormDescription>
-                                                        </div>
+                                                        <FormMessage />
                                                     </FormItem>
                                                 )}
                                             />
                                         </div>
-                                        <FormMessage />
-                                    </div>
-
-                                    {/* Password */}
-                                    <div className="space-y-4">
-                                        <Label className="text-base font-medium">Password</Label>
+                                        
                                         <FormField
                                             control={form.control}
-                                            name="generatePassword"
+                                            name="email"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Email Address *</FormLabel>
+                                                    <FormControl>
+                                                        <Input placeholder="john.doe@example.com" type="email" {...field} />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        
+                                        <FormField
+                                            control={form.control}
+                                            name="phone"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Phone Number</FormLabel>
+                                                    <FormControl>
+                                                        <Input placeholder="+1 (555) 123-4567" {...field} />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </div>
+
+                                    {/* Admin Status */}
+                                    <div className="space-y-4">
+                                        <FormField
+                                            control={form.control}
+                                            name="isAdmin"
                                             render={({ field }) => (
                                                 <FormItem className="flex flex-row items-center space-x-3 space-y-0">
                                                     <FormControl>
@@ -336,27 +219,93 @@ export default function CreateAccountPage() {
                                                         />
                                                     </FormControl>
                                                     <div className="space-y-1 leading-none">
-                                                        <FormLabel>Generate secure password automatically</FormLabel>
+                                                        <FormLabel className="flex items-center">
+                                                            <Crown className="w-4 h-4 mr-2" />
+                                                            Administrator
+                                                        </FormLabel>
                                                         <FormDescription>
-                                                            A strong password will be generated and sent via email
+                                                            Grant full system access and admin privileges
                                                         </FormDescription>
                                                     </div>
                                                 </FormItem>
                                             )}
                                         />
-                                        
-                                        {!watchedGeneratePassword && (
+                                    </div>
+
+                                    {/* Account Status */}
+                                    <div className="space-y-4">
+                                        <FormField
+                                            control={form.control}
+                                            name="status"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Account Status</FormLabel>
+                                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                        <FormControl>
+                                                            <SelectTrigger>
+                                                                <SelectValue placeholder="Select status" />
+                                                            </SelectTrigger>
+                                                        </FormControl>
+                                                        <SelectContent>
+                                                            <SelectItem value="active">Active</SelectItem>
+                                                            <SelectItem value="pending">Pending</SelectItem>
+                                                            <SelectItem value="suspended">Suspended</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <FormDescription>
+                                                        Active accounts can log in immediately, pending accounts need approval
+                                                    </FormDescription>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </div>
+
+                                    {/* Account Creation Method */}
+                                    <div className="space-y-4">
+                                        <FormField
+                                            control={form.control}
+                                            name="creationMethod"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Account Creation Method</FormLabel>
+                                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                        <FormControl>
+                                                            <SelectTrigger>
+                                                                <SelectValue placeholder="Select creation method" />
+                                                            </SelectTrigger>
+                                                        </FormControl>
+                                                        <SelectContent>
+                                                            <SelectItem value="invite">Send Invitation Email</SelectItem>
+                                                            <SelectItem value="password">Set Password Directly</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <FormDescription>
+                                                        {field.value === "invite" 
+                                                            ? "User will receive an invitation email to set their own password"
+                                                            : "You will set the password and the user can log in immediately"
+                                                        }
+                                                    </FormDescription>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </div>
+
+                                    {/* Password Field (only shown when using password method) */}
+                                    {watchedCreationMethod === "password" && (
+                                        <div className="space-y-4">
                                             <FormField
                                                 control={form.control}
                                                 name="customPassword"
                                                 render={({ field }) => (
                                                     <FormItem>
-                                                        <FormLabel>Custom Password *</FormLabel>
+                                                        <FormLabel>Password *</FormLabel>
                                                         <FormControl>
                                                             <div className="relative">
                                                                 <Input 
                                                                     type={showPassword ? "text" : "password"}
-                                                                    placeholder="Enter custom password" 
+                                                                    placeholder="Enter password for the account" 
                                                                     {...field} 
                                                                 />
                                                                 <Button
@@ -381,156 +330,6 @@ export default function CreateAccountPage() {
                                                     </FormItem>
                                                 )}
                                             />
-                                        )}
-                                    </div>
-
-                                    {/* Advanced Section Toggle */}
-                                    <div className="pt-4">
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            onClick={() => setShowAdvanced(!showAdvanced)}
-                                            className="w-full"
-                                        >
-                                            <Settings className="w-4 h-4 mr-2" />
-                                            {showAdvanced ? "Hide" : "Show"} Advanced Options
-                                        </Button>
-                                    </div>
-
-                                    {/* Advanced Fields */}
-                                    {showAdvanced && (
-                                        <div className="space-y-6 pt-4 border-t">
-                                            <h3 className="text-lg font-medium">Advanced Settings</h3>
-                                            
-                                            {/* Member Fields */}
-                                            {watchedIsMember && (
-                                                <div className="space-y-4">
-                                                    <h4 className="font-medium text-muted-foreground">Member Information</h4>
-                                                    <FormField
-                                                        control={form.control}
-                                                        name="memberNotes"
-                                                        render={({ field }) => (
-                                                            <FormItem>
-                                                                <FormLabel>Notes</FormLabel>
-                                                                <FormControl>
-                                                                    <Textarea 
-                                                                        placeholder="Any special notes about this member..." 
-                                                                        {...field} 
-                                                                    />
-                                                                </FormControl>
-                                                                <FormMessage />
-                                                            </FormItem>
-                                                        )}
-                                                    />
-                                                    <FormField
-                                                        control={form.control}
-                                                        name="memberCredit"
-                                                        render={({ field }) => (
-                                                            <FormItem>
-                                                                <FormLabel>Initial Credit</FormLabel>
-                                                                <FormControl>
-                                                                    <Input 
-                                                                        type="number" 
-                                                                        placeholder="0" 
-                                                                        {...field}
-                                                                        onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                                                                    />
-                                                                </FormControl>
-                                                                <FormMessage />
-                                                            </FormItem>
-                                                        )}
-                                                    />
-                                                </div>
-                                            )}
-
-                                            {/* Trainer Fields */}
-                                            {watchedIsTrainer && (
-                                                <div className="space-y-4">
-                                                    <h4 className="font-medium text-muted-foreground">Trainer Information</h4>
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                        <FormField
-                                                            control={form.control}
-                                                            name="specialization"
-                                                            render={({ field }) => (
-                                                                <FormItem>
-                                                                    <FormLabel>Specialization</FormLabel>
-                                                                    <FormControl>
-                                                                        <Input placeholder="e.g., Yoga, Pilates" {...field} />
-                                                                    </FormControl>
-                                                                    <FormMessage />
-                                                                </FormItem>
-                                                            )}
-                                                        />
-                                                        <FormField
-                                                            control={form.control}
-                                                            name="experienceYears"
-                                                            render={({ field }) => (
-                                                                <FormItem>
-                                                                    <FormLabel>Years of Experience</FormLabel>
-                                                                    <FormControl>
-                                                                        <Input 
-                                                                            type="number" 
-                                                                            placeholder="0" 
-                                                                            {...field}
-                                                                            onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                                                                        />
-                                                                    </FormControl>
-                                                                    <FormMessage />
-                                                                </FormItem>
-                                                            )}
-                                                        />
-                                                    </div>
-                                                    <FormField
-                                                        control={form.control}
-                                                        name="bio"
-                                                        render={({ field }) => (
-                                                            <FormItem>
-                                                                <FormLabel>Bio</FormLabel>
-                                                                <FormControl>
-                                                                    <Textarea 
-                                                                        placeholder="Tell us about your fitness background..." 
-                                                                        {...field} 
-                                                                    />
-                                                                </FormControl>
-                                                                <FormMessage />
-                                                            </FormItem>
-                                                        )}
-                                                    />
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                        <FormField
-                                                            control={form.control}
-                                                            name="certification"
-                                                            render={({ field }) => (
-                                                                <FormItem>
-                                                                    <FormLabel>Certification</FormLabel>
-                                                                    <FormControl>
-                                                                        <Input placeholder="e.g., ACE, NASM" {...field} />
-                                                                    </FormControl>
-                                                                    <FormMessage />
-                                                                </FormItem>
-                                                            )}
-                                                        />
-                                                        <FormField
-                                                            control={form.control}
-                                                            name="hourlyRate"
-                                                            render={({ field }) => (
-                                                                <FormItem>
-                                                                    <FormLabel>Hourly Rate (TND)</FormLabel>
-                                                                    <FormControl>
-                                                                        <Input 
-                                                                            type="number" 
-                                                                            placeholder="0" 
-                                                                            {...field}
-                                                                            onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                                                                        />
-                                                                    </FormControl>
-                                                                    <FormMessage />
-                                                                </FormItem>
-                                                            )}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            )}
                                         </div>
                                     )}
 
@@ -564,26 +363,26 @@ export default function CreateAccountPage() {
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="space-y-2">
-                                <h4 className="font-medium">Roles</h4>
+                                <h4 className="font-medium">Account Types</h4>
                                 <ul className="text-sm text-muted-foreground space-y-1">
+                                    <li>• <strong>Regular:</strong> Standard user account</li>
                                     <li>• <strong>Admin:</strong> Full system access</li>
-                                    <li>• <strong>Member:</strong> Can book classes</li>
-                                    <li>• <strong>Trainer:</strong> Can teach classes</li>
                                 </ul>
                             </div>
-                            <Separator />
                             <div className="space-y-2">
-                                <h4 className="font-medium">Password</h4>
-                                <p className="text-sm text-muted-foreground">
-                                    Auto-generated passwords are more secure and will be sent via email to the user.
-                                </p>
+                                <h4 className="font-medium">Status Options</h4>
+                                <ul className="text-sm text-muted-foreground space-y-1">
+                                    <li>• <strong>Active:</strong> Can log in immediately</li>
+                                    <li>• <strong>Pending:</strong> Needs approval</li>
+                                    <li>• <strong>Suspended:</strong> Temporarily disabled</li>
+                                </ul>
                             </div>
-                            <Separator />
                             <div className="space-y-2">
-                                <h4 className="font-medium">Advanced Options</h4>
-                                <p className="text-sm text-muted-foreground">
-                                    Use advanced options to set member credits, trainer rates, and other specific details.
-                                </p>
+                                <h4 className="font-medium">Creation Methods</h4>
+                                <ul className="text-sm text-muted-foreground space-y-1">
+                                    <li>• <strong>Invitation:</strong> User sets their own password via email</li>
+                                    <li>• <strong>Password:</strong> You set the password directly</li>
+                                </ul>
                             </div>
                         </CardContent>
                     </Card>
