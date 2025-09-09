@@ -1,9 +1,5 @@
--- Seed data for Wild Energy platform
--- Note: Users are created via the create-users.js script, not in this seed file
--- New users will go through mandatory onboarding process to complete:
--- - Personal information (firstName, lastName, age, profession, address, phone)
--- - Terms and conditions acceptance
--- - Account activation after onboarding completion
+-- Simple seed data for Wild Energy platform
+-- Basic data only - users will be created via test script
 
 -- Groups (must be created first)
 INSERT INTO groups (name, description, color, is_active)
@@ -11,7 +7,8 @@ VALUES
   ('Fitness Basics', 'Core fitness categories for general health', '#4ECDC4', true),
   ('Pole Dance Group', 'Pole dancing and flexibility training', '#FF1493', true),
   ('Dance & Movement', 'Various dance styles and movement', '#FF69B4', true),
-  ('Combat Sports', 'Martial arts and self-defense', '#8B4513', true);
+  ('Combat Sports', 'Martial arts and self-defense', '#8B4513', true),
+  ('Wellness & Recovery', 'Relaxation and recovery focused activities', '#9B59B6', true);
 
 -- Categories (with group_id references)
 INSERT INTO categories (name, description, color, group_id, is_active)
@@ -23,46 +20,54 @@ VALUES
   ('Pole Dance', 'Pole dancing and aerial fitness', '#FF1493', 2, true),
   ('Stretching', 'Flexibility and mobility', '#32CD32', 2, true),
   ('Dance', 'Various dance styles', '#FF69B4', 3, true),
-  ('Martial Arts', 'Self-defense and martial arts', '#8B4513', 4, true);
-
--- Classes
-INSERT INTO classes (name, description, category_id, duration, max_capacity, equipment, is_active, created_at, updated_at)
-VALUES
-  ('Yoga Flow', 'Vinyasa yoga for all levels.', 1, 60, 18, 'Yoga mat', true, NOW(), NOW()),
-  ('Cardio Blast', 'High-intensity interval training.', 2, 45, 25, NULL, true, NOW(), NOW()),
-  ('Strength Circuit', 'Strength and conditioning circuit.', 3, 60, 16, 'Dumbbells', true, NOW(), NOW()),
-  ('Pilates Core', 'Pilates class focused on core strength.', 4, 50, 14, 'Mat', true, NOW(), NOW()),
-  ('Pole Dance Beginner', 'Introduction to pole dancing.', 5, 60, 12, 'Pole', true, NOW(), NOW()),
-  ('Flexibility Flow', 'Deep stretching and mobility.', 6, 45, 20, 'Mat', true, NOW(), NOW()),
-  ('Salsa Basics', 'Learn basic salsa steps.', 7, 60, 15, NULL, true, NOW(), NOW()),
-  ('Kickboxing', 'High-energy martial arts workout.', 8, 50, 18, 'Gloves', true, NOW(), NOW());
+  ('Martial Arts', 'Self-defense and martial arts', '#8B4513', 4, true),
+  ('Meditation', 'Mindfulness and meditation', '#9B59B6', 5, true),
+  ('Breathing', 'Breathing exercises and relaxation', '#E67E22', 5, true);
 
 -- Plans (prices in TND)
-INSERT INTO plans (name, description, price, duration_days, is_active)
+INSERT INTO plans (name, description, price, duration_days, is_active, created_at, updated_at)
 VALUES
-  ('Basic Monthly', 'Basic monthly plan with limited sessions', 150.00, 30, true),
-  ('Premium Monthly', 'Premium monthly plan with more variety', 250.00, 30, true),
-  ('Pole Dance Special', 'Specialized pole dance plan', 280.00, 30, true),
-  ('Flexibility Focus', 'Plan focused on stretching and mobility', 180.00, 30, true),
-  ('Mixed Fitness', 'Balanced fitness plan', 320.00, 30, true);
-
+  ('Basic Monthly', 'Basic monthly plan with limited sessions', 150.00, 30, true, NOW(), NOW()),
+  ('Premium Monthly', 'Premium monthly plan with more variety', 250.00, 30, true, NOW(), NOW()),
+  ('Pole Dance Special', 'Specialized pole dance plan', 280.00, 30, true, NOW(), NOW()),
+  ('Flexibility Focus', 'Plan focused on stretching and mobility', 180.00, 30, true, NOW(), NOW()),
+  ('Mixed Fitness', 'Balanced fitness plan', 320.00, 30, true, NOW(), NOW()),
+  ('Wellness Package', 'Complete wellness and recovery plan', 200.00, 30, true, NOW(), NOW()),
+  ('Drop-in Class', 'Single class access', 25.00, 1, true, NOW(), NOW()),
+  ('Weekly Pass', 'One week unlimited access', 80.00, 7, true, NOW(), NOW());
 
 -- Plan Groups (defining which groups and how many sessions each plan includes)
-INSERT INTO plan_groups (plan_id, group_id, session_count)
+INSERT INTO plan_groups (plan_id, group_id, session_count, is_free, created_at, updated_at)
 VALUES
   -- Basic Monthly: 8 sessions of Fitness Basics
-  (1, 1, 8),
+  (1, 1, 8, false, NOW(), NOW()),
   
-  -- Premium Monthly: 12 sessions of Fitness Basics
-  (2, 1, 12),
+  -- Premium Monthly: 12 sessions of Fitness Basics + 3 sessions of Dance & Movement
+  (2, 1, 12, false, NOW(), NOW()),
+  (2, 3, 3, false, NOW(), NOW()),
   
-  -- Pole Dance Special: 10 sessions of Pole Dance Group
-  (3, 2, 10),
+  -- Pole Dance Special: 10 sessions of Pole Dance Group + 2 sessions of Wellness
+  (3, 2, 10, false, NOW(), NOW()),
+  (3, 5, 2, false, NOW(), NOW()),
   
-  -- Flexibility Focus: 6 sessions of Pole Dance Group (includes stretching)
-  (4, 2, 6),
+  -- Flexibility Focus: 6 sessions of Pole Dance Group (includes stretching) + 4 sessions of Wellness
+  (4, 2, 6, false, NOW(), NOW()),
+  (4, 5, 4, false, NOW(), NOW()),
   
   -- Mixed Fitness: 15 sessions total
-  (5, 1, 12), -- 12 sessions of Fitness Basics
-  (5, 3, 2),  -- 2 sessions of Dance & Movement
-  (5, 4, 1);  -- 1 session of Combat Sports
+  (5, 1, 12, false, NOW(), NOW()), -- 12 sessions of Fitness Basics
+  (5, 3, 4, false, NOW(), NOW()),  -- 4 sessions of Dance & Movement
+  (5, 4, 2, false, NOW(), NOW()),  -- 2 sessions of Combat Sports
+  (5, 5, 2, false, NOW(), NOW()),  -- 2 sessions of Wellness & Recovery
+  
+  -- Wellness Package: 8 sessions of Wellness + 4 sessions of Pole Dance Group
+  (6, 5, 8, false, NOW(), NOW()),
+  (6, 2, 4, false, NOW(), NOW()),
+  
+  -- Drop-in Class: 1 session of any group (free choice)
+  (7, 1, 1, false, NOW(), NOW()),
+  
+  -- Weekly Pass: 6 sessions of Fitness Basics + 4 sessions of any other group
+  (8, 1, 6, false, NOW(), NOW()),
+  (8, 2, 2, false, NOW(), NOW()),
+  (8, 3, 2, false, NOW(), NOW());

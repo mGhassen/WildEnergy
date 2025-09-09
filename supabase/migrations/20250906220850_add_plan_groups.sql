@@ -10,7 +10,7 @@ CREATE TABLE groups (
     CONSTRAINT groups_name_unique UNIQUE(name)
 );
 
--- Add group_id to categories table (one-to-one: each category belongs to exactly one group)
+-- Add group_id to categories table (one-to-many: each category belongs to exactly one group, but a group can contain many categories)
 ALTER TABLE categories ADD COLUMN group_id INTEGER REFERENCES groups(id) ON DELETE SET NULL;
 
 -- Create plan_groups table (one-to-many: a plan has many groups)
@@ -60,7 +60,7 @@ CREATE TRIGGER trigger_update_plan_groups_updated_at
 
 -- Add comments explaining the new structure
 COMMENT ON TABLE groups IS 'Groups that contain multiple categories (e.g., "Pole Dance Group" contains Pole Dance and Stretching categories)';
-COMMENT ON COLUMN categories.group_id IS 'Each category belongs to exactly one group (one-to-one relationship)';
+COMMENT ON COLUMN categories.group_id IS 'Each category belongs to exactly one group (one-to-many relationship: one group can contain many categories)';
 COMMENT ON TABLE plan_groups IS 'Defines how many sessions of each group are included in a plan (one-to-many: a plan has many groups)';
 COMMENT ON COLUMN plan_groups.session_count IS 'Number of sessions allowed for this group in the plan';
 COMMENT ON COLUMN plan_groups.is_free IS 'Whether this group session is free (no charge) in the plan';

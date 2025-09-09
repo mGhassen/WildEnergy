@@ -48,7 +48,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       return NextResponse.json({ error: 'Failed to check linked plans' }, { status: 500 });
     }
 
-    // If group is used in plans, return the linked plans
+    // If group is used in plans, return canDelete: false with linked plans
     if (linkedPlans && linkedPlans.length > 0) {
       const planNames = linkedPlans.map((pg: any) => pg.plans?.name).filter(Boolean);
       return NextResponse.json({ 
@@ -63,6 +63,6 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       linkedPlans: []
     });
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to check group deletion' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
