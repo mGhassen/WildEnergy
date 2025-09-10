@@ -222,7 +222,8 @@ export async function PUT(req: NextRequest) {
           .eq('id', accountId);
         
         if (accountError) {
-          return NextResponse.json({ error: 'Failed to update account' }, { status: 500 });
+          console.error('Account update error:', accountError);
+          return NextResponse.json({ error: 'Failed to update account', details: accountError.message }, { status: 500 });
         }
       }
     }
@@ -246,7 +247,8 @@ export async function PUT(req: NextRequest) {
           .eq('id', accountId);
         
         if (profileError) {
-          return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
+          console.error('Profile update error:', profileError);
+          return NextResponse.json({ error: 'Failed to update profile', details: profileError.message }, { status: 500 });
         }
       }
     }
@@ -385,8 +387,23 @@ export async function DELETE(req: NextRequest) {
     
     const { accountId } = await req.json();
     
-    // First delete from auth (this will cascade to account, which will cascade to other tables)
-    const { error: deleteAuthError } = await supabaseServer().auth.admin.deleteUser(accountId);
+    // Get the auth_user_id from the accounts table
+    const { data: account, error: accountError } = await supabaseServer()
+      .from('accounts')
+      .select('auth_user_id')
+      .eq('id', accountId)
+      .single();
+
+    if (accountError || !account) {
+      return NextResponse.json({ error: 'Account not found' }, { status: 404 });
+    }
+
+    if (!account.auth_user_id) {
+      return NextResponse.json({ error: 'Account has no auth user' }, { status: 400 });
+    }
+
+    // Delete from auth using the auth_user_id (this will cascade to account, which will cascade to other tables)
+    const { error: deleteAuthError } = await supabaseServer().auth.admin.deleteUser(account.auth_user_id);
     if (deleteAuthError) {
       return NextResponse.json({ error: 'Failed to delete user from auth' }, { status: 500 });
     }

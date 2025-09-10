@@ -291,6 +291,52 @@ export default function AccountDetailPage() {
                                     <Mail className="w-4 h-4 mr-2" />
                                     Reset Password
                                 </DropdownMenuItem>
+                                {account.account_status === 'pending' && (
+                                    <>
+                                        <DropdownMenuItem onClick={() => {
+                                            apiRequest("POST", `/api/admin/accounts/${account.account_id}/approve`)
+                                                .then(() => {
+                                                    toast({
+                                                        title: "Account approved",
+                                                        description: "The account has been approved successfully.",
+                                                    });
+                                                    // Refresh the account data
+                                                    window.location.reload();
+                                                })
+                                                .catch((error: any) => {
+                                                    toast({
+                                                        title: "Failed to approve account",
+                                                        description: error.message || "An error occurred while approving the account.",
+                                                        variant: "destructive",
+                                                    });
+                                                });
+                                        }}>
+                                            <CheckCircle className="w-4 h-4 mr-2" />
+                                            Approve Account
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => {
+                                            apiRequest("POST", `/api/admin/accounts/${account.account_id}/disapprove`)
+                                                .then(() => {
+                                                    toast({
+                                                        title: "Account disapproved",
+                                                        description: "The account has been disapproved successfully.",
+                                                    });
+                                                    // Refresh the account data
+                                                    window.location.reload();
+                                                })
+                                                .catch((error: any) => {
+                                                    toast({
+                                                        title: "Failed to disapprove account",
+                                                        description: error.message || "An error occurred while disapproving the account.",
+                                                        variant: "destructive",
+                                                    });
+                                                });
+                                        }}>
+                                            <XCircle className="w-4 h-4 mr-2" />
+                                            Disapprove Account
+                                        </DropdownMenuItem>
+                                    </>
+                                )}
                                 {!account.confirmed_at && (
                                     <DropdownMenuItem onClick={() => {
                                         // TODO: Implement resend invitation
@@ -305,10 +351,9 @@ export default function AccountDetailPage() {
                                 )}
                                 {account.account_status !== 'archived' && (
                                     <DropdownMenuItem onClick={() => {
-                                        // TODO: Implement archive functionality
-                                        toast({
-                                            title: "Feature coming soon",
-                                            description: "Archive functionality will be available soon.",
+                                        updateAccountMutation.mutate({
+                                            accountId: account.account_id,
+                                            accountData: { status: 'archived' }
                                         });
                                     }}>
                                         <Archive className="w-4 h-4 mr-2" />
@@ -317,10 +362,9 @@ export default function AccountDetailPage() {
                                 )}
                                 {account.account_status !== 'suspended' && (
                                     <DropdownMenuItem onClick={() => {
-                                        // TODO: Implement suspend functionality
-                                        toast({
-                                            title: "Feature coming soon",
-                                            description: "Suspend functionality will be available soon.",
+                                        updateAccountMutation.mutate({
+                                            accountId: account.account_id,
+                                            accountData: { status: 'suspended' }
                                         });
                                     }}>
                                         <XCircle className="w-4 h-4 mr-2" />
