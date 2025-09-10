@@ -39,7 +39,7 @@ const admin = createClient(supabaseUrl, serviceRoleKey);
 const wildEnergyTestUsers = [
   // Admin users
   {
-    email: 'admin@wildenergy.tn',
+    email: 'admin@wildenergy.gym',
     password: 'password123',
     firstName: 'Admin',
     lastName: 'User',
@@ -51,7 +51,7 @@ const wildEnergyTestUsers = [
     profession: 'Gym Manager'
   },
   {
-    email: 'manager@wildenergy.tn',
+    email: 'manager@wildenergy.gym',
     password: 'password123',
     firstName: 'Manager',
     lastName: 'User',
@@ -64,7 +64,7 @@ const wildEnergyTestUsers = [
   
   // Trainer users
   {
-    email: 'sarah.trainer@wildenergy.tn',
+    email: 'sarah.trainer@wildenergy.gym',
     password: 'password123',
     firstName: 'Sarah',
     lastName: 'Johnson',
@@ -79,7 +79,7 @@ const wildEnergyTestUsers = [
     hourlyRate: 80.00
   },
   {
-    email: 'mike.trainer@wildenergy.tn',
+    email: 'mike.trainer@wildenergy.gym',
     password: 'password123',
     firstName: 'Mike',
     lastName: 'Chen',
@@ -96,7 +96,7 @@ const wildEnergyTestUsers = [
   
   // Member users
   {
-    email: 'john.member@email.com',
+    email: 'john.member@wildenergy.gym',
     password: 'password123',
     firstName: 'John',
     lastName: 'Doe',
@@ -109,7 +109,7 @@ const wildEnergyTestUsers = [
     credit: 50.00
   },
   {
-    email: 'maria.member@email.com',
+    email: 'maria.member@wildenergy.gym',
     password: 'password123',
     firstName: 'Maria',
     lastName: 'Garcia',
@@ -124,7 +124,7 @@ const wildEnergyTestUsers = [
   
   // Hybrid user (member + trainer)
   {
-    email: 'alex.hybrid@email.com',
+    email: 'alex.hybrid@wildenergy.gym',
     password: 'password123',
     firstName: 'Alex',
     lastName: 'Wilson',
@@ -144,7 +144,7 @@ const wildEnergyTestUsers = [
   
   // Admin + Trainer user
   {
-    email: 'sophie.admin@wildenergy.tn',
+    email: 'sophie.admin@wildenergy.gym',
     password: 'password123',
     firstName: 'Sophie',
     lastName: 'Dubois',

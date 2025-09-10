@@ -32,7 +32,7 @@ interface AuthState {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<void>;
-  authError: string | null; // <-- Added
+  authError: string | null;
 }
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
@@ -253,18 +253,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
               return;
             }
           }
-          setLoginError(new Error(data.error || 'Invalid email or password'));
-          return;
+          const error = new Error(data.error || 'Invalid email or password');
+          setLoginError(error);
+          throw error;
         }
         
-        setLoginError(new Error(data.error || 'Login failed'));
-        return;
+        const error = new Error(data.error || 'Login failed');
+        setLoginError(error);
+        throw error;
       }
 
       if (!data.session || !data.session.access_token) {
         console.log('Session structure:', JSON.stringify(data.session, null, 2));
-        setLoginError(new Error('No access token received'));
-        return;
+        const error = new Error('No access token received');
+        setLoginError(error);
+        throw error;
       }
 
       // 2. Store tokens
@@ -283,8 +286,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       // 3. Set user data from response
       if (!data.user) {
-        setLoginError(new Error('Failed to load user profile'));
-        return;
+        const error = new Error('Failed to load user profile');
+        setLoginError(error);
+        throw error;
       }
       setUser(data.user);
       setLoginError(null); // Clear any previous errors
@@ -296,7 +300,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         delete window.__authToken;
       }
       setUser(null);
-      setLoginError(error instanceof Error ? error : new Error(String(error)));
+      const loginError = error instanceof Error ? error : new Error(String(error));
+      setLoginError(loginError);
+      throw loginError; // Re-throw the error so the calling code can catch it
     } finally {
       setIsLoggingIn(false);
     }

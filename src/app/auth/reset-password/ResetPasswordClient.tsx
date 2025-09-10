@@ -335,9 +335,11 @@ export default function ResetPasswordClient({ searchParams }: { searchParams: Pr
         </CardHeader>
         <CardContent className="space-y-6">
           {error && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
+            <Alert variant="destructive" className="border-red-500 bg-red-50 dark:bg-red-950/20">
+              <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+              <AlertDescription className="text-red-800 dark:text-red-200 font-medium">
+                {error}
+              </AlertDescription>
             </Alert>
           )}
           <form onSubmit={handleResetPassword} className="space-y-4">

@@ -1,15 +1,29 @@
 import { apiRequest } from '@/lib/queryClient';
 
 export interface MemberDetails {
-  id: string;
-  full_name: string;
-  email: string;
-  phone?: string;
+  member: {
+    id: string;
+    account_id?: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    status?: string;
+    accountStatus?: string;
+    subscriptionStatus?: string;
+    phone?: string;
+    dateOfBirth?: string;
+    address?: string;
+    profession?: string;
+    memberNotes?: string;
+    credit: number;
+    userType?: string;
+    accessiblePortals?: string[];
+    createdAt?: string;
+  };
   subscriptions: any[];
   registrations: any[];
   checkins: any[];
   payments: any[];
-  credit: number;
 }
 
 export const memberDetailsApi = {

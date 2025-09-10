@@ -250,18 +250,23 @@ export default function MemberDetailsPage() {
   }
 
   const member: Member = {
-    id: memberDetails.id,
-    firstName: memberDetails.full_name.split(' ')[0] || '',
-    lastName: memberDetails.full_name.split(' ').slice(1).join(' ') || '',
-    email: memberDetails.email,
-    status: 'active', // Default status since it's not in MemberDetails
-    accountStatus: 'active', // Default status since it's not in MemberDetails
-    subscriptionStatus: 'active', // Default status since it's not in MemberDetails
-    phone: memberDetails.phone,
-    credit: memberDetails.credit,
-    userType: 'member', // Default user type
-    accessiblePortals: ['member'], // Default portals
-    account_id: undefined, // Will be set if available
+    id: memberDetails.member.id,
+    firstName: memberDetails.member.firstName || '',
+    lastName: memberDetails.member.lastName || '',
+    email: memberDetails.member.email,
+    status: memberDetails.member.status || 'active',
+    accountStatus: memberDetails.member.accountStatus || 'active',
+    subscriptionStatus: memberDetails.member.subscriptionStatus || 'active',
+    phone: memberDetails.member.phone,
+    dateOfBirth: memberDetails.member.dateOfBirth,
+    address: memberDetails.member.address,
+    profession: memberDetails.member.profession,
+    memberNotes: memberDetails.member.memberNotes,
+    credit: memberDetails.member.credit,
+    userType: memberDetails.member.userType || 'member',
+    accessiblePortals: memberDetails.member.accessiblePortals || ['member'],
+    account_id: memberDetails.member.account_id,
+    createdAt: memberDetails.member.createdAt,
   };
   const subscriptions = memberDetails.subscriptions as Subscription[];
   const registrations = memberDetails.registrations as Registration[];
