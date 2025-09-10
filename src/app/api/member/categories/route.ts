@@ -26,15 +26,17 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Member access required' }, { status: 403 });
     }
 
-    // Fetch active categories with group information
+    // Fetch active categories with group information via junction table
     const { data: categories, error } = await supabaseServer()
       .from('categories')
       .select(`
         *,
-        groups:group_id (
-          id,
-          name,
-          color
+        category_groups (
+          groups (
+            id,
+            name,
+            color
+          )
         )
       `)
       .eq('is_active', true)
@@ -44,7 +46,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch categories' }, { status: 500 });
     }
     
-    return NextResponse.json(categories);
+    // Transform the data to match the expected interface
+    const transformedCategories = categories?.map(category => ({
+      ...category,
+      groups: category.category_groups?.map((cg: any) => cg.groups) || []
+    })) || [];
+    
+    return NextResponse.json(transformedCategories);
   } catch (error) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

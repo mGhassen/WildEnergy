@@ -21,16 +21,18 @@ export async function GET(req: NextRequest) {
     if (!adminCheck?.is_admin || !adminCheck?.accessible_portals?.includes('admin')) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
-    // Fetch all categories with group information
+    // Fetch all categories with group information via junction table
     console.log('Fetching categories from database...');
     const { data: categories, error } = await supabaseServer()
       .from('categories')
       .select(`
         *,
-        groups (
-          id,
-          name,
-          color
+        category_groups (
+          groups (
+            id,
+            name,
+            color
+          )
         )
       `)
       .order('created_at', { ascending: false });
@@ -42,8 +44,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch categories' }, { status: 500 });
     }
     
-    console.log('Returning categories:', categories);
-    return NextResponse.json(categories);
+    // Transform the data to match the expected interface
+    const transformedCategories = categories?.map(category => ({
+      ...category,
+      groups: category.category_groups?.map((cg: any) => cg.groups) || []
+    })) || [];
+    
+    console.log('Returning categories:', transformedCategories);
+    return NextResponse.json(transformedCategories);
   } catch (error) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
@@ -72,7 +80,7 @@ export async function POST(req: NextRequest) {
     if (!adminCheck?.is_admin) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
-    const { name, description, color, groupId } = await req.json();
+    const { name, description, color, group_ids } = await req.json();
     if (!name) {
       return NextResponse.json({ error: 'Category name is required' }, { status: 400 });
     }
@@ -81,9 +89,6 @@ export async function POST(req: NextRequest) {
     const insertData: any = { name, description };
     if (color) {
       insertData.color = color;
-    }
-    if (groupId !== undefined && groupId !== null) {
-      insertData.group_id = groupId;
     }
     
     const { data: category, error } = await supabaseServer()
@@ -94,6 +99,24 @@ export async function POST(req: NextRequest) {
     if (error) {
       return NextResponse.json({ error: 'Failed to create category' }, { status: 500 });
     }
+    
+    // Create category-group relationships if group_ids provided
+    if (group_ids && group_ids.length > 0) {
+      const categoryGroupRelations = group_ids.map((groupId: number) => ({
+        category_id: category.id,
+        group_id: groupId
+      }));
+      
+      const { error: relationsError } = await supabaseServer()
+        .from('category_groups')
+        .insert(categoryGroupRelations);
+      
+      if (relationsError) {
+        console.error('Failed to create category-group relations:', relationsError);
+        // Don't fail the request, just log the error
+      }
+    }
+    
     return NextResponse.json(category, { status: 201 });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to create category' }, { status: 500 });
@@ -137,15 +160,6 @@ export async function PUT(req: NextRequest) {
     if ('color' in updates) updateData.color = updates.color;
     if ('isActive' in updates) updateData.is_active = updates.isActive;
     
-    // Handle groupId mapping
-    if ('groupId' in updates) {
-      console.log('groupId found:', updates.groupId);
-      if (updates.groupId === undefined || updates.groupId === null) {
-        updateData.group_id = null;
-      } else {
-        updateData.group_id = updates.groupId;
-      }
-    }
     console.log('Final updateData:', updateData);
     
     const { data: category, error } = await supabaseServer()
@@ -158,6 +172,38 @@ export async function PUT(req: NextRequest) {
       console.error('Supabase update error:', error);
       return NextResponse.json({ error: 'Failed to update category', details: error.message }, { status: 500 });
     }
+    
+    // Handle group relationships if group_ids provided
+    if ('group_ids' in updates) {
+      console.log('group_ids found:', updates.group_ids);
+      
+      // First, delete existing relationships
+      const { error: deleteError } = await supabaseServer()
+        .from('category_groups')
+        .delete()
+        .eq('category_id', id);
+      
+      if (deleteError) {
+        console.error('Failed to delete existing category-group relations:', deleteError);
+      }
+      
+      // Then create new relationships if any
+      if (updates.group_ids && updates.group_ids.length > 0) {
+        const categoryGroupRelations = updates.group_ids.map((groupId: number) => ({
+          category_id: id,
+          group_id: groupId
+        }));
+        
+        const { error: relationsError } = await supabaseServer()
+          .from('category_groups')
+          .insert(categoryGroupRelations);
+        
+        if (relationsError) {
+          console.error('Failed to create category-group relations:', relationsError);
+        }
+      }
+    }
+    
     return NextResponse.json({ success: true, category });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to update category' }, { status: 500 });

@@ -3,6 +3,7 @@ import { apiRequest } from '@/lib/queryClient';
 export interface Payment {
   id: number;
   subscription_id: number;
+  member_id: string;
   amount: number;
   payment_method: string;
   payment_reference?: string;
@@ -12,7 +13,7 @@ export interface Payment {
   updated_at: string;
   subscription?: {
     id: number;
-    user: {
+    member: {
       full_name: string;
       email: string;
     };
@@ -24,6 +25,7 @@ export interface Payment {
 
 export interface CreatePaymentData {
   subscription_id: number;
+  member_id: string;
   amount: number;
   payment_method: string;
   payment_reference?: string;
@@ -32,6 +34,7 @@ export interface CreatePaymentData {
 }
 
 export interface UpdatePaymentData {
+  member_id?: string;
   amount?: number;
   payment_method?: string;
   payment_reference?: string;

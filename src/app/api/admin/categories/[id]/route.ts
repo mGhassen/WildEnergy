@@ -29,10 +29,12 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
       .from('categories')
       .select(`
         *,
-        groups (
-          id,
-          name,
-          color
+        category_groups (
+          groups (
+            id,
+            name,
+            color
+          )
         )
       `)
       .eq('id', id)
@@ -47,7 +49,13 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
       return NextResponse.json({ error: 'Category not found' }, { status: 404 });
     }
 
-    return NextResponse.json(category);
+    // Transform the data to match the expected interface
+    const transformedCategory = {
+      ...category,
+      groups: category.category_groups?.map((cg: any) => cg.groups) || []
+    };
+
+    return NextResponse.json(transformedCategory);
   } catch (error) {
     console.error('Category fetch error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -80,8 +88,6 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     const updates = await request.json();
     
     console.log('Category update request:', { id, updates });
-    console.log('groupId value:', updates.groupId, 'type:', typeof updates.groupId);
-    console.log('group_id value:', updates.group_id, 'type:', typeof updates.group_id);
 
     // Convert camelCase to snake_case for database
     const dbUpdates: any = {};
@@ -89,15 +95,8 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     if (updates.description !== undefined) dbUpdates.description = updates.description;
     if (updates.color !== undefined) dbUpdates.color = updates.color;
     if (updates.isActive !== undefined) dbUpdates.is_active = updates.isActive;
-    // Handle both groupId (camelCase) and group_id (snake_case)
-    if (updates.hasOwnProperty('groupId')) {
-      dbUpdates.group_id = updates.groupId;
-    } else if (updates.hasOwnProperty('group_id')) {
-      dbUpdates.group_id = updates.group_id;
-    }
     
     console.log('Database updates:', dbUpdates);
-    console.log('group_id value being set:', dbUpdates.group_id);
 
     const { data: category, error } = await supabaseServer()
       .from('categories')
@@ -109,6 +108,37 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     if (error) {
       console.error('Category update error:', error);
       return NextResponse.json({ error: 'Failed to update category' }, { status: 500 });
+    }
+
+    // Handle group relationships if group_ids provided
+    if ('group_ids' in updates) {
+      console.log('group_ids found:', updates.group_ids);
+      
+      // First, delete existing relationships
+      const { error: deleteError } = await supabaseServer()
+        .from('category_groups')
+        .delete()
+        .eq('category_id', id);
+      
+      if (deleteError) {
+        console.error('Failed to delete existing category-group relations:', deleteError);
+      }
+      
+      // Then create new relationships if any
+      if (updates.group_ids && updates.group_ids.length > 0) {
+        const categoryGroupRelations = updates.group_ids.map((groupId: number) => ({
+          category_id: id,
+          group_id: groupId
+        }));
+        
+        const { error: relationsError } = await supabaseServer()
+          .from('category_groups')
+          .insert(categoryGroupRelations);
+        
+        if (relationsError) {
+          console.error('Failed to create category-group relations:', relationsError);
+        }
+      }
     }
 
     console.log('Category updated successfully:', category);

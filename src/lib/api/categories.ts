@@ -6,14 +6,13 @@ export interface Category {
   description?: string;
   color?: string;
   is_active: boolean;
-  group_id?: number;
   created_at: string;
   updated_at: string;
   groups?: {
     id: number;
     name: string;
     color: string;
-  };
+  }[];
 }
 
 export interface CreateCategoryData {
@@ -21,7 +20,7 @@ export interface CreateCategoryData {
   description?: string;
   color?: string;
   isActive?: boolean;
-  groupId?: number | null;
+  groupIds?: number[];
 }
 
 export interface UpdateCategoryData {
@@ -29,7 +28,7 @@ export interface UpdateCategoryData {
   description?: string;
   color?: string;
   isActive?: boolean;
-  groupId?: number | null;
+  groupIds?: number[];
 }
 
 export const categoryApi = {
@@ -47,7 +46,7 @@ export const categoryApi = {
       description: data.description,
       color: data.color,
       is_active: data.isActive ?? true,
-      group_id: data.groupId,
+      group_ids: data.groupIds || [],
     };
     return apiRequest('POST', '/api/admin/categories', apiData);
   },
@@ -58,8 +57,7 @@ export const categoryApi = {
     if (data.description !== undefined) apiData.description = data.description;
     if (data.color !== undefined) apiData.color = data.color;
     if (data.isActive !== undefined) apiData.isActive = data.isActive;
-    // Always include groupId, even if it's null or undefined
-    apiData.groupId = data.groupId;
+    if (data.groupIds !== undefined) apiData.group_ids = data.groupIds;
     
     console.log('API update data:', apiData);
     return apiRequest('PATCH', `/api/admin/categories/${categoryId}`, apiData);

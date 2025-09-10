@@ -78,22 +78,57 @@ async function seedData() {
       const { data: newCategories, error: newCategoriesError } = await supabase
         .from('categories')
         .insert([
-          { name: 'Yoga', description: 'Yoga classes for all levels', color: '#FFD700', group_id: groups[0].id, is_active: true },
-          { name: 'Cardio', description: 'Cardio and HIIT classes', color: '#FF6347', group_id: groups[0].id, is_active: true },
-          { name: 'Strength', description: 'Strength and conditioning', color: '#4682B4', group_id: groups[0].id, is_active: true },
-          { name: 'Pilates', description: 'Pilates and flexibility', color: '#8A2BE2', group_id: groups[0].id, is_active: true },
-          { name: 'Pole Dance', description: 'Pole dancing and aerial fitness', color: '#FF1493', group_id: groups[1].id, is_active: true },
-          { name: 'Stretching', description: 'Flexibility and mobility', color: '#32CD32', group_id: groups[1].id, is_active: true },
-          { name: 'Dance', description: 'Various dance styles', color: '#FF69B4', group_id: groups[2].id, is_active: true },
-          { name: 'Martial Arts', description: 'Self-defense and martial arts', color: '#8B4513', group_id: groups[3].id, is_active: true },
-          { name: 'Meditation', description: 'Mindfulness and meditation', color: '#9B59B6', group_id: groups[4].id, is_active: true },
-          { name: 'Breathing', description: 'Breathing exercises and relaxation', color: '#E67E22', group_id: groups[4].id, is_active: true }
+          { name: 'Yoga', description: 'Yoga classes for all levels', color: '#FFD700', is_active: true },
+          { name: 'Cardio', description: 'Cardio and HIIT classes', color: '#FF6347', is_active: true },
+          { name: 'Strength', description: 'Strength and conditioning', color: '#4682B4', is_active: true },
+          { name: 'Pilates', description: 'Pilates and flexibility', color: '#8A2BE2', is_active: true },
+          { name: 'Pole Dance', description: 'Pole dancing and aerial fitness', color: '#FF1493', is_active: true },
+          { name: 'Stretching', description: 'Flexibility and mobility', color: '#32CD32', is_active: true },
+          { name: 'Dance', description: 'Various dance styles', color: '#FF69B4', is_active: true },
+          { name: 'Martial Arts', description: 'Self-defense and martial arts', color: '#8B4513', is_active: true },
+          { name: 'Meditation', description: 'Mindfulness and meditation', color: '#9B59B6', is_active: true },
+          { name: 'Breathing', description: 'Breathing exercises and relaxation', color: '#E67E22', is_active: true }
         ])
         .select();
       
       if (newCategoriesError) throw newCategoriesError;
       categories = newCategories;
       console.log(`✅ Created ${categories.length} categories`);
+      
+      // Create category-group relationships (many-to-many)
+      console.log('🔗 Creating category-group relationships...');
+      const categoryGroupRelations = [
+        // Fitness Basics group (groups[0])
+        { category_id: categories[0].id, group_id: groups[0].id }, // Yoga
+        { category_id: categories[1].id, group_id: groups[0].id }, // Cardio
+        { category_id: categories[2].id, group_id: groups[0].id }, // Strength
+        { category_id: categories[3].id, group_id: groups[0].id }, // Pilates
+        
+        // Pole Dance Group (groups[1])
+        { category_id: categories[4].id, group_id: groups[1].id }, // Pole Dance
+        { category_id: categories[5].id, group_id: groups[1].id }, // Stretching
+        
+        // Dance & Movement (groups[2])
+        { category_id: categories[6].id, group_id: groups[2].id }, // Dance
+        
+        // Combat Sports (groups[3])
+        { category_id: categories[7].id, group_id: groups[3].id }, // Martial Arts
+        
+        // Wellness & Recovery (groups[4])
+        { category_id: categories[8].id, group_id: groups[4].id }, // Meditation
+        { category_id: categories[9].id, group_id: groups[4].id }, // Breathing
+        
+        // Some categories can belong to multiple groups
+        { category_id: categories[5].id, group_id: groups[0].id }, // Stretching also in Fitness Basics
+        { category_id: categories[3].id, group_id: groups[4].id }, // Pilates also in Wellness
+      ];
+      
+      const { error: relationsError } = await supabase
+        .from('category_groups')
+        .insert(categoryGroupRelations);
+      
+      if (relationsError) throw relationsError;
+      console.log(`✅ Created ${categoryGroupRelations.length} category-group relationships`);
     } else {
       console.log(`✅ Found ${categories.length} existing categories`);
     }

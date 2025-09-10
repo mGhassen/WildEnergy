@@ -1,4 +1,4 @@
-DROP VIEW IF EXISTS members_with_subscription_status;
+-- View will be created below
 
 CREATE OR REPLACE VIEW members_with_subscription_status AS
 SELECT

@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp, boolean, decimal, uuid, numeric, time, date } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, boolean, decimal, uuid, numeric, time, date, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
@@ -68,6 +68,28 @@ export const categories = pgTable("categories", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+// Groups table
+export const groups = pgTable("groups", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  description: text("description"),
+  color: text("color"), // hex color code for UI
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Category-Groups junction table (many-to-many relationship)
+export const categoryGroups = pgTable("category_groups", {
+  id: serial("id").primaryKey(),
+  categoryId: integer("category_id").notNull().references(() => categories.id, { onDelete: "cascade" }),
+  groupId: integer("group_id").notNull().references(() => groups.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  categoryGroupUnique: unique("category_groups_unique").on(table.categoryId, table.groupId),
+}));
 
 
 // Plans table
