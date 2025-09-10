@@ -85,15 +85,6 @@ export default function AccountDetailPage() {
         emergencyContactPhone: "",
         accountStatus: "",
         isAdmin: false,
-        memberNotes: "",
-        credit: 0,
-        memberStatus: "",
-        specialization: "",
-        experienceYears: 0,
-        bio: "",
-        certification: "",
-        hourlyRate: 0,
-        trainerStatus: "",
     });
 
     // Populate edit form when account data changes
@@ -111,15 +102,6 @@ export default function AccountDetailPage() {
                 emergencyContactPhone: account.emergency_contact_phone || "",
                 accountStatus: account.account_status || "pending",
                 isAdmin: account.is_admin || false,
-                memberNotes: account.member_notes || "",
-                credit: account.credit || 0,
-                memberStatus: account.member_status || "inactive",
-                specialization: account.specialization || "",
-                experienceYears: account.experience_years || 0,
-                bio: account.bio || "",
-                certification: account.certification || "",
-                hourlyRate: account.hourly_rate || 0,
-                trainerStatus: account.trainer_status || "inactive",
             });
         }
     }, [account]);
@@ -145,19 +127,6 @@ export default function AccountDetailPage() {
                 status: editForm.accountStatus,
                 isAdmin: editForm.isAdmin,
             },
-            memberData: account.member_id ? {
-                memberNotes: editForm.memberNotes,
-                credit: editForm.credit,
-                status: editForm.memberStatus,
-            } : null,
-            trainerData: account.trainer_id ? {
-                specialization: editForm.specialization,
-                experienceYears: editForm.experienceYears,
-                bio: editForm.bio,
-                certification: editForm.certification,
-                hourlyRate: editForm.hourlyRate,
-                status: editForm.trainerStatus,
-            } : null,
         };
 
         updateAccountMutation.mutate(updateData, {
@@ -616,18 +585,27 @@ export default function AccountDetailPage() {
                                         )}
                                     </div>
 
-                                    {/* Member Role */}
-                                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                                    {/* Member Role Card */}
+                                    <div 
+                                        className={`flex items-center justify-between p-3 border rounded-lg transition-colors ${
+                                            account.member_id 
+                                                ? 'hover:bg-blue-50 cursor-pointer border-blue-200' 
+                                                : 'opacity-60'
+                                        }`}
+                                        onClick={() => account.member_id && router.push('/admin/members')}
+                                    >
                                         <div className="flex items-center space-x-3">
                                             <User className="w-5 h-5 text-blue-600" />
                                             <div>
                                                 <p className="font-medium">Member</p>
-                                                <p className="text-sm text-muted-foreground">Gym membership and class access</p>
+                                                <p className="text-sm text-muted-foreground">
+                                                    {account.member_id ? 'Click to view members list' : 'Gym membership and class access'}
+                                                </p>
                                             </div>
                                         </div>
                                         <div className="flex items-center space-x-2">
                                             <Badge variant={account.member_id ? "default" : "secondary"}>
-                                                {account.member_id ? "Enabled" : "Not Assigned"}
+                                                {account.member_id ? "View Details" : "Not Assigned"}
                                             </Badge>
                                             {account.member_id && account.member_status && (
                                                 <Badge className={`${getStatusColor(account.member_status)} text-xs`}>
@@ -638,18 +616,27 @@ export default function AccountDetailPage() {
                                         </div>
                                     </div>
 
-                                    {/* Trainer Role */}
-                                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                                    {/* Trainer Role Card */}
+                                    <div 
+                                        className={`flex items-center justify-between p-3 border rounded-lg transition-colors ${
+                                            account.trainer_id 
+                                                ? 'hover:bg-green-50 cursor-pointer border-green-200' 
+                                                : 'opacity-60'
+                                        }`}
+                                        onClick={() => account.trainer_id && router.push('/admin/trainers')}
+                                    >
                                         <div className="flex items-center space-x-3">
                                             <GraduationCap className="w-5 h-5 text-green-600" />
                                             <div>
                                                 <p className="font-medium">Trainer</p>
-                                                <p className="text-sm text-muted-foreground">Class instruction and member training</p>
+                                                <p className="text-sm text-muted-foreground">
+                                                    {account.trainer_id ? 'Click to view trainers list' : 'Class instruction and member training'}
+                                                </p>
                                             </div>
                                         </div>
                                         <div className="flex items-center space-x-2">
                                             <Badge variant={account.trainer_id ? "default" : "secondary"}>
-                                                {account.trainer_id ? "Enabled" : "Not Assigned"}
+                                                {account.trainer_id ? "View Details" : "Not Assigned"}
                                             </Badge>
                                             {account.trainer_id && account.trainer_status && (
                                                 <Badge className={`${getStatusColor(account.trainer_status)} text-xs`}>
@@ -679,174 +666,6 @@ export default function AccountDetailPage() {
                         </CardContent>
                     </Card>
 
-                    {/* Member Information */}
-                    {account.member_id && (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center space-x-2">
-                                    <User className="w-5 h-5" />
-                                    <span>Member Information</span>
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <Label htmlFor="memberNotes">Member Notes</Label>
-                                        {isEditing ? (
-                                            <Textarea
-                                                id="memberNotes"
-                                                value={editForm.memberNotes}
-                                                onChange={(e) => setEditForm({...editForm, memberNotes: e.target.value})}
-                                                rows={3}
-                                            />
-                                        ) : (
-                                            <p className="text-sm font-medium">{account.member_notes || 'No notes'}</p>
-                                        )}
-                                    </div>
-                                    <div>
-                                        <Label htmlFor="credit">Credit Balance</Label>
-                                        {isEditing ? (
-                                            <Input
-                                                id="credit"
-                                                type="number"
-                                                value={editForm.credit}
-                                                onChange={(e) => setEditForm({...editForm, credit: Number(e.target.value)})}
-                                            />
-                                        ) : (
-                                            <p className="text-sm font-medium flex items-center">
-                                                <CreditCard className="w-4 h-4 mr-2 text-muted-foreground" />
-                                                {account.credit || 0} TND
-                                            </p>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {isEditing && (
-                                    <div>
-                                        <Label htmlFor="memberStatus">Member Status</Label>
-                                        <Select
-                                            value={editForm.memberStatus}
-                                            onValueChange={(value) => setEditForm({...editForm, memberStatus: value})}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="active">Active</SelectItem>
-                                                <SelectItem value="inactive">Inactive</SelectItem>
-                                                <SelectItem value="suspended">Suspended</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-                    )}
-
-                    {/* Trainer Information */}
-                    {account.trainer_id && (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center space-x-2">
-                                    <GraduationCap className="w-5 h-5" />
-                                    <span>Trainer Information</span>
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <Label htmlFor="specialization">Specialization</Label>
-                                        {isEditing ? (
-                                            <Input
-                                                id="specialization"
-                                                value={editForm.specialization}
-                                                onChange={(e) => setEditForm({...editForm, specialization: e.target.value})}
-                                            />
-                                        ) : (
-                                            <p className="text-sm font-medium">{account.specialization || 'N/A'}</p>
-                                        )}
-                                    </div>
-                                    <div>
-                                        <Label htmlFor="experienceYears">Experience (Years)</Label>
-                                        {isEditing ? (
-                                            <Input
-                                                id="experienceYears"
-                                                type="number"
-                                                value={editForm.experienceYears}
-                                                onChange={(e) => setEditForm({...editForm, experienceYears: Number(e.target.value)})}
-                                            />
-                                        ) : (
-                                            <p className="text-sm font-medium">{account.experience_years || 0} years</p>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <Label htmlFor="bio">Bio</Label>
-                                    {isEditing ? (
-                                        <Textarea
-                                            id="bio"
-                                            value={editForm.bio}
-                                            onChange={(e) => setEditForm({...editForm, bio: e.target.value})}
-                                            rows={3}
-                                        />
-                                    ) : (
-                                        <p className="text-sm font-medium">{account.bio || 'No bio provided'}</p>
-                                    )}
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <Label htmlFor="certification">Certification</Label>
-                                        {isEditing ? (
-                                            <Input
-                                                id="certification"
-                                                value={editForm.certification}
-                                                onChange={(e) => setEditForm({...editForm, certification: e.target.value})}
-                                            />
-                                        ) : (
-                                            <p className="text-sm font-medium">{account.certification || 'N/A'}</p>
-                                        )}
-                                    </div>
-                                    <div>
-                                        <Label htmlFor="hourlyRate">Hourly Rate (TND)</Label>
-                                        {isEditing ? (
-                                            <Input
-                                                id="hourlyRate"
-                                                type="number"
-                                                value={editForm.hourlyRate}
-                                                onChange={(e) => setEditForm({...editForm, hourlyRate: Number(e.target.value)})}
-                                            />
-                                        ) : (
-                                            <p className="text-sm font-medium flex items-center">
-                                                <CreditCard className="w-4 h-4 mr-2 text-muted-foreground" />
-                                                {account.hourly_rate || 0} TND/hour
-                                            </p>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {isEditing && (
-                                    <div>
-                                        <Label htmlFor="trainerStatus">Trainer Status</Label>
-                                        <Select
-                                            value={editForm.trainerStatus}
-                                            onValueChange={(value) => setEditForm({...editForm, trainerStatus: value})}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="active">Active</SelectItem>
-                                                <SelectItem value="inactive">Inactive</SelectItem>
-                                                <SelectItem value="suspended">Suspended</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-                    )}
                 </div>
 
                 {/* Sidebar */}
