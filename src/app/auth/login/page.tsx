@@ -21,7 +21,7 @@ import { useAuth } from "@/hooks/use-auth";
 export default function LoginPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const router = useRouter();
   const { toast } = useToast();
-  const { login, authError } = useAuth();
+  const { login, authError, loginError } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -62,20 +62,25 @@ export default function LoginPage({ searchParams }: { searchParams: Promise<Reco
       console.error('Login error:', err);
       let errorMessage = 'An error occurred during login';
       if (err instanceof Error) {
-        if (err.message.includes('Invalid login credentials')) {
-          errorMessage = 'Invalid email or password';
+        if (err.message.includes('Invalid email or password') || err.message.includes('Invalid login credentials')) {
+          errorMessage = 'Invalid email or password. Please check your credentials and try again.';
+        } else if (err.message.includes('User account not found')) {
+          errorMessage = 'No account found with this email. Please sign up first.';
         } else if (err.message.includes('Email not confirmed')) {
           errorMessage = 'Please verify your email before logging in';
+        } else if (err.message.includes('Account is pending admin approval')) {
+          errorMessage = 'Your account is pending admin approval. Please wait for approval before logging in.';
+        } else if (err.message.includes('Account is pending invitation acceptance')) {
+          errorMessage = 'Please check your email and accept the invitation before logging in.';
+        } else if (err.message.includes('Account has been suspended')) {
+          errorMessage = 'Your account has been suspended. Please contact support.';
         } else {
           errorMessage = err.message;
         }
       }
       setError(errorMessage);
-      toast({
-        title: "Login failed",
-        description: errorMessage,
-        variant: "destructive"
-      });
+      // Don't show toast for login errors since we already show the alert
+      // The alert is more prominent and stays visible
     } finally {
       setIsLoading(false);
     }
@@ -120,20 +125,25 @@ export default function LoginPage({ searchParams }: { searchParams: Promise<Reco
         console.error('Prefilled login error:', err);
         let errorMessage = 'An error occurred during login';
         if (err instanceof Error) {
-          if (err.message.includes('Invalid login credentials')) {
-            errorMessage = 'Invalid email or password';
+          if (err.message.includes('Invalid email or password') || err.message.includes('Invalid login credentials')) {
+            errorMessage = 'Invalid email or password. Please check your credentials and try again.';
+          } else if (err.message.includes('User account not found')) {
+            errorMessage = 'No account found with this email. Please sign up first.';
           } else if (err.message.includes('Email not confirmed')) {
             errorMessage = 'Please verify your email before logging in';
+          } else if (err.message.includes('Account is pending admin approval')) {
+            errorMessage = 'Your account is pending admin approval. Please wait for approval before logging in.';
+          } else if (err.message.includes('Account is pending invitation acceptance')) {
+            errorMessage = 'Please check your email and accept the invitation before logging in.';
+          } else if (err.message.includes('Account has been suspended')) {
+            errorMessage = 'Your account has been suspended. Please contact support.';
           } else {
             errorMessage = err.message;
           }
         }
         setError(errorMessage);
-        toast({
-          title: "Login failed",
-          description: errorMessage,
-          variant: "destructive"
-        });
+        // Don't show toast for login errors since we already show the alert
+        // The alert is more prominent and stays visible
       }
     }, 100);
   };
@@ -150,21 +160,37 @@ export default function LoginPage({ searchParams }: { searchParams: Promise<Reco
         <CardContent className="space-y-6">
           {/* Show global auth error if present */}
           {authError && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{authError}</AlertDescription>
+            <Alert variant="destructive" className="border-red-500 bg-red-50 dark:bg-red-950/20">
+              <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+              <AlertDescription className="text-red-800 dark:text-red-200 font-medium">
+                {authError}
+              </AlertDescription>
             </Alert>
           )}
-          {error && !authError && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
+          {/* Show login error if present */}
+          {loginError && !authError && (
+            <Alert variant="destructive" className="border-red-500 bg-red-50 dark:bg-red-950/20">
+              <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+              <AlertDescription className="text-red-800 dark:text-red-200 font-medium">
+                {loginError.message}
+              </AlertDescription>
+            </Alert>
+          )}
+          {/* Show local error if present and no other errors */}
+          {error && !authError && !loginError && (
+            <Alert variant="destructive" className="border-red-500 bg-red-50 dark:bg-red-950/20">
+              <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+              <AlertDescription className="text-red-800 dark:text-red-200 font-medium">
+                {error}
+              </AlertDescription>
             </Alert>
           )}
           {success && (
-            <Alert variant="success">
-              <CheckCircle className="h-4 w-4" />
-              <AlertDescription>{success}</AlertDescription>
+            <Alert variant="default" className="border-green-500 bg-green-50 dark:bg-green-950/20">
+              <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+              <AlertDescription className="text-green-800 dark:text-green-200 font-medium">
+                {success}
+              </AlertDescription>
             </Alert>
           )}
 
@@ -260,7 +286,7 @@ export default function LoginPage({ searchParams }: { searchParams: Promise<Reco
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handlePrefilledLogin("admin@wildenergy.tn", "password123")}
+                    onClick={() => handlePrefilledLogin("admin@wildenergy.gym", "password123")}
                     disabled={isLoading}
                     className="text-xs"
                   >
@@ -276,7 +302,7 @@ export default function LoginPage({ searchParams }: { searchParams: Promise<Reco
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handlePrefilledLogin("john.member@email.com", "password123")}
+                    onClick={() => handlePrefilledLogin("john.member@wildenergy.gyn", "password123")}
                     disabled={isLoading}
                     className="text-xs"
                   >
@@ -292,7 +318,7 @@ export default function LoginPage({ searchParams }: { searchParams: Promise<Reco
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handlePrefilledLogin("sarah.trainer@wildenergy.tn", "password123")}
+                    onClick={() => handlePrefilledLogin("sarah.trainer@wildenergy.gym", "password123")}
                     disabled={isLoading}
                     className="text-xs"
                   >
