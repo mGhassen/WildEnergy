@@ -19,6 +19,7 @@ import {
 import { NavMain } from "@/components/nav-main"
 import { NavSecondary } from "@/components/nav-secondary"
 import { NavUser } from "@/components/nav-user"
+import { NavUserSkeleton } from "@/components/nav-user-skeleton"
 import {
   Sidebar,
   SidebarContent,
@@ -144,7 +145,7 @@ const data = {
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { state } = useSidebar()
-  const { user } = useAuth()
+  const { user, isLoading } = useAuth()
   const collapsed = state === "collapsed"
   
   // Create user object for NavUser component
@@ -182,7 +183,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={userForNav} />
+        {isLoading ? (
+          <NavUserSkeleton />
+        ) : user ? (
+          <NavUser user={userForNav} />
+        ) : null}
       </SidebarFooter>
     </Sidebar>
   )

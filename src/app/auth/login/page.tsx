@@ -52,35 +52,19 @@ export default function LoginPage({ searchParams }: { searchParams: Promise<Reco
       // Use the useAuth hook's login method which handles everything
       await login(email, password);
       
-      // Show success message
-      toast({
-        title: "Login successful!",
-        description: "Redirecting you to your dashboard...",
-      });
-      // Note: The actual redirection is handled in the useAuth hook after successful login
-    } catch (err: unknown) {
-      console.error('Login error:', err);
-      let errorMessage = 'An error occurred during login';
-      if (err instanceof Error) {
-        if (err.message.includes('Invalid email or password') || err.message.includes('Invalid login credentials')) {
-          errorMessage = 'Invalid email or password. Please check your credentials and try again.';
-        } else if (err.message.includes('User account not found')) {
-          errorMessage = 'No account found with this email. Please sign up first.';
-        } else if (err.message.includes('Email not confirmed')) {
-          errorMessage = 'Please verify your email before logging in';
-        } else if (err.message.includes('Account is pending admin approval')) {
-          errorMessage = 'Your account is pending admin approval. Please wait for approval before logging in.';
-        } else if (err.message.includes('Account is pending invitation acceptance')) {
-          errorMessage = 'Please check your email and accept the invitation before logging in.';
-        } else if (err.message.includes('Account has been suspended')) {
-          errorMessage = 'Your account has been suspended. Please contact support.';
-        } else {
-          errorMessage = err.message;
-        }
+      // Check if login was successful (no error set)
+      if (!loginError) {
+        // Show success message
+        toast({
+          title: "Login successful!",
+          description: "Redirecting you to your dashboard...",
+        });
+        // Note: The actual redirection is handled in the useAuth hook after successful login
       }
-      setError(errorMessage);
-      // Don't show toast for login errors since we already show the alert
-      // The alert is more prominent and stays visible
+    } catch (err: unknown) {
+      // Only catch unexpected errors (network issues, etc.)
+      console.error('Unexpected login error:', err);
+      setError('An unexpected error occurred. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -116,34 +100,18 @@ export default function LoginPage({ searchParams }: { searchParams: Promise<Reco
       try {
         await login(email, password);
         
-        // Show success message
-        toast({
-          title: "Login successful!",
-          description: "Redirecting you to your dashboard...",
-        });
-      } catch (err: unknown) {
-        console.error('Prefilled login error:', err);
-        let errorMessage = 'An error occurred during login';
-        if (err instanceof Error) {
-          if (err.message.includes('Invalid email or password') || err.message.includes('Invalid login credentials')) {
-            errorMessage = 'Invalid email or password. Please check your credentials and try again.';
-          } else if (err.message.includes('User account not found')) {
-            errorMessage = 'No account found with this email. Please sign up first.';
-          } else if (err.message.includes('Email not confirmed')) {
-            errorMessage = 'Please verify your email before logging in';
-          } else if (err.message.includes('Account is pending admin approval')) {
-            errorMessage = 'Your account is pending admin approval. Please wait for approval before logging in.';
-          } else if (err.message.includes('Account is pending invitation acceptance')) {
-            errorMessage = 'Please check your email and accept the invitation before logging in.';
-          } else if (err.message.includes('Account has been suspended')) {
-            errorMessage = 'Your account has been suspended. Please contact support.';
-          } else {
-            errorMessage = err.message;
-          }
+        // Check if login was successful (no error set)
+        if (!loginError) {
+          // Show success message
+          toast({
+            title: "Login successful!",
+            description: "Redirecting you to your dashboard...",
+          });
         }
-        setError(errorMessage);
-        // Don't show toast for login errors since we already show the alert
-        // The alert is more prominent and stays visible
+      } catch (err: unknown) {
+        // Only catch unexpected errors (network issues, etc.)
+        console.error('Unexpected prefilled login error:', err);
+        setError('An unexpected error occurred. Please try again.');
       }
     }, 100);
   };
