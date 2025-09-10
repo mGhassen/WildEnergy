@@ -52,14 +52,11 @@ FOREIGN KEY (trainer_id) REFERENCES trainers(id) ON DELETE SET NULL;
 DROP INDEX IF EXISTS idx_subscriptions_member_id;
 DROP INDEX IF EXISTS idx_class_registrations_member_id;
 DROP INDEX IF EXISTS idx_checkins_member_id;
-DROP INDEX IF EXISTS idx_schedules_trainer_id_new;
-DROP INDEX IF EXISTS idx_courses_trainer_id_new;
 
 CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON subscriptions(user_id);
 CREATE INDEX IF NOT EXISTS idx_class_registrations_user_id ON class_registrations(user_id);
 CREATE INDEX IF NOT EXISTS idx_checkins_user_id ON checkins(user_id);
-CREATE INDEX IF NOT EXISTS idx_schedules_trainer_id ON schedules(trainer_id);
-CREATE INDEX IF NOT EXISTS idx_courses_trainer_id ON courses(trainer_id);
+-- Indexes already exist from previous migrations
 
 -- 7. Update the user_profiles view to reflect new column names
 DROP VIEW IF EXISTS user_profiles;

@@ -27,7 +27,7 @@ export interface Subscription {
 }
 
 export interface CreateSubscriptionData {
-  user_id: string;
+  member_id: string;
   plan_id: number;
   status?: string;
   start_date: string;

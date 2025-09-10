@@ -70,7 +70,7 @@ type Plan = {
 
 type Subscription = {
   id: number;
-  user_id: string;
+  member_id: string;
   plan_id: number;
   start_date: string;
   end_date: string;
@@ -97,7 +97,7 @@ type Subscription = {
 
 // Simplified subscription form schema (no payment fields)
 const subscriptionFormSchema = z.object({
-  userId: z.string().min(1, "Member is required"),
+  memberId: z.string().min(1, "Member is required"),
   planId: z.string().min(1, "Plan is required"),
   startDate: z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/, "Invalid date"),
   notes: z.string().optional(),
@@ -175,7 +175,7 @@ export default function AdminSubscriptions() {
   const subscriptionForm = useForm<SubscriptionFormData>({
     resolver: zodResolver(subscriptionFormSchema),
     defaultValues: {
-      userId: "",
+      memberId: "",
       planId: "",
       startDate: new Date().toISOString().split('T')[0],
       notes: "",
@@ -236,7 +236,7 @@ export default function AdminSubscriptions() {
   const openEditModal = (subscription: Subscription) => {
     setEditingSubscription(subscription);
     subscriptionForm.reset({
-      userId: subscription.user_id,
+      memberId: subscription.member_id,
       planId: subscription.plan_id.toString(),
       startDate: subscription.start_date.split('T')[0],
       notes: subscription.notes || "",
@@ -285,7 +285,7 @@ export default function AdminSubscriptions() {
     const endDateStr = startDateObj.toISOString().split('T')[0];
 
     const submitData = {
-      user_id: data.userId,
+      member_id: data.memberId,
       plan_id: parseInt(data.planId),
       start_date: data.startDate,
       end_date: endDateStr,
@@ -326,7 +326,7 @@ export default function AdminSubscriptions() {
     const endDateStr = startDateObj.toISOString().split('T')[0];
 
     const submitData = {
-      user_id: data.userId,
+      member_id: data.memberId,
       plan_id: parseInt(data.planId),
       start_date: data.startDate,
       end_date: endDateStr,
@@ -351,6 +351,7 @@ export default function AdminSubscriptions() {
     console.log('Payment form data:', data);
     const paymentPayload = {
       subscription_id: data.subscription_id,
+      member_id: selectedSubscription?.member_id || '',
       amount: data.amount,
       payment_method: data.payment_method,
       status: data.status,
@@ -713,7 +714,7 @@ export default function AdminSubscriptions() {
               {/* Subscription Details */}
               <div className="space-y-4">
                 <Controller
-                  name="userId"
+                  name="memberId"
                   control={subscriptionForm.control}
                   render={({ field }) => (
                     <FormItem>
@@ -919,7 +920,7 @@ export default function AdminSubscriptions() {
               {/* Subscription Details */}
               <div className="space-y-4">
                 <Controller
-                  name="userId"
+                  name="memberId"
                   control={subscriptionForm.control}
                   render={({ field }) => (
                     <FormItem>

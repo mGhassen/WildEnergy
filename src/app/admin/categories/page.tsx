@@ -51,7 +51,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Edit, Trash2 } from "lucide-react";
+import { Plus, Edit, Trash2, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const categoryFormSchema = z.object({
@@ -59,7 +59,7 @@ const categoryFormSchema = z.object({
   description: z.string().optional(),
   color: z.string().optional(),
   isActive: z.boolean(),
-  groupId: z.union([z.number(), z.null()]).optional(),
+  groupIds: z.array(z.number()).optional(),
 });
 
 type CategoryFormData = z.infer<typeof categoryFormSchema>;
@@ -104,7 +104,7 @@ export default function AdminCategories() {
       description: "",
       color: "#4ECDC4",
       isActive: true,
-      groupId: null,
+      groupIds: [],
     },
   });
 
@@ -116,7 +116,7 @@ export default function AdminCategories() {
 
   const onSubmit = (data: CategoryFormData) => {
     console.log('Form submitted:', { data, editingCategory });
-    console.log('groupId in form data:', data.groupId, 'type:', typeof data.groupId);
+    console.log('groupIds in form data:', data.groupIds, 'type:', typeof data.groupIds);
     console.log('Form values:', form.getValues());
     
     if (editingCategory) {
@@ -151,7 +151,7 @@ export default function AdminCategories() {
       description: category.description || "",
       color: category.color || "",
       isActive: category.isActive,
-      groupId: (category as any).group_id ?? null,
+      groupIds: category.groups?.map(g => g.id) || [],
     });
     setIsCreateDialogOpen(true);
   };
@@ -211,7 +211,7 @@ export default function AdminCategories() {
       description: "",
       color: "#4ECDC4",
       isActive: true,
-      groupId: null,
+      groupIds: [],
     });
     setIsCreateDialogOpen(true);
   };
@@ -319,31 +319,30 @@ export default function AdminCategories() {
 
                 <FormField
                   control={form.control}
-                  name="groupId"
+                  name="groupIds"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Group</FormLabel>
+                      <FormLabel>Groups</FormLabel>
                       <Select 
                         onValueChange={(value) => {
-                          console.log('Select onValueChange:', value, 'current field.value:', field.value);
-                          if (value === "none") {
-                            console.log('Setting groupId to null');
-                            field.onChange(null);
+                          const groupId = Number(value);
+                          const currentIds = field.value || [];
+                          if (currentIds.includes(groupId)) {
+                            // Remove if already selected
+                            field.onChange(currentIds.filter(id => id !== groupId));
                           } else {
-                            console.log('Setting groupId to:', Number(value));
-                            field.onChange(Number(value));
+                            // Add if not selected
+                            field.onChange([...currentIds, groupId]);
                           }
-                          console.log('Field value after change:', field.value);
                         }} 
-                        value={field.value === null || field.value === undefined ? "none" : field.value.toString()}
+                        value=""
                       >
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select a group (optional)" />
+                            <SelectValue placeholder="Select groups (optional)" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="none">No group</SelectItem>
                           {groups.map((group: any) => (
                             <SelectItem key={group.id} value={group.id.toString()}>
                               <div className="flex items-center gap-2">
@@ -357,6 +356,33 @@ export default function AdminCategories() {
                           ))}
                         </SelectContent>
                       </Select>
+                      {field.value && field.value.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {field.value.map((groupId: number) => {
+                            const group = groups.find((g: any) => g.id === groupId);
+                            return (
+                              <div key={groupId} className="flex items-center gap-1 bg-muted px-2 py-1 rounded-full text-sm">
+                                <div 
+                                  className="w-2 h-2 rounded-full" 
+                                  style={{ backgroundColor: group?.color }}
+                                />
+                                {group?.name}
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-4 w-4 p-0"
+                                  onClick={() => {
+                                    field.onChange(field.value?.filter((id: number) => id !== groupId));
+                                  }}
+                                >
+                                  <X className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}
@@ -482,15 +508,21 @@ export default function AdminCategories() {
                         </span>
                       </div>
                       <div className="flex-1">
-                        {/* Group name with colored text */}
-                        {category.groups && (
-                          <div className="mb-1">
-                            <span 
-                              className="text-xs font-medium"
-                              style={{ color: category.groups.color || '#94a3b8' }}
-                            >
-                              {category.groups.name}
-                            </span>
+                        {/* Groups with colored text */}
+                        {category.groups && category.groups.length > 0 && (
+                          <div className="mb-1 flex flex-wrap gap-1">
+                            {category.groups.map((group: any) => (
+                              <span 
+                                key={group.id}
+                                className="text-xs font-medium px-2 py-1 rounded-full"
+                                style={{ 
+                                  backgroundColor: group.color + '20',
+                                  color: group.color || '#94a3b8' 
+                                }}
+                              >
+                                {group.name}
+                              </span>
+                            ))}
                           </div>
                         )}
                         <p className="font-medium text-foreground">{category.name}</p>

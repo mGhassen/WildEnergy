@@ -33,11 +33,7 @@ BEGIN
     END IF;
 END $$;
 
--- 4. Update indexes to use member_id
-DROP INDEX IF EXISTS idx_subscriptions_member_id;
-DROP INDEX IF EXISTS idx_class_registrations_member_id;
-DROP INDEX IF EXISTS idx_checkins_member_id;
-
+-- 4. Create indexes for member_id columns
 CREATE INDEX idx_subscriptions_member_id ON subscriptions(member_id);
 CREATE INDEX idx_class_registrations_member_id ON class_registrations(member_id);
 CREATE INDEX idx_checkins_member_id ON checkins(member_id);

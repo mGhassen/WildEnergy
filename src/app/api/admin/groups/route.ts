@@ -20,16 +20,18 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
 
-    // Fetch all groups with their categories
+    // Fetch all groups with their categories via junction table
     const { data: groups, error } = await supabase
       .from('groups')
       .select(`
         *,
-        categories (
-          id,
-          name,
-          description,
-          color
+        category_groups (
+          categories (
+            id,
+            name,
+            description,
+            color
+          )
         )
       `)
       .order('created_at', { ascending: false });
@@ -38,7 +40,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch groups' }, { status: 500 });
     }
 
-    return NextResponse.json(groups);
+    // Transform the data to match the expected interface
+    const transformedGroups = groups?.map(group => ({
+      ...group,
+      categories: group.category_groups?.map((cg: any) => cg.categories) || []
+    })) || [];
+
+    return NextResponse.json(transformedGroups);
   } catch (error) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

@@ -21,7 +21,6 @@ ALTER TABLE users DROP COLUMN IF EXISTS status;
 ALTER TABLE users DROP COLUMN IF EXISTS subscription_status;
 ALTER TABLE users DROP COLUMN IF EXISTS profile_image_url;
 ALTER TABLE users DROP COLUMN IF EXISTS member_notes;
-ALTER TABLE users DROP COLUMN IF EXISTS credit;
 
 -- 4. Drop migration tracking columns
 ALTER TABLE users DROP COLUMN IF EXISTS migration_account_id;

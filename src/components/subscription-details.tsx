@@ -43,6 +43,7 @@ interface Plan {
 interface Payment {
   id: number;
   subscription_id: number;
+  member_id?: string;
   amount: number;
   status?: string;
   payment_date: string;
@@ -51,13 +52,11 @@ interface Payment {
   payment_type?: string;
   transaction_id?: string;
   notes?: string;
-  user_id?: string;
 }
 
 interface Subscription {
   id: number;
-  user_id?: string;
-  userId?: string; // Handle both possible field names
+  member_id?: string;
   plan?: Plan;
   start_date: string;
   end_date: string;
@@ -146,6 +145,7 @@ export function SubscriptionDetails({
   const handlePaymentSubmit = () => {
     const paymentData = {
       subscription_id: subscription.id,
+      member_id: subscription.member_id || '',
       amount: parseFloat(paymentFormData.amount),
       payment_method: paymentFormData.payment_type,
       status: paymentFormData.payment_status,
