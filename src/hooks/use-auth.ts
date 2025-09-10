@@ -162,7 +162,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
 
     checkAuth();
-  }, [router]);
+  }, []); // Remove router dependency to prevent re-running on navigation
 
   // Handle redirection when user changes (only on initial load)
   useEffect(() => {
@@ -183,7 +183,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
       }
     }
-  }, [user, isLoading, router]);
+  }, [user, isLoading]); // Remove router dependency
 
   // Refresh the current session
   const refreshSession = async () => {
@@ -253,21 +253,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
               return;
             }
           }
+          // For invalid credentials, set error and return without throwing
           const error = new Error(data.error || 'Invalid email or password');
           setLoginError(error);
-          throw error;
+          return;
         }
         
+        // For other errors, set error and return without throwing
         const error = new Error(data.error || 'Login failed');
         setLoginError(error);
-        throw error;
+        return;
       }
 
       if (!data.session || !data.session.access_token) {
         console.log('Session structure:', JSON.stringify(data.session, null, 2));
         const error = new Error('No access token received');
         setLoginError(error);
-        throw error;
+        return;
       }
 
       // 2. Store tokens
@@ -288,7 +290,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (!data.user) {
         const error = new Error('Failed to load user profile');
         setLoginError(error);
-        throw error;
+        return;
       }
       setUser(data.user);
       setLoginError(null); // Clear any previous errors

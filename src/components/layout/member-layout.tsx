@@ -26,6 +26,8 @@ import { useTheme } from "@/components/theme-provider";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import Link from "next/link";
+import { PortalSwitch } from "@/components/portal-switch";
+import { MemberUserSkeleton } from "@/components/member-user-skeleton";
 
 interface MemberLayoutProps {
   children: React.ReactNode;
@@ -34,7 +36,7 @@ interface MemberLayoutProps {
 export default function MemberLayout({ children }: MemberLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, logout, isAuthenticated } = useAuth();
+  const { user, logout, isAuthenticated, isLoading } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -317,32 +319,39 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
               </Sheet>
 
               {/* Desktop user profile */}
-              <div className="hidden lg:flex items-center space-x-3">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="flex items-center space-x-3 p-2 hover:bg-accent/50">
-                      <Avatar className="w-8 h-8">
-                        <AvatarImage src="" />
-                        <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                          {user ? getInitials(user.firstName || "M", user.lastName || "") : "M"}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="text-left">
-                        <p className="text-sm font-medium text-foreground">
-                          {user ? `${user.firstName} ${user.lastName}` : "Member"}
-                        </p>
-                        <div className="flex items-center space-x-2">
-                          <Badge variant="secondary" className="text-xs">Premium</Badge>
-                          <span className="text-xs text-muted-foreground">Active</span>
+              {isLoading ? (
+                <MemberUserSkeleton />
+              ) : user ? (
+                <div className="hidden lg:flex items-center space-x-3">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" className="flex items-center space-x-3 p-2 hover:bg-accent/50">
+                        <Avatar className="w-8 h-8">
+                          <AvatarImage src="" />
+                          <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                            {getInitials(user.firstName || "M", user.lastName || "")}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="text-left">
+                          <p className="text-sm font-medium text-foreground">
+                            {`${user.firstName} ${user.lastName}`}
+                          </p>
+                          <div className="flex items-center space-x-2">
+                            <Badge variant="secondary" className="text-xs">Premium</Badge>
+                            <span className="text-xs text-muted-foreground">Active</span>
+                          </div>
                         </div>
-                      </div>
-                      <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                    </Button>
-                  </DropdownMenuTrigger>
+                        <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                      </Button>
+                    </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56">
                     <div className="px-3 py-2">
-                      <p className="text-sm font-medium">{user ? `${user.firstName} ${user.lastName}` : "Member"}</p>
-                      <p className="text-xs text-muted-foreground">{user?.email || "member@example.com"}</p>
+                      <p className="text-sm font-medium">{`${user.firstName} ${user.lastName}`}</p>
+                      <p className="text-xs text-muted-foreground">{user.email}</p>
+                    </div>
+                    <DropdownMenuSeparator />
+                    <div className="px-2 py-1">
+                      <PortalSwitch />
                     </div>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
@@ -378,7 +387,8 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-              </div>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
