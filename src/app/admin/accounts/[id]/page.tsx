@@ -183,7 +183,7 @@ export default function AccountDetailPage() {
         if (!settingPasswordAccount || !setPasswordValue) return;
         
         try {
-            await apiRequest("POST", `/api/admin/users/${settingPasswordAccount.account_id}/set-password`, { 
+            await apiRequest("POST", `/api/admin/accounts/${settingPasswordAccount.account_id}/set-password`, { 
                 password: setPasswordValue 
             });
             toast({

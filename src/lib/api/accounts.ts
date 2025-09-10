@@ -87,23 +87,23 @@ export interface UpdateAccountData {
 
 export const accountApi = {
   async getAccounts(): Promise<Account[]> {
-    return apiRequest('GET', '/api/admin/users');
+    return apiRequest('GET', '/api/admin/accounts');
   },
 
   async getAccount(accountId: string): Promise<Account> {
-    return apiRequest('GET', `/api/admin/users/${accountId}`);
+    return apiRequest('GET', `/api/admin/accounts/${accountId}`);
   },
 
   async createAccount(data: CreateAccountData): Promise<Account> {
-    return apiRequest('POST', '/api/admin/users', data);
+    return apiRequest('POST', '/api/admin/accounts', data);
   },
 
   async updateAccount(data: UpdateAccountData): Promise<Account> {
-    return apiRequest('PUT', '/api/admin/users', data);
+    return apiRequest('PUT', '/api/admin/accounts', data);
   },
 
   async deleteAccount(accountId: string): Promise<void> {
-    return apiRequest('DELETE', '/api/admin/users', { accountId });
+    return apiRequest('DELETE', '/api/admin/accounts', { accountId });
   },
 
   async createAdmin(data: CreateAccountData): Promise<Account> {
