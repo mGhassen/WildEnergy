@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from 'next/navigation';
+import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +13,7 @@ import Link from "next/link";
 
 export default function Register() {
   const router = useRouter();
+  const { register } = useAuth();
   const [credentials, setCredentials] = useState({
     email: "",
     password: "",
@@ -27,22 +29,11 @@ export default function Register() {
     setError(null);
 
     try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: credentials.email,
-          password: credentials.password,
-          firstName: credentials.firstName,
-          lastName: credentials.lastName
-        })
+      await register({
+        email: credentials.email,
+        password: credentials.password,
+        full_name: `${credentials.firstName} ${credentials.lastName}`,
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Registration failed');
-      }
 
       // Redirect to account status page after successful registration
       router.push(`/auth/account-status?email=${encodeURIComponent(credentials.email)}`);

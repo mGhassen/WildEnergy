@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 
 type AccountStatus = 'pending' | 'archived' | 'suspended' | 'active' | 'unknown';
 
@@ -23,6 +24,7 @@ interface StatusConfig {
 }
 
 function AccountStatusContent() {
+  const { checkAccountStatus, resendConfirmation } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<AccountStatus>('unknown');
@@ -57,15 +59,9 @@ function AccountStatusContent() {
 
     setIsLoading(true);
     try {
-      const response = await fetch('/api/auth/check-status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
-      });
+      const data = await checkAccountStatus(email);
       
-      const data = await response.json();
-      
-      if (response.ok && data.success) {
+      if (data.success) {
         setStatus(data.status as AccountStatus);
         setAuthStatus(data.authStatus);
         
@@ -105,26 +101,11 @@ function AccountStatusContent() {
 
     setIsLoading(true);
     try {
-      const response = await fetch('/api/auth/resend-confirmation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
+      await resendConfirmation(email);
+      toast({
+        title: "Email Sent",
+        description: "Confirmation email has been resent. Please check your inbox.",
       });
-      
-      const data = await response.json();
-      
-      if (response.ok && data.success) {
-        toast({
-          title: "Email Sent",
-          description: "Confirmation email has been resent. Please check your inbox.",
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: data.error || "Failed to resend email. Please try again.",
-          variant: "destructive",
-        });
-      }
     } catch (error) {
       console.error('Failed to resend email:', error);
       toast({

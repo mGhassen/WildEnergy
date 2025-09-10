@@ -88,6 +88,31 @@ export function useDeleteSubscription() {
   });
 }
 
+export function useManualRefundSessions() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: ({ subscriptionId, sessionsToRefund }: { subscriptionId: number; sessionsToRefund: number }) => 
+      subscriptionApi.manualRefundSessions(subscriptionId, sessionsToRefund),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/subscriptions'] });
+      toast({
+        title: 'Sessions refunded',
+        description: `Successfully refunded ${data.sessionsRefunded} session(s)`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to refund sessions',
+        description: error.message || 'Please try again',
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
 export function useMemberSubscriptions() {
   return useQuery<Subscription[], Error>({
     queryKey: ['/api/member/subscriptions'],

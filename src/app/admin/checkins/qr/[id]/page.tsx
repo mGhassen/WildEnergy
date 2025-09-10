@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle, XCircle, Loader2, ArrowLeft, User, Calendar, Clock, Users, AlertTriangle, Filter } from "lucide-react";
-import { apiFetch } from "@/lib/api";
+import { useCheckinInfo, useValidateCheckin, useUnvalidateCheckin } from "@/hooks/useCheckins";
 import { useToast } from "@/hooks/use-toast";
 import { formatDateTime } from "@/lib/date";
 import { Badge } from "@/components/ui/badge";
@@ -73,9 +73,11 @@ export default function CheckinQRPage() {
   
   const [status, setStatus] = useState<'loading' | 'info' | 'success' | 'error' | 'invalid'>('loading');
   const [message, setMessage] = useState('');
-  const [checkinInfo, setCheckinInfo] = useState<CheckinInfo | null>(null);
-  const [isValidating, setIsValidating] = useState(false);
-  const [isUnvalidating, setIsUnvalidating] = useState(false);
+  
+  // Use hooks for data fetching and mutations
+  const { data: checkinInfo, isLoading, error, refetch } = useCheckinInfo(qrCode);
+  const validateCheckinMutation = useValidateCheckin();
+  const unvalidateCheckinMutation = useUnvalidateCheckin();
   
   // Status filter state (excluding canceled members)
   const [statusFilters, setStatusFilters] = useState<Set<string>>(new Set(['registered', 'attended', 'absent', 'checked_in']));
@@ -153,108 +155,58 @@ export default function CheckinQRPage() {
       setMessage('Invalid QR code');
       return;
     }
-    fetchCheckinInfo(qrCode);
-  }, [qrCode]);
-
-  const fetchCheckinInfo = async (qrCodeValue: string) => {
-    try {
+    
+    if (isLoading) {
       setStatus('loading');
       setMessage('Fetching check-in information...');
-
-      // Call the QR code info endpoint
-      const response = await apiFetch(`/checkin/qr/${qrCodeValue}`, {
-        method: 'GET'
-      });
-
-      if (response.success) {
-        console.log('Frontend Debug - API Response:', response.data);
-        console.log('Frontend Debug - totalMembers:', response.data.totalMembers);
-        console.log('Frontend Debug - members length:', response.data.members?.length);
-        setStatus('info');
-        setCheckinInfo(response.data);
-        setMessage('Please validate the check-in information below');
-      } else {
-        setStatus('error');
-        setMessage(response.message || 'Failed to fetch check-in information');
-      }
-    } catch (error: any) {
-      console.error('Fetch check-in info error:', error);
+    } else if (error) {
       setStatus('error');
-      setMessage(error.message || 'Failed to fetch check-in information. Please try again.');
+      setMessage(error.message || 'Failed to fetch check-in information');
+    } else if (checkinInfo) {
+      setStatus('info');
+      setMessage('Please validate the check-in information below');
     }
-  };
+  }, [qrCode, isLoading, error, checkinInfo]);
+
 
   const validateCheckin = async () => {
     if (!checkinInfo) return;
 
-    try {
-      setIsValidating(true);
-      setMessage('Processing check-in...');
-
-      // Call the check-in API
-      const response = await apiFetch('/checkins', {
-        method: 'POST',
-        body: JSON.stringify({
-          qr_code: qrCode
-        })
-      });
-
-      if (response.success) {
-        setStatus('success');
-        setMessage('Check-in successful!');
-        toast({
-          title: "Check-in Successful",
-          description: `Welcome ${checkinInfo.member?.first_name || ''} to your class!`,
-        });
-        // Refetch check-in info to update UI
-        fetchCheckinInfo(qrCode);
-      } else {
-        setStatus('error');
-        setMessage(response.message || 'Check-in failed');
+    setMessage('Processing check-in...');
+    validateCheckinMutation.mutate(
+      { qr_code: qrCode },
+      {
+        onSuccess: () => {
+          setStatus('success');
+          setMessage('Check-in successful!');
+        },
+        onError: (error: any) => {
+          setStatus('error');
+          setMessage(error.message || 'Check-in failed. Please try again.');
+        }
       }
-    } catch (error: any) {
-      console.error('Check-in error:', error);
-      setStatus('error');
-      setMessage(error.message || 'Check-in failed. Please try again.');
-    } finally {
-      setIsValidating(false);
-    }
+    );
   };
 
   const unvalidateCheckin = async () => {
     if (!checkinInfo) return;
-    try {
-      setIsUnvalidating(true);
-      setMessage('Unvalidating check-in...');
-      const registrationId = checkinInfo.registration.id;
-      const response = await apiFetch(`/checkins/${registrationId}/unvalidate`, {
-        method: 'POST',
-      });
-      if (response.success) {
+
+    setMessage('Unvalidating check-in...');
+    const registrationId = checkinInfo.registration.id;
+    unvalidateCheckinMutation.mutate(registrationId, {
+      onSuccess: () => {
         setStatus('info');
         setMessage('Check-in unvalidated.');
-        toast({
-          title: "Check-in Unvalidated",
-          description: `Check-in has been removed for this member.`,
-        });
-        // Refetch check-in info to update UI
-        fetchCheckinInfo(qrCode);
-      } else {
+      },
+      onError: (error: any) => {
         setStatus('error');
-        setMessage(response.message || 'Failed to unvalidate check-in');
+        setMessage(error.message || 'Failed to unvalidate check-in. Please try again.');
       }
-    } catch (error: any) {
-      console.error('Unvalidate check-in error:', error);
-      setStatus('error');
-      setMessage(error.message || 'Failed to unvalidate check-in. Please try again.');
-    } finally {
-      setIsUnvalidating(false);
-    }
+    });
   };
 
   const handleRetry = () => {
-    setStatus('loading');
-    fetchCheckinInfo(qrCode);
+    refetch();
   };
 
   const handleBack = () => {
@@ -534,10 +486,10 @@ export default function CheckinQRPage() {
             {status === 'info' && !checkinInfo?.alreadyCheckedIn && (
               <Button 
                 onClick={validateCheckin} 
-                disabled={isValidating}
+                disabled={validateCheckinMutation.isPending}
                 className="flex-1"
               >
-                {isValidating ? (
+                {validateCheckinMutation.isPending ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     Processing...
@@ -553,11 +505,11 @@ export default function CheckinQRPage() {
             {status === 'info' && checkinInfo?.alreadyCheckedIn && (
               <Button 
                 onClick={unvalidateCheckin} 
-                disabled={isUnvalidating}
+                disabled={unvalidateCheckinMutation.isPending}
                 variant="destructive"
                 className="flex-1"
               >
-                {isUnvalidating ? (
+                {unvalidateCheckinMutation.isPending ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     Processing...

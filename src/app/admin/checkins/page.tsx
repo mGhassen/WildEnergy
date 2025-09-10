@@ -10,11 +10,12 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import QRGenerator from "@/components/qr-generator";
 import { useCheckins } from "@/hooks/useCheckins";
-import { CheckCircle, Clock, Users, QrCode, Copy, Eye } from "lucide-react";
+import { CheckCircle, Clock, Users, QrCode, Copy, Eye, Plus } from "lucide-react";
 import { getInitials } from "@/lib/auth";
 import { formatDateTime } from "@/lib/date";
 import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useRouter } from 'next/navigation';
 
 export default function AdminCheckins() {
   const [manualQRCode, setManualQRCode] = useState("");
@@ -26,9 +27,10 @@ export default function AdminCheckins() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [fullTestQRUrl, setFullTestQRUrl] = useState("");
+  const router = useRouter();
 
   useEffect(() => {
-    setFullTestQRUrl(`${window.location.origin}/checkin/qr/${testQRCode}`);
+    setFullTestQRUrl(`${window.location.origin}/admin/checkins/qr/${testQRCode}`);
   }, [testQRCode]);
 
   // Fetch all check-ins (not just today)
@@ -75,12 +77,12 @@ export default function AdminCheckins() {
       return;
     }
     // Open the QR check-in review page
-    window.open(`/checkin/qr/${manualQRCode.trim()}`, "_blank");
+    window.open(`/admin/checkins/qr/${manualQRCode.trim()}`, "_blank");
   };
 
   const copyQRUrl = (qrCode: string) => {
     if (typeof window === 'undefined') return;
-    const url = `${window.location.origin}/checkin/qr/${qrCode}`;
+    const url = `${window.location.origin}/admin/checkins/qr/${qrCode}`;
     navigator.clipboard.writeText(url);
     toast({
       title: "URL copied!",
@@ -90,6 +92,18 @@ export default function AdminCheckins() {
 
   return (
     <div className="space-y-8">
+      {/* Header with navigation */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold">Check-ins Management</h1>
+          <p className="text-muted-foreground">Manage and perform member check-ins</p>
+        </div>
+        <Button onClick={() => router.push('/admin/checkins/perform')} className="flex items-center gap-2">
+          <Plus className="w-4 h-4" />
+          Perform Check-in
+        </Button>
+      </div>
+
       {/* Manual Check-in at the top */}
       <Card>
         <CardHeader>

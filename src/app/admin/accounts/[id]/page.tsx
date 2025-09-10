@@ -50,13 +50,12 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { useAccount, useUpdateAccount, useDeleteAccount, useLinkAccountTrainer, useUnlinkAccountTrainer } from "@/hooks/useAccounts";
+import { useAccount, useUpdateAccount, useDeleteAccount, useLinkAccountTrainer, useUnlinkAccountTrainer, useSetAccountPassword, useApproveAccount, useDisapproveAccount } from "@/hooks/useAccounts";
 import { useTrainers } from "@/hooks/useTrainers";
 import { Account } from "@/lib/api/accounts";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { apiRequest } from "@/lib/queryClient";
 import { formatDate } from "@/lib/date";
 
 
@@ -81,6 +80,9 @@ export default function AccountDetailPage() {
     const deleteAccountMutation = useDeleteAccount();
     const linkTrainerMutation = useLinkAccountTrainer();
     const unlinkTrainerMutation = useUnlinkAccountTrainer();
+    const setPasswordMutation = useSetAccountPassword();
+    const approveAccountMutation = useApproveAccount();
+    const disapproveAccountMutation = useDisapproveAccount();
 
     // Filter trainers that are not already linked to accounts
     const availableTrainers = trainers.filter(trainer => 
@@ -186,23 +188,15 @@ export default function AccountDetailPage() {
     const handleSetPassword = async () => {
         if (!settingPasswordAccount || !setPasswordValue) return;
         
-        try {
-            await apiRequest("POST", `/api/admin/accounts/${settingPasswordAccount.account_id}/set-password`, { 
-                password: setPasswordValue 
-            });
-            toast({
-                title: "Password set successfully",
-                description: `Password updated for ${settingPasswordAccount.first_name} ${settingPasswordAccount.last_name}.`,
-            });
-            setSettingPasswordAccount(null);
-            setSetPasswordValue("");
-        } catch (error: any) {
-            toast({
-                title: "Failed to set password",
-                description: error.message || "An error occurred while setting the password.",
-                variant: "destructive",
-            });
-        }
+        setPasswordMutation.mutate({ 
+            accountId: settingPasswordAccount.account_id, 
+            password: setPasswordValue 
+        }, {
+            onSuccess: () => {
+                setSettingPasswordAccount(null);
+                setSetPasswordValue("");
+            }
+        });
     };
 
     // Helper functions
@@ -340,43 +334,13 @@ export default function AccountDetailPage() {
                                 {account.account_status === 'pending' && (
                                     <>
                                         <DropdownMenuItem onClick={() => {
-                                            apiRequest("POST", `/api/admin/accounts/${account.account_id}/approve`)
-                                                .then(() => {
-                                                    toast({
-                                                        title: "Account approved",
-                                                        description: "The account has been approved successfully.",
-                                                    });
-                                                    // Refresh the account data
-                                                    window.location.reload();
-                                                })
-                                                .catch((error: any) => {
-                                                    toast({
-                                                        title: "Failed to approve account",
-                                                        description: error.message || "An error occurred while approving the account.",
-                                                        variant: "destructive",
-                                                    });
-                                                });
+                                            approveAccountMutation.mutate(account.account_id);
                                         }}>
                                             <CheckCircle className="w-4 h-4 mr-2" />
                                             Approve Account
                                         </DropdownMenuItem>
                                         <DropdownMenuItem onClick={() => {
-                                            apiRequest("POST", `/api/admin/accounts/${account.account_id}/disapprove`)
-                                                .then(() => {
-                                                    toast({
-                                                        title: "Account disapproved",
-                                                        description: "The account has been disapproved successfully.",
-                                                    });
-                                                    // Refresh the account data
-                                                    window.location.reload();
-                                                })
-                                                .catch((error: any) => {
-                                                    toast({
-                                                        title: "Failed to disapprove account",
-                                                        description: error.message || "An error occurred while disapproving the account.",
-                                                        variant: "destructive",
-                                                    });
-                                                });
+                                            disapproveAccountMutation.mutate(account.account_id);
                                         }}>
                                             <XCircle className="w-4 h-4 mr-2" />
                                             Disapprove Account

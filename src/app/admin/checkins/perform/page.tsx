@@ -13,27 +13,39 @@ import { CardSkeleton, FormSkeleton } from "@/components/skeletons";
 interface CheckinInfo {
   member: {
     id: string;
-    firstName: string;
-    lastName: string;
+    first_name: string;
+    last_name: string;
     email: string;
     phone?: string;
+    status?: string;
+    activeSubscription?: {
+      planName: string;
+      status: string;
+      sessionsRemaining: number;
+    };
   };
   course: {
     id: string;
-    name: string;
-    description?: string;
+    course_date: string;
+    start_time: string;
+    end_time: string;
+    class_id: number;
+    trainer_id: number;
     class: {
-      id: string;
+      id: number;
       name: string;
-      trainer: {
+      category?: string;
+      difficulty?: string;
+      maxCapacity?: number;
+    };
+    trainer: {
+      id: number;
+      users: {
         id: string;
-        firstName: string;
-        lastName: string;
+        first_name: string;
+        last_name: string;
       };
     };
-    date?: string;
-    startTime?: string;
-    endTime?: string;
   };
   registration: {
     id: string;
@@ -43,11 +55,11 @@ interface CheckinInfo {
   registeredCount: number;
   checkedInCount: number;
   alreadyCheckedIn: boolean;
-  registeredMembers?: { id: string; firstName: string; lastName: string; email: string }[];
-  attendantMembers?: { id: string; firstName: string; lastName: string; email: string }[];
+  registeredMembers?: { id: string; first_name: string; last_name: string; email: string }[];
+  attendantMembers?: { id: string; first_name: string; last_name: string; email: string }[];
 }
 
-export default function CheckinPage() {
+export default function CheckinPerformPage() {
   const router = useRouter();
   const { toast } = useToast();
   
@@ -63,11 +75,11 @@ export default function CheckinPage() {
   useEffect(() => {
     // Extract QR code from URL path
     const path = window.location.pathname;
-    let qrCodeFromPath = path.replace('/checkin/', '');
+    let qrCodeFromPath = path.replace('/checkins/perform/', '');
     if (qrCodeFromPath.startsWith('qr/')) {
       qrCodeFromPath = qrCodeFromPath.replace('qr/', '');
     }
-    if (!qrCodeFromPath || qrCodeFromPath === 'checkin') {
+    if (!qrCodeFromPath || qrCodeFromPath === 'perform') {
       setStatus('invalid');
       setMessage('Invalid QR code');
       return;
@@ -92,13 +104,13 @@ export default function CheckinPage() {
   const validateCheckin = async () => {
     if (!checkinInfo) return;
 
-    validateCheckinMutation.mutate(qrCode, {
+    validateCheckinMutation.mutate({ qr_code: qrCode }, {
       onSuccess: () => {
         setStatus('success');
         setMessage('Check-in successful!');
         toast({
           title: "Check-in Successful",
-          description: `Welcome ${checkinInfo.member?.firstName || ''} to your class!`,
+          description: `Welcome ${checkinInfo.member?.first_name || ''} to your class!`,
         });
         // Refetch check-in info to update UI
         // The data will be refreshed automatically by React Query
@@ -228,7 +240,7 @@ export default function CheckinPage() {
                   Member Information
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-blue-700">
-                  <p><strong>Name:</strong> {checkinInfo.member ? `${checkinInfo.member.firstName} ${checkinInfo.member.lastName}` : 'Unknown'}</p>
+                  <p><strong>Name:</strong> {checkinInfo.member ? `${checkinInfo.member.first_name} ${checkinInfo.member.last_name}` : 'Unknown'}</p>
                   <p><strong>Email:</strong> {checkinInfo.member?.email || 'Unknown'}</p>
                   {checkinInfo.member?.phone && (
                     <p><strong>Phone:</strong> {checkinInfo.member.phone}</p>
@@ -243,14 +255,11 @@ export default function CheckinPage() {
                   Course Information
                 </h3>
                 <div className="space-y-2 text-sm text-green-700">
-                  <p><strong>Course:</strong> {checkinInfo.course?.name || checkinInfo.course?.class?.name || 'Unknown'}</p>
-                  {checkinInfo.course?.description && (
-                    <p><strong>Description:</strong> {checkinInfo.course.description}</p>
-                  )}
-                  <p><strong>Class:</strong> {checkinInfo.course?.class?.name || checkinInfo.course?.class?.name || 'Unknown'}</p>
-                  <p><strong>Trainer:</strong> {checkinInfo.course?.class?.trainer ? `${checkinInfo.course.class?.trainer.firstName} ${checkinInfo.course.class.trainer.lastName}` : 'Unknown'}</p>
-                  <p><strong>Date:</strong> {checkinInfo.course?.date ? new Date(checkinInfo.course.date).toLocaleDateString() : 'Unknown'}</p>
-                  <p><strong>Time:</strong> {checkinInfo.course?.startTime && checkinInfo.course?.endTime ? `${checkinInfo.course.startTime} - ${checkinInfo.course.endTime}` : 'Unknown'}</p>
+                  <p><strong>Course:</strong> {checkinInfo.course?.class?.name || 'Unknown'}</p>
+                  <p><strong>Class:</strong> {checkinInfo.course?.class?.name || 'Unknown'}</p>
+                  <p><strong>Trainer:</strong> {checkinInfo.course?.trainer?.users ? `${checkinInfo.course.trainer.users.first_name} ${checkinInfo.course.trainer.users.last_name}` : 'Unknown'}</p>
+                  <p><strong>Date:</strong> {checkinInfo.course?.course_date ? new Date(checkinInfo.course.course_date).toLocaleDateString() : 'Unknown'}</p>
+                  <p><strong>Time:</strong> {checkinInfo.course?.start_time && checkinInfo.course?.end_time ? `${checkinInfo.course.start_time} - ${checkinInfo.course.end_time}` : 'Unknown'}</p>
                 </div>
               </div>
 
@@ -270,7 +279,7 @@ export default function CheckinPage() {
                       {checkinInfo.registration.status}
                     </span>
                   </p>
-                  <p><strong>Registered:</strong> {checkinInfo.course?.date ? new Date(checkinInfo.course.date).toLocaleDateString() : 'Unknown'}</p>
+                  <p><strong>Registered:</strong> {checkinInfo.course?.course_date ? new Date(checkinInfo.course.course_date).toLocaleDateString() : 'Unknown'}</p>
                   <p><strong>Registered Members:</strong> {checkinInfo.registeredCount}</p>
                   <p><strong>Checked In:</strong> {checkinInfo.checkedInCount}</p>
                 </div>
@@ -285,7 +294,7 @@ export default function CheckinPage() {
                 <ul className="text-sm text-gray-700 list-disc pl-5">
                   {checkinInfo.registeredMembers && checkinInfo.registeredMembers.length > 0 ? (
                     checkinInfo.registeredMembers.map((m: any) => (
-                      <li key={m.id}>{m.firstName} {m.lastName} ({m.email})</li>
+                      <li key={m.id}>{m.first_name} {m.last_name} ({m.email})</li>
                     ))
                   ) : (
                     <li>No registered members</li>
@@ -302,7 +311,7 @@ export default function CheckinPage() {
                 <ul className="text-sm text-green-700 list-disc pl-5">
                   {checkinInfo.attendantMembers && checkinInfo.attendantMembers.length > 0 ? (
                     checkinInfo.attendantMembers.map((m: any) => (
-                      <li key={m.id}>{m.firstName} {m.lastName} ({m.email})</li>
+                      <li key={m.id}>{m.first_name} {m.last_name} ({m.email})</li>
                     ))
                   ) : (
                     <li>No attendants yet</li>
@@ -317,8 +326,8 @@ export default function CheckinPage() {
             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
               <h3 className="font-medium text-green-800 mb-2">Check-in Successful!</h3>
               <div className="space-y-1 text-sm text-green-700">
-                <p><strong>Member:</strong> {checkinInfo.member ? `${checkinInfo.member.firstName} ${checkinInfo.member.lastName}` : 'Unknown'}</p>
-                <p><strong>Course:</strong> {checkinInfo.course?.name || checkinInfo.course?.class?.name || 'Unknown'}</p>
+                <p><strong>Member:</strong> {checkinInfo.member ? `${checkinInfo.member.first_name} ${checkinInfo.member.last_name}` : 'Unknown'}</p>
+                <p><strong>Course:</strong> {checkinInfo.course?.class?.name || 'Unknown'}</p>
                 <p><strong>Class:</strong> {checkinInfo.course?.class?.name || checkinInfo.course?.class?.name || 'Unknown'}</p>
                 <p><strong>Time:</strong> {new Date().toLocaleString()}</p>
               </div>
@@ -392,4 +401,4 @@ export default function CheckinPage() {
       </Card>
     </div>
   );
-} 
+}

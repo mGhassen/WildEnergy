@@ -16,9 +16,8 @@ import { formatDate } from "@/lib/date";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { useAccounts, useUpdateAccount, useDeleteAccount } from "@/hooks/useAccounts";
+import { useAccounts, useUpdateAccount, useDeleteAccount, useSetAccountPassword, useResetAccountPassword, useResendAccountInvitation } from "@/hooks/useAccounts";
 import { Account } from "@/lib/api/accounts";
-import { apiRequest } from "@/lib/queryClient";
 import { useMutation } from "@tanstack/react-query";
 import { TableSkeleton, FormSkeleton } from "@/components/skeletons";
 
@@ -84,27 +83,34 @@ export default function AccountsPage() {
 
     // Delete account mutation
     const deleteAccountMutation = useDeleteAccount();
+    const updateAccountMutation = useUpdateAccount();
+    const setPasswordMutation = useSetAccountPassword();
+    const resetPasswordMutation = useResetAccountPassword();
+    const resendInvitationMutation = useResendAccountInvitation();
 
     // Quick action mutations
     const quickActionMutation = useMutation({
         mutationFn: async ({ id, action, data }: { id: string; action: string; data?: any }) => {
             switch (action) {
                 case 'approve':
-                    return await apiRequest("PUT", `/api/admin/accounts/${id}`, { 
+                    return await updateAccountMutation.mutateAsync({ 
+                        accountId: id, 
                         accountData: { status: 'active' } 
                     });
                 case 'archive':
-                    return await apiRequest("PUT", `/api/admin/accounts/${id}`, { 
+                    return await updateAccountMutation.mutateAsync({ 
+                        accountId: id, 
                         accountData: { status: 'archived' } 
                     });
                 case 'suspend':
-                    return await apiRequest("PUT", `/api/admin/accounts/${id}`, { 
+                    return await updateAccountMutation.mutateAsync({ 
+                        accountId: id, 
                         accountData: { status: 'suspended' } 
                     });
                 case 'reset-password':
-                    return await apiRequest("POST", `/api/admin/accounts/${id}/reset-password`);
+                    return await resetPasswordMutation.mutateAsync(id);
                 case 'resend-invitation':
-                    return await apiRequest("POST", `/api/admin/accounts/${id}/resend-invitation`);
+                    return await resendInvitationMutation.mutateAsync(id);
                 default:
                     throw new Error('Unknown action');
             }
@@ -751,16 +757,17 @@ export default function AccountsPage() {
                         <Button type="button" variant="outline" onClick={() => { setSettingPasswordUser(null); setSetPasswordValue(""); }}>
                             Cancel
                         </Button>
-                        <Button type="button" disabled={!setPasswordValue} onClick={async () => {
+                        <Button type="button" disabled={!setPasswordValue} onClick={() => {
     if (!settingPasswordUser) return;
-    try {
-        await apiRequest("POST", `/api/admin/accounts/${settingPasswordUser.account_id}/set-password`, { password: setPasswordValue });
-        toast({ title: "Password set successfully", description: `Password updated for ${settingPasswordUser.first_name} ${settingPasswordUser.last_name}.` });
-        setSettingPasswordUser(null);
-        setSetPasswordValue("");
-    } catch (error: any) {
-        toast({ title: "Failed to set password", description: error.message || "An error occurred.", variant: "destructive" });
-    }
+    setPasswordMutation.mutate({ 
+        accountId: settingPasswordUser.account_id, 
+        password: setPasswordValue 
+    }, {
+        onSuccess: () => {
+            setSettingPasswordUser(null);
+            setSetPasswordValue("");
+        }
+    });
 }}>
                             Set Password
                         </Button>

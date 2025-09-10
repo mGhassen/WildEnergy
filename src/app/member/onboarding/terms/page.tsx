@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useTerms } from "@/hooks/useTerms";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,10 +26,10 @@ export default function TermsOnboarding() {
   
   // Fetch onboarding data
   const { data: onboarding, isLoading: onboardingLoading } = useMemberOnboarding(memberId || '');
+  const { data: termsData, isLoading: termsLoading, error: termsError } = useTerms();
   const acceptTermsMutation = useAcceptTerms();
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [termsContent, setTermsContent] = useState("");
-  const [isLoadingTerms, setIsLoadingTerms] = useState(true);
   const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
 
   // Load terms acceptance state from localStorage on component mount
@@ -41,30 +42,19 @@ export default function TermsOnboarding() {
   }, []);
 
   useEffect(() => {
-    // Load terms content from markdown file
-    const loadTerms = async () => {
-      try {
-        const response = await fetch("/api/terms");
-        if (response.ok) {
-          const termsData = await response.json();
-          setTermsContent(termsData.content);
-        } else {
-          throw new Error("Impossible de charger les conditions générales");
-        }
-      } catch (error) {
-        console.error("Error loading terms:", error);
-        toast({
-          title: "Erreur",
-          description: "Impossible de charger les conditions générales",
-          variant: "destructive",
-        });
-      } finally {
-        setIsLoadingTerms(false);
-      }
-    };
-
-    loadTerms();
-  }, [toast]);
+    // Load terms content from hook
+    if (termsData) {
+      setTermsContent(termsData.content);
+    }
+    if (termsError) {
+      console.error("Error loading terms:", termsError);
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger les conditions générales",
+        variant: "destructive",
+      });
+    }
+  }, [termsData, termsError, toast]);
 
   const handleLogout = async () => {
     try {
@@ -108,7 +98,7 @@ export default function TermsOnboarding() {
   };
 
   // Show loading while user data is being fetched
-  if (isLoading || !user || onboardingLoading) {
+  if (isLoading || !user || onboardingLoading || termsLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center p-4">
         <div className="w-full max-w-2xl">
@@ -176,18 +166,6 @@ export default function TermsOnboarding() {
       .replace(/(<li.*<\/li>)/g, '<ul class="list-disc list-inside mb-4">$1</ul>');
   };
 
-  if (isLoadingTerms) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center">
-        <Card className="w-full max-w-4xl">
-          <CardContent className="p-8 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-            <p>Chargement des conditions générales...</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center p-4">

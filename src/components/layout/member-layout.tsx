@@ -23,11 +23,10 @@ import { useState, useEffect } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useTheme } from "@/components/theme-provider";
-import { useQuery } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { useOnboardingStatus } from "@/hooks/useMemberOnboarding";
 import Link from "next/link";
-import { PortalSwitch } from "@/components/portal-switch";
 import { MemberUserSkeleton } from "@/components/member-user-skeleton";
+import { Shield, User, GraduationCap } from "lucide-react";
 
 interface MemberLayoutProps {
   children: React.ReactNode;
@@ -41,13 +40,7 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Check onboarding status
-  const { data: onboardingStatus, isLoading: isLoadingOnboarding, error: onboardingError } = useQuery({
-    queryKey: ["/api/member/onboarding/status"],
-    queryFn: () => apiRequest("GET", "/api/member/onboarding/status"),
-    enabled: !!(isAuthenticated && user && !pathname.startsWith("/member/onboarding")),
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
-  });
+  const { data: onboardingStatus, isLoading: isLoadingOnboarding, error: onboardingError } = useOnboardingStatus();
 
   // Debug logging
   useEffect(() => {
@@ -62,7 +55,7 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
 
   // Redirect to onboarding if not completed
   useEffect(() => {
-    if (isAuthenticated && onboardingStatus && !isLoadingOnboarding) {
+    if (isAuthenticated && onboardingStatus && !isLoadingOnboarding && !pathname.startsWith("/member/onboarding")) {
       console.log("Onboarding status data:", onboardingStatus);
       
       if (onboardingStatus.success && onboardingStatus.data) {
@@ -81,7 +74,7 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
         }
       }
     }
-  }, [isAuthenticated, onboardingStatus, isLoadingOnboarding, router]);
+  }, [isAuthenticated, onboardingStatus, isLoadingOnboarding, pathname, router]);
 
   // Show loading while checking onboarding status
   if (isAuthenticated && user && isLoadingOnboarding && !pathname.startsWith("/member/onboarding")) {
@@ -125,6 +118,42 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
       console.error('Logout error:', error);
     }
   };
+
+  // Portal switching logic
+  const getCurrentPortal = () => {
+    if (pathname.startsWith('/admin')) return 'admin'
+    if (pathname.startsWith('/member')) return 'member'
+    return 'member'
+  }
+
+  const currentPortal = getCurrentPortal()
+  const availablePortals = user?.accessiblePortals?.filter(portal => portal !== currentPortal) || []
+
+  const handlePortalSwitch = (portal: string) => {
+    if (portal === 'admin') {
+      router.push('/admin')
+    } else if (portal === 'member') {
+      router.push('/member')
+    }
+  }
+
+  const getPortalIcon = (portal: string) => {
+    switch (portal) {
+      case 'admin': return Shield
+      case 'member': return User
+      case 'trainer': return GraduationCap
+      default: return User
+    }
+  }
+
+  const getPortalName = (portal: string) => {
+    switch (portal) {
+      case 'admin': return 'Admin Portal'
+      case 'member': return 'Member Portal'
+      case 'trainer': return 'Trainer Portal'
+      default: return 'Portal'
+    }
+  }
 
   const navigation = [
     { 
@@ -349,11 +378,28 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
                       <p className="text-sm font-medium">{`${user.firstName} ${user.lastName}`}</p>
                       <p className="text-xs text-muted-foreground">{user.email}</p>
                     </div>
-                    <DropdownMenuSeparator />
-                    <div className="px-2 py-1">
-                      <PortalSwitch />
-                    </div>
-                    <DropdownMenuSeparator />
+                    {availablePortals.length > 0 && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <div className="px-3 py-2">
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Switch Portal</p>
+                        </div>
+                        {availablePortals.map((portal) => {
+                          const Icon = getPortalIcon(portal)
+                          return (
+                            <DropdownMenuItem
+                              key={portal}
+                              onClick={() => handlePortalSwitch(portal)}
+                              className="flex items-center gap-2"
+                            >
+                              <Icon className="w-4 h-4" />
+                              {getPortalName(portal)}
+                            </DropdownMenuItem>
+                          )
+                        })}
+                        <DropdownMenuSeparator />
+                      </>
+                    )}
                     <DropdownMenuItem asChild>
                       <Link href="/member/history">
                         <History className="w-4 h-4 mr-3" />

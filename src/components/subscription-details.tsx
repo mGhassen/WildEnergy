@@ -10,8 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { useQueryClient } from "@tanstack/react-query";
+import { useCreatePayment } from "@/hooks/usePayments";
 import { formatDate } from "@/lib/date";
 import { formatCurrency, CURRENCY_SYMBOL } from "@/lib/config";
 import { CreditCard, Info, Calendar, Users, Plus, DollarSign } from "lucide-react";
@@ -127,32 +127,7 @@ export function SubscriptionDetails({
   const remainingAmount = Math.max(0, planPrice - totalPaid);
 
   // Payment creation mutation
-  const createPaymentMutation = useMutation({
-    mutationFn: async (data: any) => {
-      return await apiRequest("POST", "/api/payments", data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/subscriptions"] });
-      setIsPaymentModalOpen(false);
-      setPaymentFormData({
-        amount: "",
-        payment_type: "cash",
-        payment_status: "paid",
-        payment_date: new Date().toISOString().split('T')[0],
-        transaction_id: "",
-        notes: "",
-      });
-      toast({ title: "Payment created successfully" });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error creating payment",
-        description: error.message,
-        variant: "destructive"
-      });
-    },
-  });
+  const createPaymentMutation = useCreatePayment();
 
   const formatPrice = (price: string | number) => {
     const numPrice = typeof price === 'string' ? parseFloat(price) : price;
@@ -171,16 +146,26 @@ export function SubscriptionDetails({
   const handlePaymentSubmit = () => {
     const paymentData = {
       subscription_id: subscription.id,
-      user_id: subscription.user_id || subscription.userId, // Handle both possible field names
       amount: parseFloat(paymentFormData.amount),
-      payment_type: paymentFormData.payment_type,
-      payment_status: paymentFormData.payment_status,
+      payment_method: paymentFormData.payment_type,
+      status: paymentFormData.payment_status,
       payment_date: paymentFormData.payment_date,
-      transaction_id: paymentFormData.transaction_id || null,
-      notes: paymentFormData.notes || null,
+      payment_reference: paymentFormData.transaction_id || undefined,
     };
     
-    createPaymentMutation.mutate(paymentData);
+    createPaymentMutation.mutate(paymentData, {
+      onSuccess: () => {
+        setIsPaymentModalOpen(false);
+        setPaymentFormData({
+          amount: "",
+          payment_type: "cash",
+          payment_status: "paid",
+          payment_date: new Date().toISOString().split('T')[0],
+          transaction_id: "",
+          notes: "",
+        });
+      }
+    });
   };
 
   return (

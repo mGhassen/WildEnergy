@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +14,7 @@ import Link from 'next/link';
 export default function ForgotPasswordPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const { forgotPassword } = useAuth();
   
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -76,19 +78,7 @@ export default function ForgotPasswordPage() {
 
     try {
       // Use our custom API endpoint for better control
-      const response = await fetch('/api/auth/reset-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to send reset email');
-      }
+      await forgotPassword(email);
 
       // Increment attempt count and set cooldown
       const newAttemptCount = attemptCount + 1;
@@ -127,19 +117,7 @@ export default function ForgotPasswordPage() {
 
     try {
       // Use our custom API endpoint for better control
-      const response = await fetch('/api/auth/reset-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to send reset email');
-      }
+      await forgotPassword(email);
 
       // Increment attempt count and set cooldown
       const newAttemptCount = attemptCount + 1;

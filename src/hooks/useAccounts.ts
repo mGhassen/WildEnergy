@@ -183,3 +183,125 @@ export function useUnlinkAccountTrainer() {
     },
   });
 }
+
+// Admin-specific operation hooks
+export function useSetAccountPassword() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: ({ accountId, password }: { accountId: string; password: string }) => 
+      accountApi.setPassword(accountId, password),
+    onSuccess: (_, { accountId }) => {
+      queryClient.invalidateQueries({ queryKey: ['account', accountId] });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      toast({
+        title: 'Password set successfully',
+        description: 'The account password has been updated.',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to set password',
+        description: error.message || 'Please try again',
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
+export function useApproveAccount() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (accountId: string) => accountApi.approveAccount(accountId),
+    onSuccess: (_, accountId) => {
+      queryClient.invalidateQueries({ queryKey: ['account', accountId] });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      toast({
+        title: 'Account approved',
+        description: 'The account has been successfully approved.',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to approve account',
+        description: error.message || 'Please try again',
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
+export function useDisapproveAccount() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (accountId: string) => accountApi.disapproveAccount(accountId),
+    onSuccess: (_, accountId) => {
+      queryClient.invalidateQueries({ queryKey: ['account', accountId] });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      toast({
+        title: 'Account disapproved',
+        description: 'The account has been successfully disapproved.',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to disapprove account',
+        description: error.message || 'Please try again',
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
+export function useResetAccountPassword() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (accountId: string) => accountApi.resetPassword(accountId),
+    onSuccess: (_, accountId) => {
+      queryClient.invalidateQueries({ queryKey: ['account', accountId] });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      toast({
+        title: 'Password reset',
+        description: 'The account password has been reset.',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to reset password',
+        description: error.message || 'Please try again',
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
+export function useResendAccountInvitation() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (accountId: string) => accountApi.resendInvitation(accountId),
+    onSuccess: (_, accountId) => {
+      queryClient.invalidateQueries({ queryKey: ['account', accountId] });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      toast({
+        title: 'Invitation resent',
+        description: 'The account invitation has been resent.',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to resend invitation',
+        description: error.message || 'Please try again',
+        variant: 'destructive',
+      });
+    },
+  });
+}

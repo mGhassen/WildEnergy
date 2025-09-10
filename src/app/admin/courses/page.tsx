@@ -2,7 +2,13 @@
 
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/queryClient';
+import { useCourses, useUpdateCourse, useDeleteCourse } from '@/hooks/useCourse';
+import { useClasses } from '@/hooks/useClasses';
+import { useTrainers } from '@/hooks/useTrainers';
+import { Class } from '@/lib/api/classes';
+import { Trainer } from '@/lib/api/trainers';
+import { useAdminRegistrations, useAdminCheckins, useAdminSubscriptions } from '@/hooks/useAdmin';
+import { useMembers } from '@/hooks/useMembers';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -39,29 +45,6 @@ interface Course {
   };
 }
 
-interface Class {
-  id: number;
-  name: string;
-  description?: string;
-  category_id: number;
-  duration: number;
-  max_capacity: number;
-  equipment?: string;
-  is_active: boolean;
-  created_at: string;
-}
-
-interface Trainer {
-  id: number;
-  user_id: string;
-  specialization?: string;
-  experience_years?: number;
-  bio?: string;
-  certification?: string;
-  status: string;
-  created_at: string;
-  updated_at: string;
-}
 
 export default function AdminCourses() {
   console.log('AdminCourses page loaded');
@@ -89,10 +72,7 @@ export default function AdminCourses() {
   // Debug: Log date range
   console.log('Courses query date range:', startOfMonth.toISOString().split('T')[0], endOfMonth.toISOString().split('T')[0]);
 
-  const { data: courses, isLoading: coursesLoading, error: coursesError } = useQuery({
-    queryKey: ["/api/admin/courses"],
-    queryFn: () => apiRequest("GET", "/api/admin/courses"),
-  });
+  const { data: courses, isLoading: coursesLoading, error: coursesError } = useCourses();
 
   // Debug: Log loading and error state
   console.log('coursesLoading:', coursesLoading, 'coursesError:', coursesError);
@@ -106,38 +86,21 @@ export default function AdminCourses() {
   }
 
   // Fetch classes for dropdown
-  const { data: classes } = useQuery({
-    queryKey: ["/api/admin/classes"],
-    queryFn: () => apiRequest("GET", "/api/admin/classes"),
-  });
+  const { data: classes } = useClasses();
 
   // Fetch trainers for dropdown
-  const { data: trainers } = useQuery({
-    queryKey: ["/api/admin/trainers"],
-    queryFn: () => apiRequest("GET", "/api/admin/trainers"),
-  });
+  const { data: trainers } = useTrainers();
 
   // Fetch registrations and checkins for the calendar
-  const { data: registrations = [] } = useQuery({
-    queryKey: ["/api/admin/registrations"],
-    queryFn: () => apiRequest("GET", "/api/admin/registrations"),
-  });
+  const { data: registrations = [] } = useAdminRegistrations();
 
-  const { data: checkins = [] } = useQuery({
-    queryKey: ["/api/admin/checkins"],
-    queryFn: () => apiRequest("GET", "/api/admin/checkins"),
-  });
+  const { data: checkins = [] } = useAdminCheckins();
 
   // Fetch members
-  const { data: members = [] } = useQuery({
-    queryKey: ["/api/admin/members"],
-    queryFn: () => apiRequest("GET", "/api/admin/members"),
-  });
+  const { data: members = [] } = useMembers();
+  
   // Fetch subscriptions
-  const { data: subscriptions = [] } = useQuery({
-    queryKey: ["/api/admin/subscriptions"],
-    queryFn: () => apiRequest("GET", "/api/admin/subscriptions"),
-  });
+  const { data: subscriptions = [] } = useAdminSubscriptions();
 
   // Filter members to only those with an active subscription
   const activeMembers = members.filter((member: any) => {
@@ -172,38 +135,10 @@ export default function AdminCourses() {
   });
 
   // Update course mutation
-  const updateCourseMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: any }) => {
-      return await apiRequest('PUT', `/api/courses/${id}`, data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['courses'] });
-      toast.success('Course updated successfully');
-      setIsEditModalOpen(false);
-      setSelectedCourse(null);
-    },
-    onError: (error) => {
-      toast.error('Failed to update course');
-      console.error('Error updating course:', error);
-    },
-  });
+  const updateCourseMutation = useUpdateCourse();
 
   // Delete course mutation
-  const deleteCourseMutation = useMutation({
-    mutationFn: async (id: number) => {
-      return await apiRequest('DELETE', `/api/courses/${id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['courses'] });
-      toast.success('Course deleted successfully');
-      setIsDeleteModalOpen(false);
-      setSelectedCourse(null);
-    },
-    onError: (error) => {
-      toast.error('Failed to delete course');
-      console.error('Error deleting course:', error);
-    },
-  });
+  const deleteCourseMutation = useDeleteCourse();
 
   // Convert courses to the format expected by ScheduleCalendar
   const coursesAsSchedules = courses?.map((course: any) => ({
@@ -247,12 +182,25 @@ export default function AdminCourses() {
       is_active: formData.is_active,
     };
 
-    updateCourseMutation.mutate({ id: selectedCourse.id, data: updateData });
+    updateCourseMutation.mutate({ 
+      courseId: selectedCourse.id, 
+      data: updateData 
+    }, {
+      onSuccess: () => {
+        setIsEditModalOpen(false);
+        setSelectedCourse(null);
+      }
+    });
   };
 
   const handleDeleteCourse = () => {
     if (!selectedCourse) return;
-    deleteCourseMutation.mutate(selectedCourse.id);
+    deleteCourseMutation.mutate(selectedCourse.id, {
+      onSuccess: () => {
+        setIsDeleteModalOpen(false);
+        setSelectedCourse(null);
+      }
+    });
   };
 
   if (coursesLoading) {

@@ -14,6 +14,7 @@ export interface RegisterData {
 
 export interface AuthResponse {
   success: boolean;
+  error?: string;
   session?: {
     access_token: string;
     refresh_token?: string;
