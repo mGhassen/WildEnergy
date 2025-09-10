@@ -253,12 +253,12 @@ export async function POST(
     // Check which members are already registered
     const { data: existingRegistrations } = await supabaseServer()
       .from('class_registrations')
-      .select('user_id')
+      .select('member_id')
       .eq('course_id', courseId)
-      .in('user_id', memberIds)
+      .in('member_id', memberIds)
       .eq('status', 'registered');
 
-    const alreadyRegistered = existingRegistrations?.map(r => r.user_id) || [];
+    const alreadyRegistered = existingRegistrations?.map(r => r.member_id) || [];
     const newMemberIds = memberIds.filter(id => !alreadyRegistered.includes(id));
 
     if (newMemberIds.length === 0) {
@@ -268,8 +268,8 @@ export async function POST(
     }
 
     // Create registrations for new members
-    const registrations = newMemberIds.map(userId => ({
-      user_id: userId,
+    const registrations = newMemberIds.map(memberId => ({
+      member_id: memberId,
       course_id: courseId,
       qr_code: `REG_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       registration_date: new Date().toISOString(),
@@ -280,7 +280,7 @@ export async function POST(
     const { data: newRegistrations, error: registrationError } = await supabaseServer()
       .from('class_registrations')
       .insert(registrations)
-      .select('id, user_id');
+      .select('id, member_id');
 
     if (registrationError) {
       console.error('Registration creation error:', registrationError);

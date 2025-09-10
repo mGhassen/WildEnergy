@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const { accountId } = await req.json();
+    const { accountId } = await request.json();
     if (!accountId) {
       return NextResponse.json({ error: 'Account ID is required' }, { status: 400 });
     }

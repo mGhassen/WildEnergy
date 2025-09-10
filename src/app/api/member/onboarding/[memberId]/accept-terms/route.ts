@@ -3,10 +3,10 @@ import { supabaseServer } from '@/lib/supabase';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { memberId: string } }
+  { params }: { params: Promise<{ memberId: string }> }
 ) {
   try {
-    const { memberId } = params;
+    const { memberId } = await params;
 
     if (!memberId) {
       return NextResponse.json({ error: 'Member ID is required' }, { status: 400 });

@@ -83,9 +83,9 @@ export async function POST(req: NextRequest) {
     // Check existing registrations for these members
     const { data: existingRegistrations, error: existingError } = await supabaseServer()
       .from('class_registrations')
-      .select('user_id, status')
+      .select('member_id, status')
       .eq('course_id', courseId)
-      .in('user_id', memberIds)
+      .in('member_id', memberIds)
       .eq('status', 'registered');
 
     if (existingError) {
@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
             trainer:trainers(user:users(first_name, last_name))
           )
         `)
-        .eq('user_id', memberId)
+        .eq('member_id', memberId)
         .eq('status', 'registered')
         .neq('course_id', courseId);
 
@@ -169,7 +169,7 @@ export async function POST(req: NextRequest) {
       const { data: activeSubscription, error: subscriptionError } = await supabaseServer()
         .from('subscriptions')
         .select('id, sessions_remaining')
-        .eq('user_id', memberId)
+        .eq('member_id', memberId)
         .eq('status', 'active')
         .gt('sessions_remaining', 0)
         .order('end_date', { ascending: false })
@@ -211,7 +211,7 @@ export async function POST(req: NextRequest) {
         const { data: activeSubscription } = await supabaseServer()
           .from('subscriptions')
           .select('id, sessions_remaining')
-          .eq('user_id', memberId)
+          .eq('member_id', memberId)
           .eq('status', 'active')
           .gt('sessions_remaining', 0)
           .order('end_date', { ascending: false })
@@ -231,7 +231,7 @@ export async function POST(req: NextRequest) {
         // Use the stored procedure to handle registration with session deduction
         const rpcResult: any = await supabaseServer()
           .rpc('create_registration_with_updates', {
-            p_user_id: memberId,
+            p_member_id: memberId,
             p_course_id: courseId,
             p_current_participants: course.current_participants + registrationResults.length,
             p_subscription_id: activeSubscription.id

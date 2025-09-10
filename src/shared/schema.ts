@@ -69,18 +69,6 @@ export const categories = pgTable("categories", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Trainers table - matching actual database structure
-export const trainers = pgTable("trainers", {
-  id: serial("id").primaryKey(),
-  firstName: text("first_name").notNull(),
-  lastName: text("last_name").notNull(),
-  email: text("email").notNull().unique(),
-  phone: text("phone"),
-  specialties: text("specialties").array(), // text array in database
-  bio: text("bio"),
-  hireDate: timestamp("hire_date").defaultNow(),
-  status: text("status").notNull().default("active"),
-});
 
 // Plans table
 export const plans = pgTable("plans", {
@@ -191,7 +179,7 @@ export const checkins = pgTable("checkins", {
 });
 
 // Relations
-export const usersRelations = relations(users, ({ many }) => ({
+export const membersRelations = relations(members, ({ many }) => ({
   subscriptions: many(subscriptions),
   registrations: many(classRegistrations),
   checkins: many(checkins),
@@ -229,9 +217,9 @@ export const schedulesRelations = relations(schedules, ({ one }) => ({
 }));
 
 export const subscriptionsRelations = relations(subscriptions, ({ one, many }) => ({
-  user: one(users, {
-    fields: [subscriptions.userId],
-    references: [users.id],
+  member: one(members, {
+    fields: [subscriptions.memberId],
+    references: [members.id],
   }),
   plan: one(plans, {
     fields: [subscriptions.planId],
@@ -245,9 +233,9 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
     fields: [payments.subscriptionId],
     references: [subscriptions.id],
   }),
-  user: one(users, {
-    fields: [payments.userId],
-    references: [users.id],
+  member: one(members, {
+    fields: [payments.memberId],
+    references: [members.id],
   }),
 }));
 
@@ -268,9 +256,9 @@ export const coursesRelations = relations(courses, ({ one, many }) => ({
 }));
 
 export const classRegistrationsRelations = relations(classRegistrations, ({ one, many }) => ({
-  user: one(users, {
-    fields: [classRegistrations.userId],
-    references: [users.id],
+  member: one(members, {
+    fields: [classRegistrations.memberId],
+    references: [members.id],
   }),
   course: one(courses, {
     fields: [classRegistrations.courseId],
@@ -280,9 +268,9 @@ export const classRegistrationsRelations = relations(classRegistrations, ({ one,
 }));
 
 export const checkinsRelations = relations(checkins, ({ one }) => ({
-  user: one(users, {
-    fields: [checkins.userId],
-    references: [users.id],
+  member: one(members, {
+    fields: [checkins.memberId],
+    references: [members.id],
   }),
   registration: one(classRegistrations, {
     fields: [checkins.registrationId],
@@ -412,7 +400,7 @@ export const insertSubscriptionSchema = z.object({
 });
 
 // Types
-export type User = typeof users.$inferSelect;
+export type User = typeof members.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 
 export type Trainer = typeof trainers.$inferSelect;

@@ -308,7 +308,7 @@ export default function AdminRegistrations() {
   const groupOptions = [
     { key: 'status', label: 'Status' },
     { key: 'course.class.name', label: 'Class' },
-    { key: 'course.trainer.user.first_name', label: 'Trainer' },
+    { key: 'course.trainer.member.first_name', label: 'Trainer' },
     { key: 'course.course_date', label: 'Course Date' },
     { key: 'registration_date', label: 'Registration Date' },
     { key: 'member.first_name', label: 'Member' }
@@ -339,7 +339,7 @@ export default function AdminRegistrations() {
       }))
     },
     {
-      key: 'course.trainer.user.first_name',
+      key: 'course.trainer.member.first_name',
       label: 'Trainer',
       type: 'select' as const,
       options: trainers.map((trainer: any) => ({

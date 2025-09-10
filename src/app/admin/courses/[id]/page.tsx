@@ -90,13 +90,13 @@ interface CourseDetails {
   };
   trainer: {
     id: number;
-    user_id: string;
+    account_id: string;
     specialization: string;
     experience_years: number;
     bio?: string;
     certification?: string;
     status: string;
-    user: {
+    member: {
       id: string;
       first_name: string;
       last_name: string;
@@ -118,7 +118,7 @@ interface CourseDetails {
     status: string;
     notes?: string;
     qr_code: string;
-    user: {
+    member: {
       id: string;
       first_name: string;
       last_name: string;
@@ -129,7 +129,7 @@ interface CourseDetails {
   checkins: Array<{
     id: number;
     checkin_time: string;
-    user: {
+    member: {
       id: string;
       first_name: string;
       last_name: string;
@@ -262,7 +262,7 @@ export default function CourseDetailsPage() {
 
   const getAvailableMembers = () => {
     if (!courseData || !allMembers) return [];
-    const registeredIds = courseData.registrations.map(r => r.user?.id).filter(Boolean);
+    const registeredIds = courseData.registrations.map(r => r.member?.id).filter(Boolean);
     return allMembers.filter((member: any) => !registeredIds.includes(member.id));
   };
 
@@ -390,13 +390,13 @@ export default function CourseDetailsPage() {
               <div className="flex items-start gap-4">
                 <Avatar className="w-16 h-16">
                   <AvatarFallback>
-                    {courseData.trainer.user?.first_name?.[0] || 'T'}{courseData.trainer.user?.last_name?.[0] || 'T'}
+                    {courseData.trainer.member?.first_name?.[0] || 'T'}{courseData.trainer.member?.last_name?.[0] || 'T'}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 space-y-2">
                   <div>
                     <h3 className="text-lg font-semibold">
-                      {courseData.trainer.user?.first_name || 'Unknown'} {courseData.trainer.user?.last_name || 'Trainer'}
+                      {courseData.trainer.member?.first_name || 'Unknown'} {courseData.trainer.member?.last_name || 'Trainer'}
                     </h3>
                     <p className="text-muted-foreground">{courseData.trainer.specialization}</p>
                   </div>
@@ -404,12 +404,12 @@ export default function CourseDetailsPage() {
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div className="flex items-center gap-2">
                       <Mail className="w-4 h-4 text-muted-foreground" />
-                      <span>{courseData.trainer.user?.email || 'No email'}</span>
+                      <span>{courseData.trainer.member?.email || 'No email'}</span>
                     </div>
-                    {courseData.trainer.user?.phone && (
+                    {courseData.trainer.member?.phone && (
                       <div className="flex items-center gap-2">
                         <Phone className="w-4 h-4 text-muted-foreground" />
-                        <span>{courseData.trainer.user?.phone}</span>
+                        <span>{courseData.trainer.member?.phone}</span>
                       </div>
                     )}
                     <div className="flex items-center gap-2">
@@ -552,7 +552,7 @@ export default function CourseDetailsPage() {
             <div className="space-y-4">
               {courseData.registrations.map((registration) => {
                 const hasCheckedIn = courseData.checkins.some(
-                  checkin => checkin.user?.id === registration.user?.id
+                  checkin => checkin.member?.id === registration.member?.id
                 );
                 
                 return (
@@ -560,14 +560,14 @@ export default function CourseDetailsPage() {
                     <div className="flex items-center gap-3">
                       <Avatar>
                         <AvatarFallback>
-                          {registration.user?.first_name?.[0] || 'U'}{registration.user?.last_name?.[0] || 'M'}
+                          {registration.member?.first_name?.[0] || 'U'}{registration.member?.last_name?.[0] || 'M'}
                         </AvatarFallback>
                       </Avatar>
                       <div>
                         <p className="font-medium">
-                          {registration.user?.first_name || 'Unknown'} {registration.user?.last_name || 'Member'}
+                          {registration.member?.first_name || 'Unknown'} {registration.member?.last_name || 'Member'}
                         </p>
-                        <p className="text-sm text-muted-foreground">{registration.user?.email || 'No email'}</p>
+                        <p className="text-sm text-muted-foreground">{registration.member?.email || 'No email'}</p>
                         {registration.notes && (
                           <p className="text-xs text-muted-foreground mt-1">{registration.notes}</p>
                         )}

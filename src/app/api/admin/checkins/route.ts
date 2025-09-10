@@ -118,7 +118,7 @@ export async function GET(req: NextRequest) {
     // Convert snake_case to camelCase and structure the data properly
     const formattedCheckins = (checkins || []).map(checkin => ({
       id: checkin.id,
-      userId: checkin.user_id,
+      memberId: checkin.member_id,
       registrationId: checkin.registration_id,
       checkinTime: checkin.checkin_time,
       sessionConsumed: checkin.session_consumed,
@@ -237,7 +237,7 @@ export async function POST(req: NextRequest) {
     const { data: memberUser } = await supabaseServer()
       .from('user_profiles')
       .select('*')
-      .eq('id', registration.user_id)
+      .eq('id', registration.member_id)
       .single();
 
     if (!memberUser) {
@@ -262,7 +262,7 @@ export async function POST(req: NextRequest) {
 
     // Create check-in
     const checkinData = {
-      user_id: registration.user_id,
+      member_id: registration.member_id,
       registration_id: registration.id,
       session_consumed: true,
       notes: `QR code check-in for course ${registration.course_id}`,
