@@ -4,7 +4,7 @@ import { supabaseServer } from '@/lib/supabase';
 function extractIdFromUrl(request: NextRequest): string | null {
   const pathname = request.nextUrl.pathname;
   const parts = pathname.split('/');
-  const idIndex = parts.findIndex(part => part === 'users') + 1;
+  const idIndex = parts.findIndex(part => part === 'accounts') + 1;
   return idIndex < parts.length ? parts[idIndex] : null;
 }
 

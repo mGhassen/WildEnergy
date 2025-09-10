@@ -32,25 +32,25 @@ export async function POST(
       return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
     }
 
-    // Get user auth_user_id
-    const { data: user, error: userError } = await supabaseServer()
-      .from('user_profiles')
+    // Get user auth_user_id from accounts table
+    const { data: account, error: accountError } = await supabaseServer()
+      .from('accounts')
       .select('auth_user_id')
       .eq('id', userId)
       .single();
 
-    if (userError || !user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    if (accountError || !account) {
+      return NextResponse.json({ error: 'Account not found' }, { status: 404 });
     }
 
-    if (!user.auth_user_id) {
-      return NextResponse.json({ error: 'User has no auth account' }, { status: 400 });
+    if (!account.auth_user_id) {
+      return NextResponse.json({ error: 'Account has no auth user' }, { status: 400 });
     }
 
     // Use Supabase admin API to update password
     const { createSupabaseAdminClient } = await import('@/lib/supabase');
     const supabaseAdmin = createSupabaseAdminClient();
-    const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(user.auth_user_id, { password });
+    const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(account.auth_user_id, { password });
 
     if (updateError) {
       return NextResponse.json({ error: 'Failed to set password', details: updateError.message }, { status: 500 });
