@@ -40,7 +40,7 @@ const wildEnergyTestUsers = [
   // Admin users
   {
     email: 'admin@wildenergy.tn',
-    password: 'admin123',
+    password: 'password123',
     firstName: 'Admin',
     lastName: 'User',
     isAdmin: true,
@@ -52,7 +52,7 @@ const wildEnergyTestUsers = [
   },
   {
     email: 'manager@wildenergy.tn',
-    password: 'manager123',
+    password: 'password123',
     firstName: 'Manager',
     lastName: 'User',
     isAdmin: true,
@@ -65,7 +65,7 @@ const wildEnergyTestUsers = [
   // Trainer users
   {
     email: 'sarah.trainer@wildenergy.tn',
-    password: 'trainer123',
+    password: 'password123',
     firstName: 'Sarah',
     lastName: 'Johnson',
     status: 'active',
@@ -80,7 +80,7 @@ const wildEnergyTestUsers = [
   },
   {
     email: 'mike.trainer@wildenergy.tn',
-    password: 'trainer123',
+    password: 'password123',
     firstName: 'Mike',
     lastName: 'Chen',
     status: 'active',
@@ -97,7 +97,7 @@ const wildEnergyTestUsers = [
   // Member users
   {
     email: 'john.member@email.com',
-    password: 'member123',
+    password: 'password123',
     firstName: 'John',
     lastName: 'Doe',
     status: 'active',
@@ -110,7 +110,7 @@ const wildEnergyTestUsers = [
   },
   {
     email: 'maria.member@email.com',
-    password: 'member123',
+    password: 'password123',
     firstName: 'Maria',
     lastName: 'Garcia',
     status: 'active',
@@ -125,7 +125,7 @@ const wildEnergyTestUsers = [
   // Hybrid user (member + trainer)
   {
     email: 'alex.hybrid@email.com',
-    password: 'hybrid123',
+    password: 'password123',
     firstName: 'Alex',
     lastName: 'Wilson',
     status: 'active',
@@ -145,7 +145,7 @@ const wildEnergyTestUsers = [
   // Admin + Trainer user
   {
     email: 'sophie.admin@wildenergy.tn',
-    password: 'admin123',
+    password: 'password123',
     firstName: 'Sophie',
     lastName: 'Dubois',
     isAdmin: true,
