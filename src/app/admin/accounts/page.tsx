@@ -90,21 +90,21 @@ export default function AccountsPage() {
         mutationFn: async ({ id, action, data }: { id: string; action: string; data?: any }) => {
             switch (action) {
                 case 'approve':
-                    return await apiRequest("PUT", `/api/admin/users/${id}`, { 
+                    return await apiRequest("PUT", `/api/admin/accounts/${id}`, { 
                         accountData: { status: 'active' } 
                     });
                 case 'archive':
-                    return await apiRequest("PUT", `/api/admin/users/${id}`, { 
+                    return await apiRequest("PUT", `/api/admin/accounts/${id}`, { 
                         accountData: { status: 'archived' } 
                     });
                 case 'suspend':
-                    return await apiRequest("PUT", `/api/admin/users/${id}`, { 
+                    return await apiRequest("PUT", `/api/admin/accounts/${id}`, { 
                         accountData: { status: 'suspended' } 
                     });
                 case 'reset-password':
-                    return await apiRequest("POST", `/api/admin/users/${id}/reset-password`);
+                    return await apiRequest("POST", `/api/admin/accounts/${id}/reset-password`);
                 case 'resend-invitation':
-                    return await apiRequest("POST", `/api/admin/users/${id}/resend-invitation`);
+                    return await apiRequest("POST", `/api/admin/accounts/${id}/resend-invitation`);
                 default:
                     throw new Error('Unknown action');
             }
@@ -754,7 +754,7 @@ export default function AccountsPage() {
                         <Button type="button" disabled={!setPasswordValue} onClick={async () => {
     if (!settingPasswordUser) return;
     try {
-        await apiRequest("POST", `/api/admin/users/${settingPasswordUser.account_id}/set-password`, { password: setPasswordValue });
+        await apiRequest("POST", `/api/admin/accounts/${settingPasswordUser.account_id}/set-password`, { password: setPasswordValue });
         toast({ title: "Password set successfully", description: `Password updated for ${settingPasswordUser.first_name} ${settingPasswordUser.last_name}.` });
         setSettingPasswordUser(null);
         setSetPasswordValue("");

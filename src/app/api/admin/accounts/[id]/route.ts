@@ -130,7 +130,7 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  console.log('DELETE /api/admin/users/[id] called');
+  console.log('DELETE /api/admin/accounts/[id] called');
   const accountId = extractIdFromUrl(request);
   console.log('Extracted account ID:', accountId);
   if (!accountId) {

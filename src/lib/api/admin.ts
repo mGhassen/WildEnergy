@@ -38,7 +38,7 @@ export const adminApi = {
   },
 
   async getUsers(): Promise<any[]> {
-    return apiRequest('GET', '/api/admin/users');
+    return apiRequest('GET', '/api/admin/accounts');
   },
 
   async getTrainers(): Promise<any[]> {
