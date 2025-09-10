@@ -400,12 +400,12 @@ export default function TrainerDetailsPage() {
               </div>
               <Separator />
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Created:</span>
-                <span>{trainer.created_at ? formatDate(trainer.created_at) : 'N/A'}</span>
+                <span className="text-muted-foreground">Status:</span>
+                <span className="capitalize">{trainer.status}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Last Updated:</span>
-                <span>{trainer.updated_at ? formatDate(trainer.updated_at) : 'N/A'}</span>
+                <span className="text-muted-foreground">User Type:</span>
+                <span className="capitalize">{trainer.user_type}</span>
               </div>
             </CardContent>
           </Card>

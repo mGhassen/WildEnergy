@@ -51,8 +51,8 @@ export async function GET(req: NextRequest) {
       const memberIds = registrations?.map(r => r.member_id).filter(Boolean) || [];
       const trainerAccountIds = registrations?.map(r => r.course?.trainer?.account_id).filter(Boolean) || [];
       
-      let memberDetails = {};
-      let trainerDetails = {};
+      let memberDetails: Record<string, any> = {};
+      let trainerDetails: Record<string, any> = {};
       
       if (memberIds.length > 0) {
         const { data: members } = await supabaseServer()
@@ -119,7 +119,7 @@ export async function GET(req: NextRequest) {
       
       // Fetch trainer details separately for user registrations
       const trainerAccountIds = registrations?.map(r => r.course?.trainer?.account_id).filter(Boolean) || [];
-      let trainerDetails = {};
+      let trainerDetails: Record<string, any> = {};
       
       if (trainerAccountIds.length > 0) {
         const { data: trainers } = await supabaseServer()
@@ -194,7 +194,7 @@ export async function POST(req: NextRequest) {
     const { data: existing, error: existingError } = await supabaseServer()
       .from('class_registrations')
       .select('*')
-      .eq('user_id', userProfile.id)
+      .eq('member_id', userProfile.member_id)
       .eq('course_id', courseId)
       .eq('status', 'registered')
       .single();
@@ -222,7 +222,7 @@ export async function POST(req: NextRequest) {
           trainer:trainers(user:users(first_name, last_name))
         )
       `)
-      .eq('user_id', userProfile.id)
+      .eq('member_id', userProfile.member_id)
       .eq('status', 'registered')
       .neq('course_id', courseId);
 
@@ -278,7 +278,7 @@ export async function POST(req: NextRequest) {
     // Check if user can register for this course (group session check)
     const { data: canRegister, error: canRegisterError } = await supabaseServer()
       .rpc('can_register_for_course', {
-        p_user_id: userProfile.id,
+        p_member_id: userProfile.member_id,
         p_course_id: courseId
       });
 
@@ -300,7 +300,7 @@ export async function POST(req: NextRequest) {
     const { data: activeSubscription, error: subscriptionError } = await supabaseServer()
       .from('subscriptions')
       .select('id, sessions_remaining')
-      .eq('user_id', userProfile.id)
+      .eq('member_id', userProfile.member_id)
       .eq('status', 'active')
       .gt('sessions_remaining', 0)
       .order('end_date', { ascending: false })
@@ -319,7 +319,7 @@ export async function POST(req: NextRequest) {
     // Use the stored procedure to handle registration with session deduction
     const { data: result, error: procedureError } = await supabaseServer()
       .rpc('create_registration_with_updates', {
-        p_user_id: userProfile.id,
+        p_member_id: userProfile.member_id,
         p_course_id: courseId,
         p_current_participants: course.current_participants,
         p_subscription_id: activeSubscription.id

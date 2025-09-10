@@ -75,8 +75,8 @@ export async function POST(req: NextRequest) {
     if (!rawPaymentData.subscription_id) {
       return NextResponse.json({ error: 'subscription_id is required' }, { status: 400 });
     }
-    if (!rawPaymentData.user_id) {
-      return NextResponse.json({ error: 'user_id is required' }, { status: 400 });
+    if (!rawPaymentData.member_id) {
+      return NextResponse.json({ error: 'member_id is required' }, { status: 400 });
     }
     if (!rawPaymentData.amount || rawPaymentData.amount <= 0) {
       return NextResponse.json({ error: 'amount must be greater than 0' }, { status: 400 });
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
     // Transform the data to match database schema
     const paymentData = {
       subscription_id: parseInt(rawPaymentData.subscription_id),
-      user_id: rawPaymentData.user_id,
+      member_id: rawPaymentData.member_id,
       amount: parseFloat(rawPaymentData.amount),
       payment_type: rawPaymentData.payment_type || 'cash',
       payment_status: rawPaymentData.payment_status || 'paid',

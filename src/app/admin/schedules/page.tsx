@@ -342,7 +342,7 @@ export default function AdminSchedules() {
     ...sch,
     class: sch.classes || sch.class || {}, // Use classes from API response
     classId: Number((sch.classes?.id ?? sch.class?.id ?? sch.class_id)),
-    trainerId: Number(sch.trainer?.user_id ?? sch.trainer_id),
+    trainerId: Number(sch.trainer?.account_id ?? sch.trainer_id),
     startTime: sch.start_time,
     endTime: sch.end_time,
     scheduleDate: sch.schedule_date ? sch.schedule_date.split('T')[0] : "",

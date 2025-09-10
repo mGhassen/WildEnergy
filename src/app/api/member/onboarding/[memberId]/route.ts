@@ -3,10 +3,10 @@ import { supabaseServer } from '@/lib/supabase';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { memberId: string } }
+  { params }: { params: Promise<{ memberId: string }> }
 ) {
   try {
-    const { memberId } = params;
+    const { memberId } = await params;
 
     if (!memberId) {
       return NextResponse.json({ error: 'Member ID is required' }, { status: 400 });
@@ -37,10 +37,10 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { memberId: string } }
+  { params }: { params: Promise<{ memberId: string }> }
 ) {
   try {
-    const { memberId } = params;
+    const { memberId } = await params;
     const body = await request.json();
 
     if (!memberId) {

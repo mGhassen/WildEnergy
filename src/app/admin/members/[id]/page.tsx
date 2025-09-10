@@ -65,6 +65,7 @@ interface Member {
   userType: string;
   accessiblePortals: string[];
   createdAt?: string;
+  account_id?: string;
 }
 
 interface Subscription {
@@ -205,8 +206,8 @@ export default function MemberDetailsPage() {
 
   if (error || !memberDetails) {
     const errorMessage = error?.message || 'Unknown error occurred';
-    const is403 = error?.status === 403;
-    const is404 = error?.status === 404;
+    const is403 = (error as any)?.status === 403;
+    const is404 = (error as any)?.status === 404;
     
     return (
       <div className="space-y-6">
@@ -234,9 +235,9 @@ export default function MemberDetailsPage() {
                 : `Failed to load member details: ${errorMessage}`
               }
             </p>
-            {error?.status && (
+            {(error as any)?.status && (
               <p className="text-sm text-muted-foreground mb-4">
-                Error Code: {error.status}
+                Error Code: {(error as any).status}
               </p>
             )}
             <Button onClick={() => router.back()}>
@@ -248,7 +249,20 @@ export default function MemberDetailsPage() {
     );
   }
 
-  const member = memberDetails.member as Member;
+  const member: Member = {
+    id: memberDetails.id,
+    firstName: memberDetails.full_name.split(' ')[0] || '',
+    lastName: memberDetails.full_name.split(' ').slice(1).join(' ') || '',
+    email: memberDetails.email,
+    status: 'active', // Default status since it's not in MemberDetails
+    accountStatus: 'active', // Default status since it's not in MemberDetails
+    subscriptionStatus: 'active', // Default status since it's not in MemberDetails
+    phone: memberDetails.phone,
+    credit: memberDetails.credit,
+    userType: 'member', // Default user type
+    accessiblePortals: ['member'], // Default portals
+    account_id: undefined, // Will be set if available
+  };
   const subscriptions = memberDetails.subscriptions as Subscription[];
   const registrations = memberDetails.registrations as Registration[];
   const checkins = memberDetails.checkins as Checkin[];

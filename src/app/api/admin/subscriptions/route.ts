@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
     
     // Convert camelCase to snake_case for database
     const dbData: Record<string, any> = {
-      member_id: subData.userId || subData.user_id,
+      member_id: subData.memberId || subData.member_id,
       plan_id: subData.planId || subData.plan_id,
       start_date: subData.startDate || subData.start_date,
       end_date: subData.endDate || subData.end_date,
@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
     console.log('Converted to database format:', dbData);
     
     // Validate required fields
-    const requiredFields = ['user_id', 'plan_id', 'start_date', 'end_date'];
+    const requiredFields = ['member_id', 'plan_id', 'start_date', 'end_date'];
     const missingFields = requiredFields.filter(field => !dbData[field]);
     
     if (missingFields.length > 0) {
