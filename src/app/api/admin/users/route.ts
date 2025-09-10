@@ -66,15 +66,28 @@ export async function POST(req: NextRequest) {
       const inviteUrl = `${baseUrl}/auth/accept-invitation`;
       const { data: inviteData, error: inviteError } = await supabaseServer().auth.admin.inviteUserByEmail(email, {
         redirectTo: inviteUrl,
+        data: {
+          first_name: firstName,
+          last_name: lastName
+        }
       });
       if (inviteError || !inviteData?.user) {
         return NextResponse.json({ error: inviteError?.message || 'Failed to invite user' }, { status: 400 });
       }
       authUserId = inviteData.user.id;
-      accountStatus = 'pending'; // Invited users start with 'pending' status
+      accountStatus = 'active'; // Invited users start with 'active' status
     } else {
       // Create auth user with password
-      const { data: authData, error: signUpError } = await supabaseServer().auth.signUp({ email, password });
+      const { data: authData, error: signUpError } = await supabaseServer().auth.signUp({ 
+        email, 
+        password,
+        options: {
+          data: {
+            first_name: firstName,
+            last_name: lastName
+          }
+        }
+      });
       if (signUpError || !authData.user) {
         return NextResponse.json({ error: signUpError?.message || 'Failed to create user' }, { status: 400 });
       }
@@ -86,7 +99,7 @@ export async function POST(req: NextRequest) {
     const { data: account, error: accountError } = await supabaseServer()
       .from('accounts')
       .insert([{
-        id: authUserId, // Use auth user ID as account ID
+        auth_user_id: authUserId, // Link to auth user
         email,
         status: accountStatus,
         is_admin: !!isAdmin,
@@ -102,7 +115,7 @@ export async function POST(req: NextRequest) {
     const { data: profile, error: profileError } = await supabaseServer()
       .from('profiles')
       .insert([{
-        id: authUserId, // Profile ID matches account ID
+        id: account.id, // Profile ID matches account ID
         first_name: firstName,
         last_name: lastName,
         phone: phone || null,
@@ -119,8 +132,8 @@ export async function POST(req: NextRequest) {
       const { data: member, error: memberError } = await supabaseServer()
         .from('members')
         .insert([{
-          account_id: authUserId,
-          profile_id: authUserId,
+          account_id: account.id,
+          profile_id: account.id,
           member_notes: memberData.memberNotes || '',
           credit: memberData.credit || 0,
           status: 'active',
@@ -138,8 +151,8 @@ export async function POST(req: NextRequest) {
       const { data: trainer, error: trainerError } = await supabaseServer()
         .from('trainers')
         .insert([{
-          account_id: authUserId,
-          profile_id: authUserId,
+          account_id: account.id,
+          profile_id: account.id,
           specialization: trainerData.specialization || '',
           experience_years: trainerData.experienceYears || 0,
           bio: trainerData.bio || '',
@@ -159,7 +172,7 @@ export async function POST(req: NextRequest) {
     const { data: userProfile, error: userProfileError } = await supabaseServer()
       .from('user_profiles')
       .select('*')
-      .eq('account_id', authUserId)
+      .eq('account_id', account.id)
       .single();
     
     if (userProfileError) {

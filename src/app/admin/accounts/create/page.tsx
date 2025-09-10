@@ -325,18 +325,24 @@ export default function CreateAccountPage() {
                                                                 <SelectValue placeholder="Select initial status" />
                                                             </SelectTrigger>
                                                         </FormControl>
-                                                        <SelectContent>
-                                                            <SelectItem value="active" className="flex items-center gap-3 py-2">
-                                                                <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
-                                                                <span>Active - Can log in immediately</span>
+                                                        <SelectContent className="min-w-[280px]">
+                                                            <SelectItem value="active" className="py-2">
+                                                                <div className="flex items-center gap-3">
+                                                                    <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                                                                    <span>Active - Can log in immediately</span>
+                                                                </div>
                                                             </SelectItem>
-                                                            <SelectItem value="pending" className="flex items-center gap-3 py-2">
-                                                                <AlertCircle className="w-4 h-4 text-yellow-500 flex-shrink-0" />
-                                                                <span>Pending - Needs approval</span>
+                                                            <SelectItem value="pending" className="py-2">
+                                                                <div className="flex items-center gap-3">
+                                                                    <AlertCircle className="w-4 h-4 text-yellow-500 flex-shrink-0" />
+                                                                    <span>Pending - Needs approval</span>
+                                                                </div>
                                                             </SelectItem>
-                                                            <SelectItem value="suspended" className="flex items-center gap-3 py-2">
-                                                                <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
-                                                                <span>Suspended - Temporarily disabled</span>
+                                                            <SelectItem value="suspended" className="py-2">
+                                                                <div className="flex items-center gap-3">
+                                                                    <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                                                                    <span>Suspended - Temporarily disabled</span>
+                                                                </div>
                                                             </SelectItem>
                                                         </SelectContent>
                                                     </Select>
@@ -368,14 +374,18 @@ export default function CreateAccountPage() {
                                                                 <SelectValue placeholder="Select access method" />
                                                             </SelectTrigger>
                                                         </FormControl>
-                                                        <SelectContent>
-                                                            <SelectItem value="invite" className="flex items-center gap-3 py-2">
-                                                                <Mail className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                                                                <span>Send Invitation Email</span>
+                                                        <SelectContent className="min-w-[280px]">
+                                                            <SelectItem value="invite" className="py-2">
+                                                                <div className="flex items-center gap-3">
+                                                                    <Mail className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                                                                    <span>Send Invitation Email</span>
+                                                                </div>
                                                             </SelectItem>
-                                                            <SelectItem value="password" className="flex items-center gap-3 py-2">
-                                                                <Key className="w-4 h-4 text-green-500 flex-shrink-0" />
-                                                                <span>Set Password Directly</span>
+                                                            <SelectItem value="password" className="py-2">
+                                                                <div className="flex items-center gap-3">
+                                                                    <Key className="w-4 h-4 text-green-500 flex-shrink-0" />
+                                                                    <span>Set Password Directly</span>
+                                                                </div>
                                                             </SelectItem>
                                                         </SelectContent>
                                                     </Select>
@@ -431,8 +441,18 @@ export default function CreateAccountPage() {
                                                                 </Button>
                                                             </div>
                                                         </FormControl>
-                                                        <FormDescription className="text-xs">
+                                                        <FormDescription className="text-xs flex items-center gap-2">
                                                             Password must be at least 8 characters long. Use a combination of letters, numbers, and symbols for better security.
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const newPassword = generatePassword(12);
+                                                                    form.setValue("customPassword", newPassword);
+                                                                }}
+                                                                className="text-primary hover:text-primary/80 underline text-xs font-medium"
+                                                            >
+                                                                Generate Password
+                                                            </button>
                                                         </FormDescription>
                                                         <FormMessage />
                                                     </FormItem>
@@ -610,4 +630,4 @@ export default function CreateAccountPage() {
             </div>
         </div>
     );
-}
+} 
