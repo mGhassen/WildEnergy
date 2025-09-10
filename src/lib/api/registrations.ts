@@ -39,6 +39,22 @@ export interface UpdateRegistrationData {
   status?: string;
 }
 
+export interface BulkRegistrationData {
+  courseId: number;
+  memberIds: string[];
+}
+
+export interface BulkRegistrationResponse {
+  success: boolean;
+  summary: {
+    registered: number;
+    errors: number;
+    alreadyRegistered: number;
+  };
+  registrations?: any[];
+  errors?: any[];
+}
+
 export const registrationApi = {
   async getRegistrations(): Promise<Registration[]> {
     return apiRequest('GET', '/api/admin/registrations');
@@ -74,5 +90,22 @@ export const registrationApi = {
 
   async getMemberRegistrations(): Promise<Registration[]> {
     return apiRequest('GET', '/api/registrations');
+  },
+
+  // Admin-specific operations
+  async bulkRegisterMembers(data: BulkRegistrationData): Promise<BulkRegistrationResponse> {
+    return apiRequest('POST', '/api/admin/registrations/bulk', data);
+  },
+
+  async validateCheckin(registrationId: number): Promise<any> {
+    return apiRequest('POST', `/api/checkins/validate/${registrationId}`);
+  },
+
+  async unvalidateCheckin(registrationId: number): Promise<any> {
+    return apiRequest('POST', `/api/checkins/unvalidate/${registrationId}`);
+  },
+
+  async adminCancelRegistration(registrationId: number, refundSession?: boolean): Promise<any> {
+    return apiRequest('POST', `/api/registrations/${registrationId}/cancel`, refundSession !== undefined ? { refundSession } : {});
   }
 };

@@ -105,7 +105,7 @@ export default function AdminPayments() {
         firstName: m.firstName || m.first_name || '',
         lastName: m.lastName || m.last_name || '',
         email: m.email,
-        status: m.status,
+        status: m.member_status,
       }))
     : [];
 

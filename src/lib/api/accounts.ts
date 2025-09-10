@@ -122,5 +122,26 @@ export const accountApi = {
 
   async unlinkTrainer(accountId: string): Promise<{ success: boolean; message: string; account: any }> {
     return apiRequest('POST', `/api/admin/accounts/${accountId}/unlink-trainer`);
+  },
+
+  // Admin-specific operations
+  async setPassword(accountId: string, password: string): Promise<any> {
+    return apiRequest('POST', `/api/admin/accounts/${accountId}/set-password`, { password });
+  },
+
+  async approveAccount(accountId: string): Promise<any> {
+    return apiRequest('POST', `/api/admin/accounts/${accountId}/approve`);
+  },
+
+  async disapproveAccount(accountId: string): Promise<any> {
+    return apiRequest('POST', `/api/admin/accounts/${accountId}/disapprove`);
+  },
+
+  async resetPassword(accountId: string): Promise<any> {
+    return apiRequest('POST', `/api/admin/accounts/${accountId}/reset-password`);
+  },
+
+  async resendInvitation(accountId: string): Promise<any> {
+    return apiRequest('POST', `/api/admin/accounts/${accountId}/resend-invitation`);
   }
 };

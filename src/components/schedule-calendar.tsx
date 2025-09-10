@@ -10,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ChevronLeft, ChevronRight, Calendar, Users, Clock, Plus, Search, X, Check, XCircle } from 'lucide-react';
 import { formatDate, formatTime, formatLongDate, getDayName, getShortDayName } from '@/lib/date';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/queryClient';
+import { useBulkRegisterMembers, useValidateCheckin, useUnvalidateCheckin, useAdminCancelRegistration } from '@/hooks/useRegistrations';
 import { toast } from 'sonner';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
@@ -288,97 +288,16 @@ export default function ScheduleCalendar({
   });
 
   // Admin registration mutation
-  const registerMembersMutation = useMutation({
-    mutationFn: async ({ courseId, memberIds }: { courseId: number; memberIds: string[] }) => {
-      return await apiRequest('POST', '/api/admin/registrations/bulk', { courseId, memberIds });
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/registrations"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
-      
-      const summary = data.summary;
-      let message = `Successfully registered ${summary.registered} member(s).`;
-      if (summary.errors > 0) {
-        message += ` ${summary.errors} member(s) had issues.`;
-      }
-      if (summary.alreadyRegistered > 0) {
-        message += ` ${summary.alreadyRegistered} member(s) were already registered.`;
-      }
-      
-      toast.success(message);
-      setIsRegistrationModalOpen(false);
-      setSelectedMembers([]);
-      setMemberSearchTerm('');
-    },
-    onError: (error: any) => {
-      console.error('Registration error:', error);
-      let errorMessage = 'Failed to register members';
-      if (error?.message) {
-        errorMessage = error.message;
-      } else if (typeof error === 'string') {
-        errorMessage = error;
-      }
-      toast.error(errorMessage);
-    },
-  });
+  const registerMembersMutation = useBulkRegisterMembers();
 
   // Validate check-in mutation
-  const validateCheckinMutation = useMutation({
-    mutationFn: async ({ registrationId }: { registrationId: number }) => {
-      return await apiRequest('POST', `/api/checkins/validate/${registrationId}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/checkins"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/registrations"] });
-      toast.success('Check-in validated successfully');
-    },
-    onError: (error: any) => {
-      console.error('Validation error:', error);
-      let errorMessage = 'Failed to validate check-in';
-      if (error?.message) {
-        errorMessage = error.message;
-      } else if (typeof error === 'string') {
-        errorMessage = error;
-      }
-      toast.error(errorMessage);
-    },
-  });
+  const validateCheckinMutation = useValidateCheckin();
 
   // Unvalidate check-in mutation
-  const unvalidateCheckinMutation = useMutation({
-    mutationFn: async ({ registrationId }: { registrationId: number }) => {
-      return await apiRequest('POST', `/api/checkins/unvalidate/${registrationId}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/checkins"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/registrations"] });
-      toast.success('Check-in unvalidated successfully');
-    },
-    onError: (error: any) => {
-      console.error('Unvalidation error:', error);
-      let errorMessage = 'Failed to unvalidate check-in';
-      if (error?.message) {
-        errorMessage = error.message;
-      } else if (typeof error === 'string') {
-        errorMessage = error;
-      }
-      toast.error(errorMessage);
-    },
-  });
+  const unvalidateCheckinMutation = useUnvalidateCheckin();
 
   // Add unregister mutation
-  const unregisterMemberMutation = useMutation({
-    mutationFn: async ({ registrationId, refundSession }: { registrationId: number, refundSession?: boolean }) => {
-      return await apiRequest('POST', `/api/registrations/${registrationId}/cancel`, refundSession !== undefined ? { refundSession } : {});
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/registrations"] });
-      toast.success('Member unregistered from course');
-    },
-    onError: (error: any) => {
-      toast.error(error?.message || 'Failed to unregister member');
-    },
-  });
+  const unregisterMemberMutation = useAdminCancelRegistration();
 
   const handleRegisterMembers = () => {
     if (!selectedSchedule || selectedMembers.length === 0) return;
@@ -872,7 +791,7 @@ export default function ScheduleCalendar({
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               {!isCheckedIn && (
-                                <DropdownMenuItem onClick={() => validateCheckinMutation.mutate({ registrationId: registration.id })} disabled={validateCheckinMutation.isPending}>
+                                <DropdownMenuItem onClick={() => validateCheckinMutation.mutate(registration.id)} disabled={validateCheckinMutation.isPending}>
                                   <Check className="w-3 h-3 mr-2" /> Validate
                                 </DropdownMenuItem>
                               )}
@@ -966,7 +885,7 @@ export default function ScheduleCalendar({
                       {member.email}
                     </div>
                   </div>
-                  <Badge variant={member.status === 'active' ? 'default' : 'secondary'}>
+                  <Badge variant={member.member_status === 'active' ? 'default' : 'secondary'}>
                     {member.status}
                   </Badge>
                 </div>
@@ -1090,7 +1009,7 @@ export default function ScheduleCalendar({
             <AlertDialogCancel onClick={() => setConfirmUnvalidateId(null)}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (confirmUnvalidateId) unvalidateCheckinMutation.mutate({ registrationId: Number(confirmUnvalidateId) });
+                if (confirmUnvalidateId) unvalidateCheckinMutation.mutate(Number(confirmUnvalidateId));
                 setConfirmUnvalidateId(null);
               }}
               className="bg-destructive text-white hover:bg-destructive/90"

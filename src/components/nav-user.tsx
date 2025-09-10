@@ -30,7 +30,8 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { useAuth } from "@/hooks/use-auth"
-import { PortalSwitch } from "@/components/portal-switch"
+import { usePathname, useRouter } from "next/navigation"
+import { Shield, User, GraduationCap, Check } from "lucide-react"
 
 export function NavUser({
   user,
@@ -42,13 +43,51 @@ export function NavUser({
   }
 }) {
   const { isMobile } = useSidebar()
-  const { logout } = useAuth()
+  const { logout, user: authUser } = useAuth()
+  const pathname = usePathname()
+  const router = useRouter()
 
   const handleLogout = async () => {
     try {
       await logout()
     } catch (error) {
       console.error('Logout error:', error)
+    }
+  }
+
+  // Portal switching logic
+  const getCurrentPortal = () => {
+    if (pathname.startsWith('/admin')) return 'admin'
+    if (pathname.startsWith('/member')) return 'member'
+    return 'member'
+  }
+
+  const currentPortal = getCurrentPortal()
+  const availablePortals = authUser?.accessiblePortals?.filter(portal => portal !== currentPortal) || []
+
+  const handlePortalSwitch = (portal: string) => {
+    if (portal === 'admin') {
+      router.push('/admin')
+    } else if (portal === 'member') {
+      router.push('/member')
+    }
+  }
+
+  const getPortalIcon = (portal: string) => {
+    switch (portal) {
+      case 'admin': return Shield
+      case 'member': return User
+      case 'trainer': return GraduationCap
+      default: return User
+    }
+  }
+
+  const getPortalName = (portal: string) => {
+    switch (portal) {
+      case 'admin': return 'Admin Portal'
+      case 'member': return 'Member Portal'
+      case 'trainer': return 'Trainer Portal'
+      default: return 'Portal'
     }
   }
 
@@ -94,11 +133,26 @@ export function NavUser({
                 </div>
               </div>
             </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <div className="px-2 py-1">
-              <PortalSwitch />
-            </div>
-            <DropdownMenuSeparator />
+            {availablePortals.length > 0 && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Switch Portal</DropdownMenuLabel>
+                {availablePortals.map((portal) => {
+                  const Icon = getPortalIcon(portal)
+                  return (
+                    <DropdownMenuItem
+                      key={portal}
+                      onClick={() => handlePortalSwitch(portal)}
+                      className="flex items-center gap-2"
+                    >
+                      <Icon className="h-4 w-4" />
+                      {getPortalName(portal)}
+                    </DropdownMenuItem>
+                  )
+                })}
+                <DropdownMenuSeparator />
+              </>
+            )}
             <DropdownMenuGroup>
               <DropdownMenuItem>
                 <Sparkles />

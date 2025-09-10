@@ -73,5 +73,9 @@ export const subscriptionApi = {
 
   async getMemberSubscription(): Promise<Subscription> {
     return apiRequest('GET', '/api/member/subscription');
+  },
+
+  async manualRefundSessions(subscriptionId: number, sessionsToRefund: number): Promise<any> {
+    return apiRequest('POST', '/api/member/subscriptions', { subscriptionId, sessionsToRefund });
   }
 };

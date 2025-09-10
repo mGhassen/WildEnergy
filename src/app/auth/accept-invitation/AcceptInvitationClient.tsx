@@ -171,39 +171,13 @@ export default function AcceptInvitationClient({ searchParams }: { searchParams:
       // After password is set, log in directly using the login API and store tokens
       setTimeout(async () => {
         try {
-          const response = await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-            body: JSON.stringify({ email, password }),
-            credentials: 'include',
-          });
-          const data = await response.json();
-          if (!response.ok || !data.success || !data.session?.access_token) {
-            throw new Error(data.error || 'Login failed');
+          if (!email) {
+            throw new Error('No email available for auto-login');
           }
-          // Store tokens
-          localStorage.setItem('access_token', data.session.access_token);
-          if (data.session.refresh_token) {
-            localStorage.setItem('refresh_token', data.session.refresh_token);
-          }
-          if (typeof window !== 'undefined') {
-            window.__authToken = data.session.access_token;
-          }
-          // Fetch session to get user role
-          const sessionRes = await fetch('/api/auth/session', {
-            headers: { 'Authorization': `Bearer ${data.session.access_token}` },
-            credentials: 'include',
-          });
-          const sessionJson = await sessionRes.json();
-          if (sessionJson.success && sessionJson.user) {
-            if (sessionJson.user.isAdmin) {
-              window.location.href = '/admin';
-            } else {
-              window.location.href = '/member';
-            }
-          } else {
-            window.location.href = '/';
-          }
+          // Use the auth hook for login
+          await login(email, password);
+          
+          // The auth hook will handle token storage and redirect
         } catch (loginError) {
           console.error('Auto-login failed:', loginError);
           router.push('/auth/login?message=password-set-success');

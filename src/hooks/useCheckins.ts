@@ -1,17 +1,25 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { checkinApi, Checkin, CreateCheckinData, UpdateCheckinData } from '@/lib/api/checkins';
+import { checkinApi, Checkin, CheckinInfo, CheckinRequest, CreateCheckinData, UpdateCheckinData } from '@/lib/api/checkins';
 import { useToast } from '@/hooks/use-toast';
 
+// Existing hooks
 export function useCheckins() {
   return useQuery<Checkin[], Error>({
-    queryKey: ['checkins'],
+    queryKey: ['/api/admin/checkins'],
     queryFn: () => checkinApi.getCheckins(),
+  });
+}
+
+export function useMemberCheckins() {
+  return useQuery<Checkin[], Error>({
+    queryKey: ['/api/member/checkins'],
+    queryFn: () => checkinApi.getMemberCheckins(),
   });
 }
 
 export function useCheckin(checkinId: number) {
   return useQuery<Checkin, Error>({
-    queryKey: ['checkin', checkinId],
+    queryKey: ['/api/admin/checkins', checkinId],
     queryFn: () => checkinApi.getCheckin(checkinId),
     enabled: !!checkinId,
   });
@@ -24,15 +32,16 @@ export function useCreateCheckin() {
   return useMutation({
     mutationFn: (data: CreateCheckinData) => checkinApi.createCheckin(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['checkins'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/checkins'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/member/checkins'] });
       toast({
-        title: 'Check-in created',
-        description: 'The check-in has been successfully created.',
+        title: 'Check-in Created',
+        description: 'Check-in has been successfully created.',
       });
     },
     onError: (error: any) => {
       toast({
-        title: 'Failed to create check-in',
+        title: 'Failed to Create Check-in',
         description: error.message || 'Please try again',
         variant: 'destructive',
       });
@@ -47,17 +56,17 @@ export function useUpdateCheckin() {
   return useMutation({
     mutationFn: ({ checkinId, data }: { checkinId: number; data: UpdateCheckinData }) => 
       checkinApi.updateCheckin(checkinId, data),
-    onSuccess: (_, { checkinId }) => {
-      queryClient.invalidateQueries({ queryKey: ['checkin', checkinId] });
-      queryClient.invalidateQueries({ queryKey: ['checkins'] });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/checkins'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/member/checkins'] });
       toast({
-        title: 'Check-in updated',
-        description: 'The check-in has been successfully updated.',
+        title: 'Check-in Updated',
+        description: 'Check-in has been successfully updated.',
       });
     },
     onError: (error: any) => {
       toast({
-        title: 'Failed to update check-in',
+        title: 'Failed to Update Check-in',
         description: error.message || 'Please try again',
         variant: 'destructive',
       });
@@ -72,15 +81,16 @@ export function useDeleteCheckin() {
   return useMutation({
     mutationFn: (checkinId: number) => checkinApi.deleteCheckin(checkinId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['checkins'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/checkins'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/member/checkins'] });
       toast({
-        title: 'Check-in deleted',
-        description: 'The check-in has been successfully deleted.',
+        title: 'Check-in Deleted',
+        description: 'Check-in has been successfully deleted.',
       });
     },
     onError: (error: any) => {
       toast({
-        title: 'Failed to delete check-in',
+        title: 'Failed to Delete Check-in',
         description: error.message || 'Please try again',
         variant: 'destructive',
       });
@@ -96,16 +106,16 @@ export function useCheckinUser() {
     mutationFn: ({ userId, data }: { userId: string; data: { class_id?: number; course_id?: number } }) => 
       checkinApi.checkinUser(userId, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['checkins'] });
-      queryClient.invalidateQueries({ queryKey: ['registrations'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/checkins'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/member/checkins'] });
       toast({
-        title: 'Check-in successful',
-        description: 'The user has been checked in.',
+        title: 'User Checked In',
+        description: 'User has been successfully checked in.',
       });
     },
     onError: (error: any) => {
       toast({
-        title: 'Failed to check in user',
+        title: 'Failed to Check In User',
         description: error.message || 'Please try again',
         variant: 'destructive',
       });
@@ -113,10 +123,11 @@ export function useCheckinUser() {
   });
 }
 
+// New QR code hooks
 export function useCheckinInfo(qrCode: string) {
-  return useQuery({
+  return useQuery<CheckinInfo, Error>({
     queryKey: ['checkin-info', qrCode],
-    queryFn: () => checkinApi.getCheckinInfo(qrCode),
+    queryFn: () => checkinApi.getCheckinInfo(qrCode).then(response => response.data!),
     enabled: !!qrCode,
   });
 }
@@ -126,19 +137,22 @@ export function useValidateCheckin() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: (qrCode: string) => checkinApi.validateCheckin(qrCode),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['checkin-info'] });
-      queryClient.invalidateQueries({ queryKey: ['checkins'] });
+    mutationFn: (data: CheckinRequest) => checkinApi.validateCheckin(data),
+    onSuccess: (response, variables) => {
+      // Invalidate checkin info to refetch updated data
+      queryClient.invalidateQueries({ queryKey: ['checkin-info', variables.qr_code] });
+      queryClient.invalidateQueries({ queryKey: ['/api/checkins'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/registrations'] });
+      
       toast({
-        title: 'Check-in successful',
-        description: 'The user has been checked in.',
+        title: 'Check-in Successful',
+        description: 'Member has been successfully checked in!',
       });
     },
     onError: (error: any) => {
       toast({
-        title: 'Failed to check in user',
-        description: error.message || 'Please try again',
+        title: 'Check-in Failed',
+        description: error.message || 'Failed to check in member',
         variant: 'destructive',
       });
     },
@@ -151,17 +165,20 @@ export function useUnvalidateCheckin() {
 
   return useMutation({
     mutationFn: (registrationId: string) => checkinApi.unvalidateCheckin(registrationId),
-    onSuccess: () => {
+    onSuccess: (response, variables) => {
+      // Invalidate checkin info to refetch updated data
       queryClient.invalidateQueries({ queryKey: ['checkin-info'] });
-      queryClient.invalidateQueries({ queryKey: ['checkins'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/checkins'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/registrations'] });
+      
       toast({
-        title: 'Check-in unvalidated',
-        description: 'The check-in has been removed.',
+        title: 'Check-in Unvalidated',
+        description: 'Check-in has been successfully removed',
       });
     },
     onError: (error: any) => {
       toast({
-        title: 'Failed to unvalidate check-in',
+        title: 'Failed to Unvalidate Check-in',
         description: error.message || 'Please try again',
         variant: 'destructive',
       });

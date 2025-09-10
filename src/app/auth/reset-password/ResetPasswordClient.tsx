@@ -218,54 +218,15 @@ export default function ResetPasswordClient({ searchParams }: { searchParams: Pr
             throw new Error('No email available for auto-login');
           }
           
-          const loginData = { email: sessionEmail, password };
           console.log('Login data being sent:', { email: sessionEmail, passwordLength: password.length });
           
-          const response = await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-            body: JSON.stringify(loginData),
-            credentials: 'include',
-          });
-          const data = await response.json();
-          console.log('Login API response:', data);
+          // Use the auth hook for login
+          await login(sessionEmail, password);
           
-          if (!response.ok || !data.success || !data.session?.access_token) {
-            throw new Error(data.error || 'Login failed');
-          }
+          // The auth hook handles token storage
           
-          // Store tokens
-          localStorage.setItem('access_token', data.session.access_token);
-          if (data.session.refresh_token) {
-            localStorage.setItem('refresh_token', data.session.refresh_token);
-          }
-          if (typeof window !== 'undefined') {
-            window.__authToken = data.session.access_token;
-          }
-          
-          console.log('Tokens stored, fetching user session...');
-          
-          // Fetch session to get user role
-          const sessionRes = await fetch('/api/auth/session', {
-            headers: { 'Authorization': `Bearer ${data.session.access_token}` },
-            credentials: 'include',
-          });
-          const sessionJson = await sessionRes.json();
-          console.log('Session API response:', sessionJson);
-          
-          if (sessionJson.success && sessionJson.user) {
-            console.log('User role:', sessionJson.user.isAdmin ? 'admin' : 'member');
-            if (sessionJson.user.isAdmin) {
-              console.log('Redirecting to admin dashboard...');
-              window.location.href = '/admin';
-            } else {
-              console.log('Redirecting to member dashboard...');
-              window.location.href = '/member';
-            }
-          } else {
-            console.log('No user data, redirecting to home...');
-            window.location.href = '/';
-          }
+          console.log('Login successful, redirecting...');
+          // The auth hook will handle user session and redirect
         } catch (loginError) {
           console.error('Auto-login failed:', loginError);
           router.push('/auth/login?message=password-reset-success');

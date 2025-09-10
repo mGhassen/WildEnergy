@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import { authApi, RegisterData, LoginCredentials } from '@/lib/api/auth';
 
 export interface User {
   id: string;
@@ -33,6 +34,13 @@ interface AuthState {
   logout: () => Promise<void>;
   refreshSession: () => Promise<void>;
   authError: string | null;
+  // Additional auth operations
+  register: (data: RegisterData) => Promise<void>;
+  forgotPassword: (email: string) => Promise<void>;
+  resetPassword: (token: string, password: string) => Promise<void>;
+  acceptInvitation: (token: string, password: string) => Promise<void>;
+  checkAccountStatus: (email: string) => Promise<any>;
+  resendConfirmation: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
@@ -197,71 +205,32 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setLoginError(null);
     try {
       // 1. Login request
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({ email, password }),
-        credentials: 'include'
-      });
-
-      const data = await response.json();
+      const data = await authApi.login({ email, password });
       
       console.log('Login API response:', data);
       console.log('Session object:', data.session);
       
-      if (!response.ok || !data.success) {
-        // Handle specific status codes
-        if (response.status === 403) {
-          if (data.error && data.error.toLowerCase().includes('archived')) {
-            // User is archived (pending admin approval)
-            localStorage.setItem('account_status_email', email);
-            router.push(`/auth/account-status?email=${encodeURIComponent(email)}`);
-            return;
-          }
-          if (data.error && data.error.toLowerCase().includes('pending')) {
-            // User is pending (needs to confirm invitation)
-            localStorage.setItem('account_status_email', email);
-            router.push(`/auth/account-status?email=${encodeURIComponent(email)}`);
-            return;
-          }
-          if (data.error && data.error.toLowerCase().includes('suspended')) {
-            // User is suspended
-            localStorage.setItem('account_status_email', email);
-            router.push(`/auth/account-status?email=${encodeURIComponent(email)}`);
-            return;
-          }
-          setLoginError(new Error(data.error || 'Account access denied'));
+      if (!data.success) {
+        // Handle specific error cases
+        if (data.error && data.error.toLowerCase().includes('archived')) {
+          // User is archived (pending admin approval)
+          localStorage.setItem('account_status_email', email);
+          router.push(`/auth/account-status?email=${encodeURIComponent(email)}`);
           return;
         }
-        
-        // Handle 401 errors (invalid credentials or user not found)
-        if (response.status === 401) {
-          // Check if it's a status-related error that should redirect
-          if (data.error && (data.error.toLowerCase().includes('pending') || data.error.toLowerCase().includes('archived'))) {
-            // This shouldn't happen with 401, but handle it gracefully
-            if (data.error.toLowerCase().includes('archived')) {
-              localStorage.setItem('account_status_email', email);
-              router.push(`/auth/account-status?email=${encodeURIComponent(email)}`);
-              return;
-            }
-            if (data.error.toLowerCase().includes('pending')) {
-              localStorage.setItem('account_status_email', email);
-              router.push(`/auth/account-status?email=${encodeURIComponent(email)}`);
-              return;
-            }
-          }
-          // For invalid credentials, set error and return without throwing
-          const error = new Error(data.error || 'Invalid email or password');
-          setLoginError(error);
+        if (data.error && data.error.toLowerCase().includes('pending')) {
+          // User is pending (needs to confirm invitation)
+          localStorage.setItem('account_status_email', email);
+          router.push(`/auth/account-status?email=${encodeURIComponent(email)}`);
           return;
         }
-        
-        // For other errors, set error and return without throwing
-        const error = new Error(data.error || 'Login failed');
-        setLoginError(error);
+        if (data.error && data.error.toLowerCase().includes('suspended')) {
+          // User is suspended
+          localStorage.setItem('account_status_email', email);
+          router.push(`/auth/account-status?email=${encodeURIComponent(email)}`);
+          return;
+        }
+        setLoginError(new Error(data.error || 'Account access denied'));
         return;
       }
 
@@ -359,6 +328,57 @@ export function AuthProvider({ children }: AuthProviderProps) {
     logout,
     refreshSession,
     authError, // <-- Added
+    // Additional auth operations
+    register: async (data: RegisterData) => {
+      try {
+        await authApi.register(data);
+      } catch (error: any) {
+        throw new Error(error.message || 'Registration failed');
+      }
+    },
+    forgotPassword: async (email: string) => {
+      try {
+        await authApi.forgotPassword(email);
+      } catch (error: any) {
+        throw new Error(error.message || 'Failed to send reset email');
+      }
+    },
+    resetPassword: async (token: string, password: string) => {
+      try {
+        await authApi.resetPassword(token, password);
+      } catch (error: any) {
+        throw new Error(error.message || 'Failed to reset password');
+      }
+    },
+    acceptInvitation: async (token: string, password: string) => {
+      try {
+        await authApi.acceptInvitation(token, password);
+      } catch (error: any) {
+        throw new Error(error.message || 'Failed to accept invitation');
+      }
+    },
+    checkAccountStatus: async (email: string) => {
+      try {
+        return await authApi.checkAccountStatus();
+      } catch (error: any) {
+        throw new Error(error.message || 'Failed to check account status');
+      }
+    },
+    resendConfirmation: async (email: string) => {
+      try {
+        // This might need to be added to the auth API
+        const response = await fetch('/api/auth/resend-confirmation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+        if (!response.ok) {
+          throw new Error('Failed to resend confirmation');
+        }
+      } catch (error: any) {
+        throw new Error(error.message || 'Failed to resend confirmation');
+      }
+    },
   };
 
   return React.createElement(AuthContext.Provider, { value }, children);

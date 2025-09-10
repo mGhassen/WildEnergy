@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useCancelRegistration, useForceRegistration } from "@/hooks/useRegistrations";
 import { useMemberCourses, useMemberSubscriptions, useMemberCategories } from "@/hooks/useMember";
 import { useMemberCourseRegistration } from "@/hooks/useMemberRegistration";
+import { useAuth } from "@/hooks/use-auth";
 import { apiFetch } from "@/lib/api";
 import { CardSkeleton, ListSkeleton } from "@/components/skeletons";
 import { useToast } from "@/hooks/use-toast";
@@ -92,6 +93,7 @@ export default function MemberClasses() {
   const [selectedQR, setSelectedQR] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const { data: courses, isLoading } = useMemberCourses();
   const { data: categories, isLoading: categoriesLoading } = useMemberCategories();

@@ -5,12 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import { useCreateAdmin } from '@/hooks/useSetup';
 
 export default function SetupAdminPage() {
   const [email, setEmail] = useState('admin@wildenergy.gym');
   const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const createAdminMutation = useCreateAdmin();
 
   const handleCreateAdmin = async () => {
     if (!email || !password) {
@@ -22,41 +23,11 @@ export default function SetupAdminPage() {
       return;
     }
 
-    setIsLoading(true);
-    try {
-      const response = await fetch('/api/create-admin', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        toast({
-          title: "Success",
-          description: "Admin user created successfully! You can now log in.",
-        });
+    createAdminMutation.mutate({ email, password }, {
+      onSuccess: () => {
         setPassword('');
-      } else {
-        toast({
-          title: "Error",
-          description: data.error || 'Failed to create admin user',
-          variant: "destructive",
-        });
       }
-    } catch (error) {
-      console.error('Create admin error:', error);
-      toast({
-        title: "Error",
-        description: "Failed to create admin user",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
+    });
   };
 
   return (
@@ -93,13 +64,13 @@ export default function SetupAdminPage() {
               placeholder="Enter a strong password"
             />
           </div>
-          <Button 
-            onClick={handleCreateAdmin} 
-            disabled={isLoading}
-            className="w-full"
-          >
-            {isLoading ? 'Creating...' : 'Create Admin User'}
-          </Button>
+            <Button 
+              onClick={handleCreateAdmin} 
+              disabled={createAdminMutation.isPending}
+              className="w-full"
+            >
+              {createAdminMutation.isPending ? 'Creating...' : 'Create Admin User'}
+            </Button>
           <div className="text-sm text-muted-foreground">
             <p>After creating the admin user, you can:</p>
             <ol className="list-decimal list-inside mt-2 space-y-1">

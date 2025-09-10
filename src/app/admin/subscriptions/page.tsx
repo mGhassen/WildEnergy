@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useSubscriptions, useCreateSubscription, useUpdateSubscription, useDeleteSubscription } from "@/hooks/useSubscriptions";
+import { useSubscriptions, useCreateSubscription, useUpdateSubscription, useDeleteSubscription, useManualRefundSessions } from "@/hooks/useSubscriptions";
 import { useMembers } from "@/hooks/useMembers";
 import { usePlans } from "@/hooks/usePlans";
 import { usePayments, useCreatePayment, useUpdatePayment, useDeletePayment } from "@/hooks/usePayments";
@@ -30,7 +30,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar } from "@/components/ui/avatar";
 import { DialogClose } from "@/components/ui/dialog";
 import { SubscriptionDetails } from "@/components/subscription-details";
-import { apiRequest } from "@/lib/queryClient";
 
 // Type definitions
 type Member = {
@@ -147,7 +146,8 @@ export default function AdminSubscriptions() {
         firstName: m.firstName || m.first_name || '',
         lastName: m.lastName || m.last_name || '',
         email: m.email,
-        status: m.status,
+        status: m.member_status, // Use member_status from API
+        member_status: m.member_status, // Keep original field too
         credit: m.credit || 0, // Map credit field
       }))
     : [];
@@ -196,78 +196,9 @@ export default function AdminSubscriptions() {
   });
 
   // Mutations
-  const createSubscriptionMutation = useMutation({
-    mutationFn: async (data: SubscriptionFormData) => {
-      const selectedPlan = mappedPlans.find((plan) => plan.id === parseInt(data.planId));
-      if (!selectedPlan) throw new Error("Selected plan not found");
-      
-      const startDateObj = new Date(data.startDate);
-      startDateObj.setDate(startDateObj.getDate() + Number(selectedPlan.duration));
-      const endDateStr = startDateObj.toISOString().split('T')[0];
+  const createSubscriptionMutation = useCreateSubscription();
 
-      const submitData = {
-        userId: data.userId,
-        planId: data.planId,
-        startDate: data.startDate,
-        endDate: endDateStr,
-        notes: data.notes,
-        status: data.status,
-      };
-      
-      return await apiRequest("POST", "/api/subscriptions", submitData);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/subscriptions"] });
-      setIsSubscriptionModalOpen(false);
-      subscriptionForm.reset();
-      toast({ title: "Subscription created successfully" });
-    },
-    onError: (error) => {
-      toast({ 
-        title: "Error creating subscription", 
-        description: error.message,
-        variant: "destructive" 
-      });
-    },
-  });
-
-  const updateSubscriptionMutation = useMutation({
-    mutationFn: async (data: SubscriptionFormData) => {
-      if (!editingSubscription) throw new Error("No subscription selected for editing");
-      
-      const selectedPlan = mappedPlans.find((plan) => plan.id === parseInt(data.planId));
-      if (!selectedPlan) throw new Error("Selected plan not found");
-      
-      const startDateObj = new Date(data.startDate);
-      startDateObj.setDate(startDateObj.getDate() + Number(selectedPlan.duration));
-      const endDateStr = startDateObj.toISOString().split('T')[0];
-
-      const submitData = {
-        userId: data.userId,
-        planId: data.planId,
-        startDate: data.startDate,
-        endDate: endDateStr,
-        notes: data.notes,
-        status: data.status,
-      };
-      
-      return await apiRequest("PUT", `/api/subscriptions/${editingSubscription.id}`, submitData);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/subscriptions"] });
-      setIsEditModalOpen(false);
-      setEditingSubscription(null);
-      subscriptionForm.reset();
-      toast({ title: "Subscription updated successfully" });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error updating subscription",
-        description: error.message,
-        variant: "destructive"
-      });
-    },
-  });
+  const updateSubscriptionMutation = useUpdateSubscription();
 
   const deleteSubscriptionMutation = useDeleteSubscription();
 
@@ -339,11 +270,80 @@ export default function AdminSubscriptions() {
   };
 
   const handleSubscriptionSubmit = (data: SubscriptionFormData) => {
-    createSubscriptionMutation.mutate(data);
+    const selectedPlan = mappedPlans.find((plan) => plan.id === parseInt(data.planId));
+    if (!selectedPlan) {
+      toast({ 
+        title: "Error", 
+        description: "Selected plan not found",
+        variant: "destructive" 
+      });
+      return;
+    }
+    
+    const startDateObj = new Date(data.startDate);
+    startDateObj.setDate(startDateObj.getDate() + Number(selectedPlan.duration));
+    const endDateStr = startDateObj.toISOString().split('T')[0];
+
+    const submitData = {
+      user_id: data.userId,
+      plan_id: parseInt(data.planId),
+      start_date: data.startDate,
+      end_date: endDateStr,
+      notes: data.notes,
+      status: data.status || 'pending',
+    };
+    
+    createSubscriptionMutation.mutate(submitData, {
+      onSuccess: () => {
+        setIsSubscriptionModalOpen(false);
+        subscriptionForm.reset();
+      }
+    });
   };
 
   const handleEditSubmit = (data: SubscriptionFormData) => {
-    updateSubscriptionMutation.mutate(data);
+    if (!editingSubscription) {
+      toast({ 
+        title: "Error", 
+        description: "No subscription selected for editing",
+        variant: "destructive" 
+      });
+      return;
+    }
+    
+    const selectedPlan = mappedPlans.find((plan) => plan.id === parseInt(data.planId));
+    if (!selectedPlan) {
+      toast({ 
+        title: "Error", 
+        description: "Selected plan not found",
+        variant: "destructive" 
+      });
+      return;
+    }
+    
+    const startDateObj = new Date(data.startDate);
+    startDateObj.setDate(startDateObj.getDate() + Number(selectedPlan.duration));
+    const endDateStr = startDateObj.toISOString().split('T')[0];
+
+    const submitData = {
+      user_id: data.userId,
+      plan_id: parseInt(data.planId),
+      start_date: data.startDate,
+      end_date: endDateStr,
+      notes: data.notes,
+      status: data.status || 'pending',
+    };
+    
+    updateSubscriptionMutation.mutate({
+      subscriptionId: editingSubscription.id,
+      data: submitData
+    }, {
+      onSuccess: () => {
+        setIsEditModalOpen(false);
+        setEditingSubscription(null);
+        subscriptionForm.reset();
+      }
+    });
   };
 
   // 3. In handlePaymentSubmit, do not override payment_method, just use data.payment_method
@@ -440,19 +440,7 @@ export default function AdminSubscriptions() {
   };
 
   // Manual refund mutation
-  const manualRefundMutation = useMutation({
-    mutationFn: async ({ subscriptionId, sessionsToRefund }: { subscriptionId: number; sessionsToRefund: number }) => {
-      return await apiRequest('POST', '/api/member/subscriptions', { subscriptionId, sessionsToRefund });
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/subscriptions'] });
-      toast({ title: `Successfully refunded ${data.sessionsRefunded} session(s)` });
-    },
-    onError: (error) => {
-      toast({ title: 'Failed to refund sessions', description: error?.message || '', variant: 'destructive' });
-      console.error('Error refunding sessions:', error);
-    },
-  });
+  const manualRefundMutation = useManualRefundSessions();
 
   const handleManualRefund = (subscription: Subscription) => {
     if (subscription.id) {
@@ -743,7 +731,7 @@ export default function AdminSubscriptions() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {mappedMembers.filter((member) => member.status === 'active').map((member) => (
+                          {mappedMembers.filter((member) => member.member_status === 'active').map((member) => (
                             <SelectItem key={member.id} value={member.id}>
                               {member.firstName} {member.lastName} ({member.email})
                             </SelectItem>
@@ -949,7 +937,7 @@ export default function AdminSubscriptions() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {mappedMembers.filter((member) => member.status === 'active').map((member) => (
+                          {mappedMembers.filter((member) => member.member_status === 'active').map((member) => (
                             <SelectItem key={member.id} value={member.id}>
                               {member.firstName} {member.lastName} ({member.email})
                             </SelectItem>

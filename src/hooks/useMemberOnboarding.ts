@@ -14,6 +14,17 @@ export interface OnboardingStatus {
   updated_at: string;
 }
 
+export interface OnboardingStatusResponse {
+  success: boolean;
+  data?: {
+    onboardingCompleted: boolean;
+    termsAccepted: boolean;
+    hasPersonalInfo: boolean;
+    user: any;
+  };
+  error?: string;
+}
+
 export interface UpdateOnboardingData {
   personal_info_completed?: boolean;
   terms_accepted?: boolean;
@@ -27,6 +38,13 @@ export function useMemberOnboarding(memberId: string) {
     queryKey: ['member-onboarding', memberId],
     queryFn: () => apiRequest('GET', `/api/member/onboarding/${memberId}`),
     enabled: !!memberId,
+  });
+}
+
+export function useOnboardingStatus() {
+  return useQuery<OnboardingStatusResponse, Error>({
+    queryKey: ['/api/member/onboarding/status'],
+    queryFn: () => apiRequest('GET', '/api/member/onboarding/status'),
   });
 }
 

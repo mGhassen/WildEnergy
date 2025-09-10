@@ -15,7 +15,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useForm } from "react-hook-form";
 
-import { apiRequest } from "@/lib/queryClient";
+import { useSchedule, useUpdateSchedule, useDeleteSchedule } from "@/hooks/useSchedules";
+import { useClasses } from "@/hooks/useClasses";
+import { useTrainers } from "@/hooks/useTrainers";
+import { useAdminRegistrations, useAdminCheckins } from "@/hooks/useAdmin";
+import { useCourses } from "@/hooks/useCourse";
 import { 
   ArrowLeft, 
   Calendar, 
@@ -60,7 +64,7 @@ interface ScheduleFormData {
 function mapScheduleToApi(data: any) {
   return {
     class_id: Number(data.classId),
-    trainer_id: Number(data.trainerId),
+    trainer_id: String(data.trainerId),
     day_of_week: data.dayOfWeek,
     start_time: data.startTime,
     end_time: data.endTime,
@@ -114,39 +118,20 @@ export default function ScheduleDetailsPage() {
   });
 
   // Fetch schedule details
-  const { data: schedule, isLoading: scheduleLoading, error: scheduleError } = useQuery({
-    queryKey: ["schedule", scheduleId],
-    queryFn: () => apiRequest("GET", `/api/admin/schedules/${scheduleId}`),
-    enabled: !!scheduleId,
-  });
+  const { data: schedule, isLoading: scheduleLoading, error: scheduleError } = useSchedule(Number(scheduleId));
 
   // Fetch classes for edit dialog
-  const { data: classes = [] } = useQuery({
-    queryKey: ["classes"],
-    queryFn: () => apiRequest("GET", "/api/admin/classes"),
-  });
+  const { data: classes = [] } = useClasses();
 
   // Fetch trainers for edit dialog
-  const { data: trainers = [] } = useQuery({
-    queryKey: ["trainers"],
-    queryFn: () => apiRequest("GET", "/api/admin/trainers"),
-  });
+  const { data: trainers = [] } = useTrainers();
 
   // Fetch related data
-  const { data: courses = [] } = useQuery({
-    queryKey: ["courses"],
-    queryFn: () => apiRequest("GET", "/api/admin/courses"),
-  });
+  const { data: courses = [] } = useCourses();
 
-  const { data: registrations = [] } = useQuery({
-    queryKey: ["registrations"],
-    queryFn: () => apiRequest("GET", "/api/admin/registrations"),
-  });
+  const { data: registrations = [] } = useAdminRegistrations();
 
-  const { data: checkins = [] } = useQuery({
-    queryKey: ["checkins"],
-    queryFn: () => apiRequest("GET", "/api/admin/checkins"),
-  });
+  const { data: checkins = [] } = useAdminCheckins();
 
   // Get schedule-specific data
   const scheduleCourses = courses.filter((course: any) => course.schedule_id?.toString() === scheduleId);
@@ -196,62 +181,50 @@ export default function ScheduleDetailsPage() {
   const totalPages = Math.ceil(filteredCourses.length / coursesPerPage);
 
   // Update schedule mutation
-  const updateScheduleMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: ScheduleFormData }) => {
-      const apiData = mapScheduleToApi(data);
-      return apiRequest("PUT", `/api/admin/schedules/${id}`, apiData);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["schedule", scheduleId] });
-      queryClient.invalidateQueries({ queryKey: ["schedules"] });
-      setEditDialogOpen(false);
-      toast({
-        title: "Success",
-        description: "Schedule updated successfully",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update schedule",
-        variant: "destructive",
-      });
-    },
-  });
+  const updateScheduleMutation = useUpdateSchedule();
 
   const handleEdit = () => {
     if (schedule) {
       form.reset({
-        classId: schedule.classId || 0,
-        trainerId: schedule.trainerId || 0,
-        dayOfWeek: schedule.dayOfWeek,
-        startTime: schedule.startTime,
-        endTime: schedule.endTime,
-        repetitionType: schedule.repetitionType || "once",
-        scheduleDate: schedule.scheduleDate || "",
-        startDate: schedule.startDate || "",
-        endDate: schedule.endDate || "",
-        isActive: schedule.isActive,
+        classId: schedule.class_id || 0,
+        trainerId: Number(schedule.trainer_id) || 0,
+        dayOfWeek: schedule.day_of_week,
+        startTime: schedule.start_time,
+        endTime: schedule.end_time,
+        repetitionType: schedule.repetition_type || "once",
+        scheduleDate: schedule.schedule_date || "",
+        startDate: schedule.start_date || "",
+        endDate: schedule.end_date || "",
+        isActive: schedule.is_active,
       });
       setEditDialogOpen(true);
     }
   };
 
   const handleSubmit = (data: ScheduleFormData) => {
-    updateScheduleMutation.mutate({ id: scheduleId, data });
+    const apiData = mapScheduleToApi(data);
+    updateScheduleMutation.mutate({ 
+      scheduleId: Number(scheduleId), 
+      data: apiData 
+    }, {
+      onSuccess: () => {
+        setEditDialogOpen(false);
+      }
+    });
   };
 
   const handleDelete = () => {
     setDeleteDialogOpen(true);
   };
 
-  const confirmDelete = async () => {
-    try {
-      await apiRequest("DELETE", `/api/admin/schedules/${scheduleId}`);
-      router.push("/admin/schedules");
-    } catch (error) {
-      console.error("Failed to delete schedule:", error);
-    }
+  const deleteScheduleMutation = useDeleteSchedule();
+
+  const confirmDelete = () => {
+    deleteScheduleMutation.mutate(Number(scheduleId), {
+      onSuccess: () => {
+        router.push("/admin/schedules");
+      }
+    });
   };
 
   const canDeleteSchedule = (scheduleId: string) => {
@@ -398,14 +371,6 @@ export default function ScheduleDetailsPage() {
                 style={{ backgroundColor: schedule.class?.category?.color || '#6B7280' }}
               />
               <div className="flex flex-col">
-                {schedule.class?.category?.group && (
-                  <span 
-                    className="text-xs font-medium"
-                    style={{ color: schedule.class.category.group.color }}
-                  >
-                    {schedule.class.category.group.name}
-                  </span>
-                )}
                 <span className="text-sm text-foreground">
                   {schedule.class?.category?.name || 'No Category'}
                 </span>
@@ -414,23 +379,11 @@ export default function ScheduleDetailsPage() {
             
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div className="flex flex-col">
-                <span className="text-xs text-muted-foreground">Duration</span>
-                <span className="font-medium">{schedule.class?.duration || 0} min</span>
-              </div>
-              <div className="flex flex-col">
                 <span className="text-xs text-muted-foreground">Capacity</span>
-                <span className="font-medium">{schedule.class?.max_capacity || 0} members</span>
+                <span className="font-medium">{schedule.max_participants || 0} members</span>
               </div>
             </div>
 
-            {schedule.class?.description && (
-              <div className="space-y-1">
-                <span className="text-xs text-muted-foreground font-medium">Description</span>
-                <p className="text-sm text-foreground leading-relaxed">
-                  {schedule.class.description}
-                </p>
-              </div>
-            )}
           </CardContent>
         </Card>
 
@@ -453,19 +406,19 @@ export default function ScheduleDetailsPage() {
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-muted-foreground" />
                 <span className="text-sm text-foreground">
-                  {schedule.scheduleDate ? formatEuropeanDate(schedule.scheduleDate) : getDayName(schedule.dayOfWeek)}
+                  {schedule.schedule_date ? formatEuropeanDate(schedule.schedule_date) : getDayName(schedule.day_of_week)}
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-muted-foreground" />
                 <span className="text-sm text-foreground">
-                  {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}
+                  {formatTime(schedule.start_time)} - {formatTime(schedule.end_time)}
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <RepeatIcon className="w-4 h-4 text-muted-foreground" />
                 <span className="text-sm text-foreground">
-                  {getRepetitionLabel(schedule.repetitionType || 'weekly')}
+                  {getRepetitionLabel(schedule.repetition_type || 'weekly')}
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -476,11 +429,11 @@ export default function ScheduleDetailsPage() {
               </div>
             </div>
 
-            {schedule.startDate && schedule.endDate && (
+            {schedule.start_date && schedule.end_date && (
               <div className="pt-3 border-t border-border/50">
                 <span className="text-xs text-muted-foreground font-medium">Date Range</span>
                 <div className="text-sm text-foreground">
-                  {formatEuropeanDate(schedule.startDate)} - {formatEuropeanDate(schedule.endDate)}
+                  {formatEuropeanDate(schedule.start_date)} - {formatEuropeanDate(schedule.end_date)}
                 </div>
               </div>
             )}
@@ -499,35 +452,11 @@ export default function ScheduleDetailsPage() {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-foreground">
-                  {schedule.trainer?.firstName} {schedule.trainer?.lastName}
+                  {schedule.trainer?.first_name} {schedule.trainer?.last_name}
                 </span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">{schedule.trainer?.email}</span>
-              </div>
-              {schedule.trainer?.phone && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">{schedule.trainer.phone}</span>
-                </div>
-              )}
             </div>
             
-            {(schedule.trainer?.specialization || schedule.trainer?.experience_years) && (
-              <div className="pt-3 border-t border-border/50 space-y-2">
-                {schedule.trainer?.specialization && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Specialization:</span>
-                    <span className="font-medium text-foreground">{schedule.trainer.specialization}</span>
-                  </div>
-                )}
-                {schedule.trainer?.experience_years && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Experience:</span>
-                    <span className="font-medium text-foreground">{schedule.trainer.experience_years} years</span>
-                  </div>
-                )}
-              </div>
-            )}
           </CardContent>
         </Card>
       </div>
@@ -569,15 +498,15 @@ export default function ScheduleDetailsPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Max Capacity:</span>
-                <span className="font-medium text-foreground">{schedule.class?.max_capacity || 0} members</span>
+                <span className="font-medium text-foreground">{schedule.max_participants || 0} members</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Class Duration:</span>
-                <span className="font-medium text-foreground">{schedule.class?.duration || 0} minutes</span>
+                <span className="font-medium text-foreground">N/A</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Repetition:</span>
-                <span className="font-medium text-foreground">{getRepetitionLabel(schedule.repetitionType || 'weekly')}</span>
+                <span className="font-medium text-foreground">{getRepetitionLabel(schedule.repetition_type || 'weekly')}</span>
               </div>
             </div>
           </div>
@@ -636,7 +565,7 @@ export default function ScheduleDetailsPage() {
                     );
                     const registeredCount = courseRegistrations.length;
                     const attendedCount = courseCheckins.length;
-                    const maxCapacity = course.max_participants || schedule.class?.max_capacity || 0;
+                    const maxCapacity = course.max_participants || schedule.max_participants || 0;
                     const attendanceRate = registeredCount > 0 ? Math.round((attendedCount / registeredCount) * 100) : 0;
                     const capacityRate = maxCapacity > 0 ? Math.round((registeredCount / maxCapacity) * 100) : 0;
 

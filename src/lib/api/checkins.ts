@@ -2,47 +2,96 @@ import { apiRequest } from '@/lib/queryClient';
 
 export interface Checkin {
   id: number;
-  user_id: string;
-  class_id?: number;
-  course_id?: number;
-  checkin_time: string;
-  status: string;
+  member_id: string;
+  registration_id: number;
+  session_consumed: boolean;
   notes?: string;
+  checkin_time: string;
   created_at: string;
   updated_at: string;
-  user?: {
+}
+
+export interface CheckinInfo {
+  member: {
     id: string;
-    full_name: string;
+    first_name: string;
+    last_name: string;
     email: string;
+    phone?: string;
+    status?: string;
+    activeSubscription?: {
+      planName: string;
+      status: string;
+      sessionsRemaining: number;
+    };
   };
-  class?: {
-    id: number;
-    name: string;
-    start_date: string;
-    end_date: string;
+  course: {
+    id: string;
+    course_date: string;
+    start_time: string;
+    end_time: string;
+    class_id: number;
+    trainer_id: number;
+    class: {
+      id: number;
+      name: string;
+      category?: string;
+      difficulty?: string;
+      maxCapacity?: number;
+    };
+    trainer: {
+      id: number;
+      users: {
+        id: string;
+        first_name: string;
+        last_name: string;
+      };
+    };
   };
-  course?: {
-    id: number;
-    name: string;
+  registration: {
+    id: string;
+    status: string;
+    registeredAt: string;
   };
+  registeredCount: number;
+  checkedInCount: number;
+  totalMembers: number;
+  alreadyCheckedIn: boolean;
+  registeredMembers?: { id: string; first_name: string; last_name: string; email: string; status?: string }[];
+  attendantMembers?: { id: string; first_name: string; last_name: string; email: string }[];
+  members?: { id: string; first_name: string; last_name: string; email: string; status?: 'registered' | 'attended' | 'absent' | 'checked_in' }[];
+}
+
+export interface CheckinResponse {
+  success: boolean;
+  message?: string;
+  data?: CheckinInfo;
+}
+
+export interface CheckinRequest {
+  qr_code: string;
 }
 
 export interface CreateCheckinData {
-  user_id: string;
-  class_id?: number;
-  course_id?: number;
-  status?: string;
+  member_id: string;
+  registration_id: number;
+  session_consumed?: boolean;
   notes?: string;
 }
 
 export interface UpdateCheckinData {
-  status?: string;
+  session_consumed?: boolean;
   notes?: string;
 }
 
 export const checkinApi = {
+  // Existing functions
   async getCheckins(): Promise<Checkin[]> {
     return apiRequest('GET', '/api/admin/checkins');
+  },
+
+  async getMemberCheckins(): Promise<Checkin[]> {
+    return apiRequest('GET', '/api/member/checkins');
   },
 
   async getCheckin(checkinId: number): Promise<Checkin> {
@@ -65,15 +114,16 @@ export const checkinApi = {
     return apiRequest('POST', `/api/checkin`, { user_id: userId, ...data });
   },
 
-  async getCheckinInfo(qrCode: string): Promise<any> {
+  // QR code functions
+  async getCheckinInfo(qrCode: string): Promise<CheckinResponse> {
     return apiRequest('GET', `/checkin/qr/${qrCode}`);
   },
 
-  async validateCheckin(qrCode: string): Promise<any> {
-    return apiRequest('POST', '/checkins', { qr_code: qrCode });
+  async validateCheckin(data: CheckinRequest): Promise<CheckinResponse> {
+    return apiRequest('POST', '/checkins', data);
   },
 
-  async unvalidateCheckin(registrationId: string): Promise<any> {
+  async unvalidateCheckin(registrationId: string): Promise<CheckinResponse> {
     return apiRequest('POST', `/checkins/${registrationId}/unvalidate`);
   }
 };
