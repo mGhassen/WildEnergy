@@ -1,98 +1,72 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { useMembers } from "@/hooks/useMembers";
-import { useMemberDetails } from "@/hooks/useMemberDetails";
 import { 
   Search, 
-  Eye, 
   User, 
   Calendar, 
   CreditCard, 
   Activity,
   Clock,
   CheckCircle,
-  XCircle} from "lucide-react";
+  XCircle,
+  MoreHorizontal,
+  Edit,
+  Trash2,
+  UserX,
+  UserCheck,
+  Mail,
+  Phone,
+  Filter,
+  Plus,
+  ArrowUpDown,
+  Users,
+  TrendingUp,
+  AlertTriangle,
+  UserPlus,
+  Download,
+  RefreshCw,
+  Grid3X3,
+  List,
+  ChevronDown,
+  Star,
+  Zap,
+  DollarSign
+} from "lucide-react";
 import { formatDate } from "@/lib/date";
 import { formatCurrency } from "@/lib/config";
-import "./member-details-dialog.css";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { TableSkeleton, ListSkeleton } from "@/components/skeletons";
+import { TableSkeleton } from "@/components/skeletons";
 
-// Types for member details
+// Proper types based on actual API response
 interface Member {
   id: string;
-  firstName: string;
-  lastName: string;
+  account_id: string;
+  first_name: string;
+  last_name: string;
   email: string;
-  status: string;
-  subscriptionStatus?: string;
   phone?: string;
-  dateOfBirth?: string;
-  createdAt?: string;
-  credit?: number;
-}
-
-interface Subscription {
-  id: number;
-  user_id: string;
-  plan_id: number;
-  startDate: string;
-  endDate: string;
-  sessionsRemaining: number;
-  status: string;
-  plan?: Plan;
-}
-
-interface Plan {
-  id: number;
-  name: string;
-  price: number;
-  sessionsIncluded: number;
-}
-
-interface Registration {
-  id: number;
-  course_id: number;
-  user_id: string;
-  status: string;
-  registration_date: string;
-  qr_code: string;
-  notes?: string;
-}
-
-interface Checkin {
-  id: number;
-  member: Member;
-  checkin_time: string;
-}
-
-interface Payment {
-  id: number;
-  subscription_id: number;
-  user_id: string;
-  amount: number;
-  payment_type: string;
-  payment_status: string;
-  payment_date: string;
-  transaction_id?: string;
-  notes?: string;
-}
-
-interface MemberDetails {
-  member: Member;
-  subscriptions: Subscription[];
-  registrations: Registration[];
-  checkins: Checkin[];
-  payments: Payment[];
+  is_member: boolean;
+  credit: number;
+  member_notes?: string;
+  member_status: string;
+  subscription_status: string;
+  user_type: string;
+  accessible_portals: string[];
+  groupSessions?: any[];
+  created_at?: string;
+  date_of_birth?: string;
+  address?: string;
+  profession?: string;
 }
 
 // Helper functions
@@ -100,122 +74,196 @@ const getInitials = (firstName: string, lastName: string): string => {
   return `${firstName?.charAt(0) || ''}${lastName?.charAt(0) || ''}`.toUpperCase();
 };
 
-const formatDateTime = (dateString: string): string => {
-  return new Date(dateString).toLocaleString();
-};
-
 const formatPhoneNumber = (phone: string): string => {
   if (!phone) return '';
   return phone.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3');
 };
 
-const getSubscriptionStatusColor = (status: string) => {
-  switch (status) {
-    case 'active': return 'bg-green-100 text-green-800';
-    case 'expired': return 'bg-red-100 text-red-800';
-    case 'inactive': return 'bg-gray-100 text-gray-800';
-    default: return 'bg-gray-100 text-gray-800';
-  }
+const getStatusConfig = (status: string) => {
+  const configs = {
+    active: { 
+      color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200', 
+      icon: '✅', 
+      label: 'Active' 
+    },
+    archived: { 
+      color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200', 
+      icon: '⏳', 
+      label: 'Pending Approval' 
+    },
+    pending: { 
+      color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200', 
+      icon: '📧', 
+      label: 'Pending Confirmation' 
+    },
+    suspended: { 
+      color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200', 
+      icon: '🚫', 
+      label: 'Suspended' 
+    },
+    inactive: { 
+      color: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200', 
+      icon: '⏸️', 
+      label: 'Inactive' 
+    }
+  };
+  return configs[status as keyof typeof configs] || configs.inactive;
 };
 
-const getMemberStatusColor = (status: string) => {
-  switch (status) {
-    case 'active': return 'bg-green-100 text-green-800';
-    case 'archived': return 'bg-yellow-100 text-yellow-800';
-    case 'pending': return 'bg-blue-100 text-blue-800';
-    case 'suspended': return 'bg-red-100 text-red-800';
-    default: return 'bg-gray-100 text-gray-800';
-  }
+const getSubscriptionConfig = (status: string) => {
+  const configs = {
+    active: { 
+      color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200', 
+      icon: '💳', 
+      label: 'Active' 
+    },
+    expired: { 
+      color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200', 
+      icon: '❌', 
+      label: 'Expired' 
+    },
+    pending: { 
+      color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200', 
+      icon: '⏳', 
+      label: 'Pending' 
+    },
+    cancelled: { 
+      color: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200', 
+      icon: '🚫', 
+      label: 'Cancelled' 
+    },
+    inactive: { 
+      color: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200', 
+      icon: '⏸️', 
+      label: 'Inactive' 
+    }
+  };
+  return configs[status as keyof typeof configs] || configs.inactive;
 };
 
 export default function MembersPage() {
+  const router = useRouter();
   const isMobile = useIsMobile();
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
-  const [showMemberDetails, setShowMemberDetails] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [subscriptionFilter, setSubscriptionFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("name");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [viewMode, setViewMode] = useState<"grid" | "table">("table");
+  const [showFilters, setShowFilters] = useState(false);
 
   // Fetch members with related data
-  const { data: members = [], isLoading } = useMembers();
+  const { data: members = [], isLoading, refetch } = useMembers();
 
-  // Map members from snake_case to camelCase for UI
-  const mappedMembers: Member[] = Array.isArray(members)
-    ? members.map((m: Record<string, unknown>) => ({
-        id: typeof m.id === 'string' ? m.id : (typeof m.id === 'number' ? m.id.toString() : ''),
-        firstName: typeof m.firstName === 'string' ? m.firstName : (typeof m.first_name === 'string' ? m.first_name : ''),
-        lastName: typeof m.lastName === 'string' ? m.lastName : (typeof m.last_name === 'string' ? m.last_name : ''),
-        email: typeof m.email === 'string' ? m.email : '',
-        status: typeof m.status === 'string' ? m.status : '',
-        subscriptionStatus: typeof m.subscriptionStatus === 'string' ? m.subscriptionStatus : (typeof m.subscription_status === 'string' ? m.subscription_status : 'inactive'),
-        phone: typeof m.phone === 'string' ? m.phone : undefined,
-        dateOfBirth: typeof m.dateOfBirth === 'string' ? m.dateOfBirth : (typeof m.date_of_birth === 'string' ? m.date_of_birth : undefined),
-        createdAt: typeof m.createdAt === 'string' ? m.createdAt : (typeof m.created_at === 'string' ? m.created_at : undefined),
-        credit: typeof m.credit === 'number' ? m.credit : 0,
-      }))
-    : [];
+  // Process and filter members with proper data handling
+  const processedMembers = useMemo(() => {
+    if (!Array.isArray(members)) return [];
+    
+    return members.map((member: any) => ({
+      ...member,
+      // Ensure all required fields exist
+      id: member.id || member.member_id || '',
+      first_name: member.first_name || '',
+      last_name: member.last_name || '',
+      email: member.email || '',
+      member_status: member.member_status || 'inactive',
+      subscription_status: member.subscription_status || 'inactive',
+      credit: typeof member.credit === 'number' ? member.credit : 0,
+      phone: member.phone || '',
+      created_at: member.created_at || member.createdAt || '',
+    }));
+  }, [members]);
 
-  // Fetch member details when selected
-  const { data: memberDetails, isLoading: isLoadingDetails } = useMemberDetails(selectedMember?.id || null);
+  // Calculate statistics with proper data
+  const stats = useMemo(() => {
+    const total = processedMembers.length;
+    const active = processedMembers.filter(m => m.member_status === 'active').length;
+    const pending = processedMembers.filter(m => m.member_status === 'archived').length;
+    const suspended = processedMembers.filter(m => m.member_status === 'suspended').length;
+    const activeSubscriptions = processedMembers.filter(m => m.subscription_status === 'active').length;
+    const expiredSubscriptions = processedMembers.filter(m => m.subscription_status === 'expired').length;
+    const totalCredit = processedMembers.reduce((sum, m) => sum + (m.credit || 0), 0);
 
-  // Helper function to safely get member details
-  const getMemberDetails = () => {
-    if (!memberDetails) return { subscriptions: [], payments: [], registrations: [], checkins: [] };
     return {
-      subscriptions: memberDetails.subscriptions || [],
-      payments: memberDetails.payments || [],
-      registrations: memberDetails.registrations || [],
-      checkins: memberDetails.checkins || []
+      total,
+      active,
+      pending,
+      suspended,
+      activeSubscriptions,
+      expiredSubscriptions,
+      totalCredit
     };
-  };
+  }, [processedMembers]);
 
-  const memberData = getMemberDetails();
-
-  // Map subscriptions to camelCase fields for status logic
-  const mappedSubscriptions: Subscription[] = (memberData.subscriptions || []).map((sub: any) => ({
-    id: typeof sub.id === 'number' ? sub.id : 0,
-    user_id: typeof sub.user_id === 'string' ? sub.user_id : '',
-    plan_id: typeof sub.plan_id === 'number' ? sub.plan_id : 0,
-    startDate: typeof sub.startDate === 'string' ? sub.startDate : (typeof sub.start_date === 'string' ? sub.start_date : ''),
-    endDate: typeof sub.endDate === 'string' ? sub.endDate : (typeof sub.end_date === 'string' ? sub.end_date : ''),
-    sessionsRemaining: typeof sub.sessionsRemaining === 'number' ? sub.sessionsRemaining : (typeof sub.sessions_remaining === 'number' ? sub.sessions_remaining : 0),
-    status: typeof sub.status === 'string' ? sub.status : '',
-    plan: sub.plan && typeof sub.plan === 'object' ? {
-      id: typeof (sub.plan as any)?.id === 'number' ? (sub.plan as any).id : 0,
-      sessionsIncluded: (sub.plan as any).sessionsIncluded ?? ((sub.plan as any).plan_groups?.reduce((sum: number, group: any) => sum + (group.session_count || 0), 0) ?? 0),
-      price: (sub.plan as any).price ?? 0,
-      name: (sub.plan as any).name ?? '',
-    } : undefined,
-  }));
-
-  // Helper function to get actual subscription status from subscription data
-
-  // Helper to get the most relevant subscription (active, or most recent)
-  const getRelevantSubscription = (subscriptions: Subscription[]) => {
-    if (!subscriptions || subscriptions.length === 0) return null;
-    // Prefer active subscriptions
-    const active = subscriptions.find(sub => sub.status === 'active' && new Date(sub.endDate) > new Date() && sub.sessionsRemaining > 0);
-    if (active) return active;
-    // Otherwise, return the most recent by endDate
-    return subscriptions.slice().sort((a, b) => {
-      const aDate = a.endDate ? new Date(a.endDate).getTime() : 0;
-      const bDate = b.endDate ? new Date(b.endDate).getTime() : 0;
-      return bDate - aDate;
-    })[0];
-  };
-  const relevantSubscription = getRelevantSubscription(mappedSubscriptions);
-
-  // Helper to get the most relevant subscription (active, or most recent) for a member
-
-  // Filter members
-  const filteredMembers = Array.isArray(mappedMembers) ? mappedMembers.filter((member: Member) =>
-    member.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    member.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    member.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    member.phone?.includes(searchTerm)
-  ) : [];
+  // Filter and sort members with proper data handling
+  const filteredMembers = useMemo(() => {
+    return processedMembers
+      .filter((member) => {
+        const searchLower = searchTerm.toLowerCase();
+        const matchesSearch = 
+          member.first_name?.toLowerCase().includes(searchLower) ||
+          member.last_name?.toLowerCase().includes(searchLower) ||
+          member.email?.toLowerCase().includes(searchLower) ||
+          member.phone?.includes(searchTerm);
+        
+        const matchesStatus = statusFilter === "all" || member.member_status === statusFilter;
+        const matchesSubscription = subscriptionFilter === "all" || member.subscription_status === subscriptionFilter;
+        
+        return matchesSearch && matchesStatus && matchesSubscription;
+      })
+      .sort((a, b) => {
+        let comparison = 0;
+        
+        switch (sortBy) {
+          case "name":
+            comparison = `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`);
+            break;
+          case "email":
+            comparison = (a.email || "").localeCompare(b.email || "");
+            break;
+          case "status":
+            comparison = (a.member_status || "").localeCompare(b.member_status || "");
+            break;
+          case "createdAt":
+            comparison = new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
+            break;
+          case "credit":
+            comparison = (a.credit || 0) - (b.credit || 0);
+            break;
+          default:
+            comparison = 0;
+        }
+        
+        return sortOrder === "asc" ? comparison : -comparison;
+      });
+  }, [processedMembers, searchTerm, statusFilter, subscriptionFilter, sortBy, sortOrder]);
 
   const openMemberDetails = (member: Member) => {
-    setSelectedMember(member);
-    setShowMemberDetails(true);
+    router.push(`/admin/members/${member.id}`);
+  };
+
+  const handleRefresh = () => {
+    refetch();
+  };
+
+  const handleExport = () => {
+    // TODO: Implement export functionality
+    console.log('Export members');
+  };
+
+  const handleSort = (field: string) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(field);
+      setSortOrder("asc");
+    }
+  };
+
+  const clearFilters = () => {
+    setSearchTerm("");
+    setStatusFilter("all");
+    setSubscriptionFilter("all");
   };
 
   if (isLoading) {
@@ -234,118 +282,271 @@ export default function MembersPage() {
   }
 
   // Mobile Member Card Component
-  const MobileMemberCard = ({ member }: { member: Member }) => (
-    <Card key={member.id} className="mb-2">
-      <CardContent className="p-4 flex items-center gap-3">
-        <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-          <span className="text-sm font-medium text-primary">
-            {getInitials(member.firstName || "", member.lastName || "")}
-          </span>
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <p className="font-medium text-foreground truncate">
-              {member.firstName} {member.lastName}
-            </p>
+  const MobileMemberCard = ({ member }: { member: Member }) => {
+    const memberStatus = getStatusConfig(member.member_status);
+    const subscriptionStatus = getSubscriptionConfig(member.subscription_status);
+    
+    return (
+      <Card 
+        className="mb-3 hover:shadow-md transition-shadow cursor-pointer"
+        onClick={() => openMemberDetails(member)}
+      >
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                <span className="text-sm font-medium text-primary">
+                  {getInitials(member.first_name || "", member.last_name || "")}
+                </span>
+              </div>
+              <div>
+                <p className="font-medium text-foreground">
+                  {member.first_name} {member.last_name}
+                </p>
+                <p className="text-sm text-muted-foreground">{member.email}</p>
+                {member.phone && (
+                  <p className="text-xs text-muted-foreground">{formatPhoneNumber(member.phone)}</p>
+                )}
+              </div>
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-8 w-8 p-0"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <MoreHorizontal className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem>
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit Member
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem>
+                  <Mail className="w-4 h-4 mr-2" />
+                  Send Email
+                </DropdownMenuItem>
+                <DropdownMenuItem disabled={!member.phone}>
+                  <Phone className="w-4 h-4 mr-2" />
+                  Call Member
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-          <p className="text-xs text-muted-foreground truncate mb-1">{member.email}</p>
-          <div className="flex flex-wrap gap-1 mb-1">
-            <Badge className={`${getMemberStatusColor(member.status)} text-xs`}>
-              {member.status === 'active' && '✅ Active'}
-              {member.status === 'archived' && '⏳ Pending Approval'}
-              {member.status === 'pending' && '📧 Pending Confirmation'}
-              {member.status === 'suspended' && '🚫 Suspended'}
-            </Badge>
-            <Badge className={`${getSubscriptionStatusColor(member.subscriptionStatus || 'inactive')} text-xs`}>
-              {member.subscriptionStatus === 'active' && '💳 Active'}
-              {member.subscriptionStatus === 'expired' && '❌ Expired'}
-              {member.subscriptionStatus === 'pending' && '⏳ Pending'}
-              {member.subscriptionStatus === 'cancelled' && '🚫 Cancelled'}
-              {['active','expired','pending','cancelled'].indexOf(member.subscriptionStatus || 'inactive') === -1 && member.subscriptionStatus || 'inactive'}
-            </Badge>
+          
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-muted-foreground">Status:</span>
+              <Badge className={memberStatus.color}>
+                {memberStatus.icon} {memberStatus.label}
+              </Badge>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-muted-foreground">Subscription:</span>
+              <Badge className={subscriptionStatus.color}>
+                {subscriptionStatus.icon} {subscriptionStatus.label}
+              </Badge>
+            </div>
+            {member.credit > 0 && (
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Credit:</span>
+                <span className="text-sm font-medium text-green-600">
+                  {formatCurrency(member.credit)}
+                </span>
+              </div>
+            )}
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-muted-foreground">Joined:</span>
+              <span className="text-sm">{formatDate(member.created_at || "")}</span>
+            </div>
           </div>
-          <p className="text-xs text-muted-foreground">
-            {formatDate(member.createdAt || "")}
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="ml-2 h-8 w-8 p-0"
-          onClick={() => openMemberDetails(member)}
-        >
-          <Eye className="w-4 h-4" />
-        </Button>
-      </CardContent>
-    </Card>
-  );
+        </CardContent>
+      </Card>
+    );
+  };
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      {/* Header Section */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Member Management</h1>
+          <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
+            <Users className="w-8 h-8" />
+            Member Management
+          </h1>
           <p className="text-muted-foreground mt-2">
-            View and manage member information, subscriptions, and activity
+            Manage {stats.total} members • {stats.active} active • {stats.activeSubscriptions} with active subscriptions
           </p>
         </div>
-      </div>
-
-      {/* Search */}
-      <div className="flex items-center space-x-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-          <Input
-            placeholder="Search members by name, email, or phone..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={isLoading}
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExport}
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Export
+          </Button>
+          <Button size="sm">
+            <UserPlus className="w-4 h-4 mr-2" />
+            Add Member
+          </Button>
         </div>
       </div>
 
+      {/* Enhanced Search and Filter Controls */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col lg:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+              <Input
+                placeholder="Search by name, email, or phone..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[160px]">
+                  <Filter className="w-4 h-4 mr-2" />
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="archived">Pending Approval</SelectItem>
+                  <SelectItem value="suspended">Suspended</SelectItem>
+                  <SelectItem value="pending">Pending Confirmation</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={subscriptionFilter} onValueChange={setSubscriptionFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <CreditCard className="w-4 h-4 mr-2" />
+                  <SelectValue placeholder="Subscription" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Subscriptions</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="expired">Expired</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-[140px]">
+                  <ArrowUpDown className="w-4 h-4 mr-2" />
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="name">Name</SelectItem>
+                  <SelectItem value="email">Email</SelectItem>
+                  <SelectItem value="status">Status</SelectItem>
+                  <SelectItem value="createdAt">Join Date</SelectItem>
+                  <SelectItem value="credit">Credit</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleSort(sortBy)}
+                className="px-3"
+              >
+                {sortOrder === "asc" ? "↑" : "↓"}
+              </Button>
+              {(searchTerm || statusFilter !== "all" || subscriptionFilter !== "all") && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearFilters}
+                  className="text-muted-foreground"
+                >
+                  Clear Filters
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Members Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <Card className="border-l-4 border-l-blue-500 hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Members</CardTitle>
-            <User className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Members</CardTitle>
+            <Users className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{members.length}</div>
+            <div className="text-2xl font-bold text-foreground">{stats.total}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {stats.active} active ({Math.round((stats.active / stats.total) * 100)}%)
+            </p>
           </CardContent>
         </Card>
-        <Card>
+        
+        <Card className="border-l-4 border-l-green-500 hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Subscriptions</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Active Subscriptions</CardTitle>
             <CheckCircle className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {members.filter((m: any) => m.subscriptionStatus === 'active').length}
-            </div>
+            <div className="text-2xl font-bold text-green-600">{stats.activeSubscriptions}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {stats.expiredSubscriptions} expired
+            </p>
           </CardContent>
         </Card>
-        <Card>
+        
+        <Card className="border-l-4 border-l-yellow-500 hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Approval</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Pending Approval</CardTitle>
             <Clock className="h-4 w-4 text-yellow-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">
-              {members.filter((m: any) => m.status === 'archived').length}
-            </div>
+            <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Awaiting review
+            </p>
           </CardContent>
         </Card>
-        <Card>
+        
+        <Card className="border-l-4 border-l-red-500 hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Suspended</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Suspended</CardTitle>
             <XCircle className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">
-              {members.filter((m: any) => m.status === 'suspended').length}
-            </div>
+            <div className="text-2xl font-bold text-red-600">{stats.suspended}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Account suspended
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-emerald-500 hover:shadow-md transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Credit</CardTitle>
+            <DollarSign className="h-4 w-4 text-emerald-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-emerald-600">{formatCurrency(stats.totalCredit)}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Outstanding balance
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -353,437 +554,346 @@ export default function MembersPage() {
       {/* Members List - Responsive */}
       <Card>
         <CardHeader>
-          <CardTitle>Members</CardTitle>
-          <CardDescription>
-            {filteredMembers.length} member{filteredMembers.length !== 1 ? 's' : ''} found
-          </CardDescription>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                Members
+                <Badge variant="secondary" className="ml-2">
+                  {filteredMembers.length}
+                </Badge>
+              </CardTitle>
+              <CardDescription>
+                {filteredMembers.length} member{filteredMembers.length !== 1 ? 's' : ''} found
+                {searchTerm && ` matching "${searchTerm}"`}
+                {statusFilter !== 'all' && ` • Status: ${statusFilter}`}
+                {subscriptionFilter !== 'all' && ` • Subscription: ${subscriptionFilter}`}
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant={viewMode === 'table' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('table')}
+              >
+                <List className="w-4 h-4 mr-2" />
+                Table
+              </Button>
+              <Button
+                variant={viewMode === 'grid' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('grid')}
+              >
+                <Grid3X3 className="w-4 h-4 mr-2" />
+                Grid
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {/* Desktop Table View */}
-          {!isMobile && (
+          {!isMobile && viewMode === 'table' && (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Member</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort("name")}
+                  >
+                    <div className="flex items-center gap-2">
+                      Member
+                      {sortBy === "name" && (
+                        <span className="text-xs">{sortOrder === "asc" ? "↑" : "↓"}</span>
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort("status")}
+                  >
+                    <div className="flex items-center gap-2">
+                      Status
+                      {sortBy === "status" && (
+                        <span className="text-xs">{sortOrder === "asc" ? "↑" : "↓"}</span>
+                      )}
+                    </div>
+                  </TableHead>
                   <TableHead>Subscription</TableHead>
-                  <TableHead>Joined</TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort("credit")}
+                  >
+                    <div className="flex items-center gap-2">
+                      Credit
+                      {sortBy === "credit" && (
+                        <span className="text-xs">{sortOrder === "asc" ? "↑" : "↓"}</span>
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort("createdAt")}
+                  >
+                    <div className="flex items-center gap-2">
+                      Joined
+                      {sortBy === "createdAt" && (
+                        <span className="text-xs">{sortOrder === "asc" ? "↑" : "↓"}</span>
+                      )}
+                    </div>
+                  </TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredMembers.map((member: Member) => (
-                  <TableRow key={member.id}>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                          <span className="text-sm font-medium text-primary">
-                            {getInitials(member.firstName || "", member.lastName || "")}
+                {filteredMembers.map((member) => {
+                  const memberStatus = getStatusConfig(member.member_status);
+                  const subscriptionStatus = getSubscriptionConfig(member.subscription_status);
+                  
+                  return (
+                    <TableRow 
+                      key={member.id} 
+                      className="hover:bg-muted/50 cursor-pointer"
+                      onClick={() => openMemberDetails(member)}
+                    >
+                      <TableCell className="font-medium">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                            <span className="text-sm font-medium text-primary">
+                              {getInitials(member.first_name || "", member.last_name || "")}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="font-medium text-foreground">
+                              {member.first_name} {member.last_name}
+                            </p>
+                            <p className="text-sm text-muted-foreground">{member.email}</p>
+                            {member.phone && (
+                              <p className="text-xs text-muted-foreground">{formatPhoneNumber(member.phone)}</p>
+                            )}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={memberStatus.color}>
+                          {memberStatus.icon} {memberStatus.label}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={subscriptionStatus.color}>
+                          {subscriptionStatus.icon} {subscriptionStatus.label}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {member.credit > 0 ? (
+                          <span className="text-sm font-medium text-green-600">
+                            {formatCurrency(member.credit)}
                           </span>
-                        </div>
-                        <div>
-                          <p className="font-medium text-foreground">
-                            {member.firstName} {member.lastName}
-                          </p>
-                          <p className="text-sm text-muted-foreground">{member.email}</p>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={getMemberStatusColor(member.status)}>
-                        {member.status === 'active' && '✅ Active'}
-                        {member.status === 'archived' && '⏳ Pending Approval'}
-                        {member.status === 'pending' && '📧 Pending Confirmation'}
-                        {member.status === 'suspended' && '🚫 Suspended'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={getSubscriptionStatusColor(member.subscriptionStatus || 'inactive')}>
-                        {member.subscriptionStatus === 'active' && '💳 Active'}
-                        {member.subscriptionStatus === 'expired' && '❌ Expired'}
-                        {member.subscriptionStatus === 'pending' && '⏳ Pending'}
-                        {member.subscriptionStatus === 'cancelled' && '🚫 Cancelled'}
-                        {['active','expired','pending','cancelled'].indexOf(member.subscriptionStatus || 'inactive') === -1 && member.subscriptionStatus || 'inactive'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <p className="text-sm text-muted-foreground">
-                        {formatDate(member.createdAt || "")}
-                      </p>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openMemberDetails(member)}
-                        >
-                          <Eye className="w-3 h-3 mr-1" />
-                          View Details
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                        ) : (
+                          <span className="text-sm text-muted-foreground">No credit</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <p className="text-sm text-muted-foreground">
+                          {formatDate(member.created_at || "")}
+                        </p>
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreHorizontal className="w-3 h-3" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem>
+                              <Edit className="w-4 h-4 mr-2" />
+                              Edit Member
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem>
+                              <Mail className="w-4 h-4 mr-2" />
+                              Send Email
+                            </DropdownMenuItem>
+                            <DropdownMenuItem disabled={!member.phone}>
+                              <Phone className="w-4 h-4 mr-2" />
+                              Call Member
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-destructive">
+                              <UserX className="w-4 h-4 mr-2" />
+                              Suspend Member
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive">
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete Member
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
                 {filteredMembers.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-8">
-                      <p className="text-muted-foreground">No members found matching your search.</p>
+                      <div className="flex flex-col items-center gap-2">
+                        <Users className="w-12 h-12 text-muted-foreground" />
+                        <p className="text-muted-foreground">No members found matching your search.</p>
+                        {(searchTerm || statusFilter !== "all" || subscriptionFilter !== "all") && (
+                          <Button variant="ghost" size="sm" onClick={clearFilters}>
+                            Clear Filters
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 )}
               </TableBody>
             </Table>
           )}
+          
+          {/* Desktop Grid View */}
+          {!isMobile && viewMode === 'grid' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredMembers.map((member) => {
+                const memberStatus = getStatusConfig(member.member_status);
+                const subscriptionStatus = getSubscriptionConfig(member.subscription_status);
+                
+                return (
+                  <Card 
+                    key={member.id} 
+                    className="hover:shadow-md transition-shadow cursor-pointer"
+                    onClick={() => openMemberDetails(member)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                            <span className="text-sm font-medium text-primary">
+                              {getInitials(member.first_name || "", member.last_name || "")}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="font-medium text-foreground">
+                              {member.first_name} {member.last_name}
+                            </p>
+                            <p className="text-sm text-muted-foreground">{member.email}</p>
+                            {member.phone && (
+                              <p className="text-xs text-muted-foreground">{formatPhoneNumber(member.phone)}</p>
+                            )}
+                          </div>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-8 w-8 p-0"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreHorizontal className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem>
+                              <Edit className="w-4 h-4 mr-2" />
+                              Edit Member
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem>
+                              <Mail className="w-4 h-4 mr-2" />
+                              Send Email
+                            </DropdownMenuItem>
+                            <DropdownMenuItem disabled={!member.phone}>
+                              <Phone className="w-4 h-4 mr-2" />
+                              Call Member
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-destructive">
+                              <UserX className="w-4 h-4 mr-2" />
+                              Suspend Member
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive">
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete Member
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-muted-foreground">Status:</span>
+                          <Badge className={memberStatus.color}>
+                            {memberStatus.icon} {memberStatus.label}
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-muted-foreground">Subscription:</span>
+                          <Badge className={subscriptionStatus.color}>
+                            {subscriptionStatus.icon} {subscriptionStatus.label}
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-muted-foreground">Joined:</span>
+                          <span className="text-sm">{formatDate(member.created_at || "")}</span>
+                        </div>
+                        {member.credit > 0 && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-muted-foreground">Credit:</span>
+                            <span className="text-sm font-medium text-green-600">
+                              {formatCurrency(member.credit)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+              {filteredMembers.length === 0 && (
+                <div className="col-span-full text-center py-8">
+                  <div className="flex flex-col items-center gap-2">
+                    <Users className="w-12 h-12 text-muted-foreground" />
+                    <p className="text-muted-foreground">No members found matching your search.</p>
+                    {(searchTerm || statusFilter !== "all" || subscriptionFilter !== "all") && (
+                      <Button variant="ghost" size="sm" onClick={clearFilters}>
+                        Clear Filters
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          
           {/* Mobile Card View */}
           {isMobile && (
             <div className="space-y-2">
-              {filteredMembers.map((member: Member) => (
+              {filteredMembers.map((member) => (
                 <MobileMemberCard key={member.id} member={member} />
               ))}
               {filteredMembers.length === 0 && (
                 <div className="text-center py-8">
-                  <p className="text-muted-foreground">No members found matching your search.</p>
+                  <div className="flex flex-col items-center gap-2">
+                    <Users className="w-12 h-12 text-muted-foreground" />
+                    <p className="text-muted-foreground">No members found matching your search.</p>
+                    {(searchTerm || statusFilter !== "all" || subscriptionFilter !== "all") && (
+                      <Button variant="ghost" size="sm" onClick={clearFilters}>
+                        Clear Filters
+                      </Button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
           )}
         </CardContent>
       </Card>
-
-      {/* Member Details Dialog */}
-      <Dialog open={showMemberDetails} onOpenChange={setShowMemberDetails}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto hide-dialog-close">
-          <DialogHeader>
-            <DialogTitle className="flex items-center justify-between w-full">
-              <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                  <span className="text-sm font-medium text-primary">
-                    {selectedMember && getInitials(selectedMember.firstName || "", selectedMember.lastName || "")}
-                  </span>
-                </div>
-                <span>{selectedMember?.firstName} {selectedMember?.lastName}</span>
-              </div>
-              {/* Credit Tag aligned with title, only if credit > 0 */}
-              {typeof selectedMember?.credit === 'number' && selectedMember.credit > 0 && (
-                <Card className="flex items-center gap-3 px-4 py-2 bg-gradient-to-r from-green-100 to-green-50 border-green-200 shadow-none">
-                  <span className="inline-flex items-center gap-1 text-green-700 font-semibold text-lg">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3-1.343-3-3-3zm0 0V4m0 16v-4m8-4a8 8 0 11-16 0 8 8 0 0116 0z" /></svg>
-                    {formatCurrency(selectedMember.credit)}
-                  </span>
-                  <Badge variant="default" className="ml-2 px-2 py-1 rounded-full text-xs">
-                    Credit Available
-                  </Badge>
-                </Card>
-              )}
-            </DialogTitle>
-            <DialogDescription>
-              Comprehensive member information and activity
-            </DialogDescription>
-          </DialogHeader>
-
-          {isLoadingDetails ? (
-            <div className="space-y-6 p-6">
-              <div className="flex items-center space-x-4">
-                <div className="h-16 w-16 bg-muted rounded-full animate-pulse"></div>
-                <div className="space-y-2">
-                  <div className="h-6 w-32 bg-muted rounded animate-pulse"></div>
-                  <div className="h-4 w-24 bg-muted rounded animate-pulse"></div>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="space-y-2">
-                    <div className="h-4 w-20 bg-muted rounded animate-pulse"></div>
-                    <div className="h-6 w-24 bg-muted rounded animate-pulse"></div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <Tabs defaultValue="overview" className="w-full">
-              <TabsList className="grid w-full grid-cols-5">
-                <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>
-                <TabsTrigger value="payments">Payments</TabsTrigger>
-                <TabsTrigger value="schedules">Schedules</TabsTrigger>
-                <TabsTrigger value="activity">Activity</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="overview" className="space-y-4">
-                {isLoadingDetails ? (
-                  <div className="text-center py-8">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
-                    <p className="mt-2 text-sm text-muted-foreground">Loading member details...</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="text-lg">Personal Information</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div className="flex justify-between">
-                          <span className="text-sm font-medium">Name:</span>
-                          <span className="text-sm">{selectedMember?.firstName} {selectedMember?.lastName}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm font-medium">Email:</span>
-                          <span className="text-sm">{selectedMember?.email}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm font-medium">Phone:</span>
-                          <span className="text-sm">{formatPhoneNumber(selectedMember?.phone || '')}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm font-medium">Date of Birth:</span>
-                          <span className="text-sm">
-                            {formatDate((selectedMember?.dateOfBirth as string) || '')}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm font-medium">Member Since:</span>
-                          <span className="text-sm">{formatDate(selectedMember?.createdAt || "")}</span>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="text-lg">Status & Permissions</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm font-medium">Account Status:</span>
-                          <Badge className={getMemberStatusColor(selectedMember?.status || 'inactive')}>
-                            {selectedMember?.status}
-                          </Badge>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm font-medium">Subscription Status:</span>
-                          {relevantSubscription ? (
-                            <Badge className={getSubscriptionStatusColor(relevantSubscription.status)}>
-                              {relevantSubscription.status}
-                            </Badge>
-                          ) : (
-                            <Badge className={getSubscriptionStatusColor('inactive')}>
-                              inactive
-                            </Badge>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-                )}
-
-              </TabsContent>
-
-              <TabsContent value="subscriptions" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center">
-                      <CreditCard className="w-5 h-5 mr-2" />
-                      Subscription History
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {(mappedSubscriptions || []).length > 0 ? (
-                      <div className="space-y-4">
-                        {(mappedSubscriptions || []).map((subscription: Subscription) => (
-                          <div key={subscription.id} className="border rounded-lg p-4">
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <h4 className="font-medium">{subscription.plan?.name || '—'}</h4>
-                                <p className="text-sm text-muted-foreground">
-                                  {subscription.plan?.sessionsIncluded ?? 0} sessions included
-                                </p>
-                                <p className="text-sm text-muted-foreground">
-                                  {formatDate(subscription.startDate || "")} - {formatDate(subscription.endDate || "")}
-                                </p>
-                              </div>
-                              <div className="text-right">
-                                <Badge className={getSubscriptionStatusColor(subscription.status)}>
-                                  {subscription.status}
-                                </Badge>
-                                <p className="text-sm text-muted-foreground mt-1">
-                                  {subscription.sessionsRemaining} sessions left
-                                </p>
-                                <p className="text-sm font-medium">
-                                  {formatCurrency(subscription.plan?.price || 0)}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-center text-muted-foreground py-8">
-                        No subscription history found
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="payments" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center">
-                      <CreditCard className="w-5 h-5 mr-2" />
-                      Payment History
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {(memberData.payments || []).length > 0 ? (
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full text-sm">
-                          <thead>
-                            <tr>
-                              <th className="px-2 py-1 text-left">Date</th>
-                              <th className="px-2 py-1 text-left">Amount</th>
-                              <th className="px-2 py-1 text-left">Type</th>
-                              <th className="px-2 py-1 text-left">Status</th>
-                              <th className="px-2 py-1 text-left">Notes</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {(memberData.payments || []).map((payment: Payment) => (
-                              <tr key={payment.id} className="border-b last:border-b-0">
-                                <td className="px-2 py-1">{formatDate(payment.payment_date || "")}</td>
-                                <td className="px-2 py-1 font-medium">{formatCurrency(payment.amount)}</td>
-                                <td className="px-2 py-1">{payment.payment_type || '-'}</td>
-                                <td className="px-2 py-1">
-                                  <Badge variant={payment.payment_status === 'paid' ? 'default' : 'secondary'}>
-                                    {payment.payment_status || 'pending'}
-                                  </Badge>
-                                </td>
-                                <td className="px-2 py-1">{payment.notes || '-'}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : (
-                      <p className="text-center text-muted-foreground py-8">
-                        No payments found for this member
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="schedules" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center">
-                      <Calendar className="w-5 h-5 mr-2" />
-                      Registered Classes
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {(memberData.registrations || []).length > 0 ? (
-                      <div className="space-y-4">
-                        {(memberData.registrations || []).map((registration: any) => (
-                          <div key={registration.id} className="border rounded-lg p-4">
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <h4 className="font-medium">
-                                  {registration.course?.class?.name || `Class ID: ${registration.course_id}`}
-                                </h4>
-                                <p className="text-sm text-muted-foreground">
-                                  {registration.course?.course_date ? 
-                                    new Date(registration.course.course_date).toLocaleDateString() : 
-                                    formatDate(registration.registration_date || "")
-                                  }
-                                </p>
-                                {registration.course?.start_time && registration.course?.end_time && (
-                                  <p className="text-sm text-muted-foreground">
-                                    {registration.course.start_time} - {registration.course.end_time}
-                                  </p>
-                                )}
-                              </div>
-                              <div className="text-right">
-                                <Badge variant={registration.status === 'confirmed' ? 'default' : 'secondary'}>
-                                  {registration.status}
-                                </Badge>
-                                <p className="text-sm text-muted-foreground mt-1">
-                                  QR: {registration.qr_code?.substring(0, 8)}...
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-center text-muted-foreground py-8">
-                        No class registrations found
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="activity" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center">
-                      <Activity className="w-5 h-5 mr-2" />
-                      Check-in History
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {(memberData.checkins || []).length > 0 ? (
-                      <div className="space-y-4">
-                        {(memberData.checkins || []).map((checkin: any) => (
-                          <div key={checkin.id} className="border rounded-lg p-4">
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <h4 className="font-medium">
-                                  {checkin.course?.class?.name || `Check-in #${checkin.id}`}
-                                </h4>
-                                <p className="text-sm text-muted-foreground">
-                                  {checkin.course?.course_date ? 
-                                    new Date(checkin.course.course_date).toLocaleDateString() : 
-                                    formatDateTime(checkin.checkin_time || "")
-                                  }
-                                </p>
-                                {checkin.course?.start_time && checkin.course?.end_time && (
-                                  <p className="text-sm text-muted-foreground">
-                                    {checkin.course.start_time} - {checkin.course.end_time}
-                                  </p>
-                                )}
-                                <p className="text-sm text-muted-foreground">
-                                  Check-in: {formatDateTime(checkin.checkin_time || "")}
-                                </p>
-                              </div>
-                              <div className="text-right">
-                                <Badge variant="default" className="bg-green-100 text-green-800">
-                                  <CheckCircle className="w-3 h-3 mr-1" />
-                                  Checked In
-                                </Badge>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-center text-muted-foreground py-8">
-                        No check-in history found
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
-          )}
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowMemberDetails(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

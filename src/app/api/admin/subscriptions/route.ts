@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
     
     // Convert camelCase to snake_case for database
     const dbData: Record<string, any> = {
-      user_id: subData.userId || subData.user_id,
+      member_id: subData.userId || subData.user_id,
       plan_id: subData.planId || subData.plan_id,
       start_date: subData.startDate || subData.start_date,
       end_date: subData.endDate || subData.end_date,
@@ -136,9 +136,9 @@ export async function POST(req: NextRequest) {
     }
     
     // Validate data types
-    if (typeof dbData.user_id !== 'string') {
+    if (typeof dbData.member_id !== 'string') {
       return NextResponse.json({ 
-        error: 'user_id must be a string (UUID)' 
+        error: 'member_id must be a string (UUID)' 
       }, { status: 400 });
     }
     

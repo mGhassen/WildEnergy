@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
         *,
         registration:registration_id (
           id,
-          user_id,
+          member_id,
           course_id,
           status,
           qr_code,
@@ -57,15 +57,10 @@ export async function GET(req: NextRequest) {
               end_time
             ),
             class:class_id (id, name, category_id, category:category_id (id, name)),
-            trainer:trainer_id (id, user:user_id (first_name, last_name))
+            trainer:trainer_id (id, account_id, specialization, experience_years)
           )
         ),
-        member:user_id (
-          id,
-          first_name,
-          last_name,
-          email
-        )
+        member_id
       `)
       .order('checkin_time', { ascending: false });
 
@@ -87,6 +82,39 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch checkins' }, { status: 500 });
     }
 
+    // Fetch member and trainer details separately
+    const memberIds = checkins?.map(c => c.member_id).filter(Boolean) || [];
+    const trainerAccountIds = checkins?.map(c => c.registration?.course?.trainer?.account_id).filter(Boolean) || [];
+    
+    let memberDetails: Record<string, any> = {};
+    let trainerDetails: Record<string, any> = {};
+    
+    if (memberIds.length > 0) {
+      const { data: members } = await supabaseServer()
+        .from('user_profiles')
+        .select('member_id, first_name, last_name, email')
+        .in('member_id', memberIds);
+      
+      if (members) {
+        members.forEach(member => {
+          memberDetails[member.member_id] = member;
+        });
+      }
+    }
+    
+    if (trainerAccountIds.length > 0) {
+      const { data: trainers } = await supabaseServer()
+        .from('user_profiles')
+        .select('account_id, first_name, last_name, email')
+        .in('account_id', trainerAccountIds);
+      
+      if (trainers) {
+        trainers.forEach(trainer => {
+          trainerDetails[trainer.account_id] = trainer;
+        });
+      }
+    }
+
     // Convert snake_case to camelCase and structure the data properly
     const formattedCheckins = (checkins || []).map(checkin => ({
       id: checkin.id,
@@ -95,11 +123,11 @@ export async function GET(req: NextRequest) {
       checkinTime: checkin.checkin_time,
       sessionConsumed: checkin.session_consumed,
       notes: checkin.notes,
-      member: checkin.member ? {
-        id: checkin.member.id,
-        firstName: checkin.member.first_name,
-        lastName: checkin.member.last_name,
-        email: checkin.member.email
+      member: memberDetails[checkin.member_id] ? {
+        id: memberDetails[checkin.member_id].member_id,
+        firstName: memberDetails[checkin.member_id].first_name,
+        lastName: memberDetails[checkin.member_id].last_name,
+        email: memberDetails[checkin.member_id].email
       } : undefined,
       registration: checkin.registration ? {
         id: checkin.registration.id,
@@ -125,8 +153,9 @@ export async function GET(req: NextRequest) {
           } : undefined,
           trainer: checkin.registration.course.trainer ? {
             id: checkin.registration.course.trainer.id,
-            firstName: checkin.registration.course.trainer.user?.first_name || 'Unknown',
-            lastName: checkin.registration.course.trainer.user?.last_name || ''
+            firstName: trainerDetails[checkin.registration.course.trainer.account_id]?.first_name || 'Unknown',
+            lastName: trainerDetails[checkin.registration.course.trainer.account_id]?.last_name || '',
+            email: trainerDetails[checkin.registration.course.trainer.account_id]?.email || ''
           } : undefined
         } : undefined
       } : undefined

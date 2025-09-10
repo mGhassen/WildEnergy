@@ -146,7 +146,7 @@ export default function PersonalInfoOnboarding() {
     
     if (!validateForm()) return;
     
-    if (!accountId || !memberId) {
+    if (!user?.account_id || !memberId) {
       toast({
         title: "Erreur",
         description: "Compte ou membre non trouvé",
@@ -170,7 +170,7 @@ export default function PersonalInfoOnboarding() {
     };
 
     // Update profile
-    updateProfileMutation.mutate({ accountId, data: profileData }, {
+    updateProfileMutation.mutate({ memberId, data: profileData }, {
       onSuccess: () => {
         // Mark personal info as completed in onboarding
         updateOnboardingMutation.mutate({ 

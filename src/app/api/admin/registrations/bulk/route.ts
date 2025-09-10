@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to check existing registrations' }, { status: 500 });
     }
 
-    const alreadyRegistered = existingRegistrations?.map(r => r.user_id) || [];
+    const alreadyRegistered = existingRegistrations?.map(r => r.member_id) || [];
     const newMembers = memberIds.filter(id => !alreadyRegistered.includes(id));
 
     if (newMembers.length === 0) {

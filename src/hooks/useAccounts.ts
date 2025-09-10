@@ -132,3 +132,54 @@ export function useCreateTestAccount() {
     },
   });
 }
+
+export function useLinkAccountTrainer() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: ({ accountId, trainerId }: { accountId: string; trainerId: string }) => 
+      accountApi.linkTrainer(accountId, trainerId),
+    onSuccess: (data, { accountId }) => {
+      queryClient.invalidateQueries({ queryKey: ['account', accountId] });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['trainers'] });
+      toast({
+        title: 'Trainer linked',
+        description: data.message || 'Trainer has been successfully linked to account.',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to link trainer',
+        description: error.message || 'Please try again',
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
+export function useUnlinkAccountTrainer() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (accountId: string) => accountApi.unlinkTrainer(accountId),
+    onSuccess: (data, accountId) => {
+      queryClient.invalidateQueries({ queryKey: ['account', accountId] });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['trainers'] });
+      toast({
+        title: 'Trainer unlinked',
+        description: data.message || 'Trainer has been successfully unlinked from account.',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to unlink trainer',
+        description: error.message || 'Please try again',
+        variant: 'destructive',
+      });
+    },
+  });
+}

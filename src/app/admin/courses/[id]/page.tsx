@@ -227,21 +227,6 @@ export default function CourseDetailsPage() {
     setSelectedMembers([]);
   };
 
-  const getAvailableMembers = () => {
-    if (!courseData || !allMembers) return [];
-    const registeredIds = courseData.registrations.map(r => r.user.id);
-    return allMembers.filter((member: any) => !registeredIds.includes(member.id));
-  };
-
-  const getFilteredMembers = () => {
-    const available = getAvailableMembers();
-    if (!searchTerm) return available;
-    return available.filter((member: any) => 
-      `${member.first_name} ${member.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      member.email.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  };
-
   if (isLoading) {
     return (
       <div className="container mx-auto p-6">
@@ -274,6 +259,21 @@ export default function CourseDetailsPage() {
   }
 
   const courseData = course as CourseDetails;
+
+  const getAvailableMembers = () => {
+    if (!courseData || !allMembers) return [];
+    const registeredIds = courseData.registrations.map(r => r.user?.id).filter(Boolean);
+    return allMembers.filter((member: any) => !registeredIds.includes(member.id));
+  };
+
+  const getFilteredMembers = () => {
+    const available = getAvailableMembers();
+    if (!searchTerm) return available;
+    return available.filter((member: any) => 
+      `${member.first_name || ''} ${member.last_name || ''}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (member.email || '').toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  };
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -390,13 +390,13 @@ export default function CourseDetailsPage() {
               <div className="flex items-start gap-4">
                 <Avatar className="w-16 h-16">
                   <AvatarFallback>
-                    {courseData.trainer.user.first_name[0]}{courseData.trainer.user.last_name[0]}
+                    {courseData.trainer.user?.first_name?.[0] || 'T'}{courseData.trainer.user?.last_name?.[0] || 'T'}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 space-y-2">
                   <div>
                     <h3 className="text-lg font-semibold">
-                      {courseData.trainer.user.first_name} {courseData.trainer.user.last_name}
+                      {courseData.trainer.user?.first_name || 'Unknown'} {courseData.trainer.user?.last_name || 'Trainer'}
                     </h3>
                     <p className="text-muted-foreground">{courseData.trainer.specialization}</p>
                   </div>
@@ -404,12 +404,12 @@ export default function CourseDetailsPage() {
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div className="flex items-center gap-2">
                       <Mail className="w-4 h-4 text-muted-foreground" />
-                      <span>{courseData.trainer.user.email}</span>
+                      <span>{courseData.trainer.user?.email || 'No email'}</span>
                     </div>
-                    {courseData.trainer.user.phone && (
+                    {courseData.trainer.user?.phone && (
                       <div className="flex items-center gap-2">
                         <Phone className="w-4 h-4 text-muted-foreground" />
-                        <span>{courseData.trainer.user.phone}</span>
+                        <span>{courseData.trainer.user?.phone}</span>
                       </div>
                     )}
                     <div className="flex items-center gap-2">
@@ -552,7 +552,7 @@ export default function CourseDetailsPage() {
             <div className="space-y-4">
               {courseData.registrations.map((registration) => {
                 const hasCheckedIn = courseData.checkins.some(
-                  checkin => checkin.user.id === registration.user.id
+                  checkin => checkin.user?.id === registration.user?.id
                 );
                 
                 return (
@@ -560,14 +560,14 @@ export default function CourseDetailsPage() {
                     <div className="flex items-center gap-3">
                       <Avatar>
                         <AvatarFallback>
-                          {registration.user.first_name[0]}{registration.user.last_name[0]}
+                          {registration.user?.first_name?.[0] || 'U'}{registration.user?.last_name?.[0] || 'M'}
                         </AvatarFallback>
                       </Avatar>
                       <div>
                         <p className="font-medium">
-                          {registration.user.first_name} {registration.user.last_name}
+                          {registration.user?.first_name || 'Unknown'} {registration.user?.last_name || 'Member'}
                         </p>
-                        <p className="text-sm text-muted-foreground">{registration.user.email}</p>
+                        <p className="text-sm text-muted-foreground">{registration.user?.email || 'No email'}</p>
                         {registration.notes && (
                           <p className="text-xs text-muted-foreground mt-1">{registration.notes}</p>
                         )}
@@ -671,14 +671,14 @@ export default function CourseDetailsPage() {
                         />
                         <Avatar>
                           <AvatarFallback>
-                            {member.first_name[0]}{member.last_name[0]}
+                            {member.first_name?.[0] || 'M'}{member.last_name?.[0] || 'M'}
                           </AvatarFallback>
                         </Avatar>
                         <div>
                           <p className="font-medium">
-                            {member.first_name} {member.last_name}
+                            {member.first_name || 'Unknown'} {member.last_name || 'Member'}
                           </p>
-                          <p className="text-sm text-muted-foreground">{member.email}</p>
+                          <p className="text-sm text-muted-foreground">{member.email || 'No email'}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">

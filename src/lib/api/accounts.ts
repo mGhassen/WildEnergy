@@ -114,5 +114,13 @@ export const accountApi = {
 
   async createTestAccount(): Promise<Account> {
     return apiRequest('POST', '/api/create-test-user');
+  },
+
+  async linkTrainer(accountId: string, trainerId: string): Promise<{ success: boolean; message: string; account: any }> {
+    return apiRequest('POST', `/api/admin/accounts/${accountId}/link-trainer`, { trainerId });
+  },
+
+  async unlinkTrainer(accountId: string): Promise<{ success: boolean; message: string; account: any }> {
+    return apiRequest('POST', `/api/admin/accounts/${accountId}/unlink-trainer`);
   }
 };

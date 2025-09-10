@@ -46,9 +46,6 @@ export async function GET(request: NextRequest) {
               id, name, color
             )
           )
-        ),
-        trainers!trainer_id (
-          id, user_id, specialization, experience_years, bio, certification
         )
       `)
       .eq('id', id)
@@ -58,13 +55,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Schedule not found' }, { status: 404 });
     }
 
-    // Get trainer user details separately (same as list API)
+    // Get trainer details from user_profiles view using trainer_id
     let trainerUser = null;
-    if (schedule.trainers?.user_id) {
+    if (schedule.trainer_id) {
       const { data: userData } = await supabaseServer()
         .from('user_profiles')
-        .select('id, first_name, last_name, email, phone')
-        .eq('id', schedule.trainers.user_id)
+        .select('trainer_id, first_name, last_name, email, phone, specialization, experience_years, bio, certification, hourly_rate, trainer_status')
+        .eq('trainer_id', schedule.trainer_id)
         .single();
       
       if (userData) {
@@ -90,16 +87,18 @@ export async function GET(request: NextRequest) {
         category: schedule.classes.category,
         group: schedule.classes.category?.group,
       } : null,
-      trainer: schedule.trainers ? {
-        id: schedule.trainers.id,
-        firstName: trainerUser?.first_name || "",
-        lastName: trainerUser?.last_name || "",
-        email: trainerUser?.email || "",
-        phone: trainerUser?.phone || "",
-        specialization: schedule.trainers.specialization,
-        experience_years: schedule.trainers.experience_years,
-        bio: schedule.trainers.bio,
-        certification: schedule.trainers.certification,
+      trainer: trainerUser ? {
+        id: trainerUser.trainer_id,
+        firstName: trainerUser.first_name || "",
+        lastName: trainerUser.last_name || "",
+        email: trainerUser.email || "",
+        phone: trainerUser.phone || "",
+        specialization: trainerUser.specialization,
+        experience_years: trainerUser.experience_years,
+        bio: trainerUser.bio,
+        certification: trainerUser.certification,
+        hourly_rate: trainerUser.hourly_rate,
+        status: trainerUser.trainer_status,
       } : null,
     };
 
@@ -378,8 +377,8 @@ export async function DELETE(request: NextRequest) {
       .from('schedules')
       .select(`
         id,
+        trainer_id,
         classes!inner(id, name),
-        trainers!inner(id, user_id),
         courses(
           id, 
           course_date, 
@@ -445,7 +444,7 @@ export async function DELETE(request: NextRequest) {
     const { data: trainerUser } = await supabaseServer()
       .from('user_profiles')
       .select('first_name, last_name')
-      .eq('id', (schedule.trainers as any)?.user_id)
+      .eq('trainer_id', schedule.trainer_id)
       .single();
 
     // Delete the schedule (courses will be deleted automatically due to CASCADE)

@@ -2,45 +2,62 @@ import { apiRequest } from '@/lib/queryClient';
 
 export interface Schedule {
   id: number;
-  name: string;
-  description?: string;
+  class_id: number;
+  trainer_id: string; // Changed to string for UUID
+  day_of_week: number;
   start_time: string;
   end_time: string;
-  day_of_week: number;
-  trainer_id: number;
-  max_capacity: number;
+  max_participants: number;
   is_active: boolean;
+  repetition_type: string;
+  schedule_date?: string;
+  start_date?: string;
+  end_date?: string;
   code?: string;
   created_at: string;
   updated_at: string;
-  trainer?: {
+  class?: {
     id: number;
-    user: {
-      full_name: string;
+    name: string;
+    category?: {
+      id: number;
+      name: string;
+      color: string;
     };
+  };
+  trainer?: {
+    id: string;
+    first_name: string;
+    last_name: string;
   };
 }
 
 export interface CreateScheduleData {
-  name: string;
-  description?: string;
+  class_id: number;
+  trainer_id: string; // Changed to string for UUID
+  day_of_week: number;
   start_time: string;
   end_time: string;
-  day_of_week: number;
-  trainer_id: number;
-  max_capacity: number;
+  max_participants: number;
   is_active?: boolean;
+  repetition_type: string;
+  schedule_date?: string;
+  start_date?: string;
+  end_date?: string;
 }
 
 export interface UpdateScheduleData {
-  name?: string;
-  description?: string;
+  class_id?: number;
+  trainer_id?: string; // Changed to string for UUID
+  day_of_week?: number;
   start_time?: string;
   end_time?: string;
-  day_of_week?: number;
-  trainer_id?: number;
-  max_capacity?: number;
+  max_participants?: number;
   is_active?: boolean;
+  repetition_type?: string;
+  schedule_date?: string;
+  start_date?: string;
+  end_date?: string;
 }
 
 export const scheduleApi = {

@@ -364,7 +364,7 @@ export const insertClassSchema = z.object({
 
 export const insertScheduleSchema = z.object({
   classId: z.number().min(1, 'Class is required'),
-  trainerId: z.number().min(1, 'Trainer is required'),
+  trainerId: z.string().min(1, 'Trainer is required'), // Changed to string for UUID
   dayOfWeek: z.number().min(0).max(6).optional(),
   startTime: z.string().min(1, 'Start time is required'),
   endTime: z.string().min(1, 'End time is required'),
@@ -378,7 +378,7 @@ export const insertScheduleSchema = z.object({
 export const insertCourseSchema = z.object({
   scheduleId: z.number().min(1, 'Schedule is required'),
   classId: z.number().min(1, 'Class is required'),
-  trainerId: z.number().min(1, 'Trainer is required'),
+  trainerId: z.string().min(1, 'Trainer is required'), // Changed to string for UUID
   courseDate: z.string().min(1, 'Course date is required'),
   startTime: z.string().min(1, 'Start time is required'),
   endTime: z.string().min(1, 'End time is required'),
