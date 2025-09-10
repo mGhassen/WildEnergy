@@ -12,10 +12,16 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    // 1. Create auth user using service role
+    // 1. Create auth user using service role with display name
     const { data: authData, error: authError } = await supabaseServer().auth.signUp({
       email,
       password,
+      options: {
+        data: {
+          first_name: firstName,
+          last_name: lastName || ''
+        }
+      }
     });
 
     if (authError || !authData.user) {

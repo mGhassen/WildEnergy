@@ -131,9 +131,13 @@ export default function AcceptInvitationClient({ searchParams }: { searchParams:
         throw new Error('Invalid or expired invitation link');
       }
 
-      // Update the user's password
+      // Update the user's password and display name
       const { error: updateError } = await supabase.auth.updateUser({
-        password: password
+        password: password,
+        data: {
+          first_name: sessionData.session.user.user_metadata?.first_name || '',
+          last_name: sessionData.session.user.user_metadata?.last_name || ''
+        }
       });
 
       if (updateError) {
