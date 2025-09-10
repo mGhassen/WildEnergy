@@ -29,6 +29,8 @@ export interface Account {
   trainer_status?: string;
   user_type: string;
   accessible_portals: string[];
+  confirmed_at?: string;
+  created_at?: string;
 }
 
 export interface CreateAccountData {

@@ -154,9 +154,24 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
   }
   
-  // Delete from Supabase Auth (this will cascade to account, which will cascade to other tables)
-  console.log('Deleting user from Supabase Auth with account ID:', accountId);
-  const { error: deleteAuthError } = await supabaseServer().auth.admin.deleteUser(accountId);
+  // Get the auth_user_id from the accounts table
+  const { data: account, error: accountError } = await supabaseServer()
+    .from('accounts')
+    .select('auth_user_id')
+    .eq('id', accountId)
+    .single();
+
+  if (accountError || !account) {
+    return NextResponse.json({ error: 'Account not found' }, { status: 404 });
+  }
+
+  if (!account.auth_user_id) {
+    return NextResponse.json({ error: 'Account has no auth user' }, { status: 400 });
+  }
+
+  // Delete from Supabase Auth using the auth_user_id
+  console.log('Deleting user from Supabase Auth with auth_user_id:', account.auth_user_id);
+  const { error: deleteAuthError } = await supabaseServer().auth.admin.deleteUser(account.auth_user_id);
   if (deleteAuthError) {
     console.error('Failed to delete from Supabase Auth:', deleteAuthError);
     return NextResponse.json({ 

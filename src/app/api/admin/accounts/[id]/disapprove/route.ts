@@ -42,36 +42,36 @@ export async function POST(
 
     if (account.status !== 'pending') {
       return NextResponse.json({ 
-        error: `Account cannot be approved. Current status: ${account.status}` 
+        error: `Account cannot be disapproved. Current status: ${account.status}` 
       }, { status: 400 });
     }
 
-    // Update account status to active
+    // Update account status to archived (disapproved)
     const { data: updatedAccount, error: updateError } = await supabaseServer()
       .from('accounts')
-      .update({ status: 'active' })
+      .update({ status: 'archived' })
       .eq('id', userId)
       .select()
       .single();
 
     if (updateError) {
       return NextResponse.json({ 
-        error: 'Failed to approve account',
+        error: 'Failed to disapprove account',
         details: updateError.message 
       }, { status: 500 });
     }
 
     return NextResponse.json({ 
       success: true,
-      message: 'Account approved successfully',
+      message: 'Account disapproved successfully',
       account: updatedAccount
     });
 
   } catch (error: any) {
-    console.error('Approve user error:', error);
+    console.error('Disapprove user error:', error);
     return NextResponse.json({ 
       error: 'Internal server error',
       details: error.message 
     }, { status: 500 });
   }
-} 
+}
