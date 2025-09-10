@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -198,7 +199,7 @@ export default function ScheduleDetailsPage() {
   const updateScheduleMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: ScheduleFormData }) => {
       const apiData = mapScheduleToApi(data);
-      return apiRequest("PUT", `/api/schedules/${id}`, apiData);
+      return apiRequest("PUT", `/api/admin/schedules/${id}`, apiData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["schedule", scheduleId] });
@@ -246,7 +247,7 @@ export default function ScheduleDetailsPage() {
 
   const confirmDelete = async () => {
     try {
-      await apiRequest("DELETE", `/api/schedules/${scheduleId}`);
+      await apiRequest("DELETE", `/api/admin/schedules/${scheduleId}`);
       router.push("/admin/schedules");
     } catch (error) {
       console.error("Failed to delete schedule:", error);
@@ -640,7 +641,12 @@ export default function ScheduleDetailsPage() {
                     const capacityRate = maxCapacity > 0 ? Math.round((registeredCount / maxCapacity) * 100) : 0;
 
                     return (
-                      <div key={course.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border border-border">
+                      <Link 
+                        key={course.id} 
+                        href={`/admin/courses/${course.id}`}
+                        className="block"
+                      >
+                        <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border border-border hover:bg-muted/50 transition-colors cursor-pointer">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
                             <Calendar className="w-4 h-4 text-muted-foreground" />
@@ -691,7 +697,8 @@ export default function ScheduleDetailsPage() {
                             )}
                           </div>
                         </div>
-                      </div>
+                        </div>
+                      </Link>
                     );
                   })}
                 </div>

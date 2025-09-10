@@ -41,7 +41,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 
 interface ScheduleFormData {
   classId: number;
-  trainerId: number;
+  trainerId: string; // Changed to string to handle UUID
   dayOfWeek: number;
   startTime: string;
   endTime: string;
@@ -58,14 +58,17 @@ function mapScheduleToApi(data: any, classes: any[] = []) {
   const className = selectedClass?.name || 'Class';
   
   return {
-    name: `Schedule for ${className}`,
-    description: `Schedule for ${className} on ${getDayName(data.dayOfWeek)}`,
-    trainer_id: Number(data.trainerId),
+    class_id: data.classId,
+    trainer_id: data.trainerId, // Keep as string (UUID)
     day_of_week: data.dayOfWeek,
     start_time: data.startTime,
     end_time: data.endTime,
-    max_capacity: 20, // Default capacity
+    max_participants: 20, // Default capacity
     is_active: data.isActive ?? true,
+    repetition_type: data.repetitionType,
+    schedule_date: data.scheduleDate,
+    start_date: data.startDate,
+    end_date: data.endDate,
   };
 }
 
@@ -398,7 +401,7 @@ export default function AdminSchedules() {
   const form = useForm<ScheduleFormData>({
     defaultValues: {
       classId: 0,
-      trainerId: 0,
+      trainerId: "", // Changed to empty string for UUID
       dayOfWeek: 1, // Monday
       startTime: "",
       endTime: "",
@@ -433,10 +436,25 @@ export default function AdminSchedules() {
   }, [watchedClassId, watchedStartTime, classes, form, editingSchedule]);
 
   const createScheduleMutation = useCreateScheduleWithCourses();
-
   const updateScheduleMutation = useUpdateScheduleWithCourses();
-
   const deleteScheduleMutation = useDeleteScheduleWithCourses();
+
+  // Handle successful mutations
+  useEffect(() => {
+    if (createScheduleMutation.isSuccess) {
+      setIsModalOpen(false);
+      setEditingSchedule(null);
+      form.reset();
+    }
+  }, [createScheduleMutation.isSuccess, form]);
+
+  useEffect(() => {
+    if (updateScheduleMutation.isSuccess) {
+      setIsModalOpen(false);
+      setEditingSchedule(null);
+      form.reset();
+    }
+  }, [updateScheduleMutation.isSuccess, form]);
 
   const filteredSchedules = schedules?.filter((schedule: any) =>
     `${schedule.class?.name} ${schedule.trainer?.firstName} ${schedule.trainer?.lastName} ${getDayName(schedule.dayOfWeek)}`
@@ -529,7 +547,7 @@ export default function AdminSchedules() {
     setEditingSchedule(schedule);
     form.reset({
       classId: schedule.classId || 0,
-      trainerId: schedule.trainerId || 0,
+      trainerId: schedule.trainerId || "",
       dayOfWeek: schedule.dayOfWeek,
       startTime: schedule.startTime,
       endTime: schedule.endTime,
@@ -557,7 +575,7 @@ export default function AdminSchedules() {
     setEditingSchedule(null);
     form.reset({
       classId: 0,
-      trainerId: 0,
+      trainerId: "",
       dayOfWeek: 1,
       startTime: "",
       endTime: "",
@@ -780,7 +798,7 @@ export default function AdminSchedules() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Trainer</FormLabel>
-                      <Select onValueChange={value => field.onChange(Number(value))} value={String(field.value)}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select trainer" />
@@ -788,7 +806,7 @@ export default function AdminSchedules() {
                         </FormControl>
                         <SelectContent>
                           {trainersList.map((trainer: any) => (
-                            <SelectItem key={trainer.id} value={String(trainer.id)}>
+                            <SelectItem key={trainer.id} value={trainer.id}>
                               {trainer.firstName} {trainer.lastName}
                             </SelectItem>
                           ))}

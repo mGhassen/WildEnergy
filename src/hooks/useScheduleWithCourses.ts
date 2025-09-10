@@ -15,7 +15,7 @@ export function useCreateScheduleWithCourses() {
       // Generate courses for the new schedule
       if (result?.id) {
         try {
-          await apiRequest("POST", `/api/schedules/${result.id}`);
+          await apiRequest("POST", `/api/admin/schedules/${result.id}`);
         } catch (err) {
           console.error('Course generation failed:', err);
           // Don't throw here, just log the error
@@ -54,7 +54,7 @@ export function useUpdateScheduleWithCourses() {
       // Regenerate courses for the updated schedule
       if (result?.id) {
         try {
-          const genResult = await apiRequest("POST", `/api/schedules/${result.id}`);
+          const genResult = await apiRequest("POST", `/api/admin/schedules/${result.id}`);
           return { ...result, regeneratedCourses: genResult?.regeneratedCourses || 0 };
         } catch (err) {
           console.error('Course regeneration failed:', err);

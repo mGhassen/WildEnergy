@@ -63,5 +63,13 @@ export const trainerApi = {
 
   async deleteTrainer(accountId: string): Promise<void> {
     return apiRequest('DELETE', '/api/admin/trainers', { accountId });
+  },
+
+  async linkAccount(trainerId: string, accountId: string): Promise<{ success: boolean; message: string; trainer: any }> {
+    return apiRequest('POST', `/api/admin/trainers/${trainerId}/link-account`, { accountId });
+  },
+
+  async unlinkAccount(trainerId: string): Promise<{ success: boolean; message: string; trainer: any }> {
+    return apiRequest('POST', `/api/admin/trainers/${trainerId}/unlink-account`);
   }
 };

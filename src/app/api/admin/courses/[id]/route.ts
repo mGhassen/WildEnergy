@@ -51,19 +51,12 @@ export async function GET(
         ),
         trainer:trainers(
           id,
-          user_id,
+          account_id,
           specialization,
           experience_years,
           bio,
           certification,
-          status,
-          user:users(
-            id, 
-            first_name, 
-            last_name, 
-            email,
-            phone
-          )
+          status
         ),
         schedule:schedules(
           id,
@@ -95,13 +88,7 @@ export async function GET(
         status,
         notes,
         qr_code,
-        user:users(
-          id,
-          first_name,
-          last_name,
-          email,
-          phone
-        )
+        member_id
       `)
       .eq('course_id', course.id);
 
@@ -116,17 +103,51 @@ export async function GET(
         id,
         checkin_time,
         registration_id,
-        user:users(
-          id,
-          first_name,
-          last_name,
-          email
-        )
+        member_id
       `)
       .in('registration_id', registrations?.map(r => r.id) || []);
 
     if (checkinError) {
       console.error('Check-ins fetch error:', checkinError);
+    }
+
+    // Fetch trainer details from user_profiles
+    let trainerDetails = null;
+    if (course.trainer?.account_id) {
+      const { data: trainerData } = await supabaseServer()
+        .from('user_profiles')
+        .select('first_name, last_name, email, phone')
+        .eq('account_id', course.trainer.account_id)
+        .single();
+      
+      if (trainerData) {
+        trainerDetails = {
+          ...course.trainer,
+          first_name: trainerData.first_name,
+          last_name: trainerData.last_name,
+          email: trainerData.email,
+          phone: trainerData.phone
+        };
+      }
+    }
+
+    // Fetch member details for registrations and checkins
+    const registrationMemberIds = registrations?.map(r => r.member_id).filter(Boolean) || [];
+    const checkinMemberIds = checkins?.map(c => c.member_id).filter(Boolean) || [];
+    const allMemberIds = [...new Set([...registrationMemberIds, ...checkinMemberIds])];
+    
+    let memberDetails: Record<string, any> = {};
+    if (allMemberIds.length > 0) {
+      const { data: members } = await supabaseServer()
+        .from('user_profiles')
+        .select('member_id, first_name, last_name, email, phone')
+        .in('member_id', allMemberIds);
+      
+      if (members) {
+        members.forEach(member => {
+          memberDetails[member.member_id] = member;
+        });
+      }
     }
 
     // Calculate attendance statistics
@@ -137,8 +158,26 @@ export async function GET(
     // Return comprehensive course data
     return NextResponse.json({
       ...course,
-      registrations: registrations || [],
-      checkins: checkins || [],
+      trainer: trainerDetails || course.trainer,
+      registrations: (registrations || []).map(reg => ({
+        ...reg,
+        user: memberDetails[reg.member_id] || {
+          id: reg.member_id,
+          first_name: 'Unknown',
+          last_name: 'Member',
+          email: 'unknown@example.com',
+          phone: null
+        }
+      })),
+      checkins: (checkins || []).map(checkin => ({
+        ...checkin,
+        user: memberDetails[checkin.member_id] || {
+          id: checkin.member_id,
+          first_name: 'Unknown',
+          last_name: 'Member',
+          email: 'unknown@example.com'
+        }
+      })),
       statistics: {
         totalRegistrations,
         totalCheckins,

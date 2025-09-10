@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
     
-    // Fixed query: trainers table has user_id that references users table
+    // Fetch schedules with all related data - including category and group details
     const { data: schedules, error } = await supabaseServer()
       .from('schedules')
       .select(`
@@ -31,9 +31,6 @@ export async function GET(req: NextRequest) {
               color
             )
           )
-        ),
-        trainers!trainer_id (
-          id, account_id, specialization, experience_years, bio, certification
         )
       `)
       .order('created_at', { ascending: false });
@@ -52,21 +49,21 @@ export async function GET(req: NextRequest) {
       console.log('No schedules found in database');
     }
     
-    // Get trainer user details separately
-    const trainerUserIds = schedules
-      ?.filter(schedule => schedule.trainers?.user_id)
-      .map(schedule => schedule.trainers.user_id) || [];
+    // Get trainer user details separately using trainer_id
+    const trainerIds = schedules
+      ?.filter(schedule => schedule.trainer_id)
+      .map(schedule => schedule.trainer_id) || [];
     
     let trainerUsers: Record<string, any> = {};
-    if (trainerUserIds.length > 0) {
+    if (trainerIds.length > 0) {
       const { data: users } = await supabaseServer()
         .from('user_profiles')
-        .select('id, first_name, last_name, email, phone')
-        .in('id', trainerUserIds);
+        .select('trainer_id, first_name, last_name, email, phone, specialization, experience_years, bio, certification, hourly_rate, trainer_status')
+        .in('trainer_id', trainerIds);
       
       if (users) {
         trainerUsers = users.reduce((acc: Record<string, any>, user: any) => {
-          acc[user.id] = user;
+          acc[user.trainer_id] = user;
           return acc;
         }, {});
       }
@@ -83,13 +80,18 @@ export async function GET(req: NextRequest) {
         category_id: schedule.classes.category_id,
         category: schedule.classes.category
       } : null,
-      trainer: schedule.trainers ? {
-        id: schedule.trainers.id,
-        specialization: schedule.trainers.specialization,
-        experience_years: schedule.trainers.experience_years,
-        bio: schedule.trainers.bio,
-        certification: schedule.trainers.certification,
-        ...trainerUsers[schedule.trainers.user_id]
+      trainer: trainerUsers[schedule.trainer_id] ? {
+        id: trainerUsers[schedule.trainer_id].trainer_id,
+        firstName: trainerUsers[schedule.trainer_id].first_name || "",
+        lastName: trainerUsers[schedule.trainer_id].last_name || "",
+        email: trainerUsers[schedule.trainer_id].email || "",
+        phone: trainerUsers[schedule.trainer_id].phone || "",
+        specialization: trainerUsers[schedule.trainer_id].specialization,
+        experience_years: trainerUsers[schedule.trainer_id].experience_years,
+        bio: trainerUsers[schedule.trainer_id].bio,
+        certification: trainerUsers[schedule.trainer_id].certification,
+        hourly_rate: trainerUsers[schedule.trainer_id].hourly_rate,
+        status: trainerUsers[schedule.trainer_id].trainer_status,
       } : null
     })) || [];
     

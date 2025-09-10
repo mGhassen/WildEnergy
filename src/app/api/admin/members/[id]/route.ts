@@ -27,24 +27,53 @@ export async function GET(
     }
 
     // Check if the user is an admin using new user system
-    const { data: profile } = await supabaseServer()
+    const { data: profile, error: profileError } = await supabaseServer()
       .from('user_profiles')
       .select('is_admin, accessible_portals')
-      .eq('account_id', authUser.id)
+      .eq('email', authUser.email)
       .single();
 
+    if (profileError) {
+      console.error('Profile lookup error:', profileError);
+      return NextResponse.json({ error: 'Failed to verify admin status' }, { status: 500 });
+    }
+
     if (!profile || !profile.is_admin || !profile.accessible_portals?.includes('admin')) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      console.error('Admin check failed:', { 
+        isAdmin: profile?.is_admin, 
+        portals: profile?.accessible_portals,
+        userEmail: authUser.email 
+      });
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
     }
 
     // Get member details from new user system
-    const { data: member, error: memberError } = await supabaseServer()
+    // First try to find by member_id, then by account_id as fallback
+    let { data: member, error: memberError } = await supabaseServer()
       .from('user_profiles')
       .select('*')
       .eq('member_id', id)
       .single();
 
-    if (memberError || !member) {
+    // If not found by member_id, try by account_id
+    if (memberError && memberError.code === 'PGRST116') {
+      const fallbackResult = await supabaseServer()
+        .from('user_profiles')
+        .select('*')
+        .eq('account_id', id)
+        .single();
+      
+      member = fallbackResult.data;
+      memberError = fallbackResult.error;
+    }
+
+    if (memberError) {
+      console.error('Member lookup error:', memberError);
+      return NextResponse.json({ error: 'Failed to fetch member details' }, { status: 500 });
+    }
+
+    if (!member) {
+      console.error('Member not found for ID:', id);
       return NextResponse.json({ error: 'Member not found' }, { status: 404 });
     }
 

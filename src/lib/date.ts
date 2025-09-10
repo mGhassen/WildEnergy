@@ -8,7 +8,11 @@ import { DATE_LOCALE, TIME_LOCALE, TIMEZONE } from './config';
 /**
  * Format date in European format (DD/MM/YYYY)
  */
-export function formatDate(date: string | Date): string {
+export function formatDate(date: string | Date | null | undefined): string {
+  if (!date) {
+    return 'N/A';
+  }
+  
   const dateObj = typeof date === 'string' ? new Date(date) : date;
   
   if (isNaN(dateObj.getTime())) {
@@ -26,7 +30,11 @@ export function formatDate(date: string | Date): string {
 /**
  * Format date in French format with time (DD/MM/YYYY HH:MM)
  */
-export function formatDateTime(date: string | Date): string {
+export function formatDateTime(date: string | Date | null | undefined): string {
+  if (!date) {
+    return 'N/A';
+  }
+  
   const dateObj = typeof date === 'string' ? new Date(date) : date;
   
   if (isNaN(dateObj.getTime())) {
@@ -46,7 +54,7 @@ export function formatDateTime(date: string | Date): string {
 /**
  * Format date in French format (DD/MM/YYYY) - alias for formatDate
  */
-export function formatFrenchDate(date: string | Date): string {
+export function formatFrenchDate(date: string | Date | null | undefined): string {
   return formatDate(date);
 }
 
@@ -85,7 +93,11 @@ export function formatTime(time: string | Date | null | undefined): string {
 /**
  * Format date in long format (e.g., "mercredi 16 juillet 2025")
  */
-export function formatLongDate(date: string | Date): string {
+export function formatLongDate(date: string | Date | null | undefined): string {
+  if (!date) {
+    return 'N/A';
+  }
+  
   const dateObj = typeof date === 'string' ? new Date(date) : date;
   
   if (isNaN(dateObj.getTime())) {
@@ -104,7 +116,11 @@ export function formatLongDate(date: string | Date): string {
 /**
  * Format date in short format (e.g., "16 juil. 2025")
  */
-export function formatShortDate(date: string | Date): string {
+export function formatShortDate(date: string | Date | null | undefined): string {
+  if (!date) {
+    return 'N/A';
+  }
+  
   const dateObj = typeof date === 'string' ? new Date(date) : date;
   
   if (isNaN(dateObj.getTime())) {
@@ -122,7 +138,11 @@ export function formatShortDate(date: string | Date): string {
 /**
  * Format date for display in calendar (e.g., "16 juil.")
  */
-export function formatCalendarDate(date: string | Date): string {
+export function formatCalendarDate(date: string | Date | null | undefined): string {
+  if (!date) {
+    return 'N/A';
+  }
+  
   const dateObj = typeof date === 'string' ? new Date(date) : date;
   
   if (isNaN(dateObj.getTime())) {
@@ -139,7 +159,11 @@ export function formatCalendarDate(date: string | Date): string {
 /**
  * Format date range (e.g., "16 juil. - 23 juil.")
  */
-export function formatDateRange(startDate: string | Date, endDate: string | Date): string {
+export function formatDateRange(startDate: string | Date | null | undefined, endDate: string | Date | null | undefined): string {
+  if (!startDate || !endDate) {
+    return 'N/A';
+  }
+  
   const start = typeof startDate === 'string' ? new Date(startDate) : startDate;
   const end = typeof endDate === 'string' ? new Date(endDate) : endDate;
   
@@ -156,7 +180,11 @@ export function formatDateRange(startDate: string | Date, endDate: string | Date
 /**
  * Format relative time (e.g., "il y a 2 heures", "il y a 3 jours")
  */
-export function formatRelativeTime(date: string | Date): string {
+export function formatRelativeTime(date: string | Date | null | undefined): string {
+  if (!date) {
+    return 'N/A';
+  }
+  
   const dateObj = typeof date === 'string' ? new Date(date) : date;
   
   if (isNaN(dateObj.getTime())) {
@@ -196,7 +224,11 @@ export function formatRelativeTime(date: string | Date): string {
 /**
  * Check if a date is today
  */
-export function isToday(date: string | Date): boolean {
+export function isToday(date: string | Date | null | undefined): boolean {
+  if (!date) {
+    return false;
+  }
+  
   const dateObj = typeof date === 'string' ? new Date(date) : date;
   const today = new Date();
   
@@ -206,7 +238,11 @@ export function isToday(date: string | Date): boolean {
 /**
  * Check if a date is in the past
  */
-export function isPast(date: string | Date): boolean {
+export function isPast(date: string | Date | null | undefined): boolean {
+  if (!date) {
+    return false;
+  }
+  
   const dateObj = typeof date === 'string' ? new Date(date) : date;
   const now = new Date();
   

@@ -42,17 +42,22 @@ import {
     FileText,
     Users,
     Settings,
-    MoreHorizontal
+    MoreHorizontal,
+    Link,
+    Unlink,
+    UserPlus,
+    UserMinus
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { useAccount, useUpdateAccount, useDeleteAccount } from "@/hooks/useAccounts";
+import { useAccount, useUpdateAccount, useDeleteAccount, useLinkAccountTrainer, useUnlinkAccountTrainer } from "@/hooks/useAccounts";
+import { useTrainers } from "@/hooks/useTrainers";
 import { Account } from "@/lib/api/accounts";
-import { apiRequest } from "@/lib/queryClient";
-import { formatDate } from "@/lib/date";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { apiRequest } from "@/lib/queryClient";
+import { formatDate } from "@/lib/date";
 
 
 export default function AccountDetailPage() {
@@ -65,12 +70,22 @@ export default function AccountDetailPage() {
     const [deletingAccount, setDeletingAccount] = useState<Account | null>(null);
     const [settingPasswordAccount, setSettingPasswordAccount] = useState<Account | null>(null);
     const [setPasswordValue, setSetPasswordValue] = useState("");
+    const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
+    const [selectedTrainerId, setSelectedTrainerId] = useState("");
     const { toast } = useToast();
 
     // Fetch account data
     const { data: account, isLoading, error } = useAccount(accountId);
+    const { data: trainers = [] } = useTrainers();
     const updateAccountMutation = useUpdateAccount();
     const deleteAccountMutation = useDeleteAccount();
+    const linkTrainerMutation = useLinkAccountTrainer();
+    const unlinkTrainerMutation = useUnlinkAccountTrainer();
+
+    // Filter trainers that are not already linked to accounts
+    const availableTrainers = trainers.filter(trainer => 
+        !trainer.account_id && trainer.id !== account?.trainer_id
+    );
 
     // Edit form state
     const [editForm, setEditForm] = useState({
@@ -145,6 +160,26 @@ export default function AccountDetailPage() {
                 router.push('/admin/accounts');
             }
         });
+    };
+
+    // Link trainer to account
+    const handleLinkTrainer = () => {
+        if (!selectedTrainerId) return;
+        
+        linkTrainerMutation.mutate(
+            { accountId, trainerId: selectedTrainerId },
+            {
+                onSuccess: () => {
+                    setIsLinkDialogOpen(false);
+                    setSelectedTrainerId("");
+                }
+            }
+        );
+    };
+
+    // Unlink trainer from account
+    const handleUnlinkTrainer = () => {
+        unlinkTrainerMutation.mutate(accountId);
     };
 
     // Set password
@@ -281,6 +316,17 @@ export default function AccountDetailPage() {
                                     <Key className="w-4 h-4 mr-2" />
                                     Set Password
                                 </DropdownMenuItem>
+                                {account.trainer_id ? (
+                                    <DropdownMenuItem onClick={handleUnlinkTrainer}>
+                                        <Unlink className="w-4 h-4 mr-2" />
+                                        Unlink Trainer
+                                    </DropdownMenuItem>
+                                ) : (
+                                    <DropdownMenuItem onClick={() => setIsLinkDialogOpen(true)}>
+                                        <Link className="w-4 h-4 mr-2" />
+                                        Link Trainer
+                                    </DropdownMenuItem>
+                                )}
                                 <DropdownMenuItem onClick={() => {
                                     // TODO: Implement reset password
                                     toast({
@@ -566,6 +612,71 @@ export default function AccountDetailPage() {
                         </CardContent>
                     </Card>
 
+                    {/* Trainer Information */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center space-x-2">
+                                <GraduationCap className="w-5 h-5" />
+                                <span>Trainer Information</span>
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {account.trainer_id ? (
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <Badge variant="default" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
+                                                <Link className="w-3 h-3 mr-1" />
+                                                Linked to Trainer
+                                            </Badge>
+                                        </div>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleUnlinkTrainer}
+                                            disabled={unlinkTrainerMutation.isPending}
+                                        >
+                                            <Unlink className="w-3 h-3 mr-1" />
+                                            Unlink
+                                        </Button>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <p className="text-sm text-muted-foreground">
+                                            Trainer ID: {account.trainer_id}
+                                        </p>
+                                        {account.specialization && (
+                                            <p className="text-sm">
+                                                <span className="font-medium">Specialization:</span> {account.specialization}
+                                            </p>
+                                        )}
+                                        {account.experience_years && (
+                                            <p className="text-sm">
+                                                <span className="font-medium">Experience:</span> {account.experience_years} years
+                                            </p>
+                                        )}
+                                        {account.hourly_rate && (
+                                            <p className="text-sm">
+                                                <span className="font-medium">Hourly Rate:</span> ${account.hourly_rate}/hour
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="text-center py-6">
+                                    <UserMinus className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                                    <h3 className="text-lg font-semibold text-foreground mb-2">No Trainer Linked</h3>
+                                    <p className="text-muted-foreground mb-4">
+                                        This account is not linked to any trainer profile.
+                                    </p>
+                                    <Button onClick={() => setIsLinkDialogOpen(true)}>
+                                        <Link className="w-4 h-4 mr-2" />
+                                        Link Trainer
+                                    </Button>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+
                     {/* Account Status & Roles */}
                     <Card>
                         <CardHeader>
@@ -804,6 +915,86 @@ export default function AccountDetailPage() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            {/* Link Trainer Dialog */}
+            <Dialog open={isLinkDialogOpen} onOpenChange={setIsLinkDialogOpen}>
+                <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Link className="w-5 h-5" />
+                            Link Trainer to Account
+                        </DialogTitle>
+                        <DialogDescription>
+                            Select a trainer to link to this account. Only trainers without existing account links are available.
+                        </DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Available Trainers</label>
+                            <Select value={selectedTrainerId} onValueChange={setSelectedTrainerId}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select a trainer to link" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {availableTrainers.length === 0 ? (
+                                        <SelectItem value="" disabled>
+                                            No available trainers
+                                        </SelectItem>
+                                    ) : (
+                                        availableTrainers.map((trainer) => (
+                                            <SelectItem key={trainer.id} value={trainer.id}>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-medium">
+                                                        {trainer.first_name} {trainer.last_name}
+                                                    </span>
+                                                    <span className="text-muted-foreground">({trainer.specialization})</span>
+                                                </div>
+                                            </SelectItem>
+                                        ))
+                                    )}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {availableTrainers.length === 0 && (
+                            <div className="text-center py-4 text-muted-foreground">
+                                <UserMinus className="w-8 h-8 mx-auto mb-2" />
+                                <p>No available trainers to link</p>
+                                <p className="text-sm">All trainers are already linked to accounts</p>
+                            </div>
+                        )}
+                    </div>
+
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setIsLinkDialogOpen(false);
+                                setSelectedTrainerId("");
+                            }}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleLinkTrainer}
+                            disabled={!selectedTrainerId || linkTrainerMutation.isPending}
+                        >
+                            {linkTrainerMutation.isPending ? (
+                                <>
+                                    <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-background border-t-foreground" />
+                                    Linking...
+                                </>
+                            ) : (
+                                <>
+                                    <Link className="w-4 h-4 mr-2" />
+                                    Link Trainer
+                                </>
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

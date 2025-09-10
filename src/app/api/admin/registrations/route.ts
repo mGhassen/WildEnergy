@@ -31,12 +31,6 @@ export async function GET(req: NextRequest) {
         .from('class_registrations')
         .select(`
           *,
-          member:users(
-            id,
-            first_name,
-            last_name,
-            email
-          ),
           course:courses(
             id,
             course_date,
@@ -44,7 +38,7 @@ export async function GET(req: NextRequest) {
             end_time,
             schedule_id,
             class:classes(name, description, category:categories(name)),
-            trainer:trainers(user:users(first_name, last_name))
+            trainer:trainers(account_id, specialization, experience_years)
           )
         `);
       if (error) {
@@ -52,34 +46,109 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: 'Failed to fetch registrations' }, { status: 500 });
       }
       console.log('Admin registrations fetched:', registrations?.length || 0, 'registrations');
-      return NextResponse.json(registrations);
+      
+      // Fetch member and trainer details separately
+      const memberIds = registrations?.map(r => r.member_id).filter(Boolean) || [];
+      const trainerAccountIds = registrations?.map(r => r.course?.trainer?.account_id).filter(Boolean) || [];
+      
+      let memberDetails = {};
+      let trainerDetails = {};
+      
+      if (memberIds.length > 0) {
+        const { data: members } = await supabaseServer()
+          .from('user_profiles')
+          .select('member_id, first_name, last_name, email')
+          .in('member_id', memberIds);
+        
+        if (members) {
+          members.forEach(member => {
+            memberDetails[member.member_id] = member;
+          });
+        }
+      }
+      
+      if (trainerAccountIds.length > 0) {
+        const { data: trainers } = await supabaseServer()
+          .from('user_profiles')
+          .select('account_id, first_name, last_name, email')
+          .in('account_id', trainerAccountIds);
+        
+        if (trainers) {
+          trainers.forEach(trainer => {
+            trainerDetails[trainer.account_id] = trainer;
+          });
+        }
+      }
+      
+      // Enhance registrations with member and trainer details
+      const enhancedRegistrations = registrations?.map(reg => ({
+        ...reg,
+        member: memberDetails[reg.member_id] || null,
+        course: reg.course ? {
+          ...reg.course,
+          trainer: reg.course.trainer ? {
+            ...reg.course.trainer,
+            first_name: trainerDetails[reg.course.trainer.account_id]?.first_name || '',
+            last_name: trainerDetails[reg.course.trainer.account_id]?.last_name || '',
+            email: trainerDetails[reg.course.trainer.account_id]?.email || ''
+          } : null
+        } : null
+      })) || [];
+      
+      return NextResponse.json(enhancedRegistrations);
     } else {
       // User: return own registrations
       const { data: registrations, error } = await supabaseServer()
         .from('class_registrations')
         .select(`
           *,
-          member:users(
-            id,
-            first_name,
-            last_name,
-            email
-          ),
           course:courses(
             id,
             course_date,
             start_time,
             end_time,
             class:classes(name, description, category:categories(name)),
-            trainer:trainers(user:users(first_name, last_name))
+            trainer:trainers(account_id, specialization, experience_years)
           )
         `)
-        .eq('user_id', userProfile.id);
+        .eq('member_id', userProfile.member_id);
       if (error) {
         console.error('User registrations error:', error);
         return NextResponse.json({ error: 'Failed to fetch registrations' }, { status: 500 });
       }
-      return NextResponse.json(registrations);
+      
+      // Fetch trainer details separately for user registrations
+      const trainerAccountIds = registrations?.map(r => r.course?.trainer?.account_id).filter(Boolean) || [];
+      let trainerDetails = {};
+      
+      if (trainerAccountIds.length > 0) {
+        const { data: trainers } = await supabaseServer()
+          .from('user_profiles')
+          .select('account_id, first_name, last_name, email')
+          .in('account_id', trainerAccountIds);
+        
+        if (trainers) {
+          trainers.forEach(trainer => {
+            trainerDetails[trainer.account_id] = trainer;
+          });
+        }
+      }
+      
+      // Enhance registrations with trainer details
+      const enhancedRegistrations = registrations?.map(reg => ({
+        ...reg,
+        course: reg.course ? {
+          ...reg.course,
+          trainer: reg.course.trainer ? {
+            ...reg.course.trainer,
+            first_name: trainerDetails[reg.course.trainer.account_id]?.first_name || '',
+            last_name: trainerDetails[reg.course.trainer.account_id]?.last_name || '',
+            email: trainerDetails[reg.course.trainer.account_id]?.email || ''
+          } : null
+        } : null
+      })) || [];
+      
+      return NextResponse.json(enhancedRegistrations);
     }
   } catch (error) {
     console.error('GET registrations error:', error);
