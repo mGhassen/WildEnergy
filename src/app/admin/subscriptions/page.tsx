@@ -18,6 +18,7 @@ import { useMembers } from "@/hooks/useMembers";
 import { usePlans } from "@/hooks/usePlans";
 import { usePayments, useCreatePayment, useUpdatePayment, useDeletePayment } from "@/hooks/usePayments";
 import { TableSkeleton, FormSkeleton } from "@/components/skeletons";
+import { ConfirmationDialog } from "@/components/confirmation-dialog";
 import { Payment } from "@/lib/api/payments";
 import { Plus, Search, Edit, Trash2, Eye, CreditCard, MoreVertical, RefreshCw } from "lucide-react";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
@@ -129,6 +130,8 @@ export default function AdminSubscriptions() {
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [isDeletePaymentModalOpen, setIsDeletePaymentModalOpen] = useState(false);
   const [paymentToDelete, setPaymentToDelete] = useState<Payment | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [subscriptionToDelete, setSubscriptionToDelete] = useState<number | null>(null);
   
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -370,8 +373,15 @@ export default function AdminSubscriptions() {
   };
 
   const handleDeleteSubscription = (id: number) => {
-    if (confirm("Are you sure you want to delete this subscription?")) {
-      deleteSubscriptionMutation.mutate(id);
+    setSubscriptionToDelete(id);
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (subscriptionToDelete) {
+      deleteSubscriptionMutation.mutate(subscriptionToDelete);
+      setShowDeleteConfirm(false);
+      setSubscriptionToDelete(null);
     }
   };
 
@@ -1397,6 +1407,18 @@ export default function AdminSubscriptions() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Subscription Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        onConfirm={handleConfirmDelete}
+        title="Delete Subscription"
+        description="Are you sure you want to delete this subscription? This action cannot be undone."
+        confirmText="Delete"
+        variant="destructive"
+        isPending={deleteSubscriptionMutation.isPending}
+      />
     </div>
   );
 }

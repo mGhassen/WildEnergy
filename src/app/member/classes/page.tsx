@@ -18,6 +18,7 @@ import { formatTime, getDayName } from "@/lib/date";
 import { formatDate } from "@/lib/date";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ConfirmationDialog } from "@/components/confirmation-dialog";
 import QRGenerator from "@/components/qr-generator";
 
 // Types for member classes page
@@ -91,6 +92,8 @@ export default function MemberClasses() {
     overlappingCourses: []
   });
   const [selectedQR, setSelectedQR] = useState<string | null>(null);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [registrationToCancel, setRegistrationToCancel] = useState<{ id: number; message: string } | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -173,8 +176,15 @@ export default function MemberClasses() {
       ? "Cancelling within 24 hours will forfeit your session. Continue?"
       : "Are you sure you want to cancel this class registration?";
     
-    if (confirm(message)) {
-      cancelMutation.mutate(registration.id);
+    setRegistrationToCancel({ id: registration.id, message });
+    setShowCancelConfirm(true);
+  };
+
+  const handleConfirmCancel = () => {
+    if (registrationToCancel) {
+      cancelMutation.mutate(registrationToCancel.id);
+      setShowCancelConfirm(false);
+      setRegistrationToCancel(null);
     }
   };
 
@@ -567,6 +577,18 @@ export default function MemberClasses() {
           </div>
         </div>
       )}
+
+      {/* Cancel Registration Confirmation Dialog */}
+      <ConfirmationDialog
+        open={showCancelConfirm}
+        onOpenChange={setShowCancelConfirm}
+        onConfirm={handleConfirmCancel}
+        title="Cancel Registration"
+        description={registrationToCancel?.message || "Are you sure you want to cancel this class registration?"}
+        confirmText="Cancel Registration"
+        variant="destructive"
+        isPending={cancelMutation.isPending}
+      />
     </div>
   );
 }

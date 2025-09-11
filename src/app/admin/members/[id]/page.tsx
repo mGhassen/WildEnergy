@@ -11,7 +11,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useMemberDetails } from "@/hooks/useMemberDetails";
 import { useUnlinkAccountFromMember } from "@/hooks/useAccountLinking";
 import { useUpdateMemberDetails } from "@/hooks/useUpdateMemberDetails";
+import { useToast } from "@/hooks/use-toast";
 import { AccountLinkingDialog } from "@/components/account-linking-dialog";
+import { UnlinkAccountDialog } from "@/components/unlink-account-dialog";
 import { 
   ArrowLeft,
   MoreHorizontal,
@@ -188,6 +190,7 @@ export default function MemberDetailsPage() {
 
   const [activeTab, setActiveTab] = useState("overview");
   const [showLinkDialog, setShowLinkDialog] = useState(false);
+  const [showUnlinkDialog, setShowUnlinkDialog] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
   // Fetch member details
@@ -196,6 +199,7 @@ export default function MemberDetailsPage() {
   // Account linking hooks
   const unlinkAccountMutation = useUnlinkAccountFromMember();
   const updateMemberMutation = useUpdateMemberDetails();
+  const { toast } = useToast();
 
   // Edit form state
   const [editForm, setEditForm] = useState({
@@ -376,6 +380,14 @@ export default function MemberDetailsPage() {
   };
 
   const handleSendEmail = () => {
+    if (!member.email) {
+      toast({
+        title: "Cannot send email",
+        description: "This member is not linked to an account and has no email address.",
+        variant: "destructive",
+      });
+      return;
+    }
     // TODO: Implement send email functionality
     console.log('Send email to:', member.email);
   };
@@ -394,13 +406,19 @@ export default function MemberDetailsPage() {
     setShowLinkDialog(true);
   };
 
-  const handleUnlinkAccount = async () => {
-    if (!confirm('Are you sure you want to unlink this account from the member?')) {
+  const handleUnlinkAccount = () => {
+    setShowUnlinkDialog(true);
+  };
+
+  const handleConfirmUnlink = async () => {
+    if (!member.account_id) {
+      console.error('No account linked to this member');
       return;
     }
 
     try {
-      await unlinkAccountMutation.mutateAsync(memberId);
+      await unlinkAccountMutation.mutateAsync(member.account_id);
+      setShowUnlinkDialog(false);
     } catch (error) {
       console.error('Failed to unlink account:', error);
     }
@@ -434,7 +452,7 @@ export default function MemberDetailsPage() {
               <h1 className="text-2xl font-bold text-foreground">
                 {member.firstName} {member.lastName}
               </h1>
-              <p className="text-muted-foreground">{member.email}</p>
+              <p className="text-muted-foreground">{member.email || 'No email (unlinked member)'}</p>
             </div>
           </div>
         </div>
@@ -499,7 +517,7 @@ export default function MemberDetailsPage() {
                 </DropdownMenuItem>
               )}
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleSendEmail}>
+              <DropdownMenuItem onClick={handleSendEmail} disabled={!member.email}>
                 <Mail className="w-4 h-4 mr-2" />
                 Send Email
               </DropdownMenuItem>
@@ -665,7 +683,7 @@ export default function MemberDetailsPage() {
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Email</Label>
-                  <p className="text-sm">{member.email}</p>
+                  <p className="text-sm">{member.email || 'No email (unlinked member)'}</p>
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Phone</Label>
@@ -1056,6 +1074,15 @@ export default function MemberDetailsPage() {
         memberId={memberId}
         memberName={`${member.firstName} ${member.lastName}`}
         onSuccess={handleLinkSuccess}
+      />
+
+      {/* Unlink Account Dialog */}
+      <UnlinkAccountDialog
+        open={showUnlinkDialog}
+        onOpenChange={setShowUnlinkDialog}
+        onConfirm={handleConfirmUnlink}
+        memberName={`${member.firstName} ${member.lastName}`}
+        isPending={unlinkAccountMutation.isPending}
       />
     </div>
   );
