@@ -13,12 +13,22 @@ export async function POST(req: NextRequest) {
     }
 
     // First attempt authentication with Supabase
+    console.log('🔐 Attempting login for email:', email);
     const { data: { session, user }, error } = await supabaseServer().auth.signInWithPassword({
       email,
       password,
     });
 
+    console.log('🔐 Auth result:', { 
+      hasError: !!error, 
+      error: error?.message, 
+      hasSession: !!session, 
+      hasUser: !!user,
+      userId: user?.id 
+    });
+
     if (error || !session || !user) {
+      console.log('❌ Auth failed:', error?.message);
       return NextResponse.json({
         success: false,
         error: 'Invalid email or password',
@@ -27,13 +37,22 @@ export async function POST(req: NextRequest) {
     }
 
     // Now get user profile from new user system by email (since account_id doesn't match auth user ID)
+    console.log('👤 Looking for user profile with email:', user.email);
     const { data: userProfile, error: profileError } = await supabaseServer()
       .from('user_profiles')
       .select('*')
-      .eq('email', user.email)
+      .eq('account_email', user.email)
       .single();
 
+    console.log('👤 Profile query result:', { 
+      hasError: !!profileError, 
+      error: profileError?.message, 
+      hasProfile: !!userProfile,
+      profileId: userProfile?.account_id 
+    });
+
     if (profileError || !userProfile) {
+      console.log('❌ Profile not found:', profileError?.message);
       return NextResponse.json({
         success: false,
         error: 'User account not found. Please sign up first.',
