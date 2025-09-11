@@ -27,10 +27,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { firstName, lastName, age, profession, address, phone, email } = body;
+    const { firstName, lastName, age, profession, address, phone, profileEmail } = body;
 
     // Validate required fields
-    if (!firstName || !lastName || !age || !profession || !address || !phone || !email) {
+    if (!firstName || !lastName || !age || !profession || !address || !phone || !profileEmail) {
       return NextResponse.json({ 
         success: false, 
         error: "Tous les champs sont requis" 
@@ -47,30 +47,26 @@ export async function POST(request: NextRequest) {
 
     const supabase = supabaseServer();
 
-    // Update user with personal information
+    // Update profile with personal information
     const updateData: any = {
       first_name: firstName,
       last_name: lastName,
       phone: phone,
-      email: email,
+      profile_email: profileEmail,
+      profession: profession,
+      address: address,
       updated_at: new Date().toISOString(),
     };
 
-    // Only add onboarding fields if they exist in the database
-    try {
-      // Try to update with onboarding fields
-      updateData.age = age;
-      updateData.profession = profession;
-      updateData.address = address;
-    } catch (error) {
-      // If onboarding fields don't exist, just update basic fields
-      console.log("Onboarding fields not available, updating basic fields only");
-    }
+    // Calculate date of birth from age
+    const currentYear = new Date().getFullYear();
+    const birthYear = currentYear - age;
+    updateData.date_of_birth = new Date(birthYear, 0, 1).toISOString();
 
     const { error } = await supabase
-      .from("users")
+      .from("profiles")
       .update(updateData)
-      .eq("id", user.id);
+      .eq("id", user.account_id);
 
     if (error) {
       console.error("Error updating user personal info:", error);

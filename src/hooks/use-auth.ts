@@ -7,7 +7,8 @@ import { authApi, RegisterData, LoginCredentials } from '@/lib/api/auth';
 export interface User {
   id: string;
   account_id: string;
-  email: string;
+  email: string; // Account email for authentication
+  profileEmail?: string; // Contact email, separate from account email
   firstName?: string;
   lastName?: string;
   phone?: string;

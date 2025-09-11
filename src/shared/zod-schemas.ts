@@ -4,6 +4,7 @@ const UserStatus = ['active', 'pending', 'archived', 'suspended'] as const;
 
 export const userBaseSchema = {
   email: z.string().email(),
+  profileEmail: z.string().email().optional(), // Contact email, separate from account email
   firstName: z.string().optional(),
   lastName: z.string().optional(),
   phone: z.string().optional(),

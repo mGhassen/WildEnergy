@@ -14,21 +14,47 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
     
-    // Fetch all trainers from new user system
-    const { data: trainers, error } = await supabaseServer()
+    // Fetch all trainers from new user system (linked trainers)
+    const { data: linkedTrainers, error: linkedError } = await supabaseServer()
       .from('user_profiles')
       .select('*')
       .not('trainer_id', 'is', null) // Only users with trainer records
       .eq('trainer_status', 'active')
       .order('first_name', { ascending: true });
       
-    if (error) {
-      console.error('Error fetching trainers:', error);
-      return NextResponse.json({ error: 'Failed to fetch trainers', details: error }, { status: 500 });
+    if (linkedError) {
+      console.error('Error fetching linked trainers:', linkedError);
+      return NextResponse.json({ error: 'Failed to fetch trainers', details: linkedError }, { status: 500 });
     }
-    
-    // Format trainers data for frontend compatibility
-    const trainersFlat = (trainers ?? []).map((trainer) => ({
+
+    // Fetch unlinked trainers directly from trainers table
+    const { data: unlinkedTrainers, error: unlinkedError } = await supabaseServer()
+      .from('trainers')
+      .select(`
+        *,
+        profiles!inner(
+          first_name,
+          last_name,
+          phone,
+          date_of_birth,
+          address,
+          profession,
+          emergency_contact_name,
+          emergency_contact_phone,
+          profile_image_url
+        )
+      `)
+      .is('account_id', null) // Only unlinked trainers
+      .eq('status', 'active')
+      .order('first_name', { ascending: true });
+
+    if (unlinkedError) {
+      console.error('Error fetching unlinked trainers:', unlinkedError);
+      return NextResponse.json({ error: 'Failed to fetch unlinked trainers', details: unlinkedError }, { status: 500 });
+    }
+
+    // Format linked trainers data
+    const linkedTrainersFlat = (linkedTrainers ?? []).map((trainer) => ({
       id: trainer.trainer_id,
       account_id: trainer.account_id,
       specialization: trainer.specialization,
@@ -44,8 +70,32 @@ export async function GET(req: NextRequest) {
       user_type: trainer.user_type,
       accessible_portals: trainer.accessible_portals
     }));
+
+    // Format unlinked trainers data
+    const unlinkedTrainersFlat = (unlinkedTrainers ?? []).map((trainer) => ({
+      id: trainer.id,
+      account_id: null,
+      specialization: trainer.specialization,
+      experience_years: trainer.experience_years,
+      bio: trainer.bio,
+      certification: trainer.certification,
+      hourly_rate: trainer.hourly_rate,
+      status: trainer.status ?? "",
+      first_name: trainer.profiles.first_name ?? "",
+      last_name: trainer.profiles.last_name ?? "",
+      email: null, // No email for unlinked trainers
+      phone: trainer.profiles.phone ?? "",
+      user_type: 'trainer',
+      accessible_portals: ['trainer']
+    }));
+
+    // Combine both lists
+    const allTrainers = [...linkedTrainersFlat, ...unlinkedTrainersFlat];
     
-    return NextResponse.json(trainersFlat);
+    // Sort by first name
+    allTrainers.sort((a, b) => a.first_name.localeCompare(b.first_name));
+    
+    return NextResponse.json(allTrainers);
   } catch (e) {
     console.error('Internal server error:', e);
     return NextResponse.json({ error: 'Internal server error', details: String(e) }, { status: 500 });

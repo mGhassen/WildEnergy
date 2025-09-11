@@ -84,7 +84,7 @@ export default function AdminTrainers() {
       const matchesSearch = (
         trainer.first_name?.toLowerCase().includes(search) ||
         trainer.last_name?.toLowerCase().includes(search) ||
-        trainer.email?.toLowerCase().includes(search) ||
+        (trainer.email?.toLowerCase().includes(search) || (!trainer.email && 'unlinked'.includes(search))) ||
         trainer.phone?.includes(search) ||
         trainer.specialization?.toLowerCase().includes(search)
       );
@@ -489,7 +489,7 @@ export default function AdminTrainers() {
                     </TableCell>
                     <TableCell>
                       <div className="space-y-1">
-                        <p className="text-sm">{trainer.email}</p>
+                        <p className="text-sm">{trainer.email || 'No email (unlinked trainer)'}</p>
                         <p className="text-xs text-muted-foreground">
                           {trainer.phone || 'No phone'}
                         </p>

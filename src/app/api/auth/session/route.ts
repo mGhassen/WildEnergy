@@ -83,6 +83,7 @@ export async function GET(req: NextRequest) {
     const userResponse = {
       id: userData.account_id,
       email: user.email || '',
+      profileEmail: userData.profile_email || '', // Contact email
       isAdmin: Boolean(userData.is_admin),
       firstName: userData.first_name || user.email?.split('@')[0] || 'User',
       lastName: userData.last_name || '',

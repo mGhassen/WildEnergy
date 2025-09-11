@@ -22,8 +22,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
     
-    // Fetch all members using new system with subscriptions
-    const { data: members, error } = await supabaseServer()
+    // Fetch linked members using new system with subscriptions
+    const { data: linkedMembers, error: linkedError } = await supabaseServer()
       .from('user_profiles')
       .select(`
         *,
@@ -41,14 +41,52 @@ export async function GET(req: NextRequest) {
       `)
       .not('member_id', 'is', null) // Only users with member records
       .eq('member_status', 'active')
-      .order('email', { ascending: true });
+      .order('first_name', { ascending: true });
     
-    if (error) {
-      console.error('Error fetching members:', error);
-      return NextResponse.json({ error: 'Failed to fetch members' }, { status: 500 });
+    if (linkedError) {
+      console.error('Error fetching linked members:', linkedError);
+      return NextResponse.json({ error: 'Failed to fetch linked members' }, { status: 500 });
     }
-    
-    const membersWithCredit = (members || []).map((m: any) => ({ 
+
+    // Fetch unlinked members directly from members table
+    const { data: unlinkedMembers, error: unlinkedError } = await supabaseServer()
+      .from('members')
+      .select(`
+        *,
+        profiles!inner(
+          first_name,
+          last_name,
+          phone,
+          date_of_birth,
+          address,
+          profession,
+          emergency_contact_name,
+          emergency_contact_phone,
+          profile_image_url
+        ),
+        subscriptions:subscriptions(
+          id,
+          member_id,
+          plan_id,
+          start_date,
+          end_date,
+          status,
+          notes,
+          created_at,
+          updated_at
+        )
+      `)
+      .is('account_id', null) // Only unlinked members
+      .eq('status', 'active')
+      .order('first_name', { ascending: true });
+
+    if (unlinkedError) {
+      console.error('Error fetching unlinked members:', unlinkedError);
+      return NextResponse.json({ error: 'Failed to fetch unlinked members' }, { status: 500 });
+    }
+
+    // Format linked members
+    const linkedMembersFormatted = (linkedMembers || []).map((m: any) => ({ 
       id: m.member_id,
       account_id: m.account_id,
       first_name: m.first_name,
@@ -61,11 +99,35 @@ export async function GET(req: NextRequest) {
       member_status: m.member_status,
       user_type: m.user_type,
       accessible_portals: m.accessible_portals,
-      subscriptions: m.subscriptions || [], // Include subscriptions for dynamic status calculation
+      subscriptions: m.subscriptions || [],
       groupSessions: m.subscriptions?.[0]?.subscription_group_sessions || []
     }));
+
+    // Format unlinked members
+    const unlinkedMembersFormatted = (unlinkedMembers || []).map((m: any) => ({ 
+      id: m.id,
+      account_id: null,
+      first_name: m.profiles.first_name,
+      last_name: m.profiles.last_name,
+      email: null, // No email for unlinked members
+      phone: m.profiles.phone,
+      is_member: true,
+      credit: m.credit ?? 0,
+      member_notes: m.member_notes,
+      member_status: m.status,
+      user_type: 'member',
+      accessible_portals: ['member'],
+      subscriptions: m.subscriptions || [],
+      groupSessions: m.subscriptions?.[0]?.subscription_group_sessions || []
+    }));
+
+    // Combine both lists
+    const allMembers = [...linkedMembersFormatted, ...unlinkedMembersFormatted];
     
-    return NextResponse.json(membersWithCredit);
+    // Sort by first name
+    allMembers.sort((a, b) => a.first_name.localeCompare(b.first_name));
+    
+    return NextResponse.json(allMembers);
   } catch (error) {
     console.error('Internal server error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

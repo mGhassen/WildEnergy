@@ -20,6 +20,7 @@ export const profiles = pgTable("profiles", {
   firstName: text("first_name"),
   lastName: text("last_name"),
   phone: text("phone"),
+  profileEmail: text("profile_email"), // Contact email, separate from account email
   dateOfBirth: timestamp("date_of_birth"),
   address: text("address"),
   profession: text("profession"),
@@ -306,6 +307,7 @@ type UserStatusType = typeof UserStatus[number];
 // Base user schema
 export const userBaseSchema = {
   email: z.string().email(),
+  profileEmail: z.string().email().optional(), // Contact email, separate from account email
   firstName: z.string().optional(),
   lastName: z.string().optional(),
   phone: z.string().optional(),

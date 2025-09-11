@@ -97,6 +97,7 @@ export async function PUT(request: NextRequest) {
     if (profileData.firstName !== undefined) profileUpdates.first_name = profileData.firstName;
     if (profileData.lastName !== undefined) profileUpdates.last_name = profileData.lastName;
     if (profileData.phone !== undefined) profileUpdates.phone = profileData.phone;
+    if (profileData.profileEmail !== undefined) profileUpdates.profile_email = profileData.profileEmail;
     if (profileData.dateOfBirth !== undefined) profileUpdates.date_of_birth = profileData.dateOfBirth;
     if (profileData.address !== undefined) profileUpdates.address = profileData.address;
     if (profileData.profession !== undefined) profileUpdates.profession = profileData.profession;
