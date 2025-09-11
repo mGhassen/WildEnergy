@@ -29,17 +29,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Member ID and Course ID are required' }, { status: 400 });
     }
 
-    // Get the course's group information
+    // Get the course's group information through the many-to-many relationship
     const { data: course, error: courseError } = await supabaseServer()
       .from('courses')
       .select(`
         id,
         class:classes(
           category:categories(
-            group:groups(
-              id,
-              name,
-              color
+            id,
+            name,
+            color,
+            category_groups(
+              group:groups(
+                id,
+                name,
+                color
+              )
             )
           )
         )
@@ -53,8 +58,21 @@ export async function POST(req: NextRequest) {
 
     const classData = Array.isArray(course.class) ? course.class[0] : course.class;
     const categoryData = Array.isArray(classData?.category) ? classData.category[0] : classData?.category;
-    const groupData = Array.isArray(categoryData?.group) ? categoryData.group[0] : categoryData?.group;
-    const groupId = groupData?.id;
+    const categoryGroups = Array.isArray(categoryData?.category_groups) ? categoryData.category_groups : [];
+    
+    // For now, we'll use the first group if multiple groups exist
+    // In the future, this might need to be more sophisticated
+    let groupId: any = null;
+    let groupData: any = null;
+    if (categoryGroups.length > 0) {
+      const firstCategoryGroup = categoryGroups[0] as any;
+      groupData = firstCategoryGroup?.group;
+      groupId = Array.isArray(groupData) ? groupData[0]?.id : groupData?.id;
+      // If groupData is an array, get the first element
+      if (Array.isArray(groupData)) {
+        groupData = groupData[0];
+      }
+    }
     if (!groupId) {
       return NextResponse.json({ 
         can_register: false, 

@@ -42,10 +42,12 @@ export async function GET(
             id,
             name,
             color,
-            group:groups(
-              id,
-              name,
-              color
+            category_groups(
+              group:groups(
+                id,
+                name,
+                color
+              )
             )
           )
         ),
@@ -155,13 +157,37 @@ export async function GET(
     const totalCheckins = checkins?.length || 0;
     const attendanceRate = totalRegistrations > 0 ? Math.round((totalCheckins / totalRegistrations) * 100) : 0;
 
+    // Process class data to include group information
+    let processedClass = course.class;
+    if (processedClass?.category?.category_groups) {
+      const categoryGroups = processedClass.category.category_groups;
+      const firstGroup = categoryGroups.length > 0 ? categoryGroups[0].group : null;
+      processedClass = {
+        ...processedClass,
+        category: {
+          ...processedClass.category,
+          group: firstGroup
+        }
+      };
+    }
+
     // Return comprehensive course data
     return NextResponse.json({
       ...course,
-      trainer: trainerDetails || course.trainer,
+      class: processedClass,
+      trainer: {
+        ...(trainerDetails || course.trainer),
+        member: trainerDetails ? {
+          id: course.trainer?.account_id,
+          first_name: trainerDetails.first_name,
+          last_name: trainerDetails.last_name,
+          email: trainerDetails.email,
+          phone: trainerDetails.phone
+        } : null
+      },
       registrations: (registrations || []).map(reg => ({
         ...reg,
-        user: memberDetails[reg.member_id] || {
+        member: memberDetails[reg.member_id] || {
           id: reg.member_id,
           first_name: 'Unknown',
           last_name: 'Member',
@@ -171,7 +197,7 @@ export async function GET(
       })),
       checkins: (checkins || []).map(checkin => ({
         ...checkin,
-        user: memberDetails[checkin.member_id] || {
+        member: memberDetails[checkin.member_id] || {
           id: checkin.member_id,
           first_name: 'Unknown',
           last_name: 'Member',

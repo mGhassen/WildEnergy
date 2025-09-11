@@ -41,10 +41,7 @@ export async function GET(request: NextRequest) {
         classes (
           id, name, max_capacity, duration, category_id,
           category:categories (
-            id, name, color,
-            group:groups (
-              id, name, color
-            )
+            id, name, color
           )
         )
       `)
