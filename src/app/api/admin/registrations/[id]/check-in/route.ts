@@ -14,7 +14,7 @@ async function getUserFromToken(token: string) {
 
 export async function POST(
   req: NextRequest,
-  context: { params: Promise<{ id: string; registrationId: string }> }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const authHeader = req.headers.get('authorization');
@@ -33,7 +33,7 @@ export async function POST(
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const { registrationId } = await context.params;
+    const { id: registrationId } = await context.params;
     const registrationIdNum = parseInt(registrationId);
     if (!registrationId || isNaN(registrationIdNum)) {
       return NextResponse.json({ error: 'Invalid registration ID' }, { status: 400 });
@@ -77,7 +77,7 @@ export async function POST(
       return NextResponse.json({ error: 'Member is already checked in' }, { status: 400 });
     }
 
-    console.log(`Updating registration ${registrationId} from status '${registration.status}' to 'attended'`);
+    console.log(`Checking in registration ${registrationId} from status '${registration.status}' to 'attended'`);
     
     // Update registration status to 'attended' and create check-in record
     const { data: updatedRegistration, error: updateError } = await supabaseServer()
@@ -102,7 +102,7 @@ export async function POST(
         user_id: registration.user_id,
         checkin_time: new Date().toISOString(),
         session_consumed: true,
-        notes: 'Validated by admin'
+        notes: 'Checked in by admin'
       })
       .select()
       .single();
@@ -114,6 +114,7 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
+      message: 'Member checked in successfully',
       checkin: {
         id: checkin.id,
         registrationId: checkin.registration_id,
@@ -138,7 +139,7 @@ export async function POST(
     });
 
   } catch (error) {
-    console.error('Validate checkin error:', error);
+    console.error('Check-in error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-} 
+}

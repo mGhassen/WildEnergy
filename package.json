@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "create-users": "node scripts/create-users.js"
+    "create-users": "node scripts/create-users.js",
+    "reset-and-seed": "node scripts/reset-and-seed.js"
   },
   "dependencies": {
     "@hookform/resolvers": "5.1.1",

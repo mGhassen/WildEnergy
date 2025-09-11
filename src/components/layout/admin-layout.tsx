@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { usePathname } from 'next/navigation';
+import { useAuth } from '@/hooks/use-auth';
 import { Button } from "@/components/ui/button";
 import {
   Dumbbell, 
@@ -76,6 +77,49 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { theme, setTheme } = useTheme();
+  const { user, isLoading, isAuthenticated } = useAuth();
+
+  // Show loading state while checking authentication
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Redirect to login if not authenticated
+  if (!isAuthenticated || !user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
+          <p className="text-muted-foreground mb-4">You need to be logged in to access this page.</p>
+          <Button onClick={() => window.location.href = '/auth/login'}>
+            Go to Login
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Check if user has admin access
+  if (!user.isAdmin && !user.accessiblePortals?.includes('admin')) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
+          <p className="text-muted-foreground mb-4">You don't have permission to access the admin panel.</p>
+          <Button onClick={() => window.location.href = '/member'}>
+            Go to Member Portal
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   // Generate breadcrumbs based on current path
   const getBreadcrumbs = () => {

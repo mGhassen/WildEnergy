@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import { memberDetailsApi, MemberDetails } from '@/lib/api/member-details';
+import { memberApi, MemberDetails } from '@/lib/api/members';
 
 export function useMemberDetails(memberId: string | null) {
   return useQuery<MemberDetails, Error>({
     queryKey: ['member-details', memberId],
-    queryFn: () => memberDetailsApi.getMemberDetails(memberId!),
+    queryFn: () => memberApi.getMemberDetails(memberId!),
     enabled: !!memberId,
   });
 }

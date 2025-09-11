@@ -132,15 +132,15 @@ export function useCheckinInfo(qrCode: string) {
   });
 }
 
-export function useValidateCheckin() {
+export function useCheckInRegistration() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: (data: CheckinRequest) => checkinApi.validateCheckin(data),
+    mutationFn: (registrationId: string) => checkinApi.checkInRegistration(registrationId),
     onSuccess: (response, variables) => {
       // Invalidate checkin info to refetch updated data
-      queryClient.invalidateQueries({ queryKey: ['checkin-info', variables.qr_code] });
+      queryClient.invalidateQueries({ queryKey: ['checkin-info'] });
       queryClient.invalidateQueries({ queryKey: ['/api/checkins'] });
       queryClient.invalidateQueries({ queryKey: ['/api/registrations'] });
       
@@ -159,12 +159,12 @@ export function useValidateCheckin() {
   });
 }
 
-export function useUnvalidateCheckin() {
+export function useCheckOutRegistration() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: (registrationId: string) => checkinApi.unvalidateCheckin(registrationId),
+    mutationFn: (registrationId: string) => checkinApi.checkOutRegistration(registrationId),
     onSuccess: (response, variables) => {
       // Invalidate checkin info to refetch updated data
       queryClient.invalidateQueries({ queryKey: ['checkin-info'] });
@@ -172,13 +172,13 @@ export function useUnvalidateCheckin() {
       queryClient.invalidateQueries({ queryKey: ['/api/registrations'] });
       
       toast({
-        title: 'Check-in Unvalidated',
-        description: 'Check-in has been successfully removed',
+        title: 'Check-out Successful',
+        description: 'Member has been successfully checked out',
       });
     },
     onError: (error: any) => {
       toast({
-        title: 'Failed to Unvalidate Check-in',
+        title: 'Failed to Check Out',
         description: error.message || 'Please try again',
         variant: 'destructive',
       });

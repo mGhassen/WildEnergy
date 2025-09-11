@@ -38,7 +38,6 @@ export const members = pgTable("members", {
   memberNotes: text("member_notes"),
   credit: numeric("credit").default("0"),
   status: text("status", { enum: ['active', 'inactive', 'suspended'] }).notNull().default("active"),
-  subscriptionStatus: text("subscription_status").default("inactive"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

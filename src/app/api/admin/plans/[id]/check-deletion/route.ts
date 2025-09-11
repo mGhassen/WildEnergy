@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { supabaseServer } from '@/lib/supabase';
 
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
@@ -15,12 +10,12 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     }
 
     // Verify admin
-    const { data: { user: adminUser }, error: authError } = await supabase.auth.getUser(token);
+    const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
 
-    const { data: adminCheck } = await supabase
+    const { data: adminCheck } = await supabaseServer()
       .from('user_profiles')
       .select('is_admin')
       .eq('email', adminUser.email)
@@ -33,7 +28,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     const { id } = await context.params;
 
     // Check if plan has active subscriptions
-    const { data: subscriptions, error: subscriptionError } = await supabase
+    const { data: subscriptions, error: subscriptionError } = await supabaseServer()
       .from('subscriptions')
       .select('id, user_id, status, users (id, first_name, last_name, email)')
       .eq('plan_id', id);

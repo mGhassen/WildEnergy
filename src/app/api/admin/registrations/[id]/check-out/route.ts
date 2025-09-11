@@ -12,7 +12,10 @@ async function getUserFromToken(token: string) {
   return userProfile;
 }
 
-export async function POST(request: NextRequest, context: { params: Promise<{ id: string; registrationId: string }> }) {
+export async function POST(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   try {
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.split(' ')[1];
@@ -30,9 +33,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const params = await context.params;
-    const registrationId = parseInt(params.registrationId);
-    if (!registrationId || isNaN(registrationId)) {
+    const { id: registrationId } = await context.params;
+    const registrationIdNum = parseInt(registrationId);
+    if (!registrationId || isNaN(registrationIdNum)) {
       return NextResponse.json({ error: 'Invalid registration ID' }, { status: 400 });
     }
 
@@ -50,12 +53,12 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
           class:classes(name)
         )
       `)
-      .eq('id', registrationId)
+      .eq('id', registrationIdNum)
       .in('status', ['registered', 'attended'])
       .single();
 
     if (registrationError || !registration) {
-      return NextResponse.json({ error: 'Registration not found or not valid for unvalidation' }, { status: 404 });
+      return NextResponse.json({ error: 'Registration not found or not valid for check-out' }, { status: 404 });
     }
 
     // Check if there's an existing check-in to remove
@@ -71,7 +74,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     }
 
     if (!existingCheckin) {
-      return NextResponse.json({ error: 'No check-in found to unvalidate' }, { status: 404 });
+      return NextResponse.json({ error: 'No check-in found to check out' }, { status: 404 });
     }
 
     // Delete the check-in record
@@ -82,7 +85,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
 
     if (deleteError) {
       console.error('Error deleting checkin:', deleteError);
-      return NextResponse.json({ error: 'Failed to unvalidate check-in' }, { status: 500 });
+      return NextResponse.json({ error: 'Failed to check out member' }, { status: 500 });
     }
 
     // Determine the appropriate status based on whether the class has finished
@@ -101,14 +104,14 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     // Set status based on whether class has finished
     const newStatus = hasFinished ? 'absent' : 'registered';
     
-    console.log(`[UNVALIDATE] Registration ${registrationId}: Course finished: ${hasFinished}, Setting status to: ${newStatus}`);
-    console.log(`[UNVALIDATE] Course date: ${courseDate}, end time: ${courseEndTime}, Current: ${currentDate} ${currentTime}`);
+    console.log(`[CHECK-OUT] Registration ${registrationId}: Course finished: ${hasFinished}, Setting status to: ${newStatus}`);
+    console.log(`[CHECK-OUT] Course date: ${courseDate}, end time: ${courseEndTime}, Current: ${currentDate} ${currentTime}`);
 
     // Update registration status based on class timing
     const { data: updatedRegistration, error: updateError } = await supabaseServer()
       .from('class_registrations')
       .update({ status: newStatus })
-      .eq('id', registrationId)
+      .eq('id', registrationIdNum)
       .select()
       .single();
 
@@ -119,7 +122,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
 
     return NextResponse.json({
       success: true,
-      message: `Check-in unvalidated successfully. Registration status set to '${newStatus}'`,
+      message: `Member checked out successfully. Registration status set to '${newStatus}'`,
       removedCheckin: {
         id: existingCheckin.id,
         registrationId: registrationId,
@@ -148,7 +151,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     });
 
   } catch (error) {
-    console.error('Unvalidate checkin error:', error);
+    console.error('Check-out error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-} 
+}

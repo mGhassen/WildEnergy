@@ -22,10 +22,23 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
     
-    // Fetch all members using new system
+    // Fetch all members using new system with subscriptions
     const { data: members, error } = await supabaseServer()
       .from('user_profiles')
-      .select('*')
+      .select(`
+        *,
+        subscriptions:subscriptions(
+          id,
+          member_id,
+          plan_id,
+          start_date,
+          end_date,
+          status,
+          notes,
+          created_at,
+          updated_at
+        )
+      `)
       .not('member_id', 'is', null) // Only users with member records
       .eq('member_status', 'active')
       .order('email', { ascending: true });
@@ -46,9 +59,9 @@ export async function GET(req: NextRequest) {
       credit: m.credit ?? 0,
       member_notes: m.member_notes,
       member_status: m.member_status,
-      subscription_status: m.subscription_status,
       user_type: m.user_type,
       accessible_portals: m.accessible_portals,
+      subscriptions: m.subscriptions || [], // Include subscriptions for dynamic status calculation
       groupSessions: m.subscriptions?.[0]?.subscription_group_sessions || []
     }));
     

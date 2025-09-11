@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { supabaseServer } from '@/lib/supabase';
 
 function extractIdFromUrl(request: NextRequest): string | null {
   const match = request.nextUrl.pathname.match(/\/classes\/(.+?)(\/|$)/);
@@ -25,12 +20,12 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Verify admin
-    const { data: { user: adminUser }, error: authError } = await supabase.auth.getUser(token);
+    const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
 
-    const { data: adminCheck } = await supabase
+    const { data: adminCheck } = await supabaseServer()
       .from('user_profiles')
       .select('is_admin')
       .eq('email', adminUser.email)
@@ -59,7 +54,7 @@ export async function PATCH(request: NextRequest) {
       updated_at: new Date().toISOString(),
     };
 
-    const { data: updatedClass, error } = await supabase
+    const { data: updatedClass, error } = await supabaseServer()
       .from('classes')
       .update(updateData)
       .eq('id', id)
@@ -95,12 +90,12 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Verify admin
-    const { data: { user: adminUser }, error: authError } = await supabase.auth.getUser(token);
+    const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
 
-    const { data: adminCheck } = await supabase
+    const { data: adminCheck } = await supabaseServer()
       .from('user_profiles')
       .select('is_admin')
       .eq('email', adminUser.email)
@@ -111,7 +106,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Check if class exists
-    const { data: existingClass, error: fetchError } = await supabase
+    const { data: existingClass, error: fetchError } = await supabaseServer()
       .from('classes')
       .select('id')
       .eq('id', id)
@@ -122,7 +117,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Delete the class
-    const { error: deleteError } = await supabase
+    const { error: deleteError } = await supabaseServer()
       .from('classes')
       .delete()
       .eq('id', id);

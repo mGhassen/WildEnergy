@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { supabaseServer } from '@/lib/supabase';
 
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
@@ -15,7 +10,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     }
 
     // Verify user (member or admin)
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    const { data: { user }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !user) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
@@ -23,7 +18,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     const { id } = await context.params;
 
     // Fetch plan with its groups
-    const { data: plan, error } = await supabase
+    const { data: plan, error } = await supabaseServer()
       .from('plans')
       .select(`
         *,
@@ -68,12 +63,12 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
     }
 
     // Verify admin
-    const { data: { user: adminUser }, error: authError } = await supabase.auth.getUser(token);
+    const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
 
-    const { data: adminCheck } = await supabase
+    const { data: adminCheck } = await supabaseServer()
       .from('user_profiles')
       .select('is_admin')
       .eq('email', adminUser.email)
@@ -87,7 +82,7 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
     const { planGroups, ...updates } = await req.json();
     
     // Update the plan
-    const { data: plan, error: planError } = await supabase
+    const { data: plan, error: planError } = await supabaseServer()
       .from('plans')
       .update(updates)
       .eq('id', id)
@@ -101,7 +96,7 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
     // Update plan groups if provided
     if (planGroups !== undefined) {
       // Delete existing plan groups
-      const { error: deleteError } = await supabase
+      const { error: deleteError } = await supabaseServer()
         .from('plan_groups')
         .delete()
         .eq('plan_id', id);
@@ -119,7 +114,7 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
           is_free: group.isFree || false,
         }));
 
-        const { error: groupsError } = await supabase
+        const { error: groupsError } = await supabaseServer()
           .from('plan_groups')
           .insert(planGroupsData);
 
@@ -130,7 +125,7 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
     }
 
     // Fetch the complete plan with groups
-    const { data: completePlan, error: fetchError } = await supabase
+    const { data: completePlan, error: fetchError } = await supabaseServer()
       .from('plans')
       .select(`
         *,
@@ -175,12 +170,12 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
     }
 
     // Verify admin
-    const { data: { user: adminUser }, error: authError } = await supabase.auth.getUser(token);
+    const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
 
-    const { data: adminCheck } = await supabase
+    const { data: adminCheck } = await supabaseServer()
       .from('user_profiles')
       .select('is_admin')
       .eq('email', adminUser.email)
@@ -193,7 +188,7 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
     const { id } = await context.params;
 
     // Check if plan has active subscriptions
-    const { data: subscriptions, error: subscriptionError } = await supabase
+    const { data: subscriptions, error: subscriptionError } = await supabaseServer()
       .from('subscriptions')
       .select('id, user_id, status')
       .eq('plan_id', id);
@@ -214,7 +209,7 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
     }
 
     // Delete plan groups first (due to foreign key constraint)
-    const { error: groupsError } = await supabase
+    const { error: groupsError } = await supabaseServer()
       .from('plan_groups')
       .delete()
       .eq('plan_id', id);
@@ -224,7 +219,7 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
     }
 
     // Delete the plan
-    const { error } = await supabase
+    const { error } = await supabaseServer()
       .from('plans')
       .delete()
       .eq('id', id);

@@ -66,10 +66,15 @@ export const trainerApi = {
   },
 
   async linkAccount(trainerId: string, accountId: string): Promise<{ success: boolean; message: string; trainer: any }> {
-    return apiRequest('POST', `/api/admin/trainers/${trainerId}/link-account`, { accountId });
+    return apiRequest('POST', `/api/admin/accounts/${accountId}/link-trainer`, { trainerId });
   },
 
   async unlinkAccount(trainerId: string): Promise<{ success: boolean; message: string; trainer: any }> {
-    return apiRequest('POST', `/api/admin/trainers/${trainerId}/unlink-account`);
+    // First get the account ID from the trainer
+    const trainer = await this.getTrainer(trainerId);
+    if (!trainer.account_id) {
+      throw new Error('Trainer is not linked to any account');
+    }
+    return apiRequest('POST', `/api/admin/accounts/${trainer.account_id}/unlink-trainer`);
   }
 };

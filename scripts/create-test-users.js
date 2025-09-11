@@ -246,7 +246,7 @@ async function createWildEnergyTestUsers() {
             member_notes: user.memberNotes || '',
             credit: user.credit || 0,
             status: user.status,
-            subscription_status: user.subscriptionStatus || 'inactive'
+            // subscription_status removed - determined dynamically from subscriptions table
           })
           .select()
           .single();

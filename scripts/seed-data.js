@@ -430,13 +430,24 @@ async function seedData() {
       console.log(`✅ Found ${planGroups.length} existing plan groups`);
     }
 
-    // 7. Create Schedules with proper start_date and end_date
-    console.log('📅 Creating schedules...');
+    // 7. Get or Create Schedules with proper start_date and end_date
+    console.log('📅 Getting schedules...');
+    let { data: existingSchedules, error: schedulesQueryError } = await supabase
+      .from('schedules')
+      .select('*')
+      .order('id');
+
+    if (schedulesQueryError) throw schedulesQueryError;
     
-    // Use only available trainers (cycle through them if we have fewer than 8)
-    const getTrainerId = (index) => trainers[index % trainers.length].id;
+    let createdSchedules = [];
     
-    const schedules = [
+    if (!existingSchedules || existingSchedules.length === 0) {
+      console.log('📅 Creating schedules...');
+      
+      // Use only available trainers (cycle through them if we have fewer than 8)
+      const getTrainerId = (index) => trainers[index % trainers.length].id;
+      
+      const schedules = [
       // Monday schedules
       { class_id: classes[0].id, trainer_id: getTrainerId(0), start_time: '08:00', end_time: '09:00', day_of_week: 1, repetition_type: 'weekly', max_participants: 18, code: 'SCH-0001', is_active: true, start_date: formatDate(startDate), end_date: formatDate(endDate) },
       { class_id: classes[2].id, trainer_id: getTrainerId(1), start_time: '09:30', end_time: '10:15', day_of_week: 1, repetition_type: 'weekly', max_participants: 25, code: 'SCH-0002', is_active: true, start_date: formatDate(startDate), end_date: formatDate(endDate) },
@@ -480,51 +491,72 @@ async function seedData() {
       { class_id: classes[13].id, trainer_id: getTrainerId(1), start_time: '16:00', end_time: '16:50', day_of_week: 0, repetition_type: 'weekly', max_participants: 18, code: 'SCH-0028', is_active: true, start_date: formatDate(startDate), end_date: formatDate(endDate) }
     ];
 
-    const { data: createdSchedules, error: schedulesError } = await supabase
-      .from('schedules')
-      .insert(schedules)
-      .select();
+      const { data: newSchedules, error: schedulesError } = await supabase
+        .from('schedules')
+        .insert(schedules)
+        .select();
 
-    if (schedulesError) throw schedulesError;
-    console.log(`✅ Created ${createdSchedules.length} schedules`);
-
-    // 8. Create sample courses for the next 4 weeks
-    console.log('📚 Creating sample courses...');
-    const courses = [];
-    const courseStartDate = new Date(startDate);
-    
-    for (let week = 0; week < 4; week++) {
-      const weekDate = new Date(courseStartDate);
-      weekDate.setDate(courseStartDate.getDate() + (week * 7));
-      
-      // Add courses for first 4 schedules (Monday classes)
-      for (let i = 0; i < 4; i++) {
-        const schedule = createdSchedules[i];
-        const courseDate = new Date(weekDate);
-        courseDate.setDate(weekDate.getDate() + (i === 0 ? 0 : i === 1 ? 1 : i === 2 ? 2 : i === 3 ? 3 : 0));
-        
-        courses.push({
-          schedule_id: schedule.id,
-          class_id: schedule.class_id,
-          trainer_id: schedule.trainer_id,
-          course_date: formatDate(courseDate),
-          start_time: schedule.start_time,
-          end_time: schedule.end_time,
-          max_participants: schedule.max_participants,
-          current_participants: 0,
-          status: 'scheduled',
-          is_active: true
-        });
-      }
+      if (schedulesError) throw schedulesError;
+      createdSchedules = newSchedules;
+      console.log(`✅ Created ${createdSchedules.length} schedules`);
+    } else {
+      createdSchedules = existingSchedules;
+      console.log(`✅ Found ${createdSchedules.length} existing schedules`);
     }
 
-    const { data: createdCourses, error: coursesError } = await supabase
+    // 8. Get or Create sample courses for the next 4 weeks
+    console.log('📚 Getting courses...');
+    let { data: existingCourses, error: coursesQueryError } = await supabase
       .from('courses')
-      .insert(courses)
-      .select();
+      .select('*')
+      .order('id');
 
-    if (coursesError) throw coursesError;
-    console.log(`✅ Created ${createdCourses.length} sample courses`);
+    if (coursesQueryError) throw coursesQueryError;
+    
+    let createdCourses = [];
+    
+    if (!existingCourses || existingCourses.length === 0) {
+      console.log('📚 Creating sample courses...');
+      const courses = [];
+      const courseStartDate = new Date(startDate);
+      
+      for (let week = 0; week < 4; week++) {
+        const weekDate = new Date(courseStartDate);
+        weekDate.setDate(courseStartDate.getDate() + (week * 7));
+        
+        // Add courses for first 4 schedules (Monday classes)
+        for (let i = 0; i < 4; i++) {
+          const schedule = createdSchedules[i];
+          const courseDate = new Date(weekDate);
+          courseDate.setDate(weekDate.getDate() + (i === 0 ? 0 : i === 1 ? 1 : i === 2 ? 2 : i === 3 ? 3 : 0));
+          
+          courses.push({
+            schedule_id: schedule.id,
+            class_id: schedule.class_id,
+            trainer_id: schedule.trainer_id,
+            course_date: formatDate(courseDate),
+            start_time: schedule.start_time,
+            end_time: schedule.end_time,
+            max_participants: schedule.max_participants,
+            current_participants: 0,
+            status: 'scheduled',
+            is_active: true
+          });
+        }
+      }
+
+      const { data: newCourses, error: coursesError } = await supabase
+        .from('courses')
+        .insert(courses)
+        .select();
+
+      if (coursesError) throw coursesError;
+      createdCourses = newCourses;
+      console.log(`✅ Created ${createdCourses.length} sample courses`);
+    } else {
+      createdCourses = existingCourses;
+      console.log(`✅ Found ${createdCourses.length} existing courses`);
+    }
 
     console.log('🎉 Data seeding completed successfully!');
     console.log(`📊 Summary:`);

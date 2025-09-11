@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { supabaseServer } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
     console.log('Sending password reset email to:', email);
     console.log('Redirect URL:', redirectTo);
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    const { error } = await supabaseServer().auth.resetPasswordForEmail(email, {
       redirectTo: redirectTo,
     });
 

@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { supabaseServer } from '@/lib/supabase';
 
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
@@ -15,7 +10,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     }
 
     // Verify user (member or admin)
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    const { data: { user }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !user) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
@@ -23,7 +18,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     const { id } = await context.params;
 
     // Fetch group with its categories
-    const { data: group, error } = await supabase
+    const { data: group, error } = await supabaseServer()
       .from('groups')
       .select(`
         *,
@@ -56,12 +51,12 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
     }
 
     // Verify admin
-    const { data: { user: adminUser }, error: authError } = await supabase.auth.getUser(token);
+    const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
 
-    const { data: adminCheck } = await supabase
+    const { data: adminCheck } = await supabaseServer()
       .from('user_profiles')
       .select('is_admin')
       .eq('email', adminUser.email)
@@ -82,7 +77,7 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
     if (updates.isActive !== undefined) dbUpdates.is_active = updates.isActive;
     
     // Update the group
-    const { data: group, error: groupError } = await supabase
+    const { data: group, error: groupError } = await supabaseServer()
       .from('groups')
       .update(dbUpdates)
       .eq('id', id)
@@ -96,7 +91,7 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
     // Update group-category relationships if provided
     if (categoryIds !== undefined) {
       // Remove all categories from this group first
-      const { error: removeError } = await supabase
+      const { error: removeError } = await supabaseServer()
         .from('categories')
         .update({ group_id: null })
         .eq('group_id', id);
@@ -107,7 +102,7 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
 
       // Assign new categories to this group
       if (categoryIds.length > 0) {
-        const { error: categoriesError } = await supabase
+        const { error: categoriesError } = await supabaseServer()
           .from('categories')
           .update({ group_id: id })
           .in('id', categoryIds);
@@ -119,7 +114,7 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
     }
 
     // Fetch the complete group with categories
-    const { data: completeGroup, error: fetchError } = await supabase
+    const { data: completeGroup, error: fetchError } = await supabaseServer()
       .from('groups')
       .select(`
         *,
@@ -152,12 +147,12 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
     }
 
     // Verify admin
-    const { data: { user: adminUser }, error: authError } = await supabase.auth.getUser(token);
+    const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
 
-    const { data: adminCheck } = await supabase
+    const { data: adminCheck } = await supabaseServer()
       .from('user_profiles')
       .select('is_admin')
       .eq('email', adminUser.email)
@@ -170,7 +165,7 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
     const { id } = await context.params;
 
     // Check if group is used in any plans
-    const { data: linkedPlans, error: plansError } = await supabase
+    const { data: linkedPlans, error: plansError } = await supabaseServer()
       .from('plan_groups')
       .select(`
         id,
@@ -197,7 +192,7 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
     }
 
     // Remove categories from this group (unlink, don't delete)
-    const { error: categoriesError } = await supabase
+    const { error: categoriesError } = await supabaseServer()
       .from('categories')
       .update({ group_id: null })
       .eq('group_id', id);
@@ -207,7 +202,7 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
     }
 
     // Delete the group
-    const { error } = await supabase
+    const { error } = await supabaseServer()
       .from('groups')
       .delete()
       .eq('id', id);

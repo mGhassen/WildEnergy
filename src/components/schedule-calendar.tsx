@@ -10,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ChevronLeft, ChevronRight, Calendar, Users, Clock, Plus, Search, X, Check, XCircle } from 'lucide-react';
 import { formatDate, formatTime, formatLongDate, getDayName, getShortDayName } from '@/lib/date';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useBulkRegisterMembers, useValidateCheckin, useUnvalidateCheckin, useAdminCancelRegistration } from '@/hooks/useRegistrations';
+import { useBulkRegisterMembers, useCheckInRegistration, useCheckOutRegistration, useAdminCancelRegistration } from '@/hooks/useRegistrations';
 import { toast } from 'sonner';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
@@ -290,11 +290,11 @@ export default function ScheduleCalendar({
   // Admin registration mutation
   const registerMembersMutation = useBulkRegisterMembers();
 
-  // Validate check-in mutation
-  const validateCheckinMutation = useValidateCheckin();
+  // Check-in mutation
+  const checkInMutation = useCheckInRegistration();
 
-  // Unvalidate check-in mutation
-  const unvalidateCheckinMutation = useUnvalidateCheckin();
+  // Check-out mutation
+  const checkOutMutation = useCheckOutRegistration();
 
   // Add unregister mutation
   const unregisterMemberMutation = useAdminCancelRegistration();
@@ -791,8 +791,8 @@ export default function ScheduleCalendar({
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               {!isCheckedIn && (
-                                <DropdownMenuItem onClick={() => validateCheckinMutation.mutate(registration.id)} disabled={validateCheckinMutation.isPending}>
-                                  <Check className="w-3 h-3 mr-2" /> Validate
+                                <DropdownMenuItem onClick={() => checkInMutation.mutate(registration.id)} disabled={checkInMutation.isPending}>
+                                  <Check className="w-3 h-3 mr-2" /> Check In
                                 </DropdownMenuItem>
                               )}
                               {!isCheckedIn && (
@@ -1000,21 +1000,21 @@ export default function ScheduleCalendar({
         <AlertDialogTrigger asChild />
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Unvalidate Check-in</AlertDialogTitle>
+            <AlertDialogTitle>Check Out Member</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to unvalidate this check-in? This action cannot be undone.
+              Are you sure you want to check out this member? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setConfirmUnvalidateId(null)}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (confirmUnvalidateId) unvalidateCheckinMutation.mutate(Number(confirmUnvalidateId));
+                if (confirmUnvalidateId) checkOutMutation.mutate(Number(confirmUnvalidateId));
                 setConfirmUnvalidateId(null);
               }}
               className="bg-destructive text-white hover:bg-destructive/90"
             >
-              Unvalidate
+              Check Out
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

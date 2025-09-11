@@ -119,11 +119,11 @@ export const checkinApi = {
     return apiRequest('GET', `/checkin/qr/${qrCode}`);
   },
 
-  async validateCheckin(data: CheckinRequest): Promise<CheckinResponse> {
-    return apiRequest('POST', '/checkins', data);
+  async checkInRegistration(registrationId: string): Promise<CheckinResponse> {
+    return apiRequest('POST', `/api/admin/registrations/${registrationId}/check-in`);
   },
 
-  async unvalidateCheckin(registrationId: string): Promise<CheckinResponse> {
-    return apiRequest('POST', `/checkins/${registrationId}/unvalidate`);
+  async checkOutRegistration(registrationId: string): Promise<CheckinResponse> {
+    return apiRequest('POST', `/api/admin/registrations/${registrationId}/check-out`);
   }
 };

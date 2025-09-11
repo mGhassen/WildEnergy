@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle, XCircle, Loader2, ArrowLeft, User, Calendar, Clock, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useCheckinInfo, useValidateCheckin, useUnvalidateCheckin } from "@/hooks/useCheckins";
+import { useCheckinInfo, useCheckInRegistration, useCheckOutRegistration } from "@/hooks/useCheckins";
 import { CardSkeleton, FormSkeleton } from "@/components/skeletons";
 
 interface CheckinInfo {
@@ -69,8 +69,8 @@ export default function CheckinPerformPage() {
   const [qrCode, setQrCode] = useState<string>('');
 
   const { data: checkinData, isLoading, error } = useCheckinInfo(qrCode);
-  const validateCheckinMutation = useValidateCheckin();
-  const unvalidateCheckinMutation = useUnvalidateCheckin();
+  const checkInMutation = useCheckInRegistration();
+  const checkOutMutation = useCheckOutRegistration();
 
   useEffect(() => {
     // Extract QR code from URL path
@@ -101,10 +101,10 @@ export default function CheckinPerformPage() {
     }
   }, [checkinData, error, isLoading]);
 
-  const validateCheckin = async () => {
+  const checkIn = async () => {
     if (!checkinInfo) return;
 
-    validateCheckinMutation.mutate({ qr_code: qrCode }, {
+    checkInMutation.mutate(checkinInfo.registration.id, {
       onSuccess: () => {
         setStatus('success');
         setMessage('Check-in successful!');
@@ -122,23 +122,23 @@ export default function CheckinPerformPage() {
     });
   };
 
-  const unvalidateCheckin = async () => {
+  const checkOut = async () => {
     if (!checkinInfo) return;
 
-    unvalidateCheckinMutation.mutate(checkinInfo.registration.id, {
+    checkOutMutation.mutate(checkinInfo.registration.id, {
       onSuccess: () => {
         setStatus('info');
-        setMessage('Check-in unvalidated.');
+        setMessage('Member checked out.');
         toast({
-          title: "Check-in Unvalidated",
-          description: `Check-in has been removed for this member.`,
+          title: "Check-out Successful",
+          description: `Member has been checked out.`,
         });
         // Refetch check-in info to update UI
         // The data will be refreshed automatically by React Query
       },
       onError: (error: any) => {
         setStatus('error');
-        setMessage(error.message || 'Failed to unvalidate check-in');
+        setMessage(error.message || 'Failed to check out member');
       }
     });
   };
@@ -345,11 +345,11 @@ export default function CheckinPerformPage() {
           <div className="flex gap-3">
             {status === 'info' && !checkinInfo?.alreadyCheckedIn && (
               <Button 
-                onClick={validateCheckin} 
-                disabled={validateCheckinMutation.isPending}
+                onClick={checkIn} 
+                disabled={checkInMutation.isPending}
                 className="flex-1"
               >
-                {validateCheckinMutation.isPending ? (
+                {checkInMutation.isPending ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     Processing...
@@ -357,19 +357,19 @@ export default function CheckinPerformPage() {
                 ) : (
                   <>
                     <CheckCircle className="w-4 h-4 mr-2" />
-                    Validate Check-in
+                    Check In
                   </>
                 )}
               </Button>
             )}
             {status === 'info' && checkinInfo?.alreadyCheckedIn && (
               <Button 
-                onClick={unvalidateCheckin} 
-                disabled={unvalidateCheckinMutation.isPending}
+                onClick={checkOut} 
+                disabled={checkOutMutation.isPending}
                 variant="destructive"
                 className="flex-1"
               >
-                {unvalidateCheckinMutation.isPending ? (
+                {checkOutMutation.isPending ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     Processing...
@@ -377,7 +377,7 @@ export default function CheckinPerformPage() {
                 ) : (
                   <>
                     <XCircle className="w-4 h-4 mr-2" />
-                    Unvalidate Check-in
+                    Check Out
                   </>
                 )}
               </Button>
