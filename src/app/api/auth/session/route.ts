@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
     const { data: userData, error: dbError } = await supabaseServer()
       .from('user_profiles')
       .select('*')
-      .eq('email', user.email)
+      .eq('account_email', user.email)
       .single();
 
     if (dbError) {
