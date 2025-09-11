@@ -46,6 +46,7 @@ import { formatDate } from "@/lib/date";
 import { formatCurrency } from "@/lib/config";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { TableSkeleton } from "@/components/skeletons";
+import { getCurrentSubscriptionStatus, getActiveSubscriptions } from "@/lib/api/subscriptions";
 
 // Proper types based on actual API response
 interface Member {
@@ -59,10 +60,11 @@ interface Member {
   credit: number;
   member_notes?: string;
   member_status: string;
-  subscription_status: string;
+  // subscription_status removed - calculated dynamically from subscriptions
   user_type: string;
   accessible_portals: string[];
   groupSessions?: any[];
+  subscriptions?: any[]; // Add subscriptions for dynamic status calculation
   created_at?: string;
   date_of_birth?: string;
   address?: string;
@@ -159,7 +161,7 @@ export default function MembersPage() {
   const processedMembers = useMemo(() => {
     if (!Array.isArray(members)) return [];
     
-    return members.map((member: any) => ({
+    const baseMembers = members.map((member: any) => ({
       ...member,
       // Ensure all required fields exist
       id: member.id || member.member_id || '',
@@ -167,10 +169,16 @@ export default function MembersPage() {
       last_name: member.last_name || '',
       email: member.email || '',
       member_status: member.member_status || 'inactive',
-      subscription_status: member.subscription_status || 'inactive',
       credit: typeof member.credit === 'number' ? member.credit : 0,
       phone: member.phone || '',
       created_at: member.created_at || member.createdAt || '',
+      subscriptions: member.subscriptions || []
+    }));
+    
+    // Add dynamic subscription status calculation
+    return baseMembers.map(member => ({
+      ...member,
+      subscription_status: getCurrentSubscriptionStatus(member.subscriptions || [])
     }));
   }, [members]);
 
@@ -180,8 +188,8 @@ export default function MembersPage() {
     const active = processedMembers.filter(m => m.member_status === 'active').length;
     const pending = processedMembers.filter(m => m.member_status === 'archived').length;
     const suspended = processedMembers.filter(m => m.member_status === 'suspended').length;
-    const activeSubscriptions = processedMembers.filter(m => m.subscription_status === 'active').length;
-    const expiredSubscriptions = processedMembers.filter(m => m.subscription_status === 'expired').length;
+    const activeSubscriptions = processedMembers.filter(m => getCurrentSubscriptionStatus(m.subscriptions || []) === 'active').length;
+    const expiredSubscriptions = processedMembers.filter(m => getCurrentSubscriptionStatus(m.subscriptions || []) === 'expired').length;
     const totalCredit = processedMembers.reduce((sum, m) => sum + (m.credit || 0), 0);
 
     return {
@@ -207,7 +215,7 @@ export default function MembersPage() {
           member.phone?.includes(searchTerm);
         
         const matchesStatus = statusFilter === "all" || member.member_status === statusFilter;
-        const matchesSubscription = subscriptionFilter === "all" || member.subscription_status === subscriptionFilter;
+        const matchesSubscription = subscriptionFilter === "all" || getCurrentSubscriptionStatus(member.subscriptions || []) === subscriptionFilter;
         
         return matchesSearch && matchesStatus && matchesSubscription;
       })
@@ -284,7 +292,7 @@ export default function MembersPage() {
   // Mobile Member Card Component
   const MobileMemberCard = ({ member }: { member: Member }) => {
     const memberStatus = getStatusConfig(member.member_status);
-    const subscriptionStatus = getSubscriptionConfig(member.subscription_status);
+    const subscriptionStatus = getSubscriptionConfig(getCurrentSubscriptionStatus(member.subscriptions || []));
     
     return (
       <Card 
@@ -647,7 +655,7 @@ export default function MembersPage() {
               <TableBody>
                 {filteredMembers.map((member) => {
                   const memberStatus = getStatusConfig(member.member_status);
-                  const subscriptionStatus = getSubscriptionConfig(member.subscription_status);
+                  const subscriptionStatus = getSubscriptionConfig(getCurrentSubscriptionStatus(member.subscriptions || []));
                   
                   return (
                     <TableRow 
@@ -761,7 +769,7 @@ export default function MembersPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredMembers.map((member) => {
                 const memberStatus = getStatusConfig(member.member_status);
-                const subscriptionStatus = getSubscriptionConfig(member.subscription_status);
+                const subscriptionStatus = getSubscriptionConfig(getCurrentSubscriptionStatus(member.subscriptions || []));
                 
                 return (
                   <Card 

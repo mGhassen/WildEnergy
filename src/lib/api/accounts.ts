@@ -19,7 +19,7 @@ export interface Account {
   member_notes?: string;
   credit?: number;
   member_status?: string;
-  subscription_status?: string;
+  // subscription_status removed - should be determined dynamically from subscriptions table
   trainer_id?: string;
   specialization?: string;
   experience_years?: number;
@@ -92,6 +92,10 @@ export const accountApi = {
     return apiRequest('GET', '/api/admin/accounts');
   },
 
+  async searchAccounts(query: string, limit: number = 10): Promise<{ accounts: Account[] }> {
+    return apiRequest('GET', `/api/admin/accounts/search?q=${encodeURIComponent(query)}&limit=${limit}`);
+  },
+
   async getAccount(accountId: string): Promise<Account> {
     return apiRequest('GET', `/api/admin/accounts/${accountId}`);
   },
@@ -143,5 +147,14 @@ export const accountApi = {
 
   async resendInvitation(accountId: string): Promise<any> {
     return apiRequest('POST', `/api/admin/accounts/${accountId}/resend-invitation`);
+  },
+
+  // Account linking functions
+  async linkMember(accountId: string, memberId: string): Promise<{ success: boolean; message: string }> {
+    return apiRequest('POST', `/api/admin/accounts/${accountId}/link-member`, { memberId });
+  },
+
+  async unlinkMember(accountId: string): Promise<{ success: boolean; message: string }> {
+    return apiRequest('POST', `/api/admin/accounts/${accountId}/unlink-member`);
   }
 };

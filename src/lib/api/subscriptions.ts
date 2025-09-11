@@ -79,3 +79,22 @@ export const subscriptionApi = {
     return apiRequest('POST', '/api/member/subscriptions', { subscriptionId, sessionsToRefund });
   }
 };
+
+// Subscription utility functions
+export function getCurrentSubscriptionStatus(subscriptions: Subscription[]): string {
+  if (!subscriptions?.length) return 'inactive';
+  
+  const active = subscriptions.find(sub => 
+    sub.status === 'active' && new Date(sub.end_date) > new Date()
+  );
+  
+  return active ? 'active' : 'inactive';
+}
+
+export function getActiveSubscriptions(subscriptions: Subscription[]): Subscription[] {
+  if (!subscriptions?.length) return [];
+  
+  return subscriptions.filter(sub => 
+    sub.status === 'active' && new Date(sub.end_date) > new Date()
+  );
+}

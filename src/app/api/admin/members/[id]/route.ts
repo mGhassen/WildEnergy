@@ -150,7 +150,6 @@ export async function GET(
         email: member.email,
         status: member.member_status,
         accountStatus: member.account_status,
-        subscriptionStatus: member.subscription_status,
         phone: member.phone,
         dateOfBirth: member.date_of_birth,
         address: member.address,
@@ -224,5 +223,129 @@ export async function GET(
   } catch (error) {
     console.error('Member details error:', error);
     return NextResponse.json({ error: 'Failed to fetch member details' }, { status: 500 });
+  }
+}
+
+export async function PUT(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await context.params;
+    
+    if (!id) {
+      return NextResponse.json({ error: 'Member ID is required' }, { status: 400 });
+    }
+
+    // Get the authorization header
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const token = authHeader.substring(7);
+    
+    // Verify the token
+    const { data: { user: authUser }, error: authError } = await supabaseServer().auth.getUser(token);
+    if (authError || !authUser) {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    }
+
+    // Check if the user is an admin using new user system
+    const { data: profile, error: profileError } = await supabaseServer()
+      .from('user_profiles')
+      .select('is_admin, accessible_portals')
+      .eq('email', authUser.email)
+      .single();
+
+    if (profileError) {
+      console.error('Profile lookup error:', profileError);
+      return NextResponse.json({ error: 'Failed to verify admin status' }, { status: 500 });
+    }
+
+    if (!profile || !profile.is_admin || !profile.accessible_portals?.includes('admin')) {
+      console.error('Admin check failed:', { 
+        isAdmin: profile?.is_admin, 
+        portals: profile?.accessible_portals,
+        userEmail: authUser.email 
+      });
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
+    }
+
+    const body = await request.json();
+
+    // Get the member first to find the account_id
+    let { data: member, error: memberError } = await supabaseServer()
+      .from('user_profiles')
+      .select('account_id')
+      .eq('member_id', id)
+      .single();
+
+    // If not found by member_id, try by account_id
+    if (memberError && memberError.code === 'PGRST116') {
+      const fallbackResult = await supabaseServer()
+        .from('user_profiles')
+        .select('account_id')
+        .eq('account_id', id)
+        .single();
+      
+      member = fallbackResult.data;
+      memberError = fallbackResult.error;
+    }
+
+    if (memberError || !member) {
+      console.error('Member lookup error:', memberError);
+      return NextResponse.json({ error: 'Member not found' }, { status: 404 });
+    }
+
+    const accountId = member.account_id;
+
+    // Update profile data
+    const profileUpdates: Record<string, unknown> = {};
+    if (body.firstName !== undefined) profileUpdates.first_name = body.firstName;
+    if (body.lastName !== undefined) profileUpdates.last_name = body.lastName;
+    if (body.phone !== undefined) profileUpdates.phone = body.phone;
+    if (body.dateOfBirth !== undefined) profileUpdates.date_of_birth = body.dateOfBirth;
+    if (body.address !== undefined) profileUpdates.address = body.address;
+    if (body.profession !== undefined) profileUpdates.profession = body.profession;
+
+    if (Object.keys(profileUpdates).length > 0) {
+      const { error: profileError } = await supabaseServer()
+        .from('profiles')
+        .update(profileUpdates)
+        .eq('id', accountId);
+
+      if (profileError) {
+        console.error('Profile update error:', profileError);
+        return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
+      }
+    }
+
+    // Note: Account data (email, userType, accessiblePortals, accountStatus) 
+    // should be updated via the account page, not the member page
+
+    // Update member data
+    const memberUpdates: Record<string, unknown> = {};
+    if (body.memberNotes !== undefined) memberUpdates.member_notes = body.memberNotes;
+    if (body.status !== undefined) memberUpdates.status = body.status;
+    if (body.credit !== undefined) memberUpdates.credit = body.credit;
+
+    if (Object.keys(memberUpdates).length > 0) {
+      const { error: memberError } = await supabaseServer()
+        .from('members')
+        .update(memberUpdates)
+        .eq('account_id', accountId);
+
+      if (memberError) {
+        console.error('Member update error:', memberError);
+        return NextResponse.json({ error: 'Failed to update member' }, { status: 500 });
+      }
+    }
+
+    return NextResponse.json({ success: true, message: 'Member updated successfully' });
+
+  } catch (error) {
+    console.error('Member update error:', error);
+    return NextResponse.json({ error: 'Failed to update member' }, { status: 500 });
   }
 } 

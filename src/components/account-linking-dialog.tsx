@@ -22,8 +22,8 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
-import { useSearchAccounts, useLinkAccount } from "@/hooks/useAccountLinking";
-import { Account } from "@/lib/api/account-linking";
+import { useSearchAccounts, useLinkAccountToMember } from "@/hooks/useAccountLinking";
+import { Account } from "@/lib/api/accounts";
 import { Search, User, Mail, Calendar, Loader2, Check } from "lucide-react";
 import { formatDate } from "@/lib/date";
 
@@ -47,7 +47,7 @@ export function AccountLinkingDialog({
   const debouncedQuery = useDebounce(searchQuery, 300);
 
   const { data: searchResults, isLoading: isSearching } = useSearchAccounts(debouncedQuery);
-  const linkAccountMutation = useLinkAccount();
+  const linkAccountMutation = useLinkAccountToMember();
 
   // Reset state when dialog opens/closes
   useEffect(() => {
@@ -63,7 +63,7 @@ export function AccountLinkingDialog({
     try {
       await linkAccountMutation.mutateAsync({
         memberId,
-        data: { accountId: selectedAccount.id }
+        accountId: selectedAccount.account_id
       });
       
       onSuccess?.();
@@ -122,11 +122,11 @@ export function AccountLinkingDialog({
                 </div>
               ) : (
                 <div className="p-2">
-                  {accounts.map((account) => (
+                  {accounts.map((account: Account) => (
                     <div
-                      key={account.id}
+                      key={account.account_id}
                       className={`flex items-center justify-between p-3 rounded-md cursor-pointer transition-colors ${
-                        selectedAccount?.id === account.id
+                        selectedAccount?.account_id === account.account_id
                           ? 'bg-primary/10 border border-primary'
                           : 'hover:bg-muted/50'
                       }`}
@@ -137,7 +137,7 @@ export function AccountLinkingDialog({
                           <User className="w-4 h-4 text-primary" />
                         </div>
                         <div>
-                          <p className="font-medium">{account.fullName}</p>
+                          <p className="font-medium">{`${account.first_name || ''} ${account.last_name || ''}`.trim() || 'No name'}</p>
                           <p className="text-sm text-muted-foreground flex items-center">
                             <Mail className="w-3 h-3 mr-1" />
                             {account.email}
@@ -146,9 +146,9 @@ export function AccountLinkingDialog({
                       </div>
                       <div className="flex items-center space-x-2">
                         <Badge variant="secondary" className="text-xs">
-                          {account.userType}
+                          {account.user_type}
                         </Badge>
-                        {selectedAccount?.id === account.id && (
+                        {selectedAccount?.account_id === account.account_id && (
                           <Check className="w-4 h-4 text-primary" />
                         )}
                       </div>
@@ -164,12 +164,12 @@ export function AccountLinkingDialog({
             <div className="p-4 bg-muted/50 rounded-md">
               <h4 className="font-medium mb-2">Selected Account</h4>
               <div className="space-y-1 text-sm">
-                <p><strong>Name:</strong> {selectedAccount.fullName}</p>
+                <p><strong>Name:</strong> {`${selectedAccount.first_name || ''} ${selectedAccount.last_name || ''}`.trim() || 'No name'}</p>
                 <p><strong>Email:</strong> {selectedAccount.email}</p>
-                <p><strong>Type:</strong> {selectedAccount.userType}</p>
+                <p><strong>Type:</strong> {selectedAccount.user_type}</p>
                 <p className="flex items-center">
                   <Calendar className="w-3 h-3 mr-1" />
-                  <strong>Created:</strong> {formatDate(selectedAccount.createdAt)}
+                  <strong>Created:</strong> {formatDate(selectedAccount.created_at)}
                 </p>
               </div>
             </div>

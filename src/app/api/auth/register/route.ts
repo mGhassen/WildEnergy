@@ -70,7 +70,6 @@ export async function POST(req: NextRequest) {
           member_notes: '',
           credit: 0,
           status: 'active',
-          subscription_status: 'inactive',
         });
 
       if (memberError) {

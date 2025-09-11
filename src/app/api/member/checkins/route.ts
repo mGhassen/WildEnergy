@@ -1,15 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { supabaseServer } from '@/lib/supabase';
 
 async function getUserFromToken(token: string) {
-  const { data: { user }, error } = await supabase.auth.getUser(token);
+  const { data: { user }, error } = await supabaseServer().auth.getUser(token);
   if (error || !user) return null;
-  const { data: userProfile } = await supabase
+  const { data: userProfile } = await supabaseServer()
     .from('user_profiles')
     .select('*')
     .eq('account_id', user.id)
@@ -28,7 +23,7 @@ export async function GET(req: NextRequest) {
     if (!userProfile) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-    const { data: checkins, error } = await supabase
+    const { data: checkins, error } = await supabaseServer()
       .from('checkins')
       .select('*')
       .eq('member_id', userProfile.id);

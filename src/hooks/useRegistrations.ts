@@ -82,23 +82,23 @@ export function useBulkRegisterMembers() {
   });
 }
 
-export function useValidateCheckin() {
+export function useCheckInRegistration() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: (registrationId: number) => registrationApi.validateCheckin(registrationId),
+    mutationFn: (registrationId: number) => registrationApi.checkInRegistration(registrationId.toString()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/checkins'] });
       queryClient.invalidateQueries({ queryKey: ['/api/registrations'] });
       toast({
-        title: 'Check-in validated',
-        description: 'The check-in has been successfully validated.',
+        title: 'Check-in successful',
+        description: 'Member has been successfully checked in.',
       });
     },
     onError: (error: any) => {
       toast({
-        title: 'Failed to validate check-in',
+        title: 'Failed to check in',
         description: error.message || 'Please try again',
         variant: 'destructive',
       });
@@ -106,23 +106,23 @@ export function useValidateCheckin() {
   });
 }
 
-export function useUnvalidateCheckin() {
+export function useCheckOutRegistration() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: (registrationId: number) => registrationApi.unvalidateCheckin(registrationId),
+    mutationFn: (registrationId: number) => registrationApi.checkOutRegistration(registrationId.toString()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/checkins'] });
       queryClient.invalidateQueries({ queryKey: ['/api/registrations'] });
       toast({
-        title: 'Check-in unvalidated',
-        description: 'The check-in has been successfully unvalidated.',
+        title: 'Check-out successful',
+        description: 'Member has been successfully checked out.',
       });
     },
     onError: (error: any) => {
       toast({
-        title: 'Failed to unvalidate check-in',
+        title: 'Failed to check out',
         description: error.message || 'Please try again',
         variant: 'destructive',
       });

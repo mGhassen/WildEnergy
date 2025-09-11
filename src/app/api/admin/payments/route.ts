@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { supabaseServer } from '@/lib/supabase';
 
 export async function GET(req: NextRequest) {
   try {
@@ -14,11 +9,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
     // Verify admin
-    const { data: { user: adminUser }, error: authError } = await supabase.auth.getUser(token);
+    const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-    const { data: adminCheck } = await supabase
+    const { data: adminCheck } = await supabaseServer()
       .from('user_profiles')
       .select('is_admin')
       .eq('email', adminUser.email)
@@ -27,7 +22,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
     // Fetch all payments
-    const { data: payments, error } = await supabase
+    const { data: payments, error } = await supabaseServer()
       .from('payments')
       .select('*')
       .order('created_at', { ascending: false });
@@ -55,11 +50,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
     // Verify admin
-    const { data: { user: adminUser }, error: authError } = await supabase.auth.getUser(token);
+    const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-    const { data: adminCheck } = await supabase
+    const { data: adminCheck } = await supabaseServer()
       .from('user_profiles')
       .select('is_admin')
       .eq('email', adminUser.email)
@@ -97,7 +92,7 @@ export async function POST(req: NextRequest) {
     console.log('Transformed payment data:', paymentData);
     
     // Create the payment
-    const { data: payment, error } = await supabase
+    const { data: payment, error } = await supabaseServer()
       .from('payments')
       .insert(paymentData)
       .select('*')
@@ -116,7 +111,7 @@ export async function POST(req: NextRequest) {
     // Check if this payment completes the subscription
     if (payment.subscription_id) {
       // Get the subscription and plan details
-      const { data: subscription, error: subError } = await supabase
+      const { data: subscription, error: subError } = await supabaseServer()
         .from('subscriptions')
         .select(`
           *,
@@ -129,7 +124,7 @@ export async function POST(req: NextRequest) {
         console.error('Error fetching subscription:', subError);
       } else if (subscription) {
         // Get all payments for this subscription
-        const { data: allPayments, error: paymentsError } = await supabase
+        const { data: allPayments, error: paymentsError } = await supabaseServer()
           .from('payments')
           .select('amount')
           .eq('subscription_id', payment.subscription_id)
@@ -159,7 +154,7 @@ export async function POST(req: NextRequest) {
           
           // Update subscription status if it changed
           if (newStatus !== subscription.status) {
-            const { error: updateError } = await supabase
+            const { error: updateError } = await supabaseServer()
               .from('subscriptions')
               .update({ 
                 status: newStatus,

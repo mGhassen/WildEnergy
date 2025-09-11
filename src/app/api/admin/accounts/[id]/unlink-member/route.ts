@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 
 function extractIdFromUrl(request: NextRequest): string | null {
-  const match = request.nextUrl.pathname.match(/\/accounts\/(.+?)\/unlink-trainer/);
+  const match = request.nextUrl.pathname.match(/\/accounts\/(.+?)\/unlink-member/);
   return match ? match[1] : null;
 }
 
@@ -43,33 +43,33 @@ export async function POST(request: NextRequest) {
     const authResult = await verifyAdminAuth(request);
     if (authResult.error) return authResult.error;
 
-    // Find trainer linked to this account
-    const { data: trainer, error: trainerError } = await supabaseServer()
-      .from('trainers')
+    // Find member linked to this account
+    const { data: member, error: memberError } = await supabaseServer()
+      .from('members')
       .select('id')
       .eq('account_id', accountId)
       .single();
 
-    if (trainerError || !trainer) {
-      return NextResponse.json({ error: 'Account is not linked to any trainer' }, { status: 400 });
+    if (memberError || !member) {
+      return NextResponse.json({ error: 'Account is not linked to any member' }, { status: 400 });
     }
 
-    // Unlink trainer from account
+    // Unlink member from account
     const { error: unlinkError } = await supabaseServer()
-      .from('trainers')
+      .from('members')
       .update({ account_id: null })
-      .eq('id', trainer.id);
+      .eq('id', member.id);
 
     if (unlinkError) {
-      return NextResponse.json({ error: 'Failed to unlink trainer from account' }, { status: 400 });
+      return NextResponse.json({ error: 'Failed to unlink member from account' }, { status: 400 });
     }
 
     return NextResponse.json({
       success: true,
-      message: 'Account unlinked from trainer successfully'
+      message: 'Account unlinked from member successfully'
     });
   } catch (error) {
-    console.error('Unlink trainer error:', error);
+    console.error('Unlink member error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

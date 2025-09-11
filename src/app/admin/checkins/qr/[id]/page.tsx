@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle, XCircle, Loader2, ArrowLeft, User, Calendar, Clock, Users, AlertTriangle, Filter } from "lucide-react";
-import { useCheckinInfo, useValidateCheckin, useUnvalidateCheckin } from "@/hooks/useCheckins";
+import { useCheckinInfo, useCheckInRegistration, useCheckOutRegistration } from "@/hooks/useCheckins";
 import { useToast } from "@/hooks/use-toast";
 import { formatDateTime } from "@/lib/date";
 import { Badge } from "@/components/ui/badge";
@@ -76,8 +76,8 @@ export default function CheckinQRPage() {
   
   // Use hooks for data fetching and mutations
   const { data: checkinInfo, isLoading, error, refetch } = useCheckinInfo(qrCode);
-  const validateCheckinMutation = useValidateCheckin();
-  const unvalidateCheckinMutation = useUnvalidateCheckin();
+  const checkInMutation = useCheckInRegistration();
+  const checkOutMutation = useCheckOutRegistration();
   
   // Status filter state (excluding canceled members)
   const [statusFilters, setStatusFilters] = useState<Set<string>>(new Set(['registered', 'attended', 'absent', 'checked_in']));
@@ -169,12 +169,12 @@ export default function CheckinQRPage() {
   }, [qrCode, isLoading, error, checkinInfo]);
 
 
-  const validateCheckin = async () => {
+  const checkIn = async () => {
     if (!checkinInfo) return;
 
     setMessage('Processing check-in...');
-    validateCheckinMutation.mutate(
-      { qr_code: qrCode },
+    checkInMutation.mutate(
+      checkinInfo.registration.id,
       {
         onSuccess: () => {
           setStatus('success');
@@ -188,19 +188,19 @@ export default function CheckinQRPage() {
     );
   };
 
-  const unvalidateCheckin = async () => {
+  const checkOut = async () => {
     if (!checkinInfo) return;
 
-    setMessage('Unvalidating check-in...');
+    setMessage('Processing check-out...');
     const registrationId = checkinInfo.registration.id;
-    unvalidateCheckinMutation.mutate(registrationId, {
+    checkOutMutation.mutate(registrationId, {
       onSuccess: () => {
         setStatus('info');
-        setMessage('Check-in unvalidated.');
+        setMessage('Member checked out.');
       },
       onError: (error: any) => {
         setStatus('error');
-        setMessage(error.message || 'Failed to unvalidate check-in. Please try again.');
+        setMessage(error.message || 'Failed to check out member. Please try again.');
       }
     });
   };
@@ -485,11 +485,11 @@ export default function CheckinQRPage() {
           <div className="flex gap-3">
             {status === 'info' && !checkinInfo?.alreadyCheckedIn && (
               <Button 
-                onClick={validateCheckin} 
-                disabled={validateCheckinMutation.isPending}
+                onClick={checkIn} 
+                disabled={checkInMutation.isPending}
                 className="flex-1"
               >
-                {validateCheckinMutation.isPending ? (
+                {checkInMutation.isPending ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     Processing...
@@ -504,12 +504,12 @@ export default function CheckinQRPage() {
             )}
             {status === 'info' && checkinInfo?.alreadyCheckedIn && (
               <Button 
-                onClick={unvalidateCheckin} 
-                disabled={unvalidateCheckinMutation.isPending}
+                onClick={checkOut} 
+                disabled={checkOutMutation.isPending}
                 variant="destructive"
                 className="flex-1"
               >
-                {unvalidateCheckinMutation.isPending ? (
+                {checkOutMutation.isPending ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     Processing...

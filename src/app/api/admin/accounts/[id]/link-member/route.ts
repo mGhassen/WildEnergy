@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 
 function extractIdFromUrl(request: NextRequest): string | null {
-  const match = request.nextUrl.pathname.match(/\/accounts\/(.+?)\/link-trainer/);
+  const match = request.nextUrl.pathname.match(/\/accounts\/(.+?)\/link-member/);
   return match ? match[1] : null;
 }
 
@@ -39,9 +39,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Account ID is required' }, { status: 400 });
     }
 
-    const { trainerId } = await request.json();
-    if (!trainerId) {
-      return NextResponse.json({ error: 'Trainer ID is required' }, { status: 400 });
+    const { memberId } = await request.json();
+    if (!memberId) {
+      return NextResponse.json({ error: 'Member ID is required' }, { status: 400 });
     }
 
     // Verify admin authentication
@@ -59,49 +59,49 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Account not found' }, { status: 400 });
     }
 
-    // Check if trainer exists
-    const { data: trainer, error: trainerError } = await supabaseServer()
-      .from('trainers')
+    // Check if member exists
+    const { data: member, error: memberError } = await supabaseServer()
+      .from('members')
       .select('*')
-      .eq('id', trainerId)
+      .eq('id', memberId)
       .single();
 
-    if (trainerError || !trainer) {
-      return NextResponse.json({ error: 'Trainer not found' }, { status: 400 });
+    if (memberError || !member) {
+      return NextResponse.json({ error: 'Member not found' }, { status: 400 });
     }
 
-    // Check if account is already linked to a trainer
-    const { data: existingTrainer } = await supabaseServer()
-      .from('trainers')
+    // Check if account is already linked to a member
+    const { data: existingMember } = await supabaseServer()
+      .from('members')
       .select('id')
       .eq('account_id', accountId)
       .single();
 
-    if (existingTrainer) {
-      return NextResponse.json({ error: 'Account is already linked to a trainer' }, { status: 400 });
+    if (existingMember) {
+      return NextResponse.json({ error: 'Account is already linked to a member' }, { status: 400 });
     }
 
-    // Check if trainer already has an account
-    if (trainer.account_id) {
-      return NextResponse.json({ error: 'Trainer is already linked to an account' }, { status: 400 });
+    // Check if member already has an account
+    if (member.account_id) {
+      return NextResponse.json({ error: 'Member is already linked to an account' }, { status: 400 });
     }
 
-    // Link account to trainer
+    // Link account to member
     const { error: linkError } = await supabaseServer()
-      .from('trainers')
+      .from('members')
       .update({ account_id: accountId })
-      .eq('id', trainerId);
+      .eq('id', memberId);
 
     if (linkError) {
-      return NextResponse.json({ error: 'Failed to link account to trainer' }, { status: 400 });
+      return NextResponse.json({ error: 'Failed to link account to member' }, { status: 400 });
     }
 
     return NextResponse.json({
       success: true,
-      message: 'Account linked to trainer successfully'
+      message: 'Account linked to member successfully'
     });
   } catch (error) {
-    console.error('Link trainer error:', error);
+    console.error('Link member error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

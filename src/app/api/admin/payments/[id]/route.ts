@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { supabaseServer } from '@/lib/supabase';
 
 function extractIdFromUrl(request: NextRequest): string | null {
   const match = request.nextUrl.pathname.match(/\/payments\/(.+?)(\/|$)/);
@@ -25,12 +20,12 @@ export async function PUT(request: NextRequest) {
     }
 
     // Verify admin
-    const { data: { user: adminUser }, error: authError } = await supabase.auth.getUser(token);
+    const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
     
-    const { data: adminCheck } = await supabase
+    const { data: adminCheck } = await supabaseServer()
       .from('user_profiles')
       .select('is_admin')
       .eq('email', adminUser.email)
@@ -69,7 +64,7 @@ export async function PUT(request: NextRequest) {
     console.log('Transformed payment data for update:', paymentData);
 
     // Update the payment
-    const { data: payment, error } = await supabase
+    const { data: payment, error } = await supabaseServer()
       .from('payments')
       .update(paymentData)
       .eq('id', parseInt(id))
@@ -92,7 +87,7 @@ export async function PUT(request: NextRequest) {
     // Check if this payment update affects the subscription status
     if (payment.subscription_id) {
       // Get the subscription and plan details
-      const { data: subscription, error: subError } = await supabase
+      const { data: subscription, error: subError } = await supabaseServer()
         .from('subscriptions')
         .select(`
           *,
@@ -105,7 +100,7 @@ export async function PUT(request: NextRequest) {
         console.error('Error fetching subscription:', subError);
       } else if (subscription) {
         // Get all payments for this subscription
-        const { data: allPayments, error: paymentsError } = await supabase
+        const { data: allPayments, error: paymentsError } = await supabaseServer()
           .from('payments')
           .select('amount')
           .eq('subscription_id', payment.subscription_id)
@@ -135,7 +130,7 @@ export async function PUT(request: NextRequest) {
           
           // Update subscription status if it changed
           if (newStatus !== subscription.status) {
-            const { error: updateError } = await supabase
+            const { error: updateError } = await supabaseServer()
               .from('subscriptions')
               .update({ 
                 status: newStatus,
@@ -174,12 +169,12 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Verify admin
-    const { data: { user: adminUser }, error: authError } = await supabase.auth.getUser(token);
+    const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
     
-    const { data: adminCheck } = await supabase
+    const { data: adminCheck } = await supabaseServer()
       .from('user_profiles')
       .select('is_admin')
       .eq('email', adminUser.email)
@@ -189,7 +184,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Get the payment details before deletion to check subscription
-    const { data: paymentToDelete, error: fetchError } = await supabase
+    const { data: paymentToDelete, error: fetchError } = await supabaseServer()
       .from('payments')
       .select('subscription_id')
       .eq('id', parseInt(id))
@@ -205,7 +200,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Delete the payment
-    const { error } = await supabase
+    const { error } = await supabaseServer()
       .from('payments')
       .delete()
       .eq('id', parseInt(id));
@@ -222,7 +217,7 @@ export async function DELETE(request: NextRequest) {
     // Check if this payment deletion affects the subscription status
     if (paymentToDelete.subscription_id) {
       // Get the subscription and plan details
-      const { data: subscription, error: subError } = await supabase
+      const { data: subscription, error: subError } = await supabaseServer()
         .from('subscriptions')
         .select(`
           *,
@@ -235,7 +230,7 @@ export async function DELETE(request: NextRequest) {
         console.error('Error fetching subscription:', subError);
       } else if (subscription) {
         // Get all remaining payments for this subscription
-        const { data: allPayments, error: paymentsError } = await supabase
+        const { data: allPayments, error: paymentsError } = await supabaseServer()
           .from('payments')
           .select('amount')
           .eq('subscription_id', paymentToDelete.subscription_id)
@@ -265,7 +260,7 @@ export async function DELETE(request: NextRequest) {
           
           // Update subscription status if it changed
           if (newStatus !== subscription.status) {
-            const { error: updateError } = await supabase
+            const { error: updateError } = await supabaseServer()
               .from('subscriptions')
               .update({ 
                 status: newStatus,

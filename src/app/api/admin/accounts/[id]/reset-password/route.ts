@@ -63,7 +63,7 @@ export async function POST(
     console.log('Sending password reset email to:', user.email);
     console.log('Redirect URL:', redirectTo);
     
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(user.email, { redirectTo });
+    const { error: resetError } = await supabaseServer().auth.resetPasswordForEmail(user.email, { redirectTo });
 
     if (resetError) {
       console.error('Password reset error:', resetError);

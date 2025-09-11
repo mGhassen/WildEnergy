@@ -1,15 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { supabaseServer } from '@/lib/supabase';
 
 async function getUserFromToken(token: string) {
-  const { data: { user }, error } = await supabase.auth.getUser(token);
+  const { data: { user }, error } = await supabaseServer().auth.getUser(token);
   if (error || !user) return null;
-  const { data: userProfile } = await supabase
+  const { data: userProfile } = await supabaseServer()
     .from('user_profiles')
     .select('id, is_admin')
     .eq('account_id', user.id)
@@ -28,7 +23,7 @@ export async function GET(req: NextRequest) {
     if (!userProfile) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-    const { data: subscriptions, error } = await supabase
+    const { data: subscriptions, error } = await supabaseServer()
       .from('subscriptions')
       .select(`
         *,
@@ -101,7 +96,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Get the subscription
-    const { data: subscription, error: subError } = await supabase
+    const { data: subscription, error: subError } = await supabaseServer()
       .from('subscriptions')
       .select('*')
       .eq('id', subscriptionId)
@@ -112,7 +107,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Update sessions_remaining
-    const { data: updatedSubscription, error: updateError } = await supabase
+    const { data: updatedSubscription, error: updateError } = await supabaseServer()
       .from('subscriptions')
       .update({ 
         sessions_remaining: subscription.sessions_remaining + sessionsToRefund,

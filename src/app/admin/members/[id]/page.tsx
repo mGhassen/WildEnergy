@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { useMemberDetails } from "@/hooks/useMemberDetails";
-import { useUnlinkAccount } from "@/hooks/useAccountLinking";
+import { useUnlinkAccountFromMember } from "@/hooks/useAccountLinking";
+import { useUpdateMemberDetails } from "@/hooks/useUpdateMemberDetails";
 import { AccountLinkingDialog } from "@/components/account-linking-dialog";
 import { 
   ArrowLeft,
@@ -46,6 +47,12 @@ import { formatDate } from "@/lib/date";
 import { formatCurrency } from "@/lib/config";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { TableSkeleton } from "@/components/skeletons";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Loader2, Save, X } from "lucide-react";
 
 // Types
 interface Member {
@@ -55,7 +62,6 @@ interface Member {
   email: string;
   status: string;
   accountStatus: string;
-  subscriptionStatus: string;
   phone?: string;
   dateOfBirth?: string;
   address?: string;
@@ -182,12 +188,45 @@ export default function MemberDetailsPage() {
 
   const [activeTab, setActiveTab] = useState("overview");
   const [showLinkDialog, setShowLinkDialog] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   // Fetch member details
   const { data: memberDetails, isLoading, error } = useMemberDetails(memberId);
   
   // Account linking hooks
-  const unlinkAccountMutation = useUnlinkAccount();
+  const unlinkAccountMutation = useUnlinkAccountFromMember();
+  const updateMemberMutation = useUpdateMemberDetails();
+
+  // Edit form state
+  const [editForm, setEditForm] = useState({
+    firstName: "",
+    lastName: "",
+    phone: "",
+    dateOfBirth: "",
+    address: "",
+    profession: "",
+    memberNotes: "",
+    status: "",
+    credit: 0,
+  });
+
+  // Populate edit form when member data changes
+  useEffect(() => {
+    if (memberDetails) {
+      const member = memberDetails.member;
+      setEditForm({
+        firstName: member.firstName || "",
+        lastName: member.lastName || "",
+        phone: member.phone || "",
+        dateOfBirth: member.dateOfBirth ? member.dateOfBirth.split('T')[0] : "",
+        address: member.address || "",
+        profession: member.profession || "",
+        memberNotes: member.memberNotes || "",
+        status: member.status || "active",
+        credit: member.credit || 0,
+      });
+    }
+  }, [memberDetails]);
 
   if (isLoading) {
     return (
@@ -256,7 +295,6 @@ export default function MemberDetailsPage() {
     email: memberDetails.member.email,
     status: memberDetails.member.status || 'active',
     accountStatus: memberDetails.member.accountStatus || 'active',
-    subscriptionStatus: memberDetails.member.subscriptionStatus || 'active',
     phone: memberDetails.member.phone,
     dateOfBirth: memberDetails.member.dateOfBirth,
     address: memberDetails.member.address,
@@ -288,8 +326,38 @@ export default function MemberDetailsPage() {
   const relevantSubscription = getRelevantSubscription(subscriptions);
 
   const handleEditMember = () => {
-    // TODO: Implement edit member functionality
-    console.log('Edit member:', member.id);
+    setIsEditing(true);
+  };
+
+  const handleSaveMember = async () => {
+    try {
+      await updateMemberMutation.mutateAsync({
+        memberId: member.id,
+        data: editForm
+      });
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Failed to update member:', error);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    // Reset form to original values
+    if (memberDetails) {
+      const member = memberDetails.member;
+      setEditForm({
+        firstName: member.firstName || "",
+        lastName: member.lastName || "",
+        phone: member.phone || "",
+        dateOfBirth: member.dateOfBirth ? member.dateOfBirth.split('T')[0] : "",
+        address: member.address || "",
+        profession: member.profession || "",
+        memberNotes: member.memberNotes || "",
+        status: member.status || "active",
+        credit: member.credit || 0,
+      });
+    }
   };
 
   const handleSuspendMember = () => {
@@ -372,26 +440,52 @@ export default function MemberDetailsPage() {
         </div>
         
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExportData}
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Export
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                <MoreHorizontal className="w-4 h-4 mr-2" />
-                Actions
+          {isEditing ? (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCancelEdit}
+                disabled={updateMemberMutation.isPending}
+              >
+                <X className="w-4 h-4 mr-2" />
+                Cancel
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem onClick={handleEditMember}>
-                <Edit className="w-4 h-4 mr-2" />
-                Edit Member
-              </DropdownMenuItem>
+              <Button
+                size="sm"
+                onClick={handleSaveMember}
+                disabled={updateMemberMutation.isPending}
+              >
+                {updateMemberMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4 mr-2" />
+                )}
+                {updateMemberMutation.isPending ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportData}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Export
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <MoreHorizontal className="w-4 h-4 mr-2" />
+                    Actions
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem onClick={handleEditMember}>
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit Member
+                  </DropdownMenuItem>
               <DropdownMenuSeparator />
               {member.account_id ? (
                 <DropdownMenuItem onClick={handleUnlinkAccount} disabled={unlinkAccountMutation.isPending}>
@@ -431,6 +525,8 @@ export default function MemberDetailsPage() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+            </>
+          )}
         </div>
       </div>
 
@@ -438,7 +534,7 @@ export default function MemberDetailsPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="border-l-4 border-l-blue-500">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Account Status</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Member Status</CardTitle>
           </CardHeader>
           <CardContent>
             <Badge className={getMemberStatusColor(member.status)}>
@@ -543,70 +639,173 @@ export default function MemberDetailsPage() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">First Name</label>
-                    <p className="text-sm">{member.firstName}</p>
+                    <Label className="text-sm font-medium text-muted-foreground">First Name</Label>
+                    {isEditing ? (
+                      <Input
+                        value={editForm.firstName}
+                        onChange={(e) => setEditForm({...editForm, firstName: e.target.value})}
+                        className="mt-1"
+                      />
+                    ) : (
+                      <p className="text-sm">{member.firstName}</p>
+                    )}
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">Last Name</label>
-                    <p className="text-sm">{member.lastName}</p>
+                    <Label className="text-sm font-medium text-muted-foreground">Last Name</Label>
+                    {isEditing ? (
+                      <Input
+                        value={editForm.lastName}
+                        onChange={(e) => setEditForm({...editForm, lastName: e.target.value})}
+                        className="mt-1"
+                      />
+                    ) : (
+                      <p className="text-sm">{member.lastName}</p>
+                    )}
                   </div>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Email</label>
+                  <Label className="text-sm font-medium text-muted-foreground">Email</Label>
                   <p className="text-sm">{member.email}</p>
                 </div>
-                {member.phone && (
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Phone</label>
-                    <p className="text-sm">{formatPhoneNumber(member.phone)}</p>
-                  </div>
-                )}
-                {member.dateOfBirth && (
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Date of Birth</label>
-                    <p className="text-sm">{formatDate(member.dateOfBirth)}</p>
-                  </div>
-                )}
-                {member.address && (
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Address</label>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Phone</Label>
+                  {isEditing ? (
+                    <Input
+                      value={editForm.phone}
+                      onChange={(e) => setEditForm({...editForm, phone: e.target.value})}
+                      className="mt-1"
+                    />
+                  ) : (
+                    <p className="text-sm">{member.phone ? formatPhoneNumber(member.phone) : 'N/A'}</p>
+                  )}
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Date of Birth</Label>
+                  {isEditing ? (
+                    <Input
+                      type="date"
+                      value={editForm.dateOfBirth}
+                      onChange={(e) => setEditForm({...editForm, dateOfBirth: e.target.value})}
+                      className="mt-1"
+                    />
+                  ) : (
+                    <p className="text-sm">{member.dateOfBirth ? formatDate(member.dateOfBirth) : 'N/A'}</p>
+                  )}
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Address</Label>
+                  {isEditing ? (
+                    <Textarea
+                      value={editForm.address}
+                      onChange={(e) => setEditForm({...editForm, address: e.target.value})}
+                      className="mt-1"
+                      rows={2}
+                    />
+                  ) : (
                     <p className="text-sm flex items-center gap-1">
                       <MapPin className="w-3 h-3" />
-                      {member.address}
+                      {member.address || 'N/A'}
                     </p>
-                  </div>
-                )}
-                {member.profession && (
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Profession</label>
+                  )}
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Profession</Label>
+                  {isEditing ? (
+                    <Input
+                      value={editForm.profession}
+                      onChange={(e) => setEditForm({...editForm, profession: e.target.value})}
+                      className="mt-1"
+                    />
+                  ) : (
                     <p className="text-sm flex items-center gap-1">
                       <Briefcase className="w-3 h-3" />
-                      {member.profession}
+                      {member.profession || 'N/A'}
                     </p>
-                  </div>
-                )}
+                  )}
+                </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Member Since</label>
                   <p className="text-sm">{formatDate(member.createdAt || "")}</p>
                 </div>
+                
+                {/* Member Status */}
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Member Status</Label>
+                  {isEditing ? (
+                    <Select value={editForm.status} onValueChange={(value) => setEditForm({...editForm, status: value})}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="inactive">Inactive</SelectItem>
+                        <SelectItem value="suspended">Suspended</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <div className="mt-1">
+                      <Badge className={getMemberStatusColor(member.status)}>
+                        {member.status}
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+                
+                
+                {/* Credit Balance */}
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Credit Balance</Label>
+                  {isEditing ? (
+                    <Input
+                      type="number"
+                      value={editForm.credit}
+                      onChange={(e) => setEditForm({...editForm, credit: parseFloat(e.target.value) || 0})}
+                      className="mt-1"
+                    />
+                  ) : (
+                    <p className="text-sm font-medium">{formatCurrency(member.credit)}</p>
+                  )}
+                </div>
+                
+                {/* Member Notes */}
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Member Notes</Label>
+                  {isEditing ? (
+                    <Textarea
+                      value={editForm.memberNotes}
+                      onChange={(e) => setEditForm({...editForm, memberNotes: e.target.value})}
+                      className="mt-1"
+                      rows={3}
+                      placeholder="Enter member notes..."
+                    />
+                  ) : (
+                    <p className="text-sm mt-1 p-3 bg-muted rounded-md">
+                      <FileText className="w-3 h-3 inline mr-1" />
+                      {member.memberNotes || 'No notes'}
+                    </p>
+                  )}
+                </div>
               </CardContent>
             </Card>
 
-            {/* Account Details */}
+            {/* Account Information (Read-only) */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Settings className="w-5 h-5" />
-                  Account Details
+                  Account Information
                 </CardTitle>
+                <CardDescription>
+                  Account settings can be edited in the account page
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">User Type</label>
+                  <Label className="text-sm font-medium text-muted-foreground">User Type</Label>
                   <p className="text-sm capitalize">{member.userType}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Accessible Portals</label>
+                  <Label className="text-sm font-medium text-muted-foreground">Accessible Portals</Label>
                   <div className="flex flex-wrap gap-1 mt-1">
                     {member.accessiblePortals?.map((portal) => (
                       <Badge key={portal} variant="secondary" className="text-xs">
@@ -616,22 +815,13 @@ export default function MemberDetailsPage() {
                   </div>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Account Status</label>
+                  <Label className="text-sm font-medium text-muted-foreground">Login Status</Label>
                   <div className="mt-1">
-                    <Badge className={getMemberStatusColor(member.status)}>
-                      {member.status}
+                    <Badge className={getMemberStatusColor(member.accountStatus)}>
+                      {member.accountStatus}
                     </Badge>
                   </div>
                 </div>
-                {member.memberNotes && (
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Notes</label>
-                    <p className="text-sm mt-1 p-3 bg-muted rounded-md">
-                      <FileText className="w-3 h-3 inline mr-1" />
-                      {member.memberNotes}
-                    </p>
-                  </div>
-                )}
               </CardContent>
             </Card>
           </div>
