@@ -211,7 +211,7 @@ export default function MembersPage() {
         const matchesSearch = 
           member.first_name?.toLowerCase().includes(searchLower) ||
           member.last_name?.toLowerCase().includes(searchLower) ||
-          member.email?.toLowerCase().includes(searchLower) ||
+          (member.email?.toLowerCase().includes(searchLower) || (!member.email && 'unlinked'.includes(searchLower))) ||
           member.phone?.includes(searchTerm);
         
         const matchesStatus = statusFilter === "all" || member.member_status === statusFilter;
@@ -311,7 +311,7 @@ export default function MembersPage() {
                 <p className="font-medium text-foreground">
                   {member.first_name} {member.last_name}
                 </p>
-                <p className="text-sm text-muted-foreground">{member.email}</p>
+                <p className="text-sm text-muted-foreground">{member.email || 'No email (unlinked member)'}</p>
                 {member.phone && (
                   <p className="text-xs text-muted-foreground">{formatPhoneNumber(member.phone)}</p>
                 )}
@@ -674,7 +674,7 @@ export default function MembersPage() {
                             <p className="font-medium text-foreground">
                               {member.first_name} {member.last_name}
                             </p>
-                            <p className="text-sm text-muted-foreground">{member.email}</p>
+                            <p className="text-sm text-muted-foreground">{member.email || 'No email (unlinked member)'}</p>
                             {member.phone && (
                               <p className="text-xs text-muted-foreground">{formatPhoneNumber(member.phone)}</p>
                             )}
@@ -789,7 +789,7 @@ export default function MembersPage() {
                             <p className="font-medium text-foreground">
                               {member.first_name} {member.last_name}
                             </p>
-                            <p className="text-sm text-muted-foreground">{member.email}</p>
+                            <p className="text-sm text-muted-foreground">{member.email || 'No email (unlinked member)'}</p>
                             {member.phone && (
                               <p className="text-xs text-muted-foreground">{formatPhoneNumber(member.phone)}</p>
                             )}

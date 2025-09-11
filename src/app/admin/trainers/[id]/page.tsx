@@ -236,7 +236,7 @@ export default function TrainerDetailsPage() {
                     <Mail className="w-4 h-4 text-muted-foreground" />
                     <span className="text-muted-foreground">Email:</span>
                   </div>
-                  <p className="font-medium text-foreground">{trainer.email}</p>
+                  <p className="font-medium text-foreground">{trainer.email || 'No email (unlinked trainer)'}</p>
                 </div>
                 
                 <div className="space-y-1">
@@ -378,35 +378,39 @@ export default function TrainerDetailsPage() {
             </CardContent>
           </Card>
 
-          {/* Account Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Account Information</CardTitle>
+          {/* Account Linking */}
+          <Card 
+            className={`border-l-4 ${trainer.account_id ? 'border-l-purple-500 cursor-pointer hover:shadow-md transition-shadow' : 'border-l-orange-500'}`}
+            onClick={trainer.account_id ? () => router.push(`/admin/accounts/${trainer.account_id}`) : undefined}
+          >
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Account Linking</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Account ID:</span>
-                <span className="font-mono text-xs">{trainer.account_id}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">User Type:</span>
-                <Badge variant="secondary">{trainer.user_type}</Badge>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Status:</span>
-                <Badge className={getStatusColor(trainer.status)}>
-                  {trainer.status}
-                </Badge>
-              </div>
-              <Separator />
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Status:</span>
-                <span className="capitalize">{trainer.status}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">User Type:</span>
-                <span className="capitalize">{trainer.user_type}</span>
-              </div>
+            <CardContent>
+              {trainer.account_id ? (
+                <div className="space-y-2">
+                  <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                    <Link className="w-3 h-3 mr-1" />
+                    Linked
+                  </Badge>
+                  <p className="text-xs text-muted-foreground">
+                    Account ID: {trainer.account_id}
+                  </p>
+                  <p className="text-xs text-purple-600 dark:text-purple-400 font-medium">
+                    Click to view account details →
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
+                    <Unlink className="w-3 h-3 mr-1" />
+                    Not Linked
+                  </Badge>
+                  <p className="text-xs text-muted-foreground">
+                    This trainer is not linked to any account
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 

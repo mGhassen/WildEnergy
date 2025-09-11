@@ -5,7 +5,8 @@ export interface Member {
   account_id: string;
   first_name: string;
   last_name: string;
-  email: string;
+  email: string; // Account email for authentication
+  profile_email?: string; // Contact email, separate from account email
   phone?: string;
   is_member: boolean;
   credit: number;
@@ -35,7 +36,8 @@ export interface MemberDetails {
     account_id?: string;
     firstName: string;
     lastName: string;
-    email: string;
+    email: string; // Account email for authentication
+    profileEmail?: string; // Contact email, separate from account email
     status?: string;
     accountStatus?: string;
     subscriptionStatus?: string;

@@ -8,6 +8,7 @@ export interface Profile {
   first_name: string;
   last_name: string;
   phone?: string;
+  profile_email?: string; // Contact email, separate from account email
   date_of_birth?: string;
   address?: string;
   profession?: string;
@@ -22,6 +23,7 @@ export interface UpdateProfileData {
   first_name?: string;
   last_name?: string;
   phone?: string;
+  profile_email?: string; // Contact email, separate from account email
   date_of_birth?: string;
   address?: string;
   profession?: string;

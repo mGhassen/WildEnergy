@@ -206,6 +206,7 @@ export default function MemberDetailsPage() {
     firstName: "",
     lastName: "",
     phone: "",
+    profileEmail: "",
     dateOfBirth: "",
     address: "",
     profession: "",
@@ -222,6 +223,7 @@ export default function MemberDetailsPage() {
         firstName: member.firstName || "",
         lastName: member.lastName || "",
         phone: member.phone || "",
+        profileEmail: member.email || "",
         dateOfBirth: member.dateOfBirth ? member.dateOfBirth.split('T')[0] : "",
         address: member.address || "",
         profession: member.profession || "",
@@ -354,6 +356,7 @@ export default function MemberDetailsPage() {
         firstName: member.firstName || "",
         lastName: member.lastName || "",
         phone: member.phone || "",
+        profileEmail: member.email || "",
         dateOfBirth: member.dateOfBirth ? member.dateOfBirth.split('T')[0] : "",
         address: member.address || "",
         profession: member.profession || "",
@@ -682,8 +685,22 @@ export default function MemberDetailsPage() {
                   </div>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium text-muted-foreground">Email</Label>
+                  <Label className="text-sm font-medium text-muted-foreground">Account Email</Label>
                   <p className="text-sm">{member.email || 'No email (unlinked member)'}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Contact Email</Label>
+                  {isEditing ? (
+                    <Input
+                      type="email"
+                      value={editForm.profileEmail}
+                      onChange={(e) => setEditForm({...editForm, profileEmail: e.target.value})}
+                      className="mt-1"
+                      placeholder="Contact email"
+                    />
+                  ) : (
+                    <p className="text-sm">{member.email || 'No email (unlinked member)'}</p>
+                  )}
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Phone</Label>
