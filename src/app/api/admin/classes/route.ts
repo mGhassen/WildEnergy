@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     if (!adminCheck?.is_admin) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
-    // Fetch all classes with category and group information
+    // Fetch all classes with category and group information through many-to-many relationship
     const { data: classes, error } = await supabaseServer()
       .from('classes')
       .select(`
@@ -30,10 +30,12 @@ export async function GET(req: NextRequest) {
           id,
           name,
           color,
-          group:groups (
-            id,
-            name,
-            color
+          category_groups(
+            group:groups(
+              id,
+              name,
+              color
+            )
           )
         )
       `)

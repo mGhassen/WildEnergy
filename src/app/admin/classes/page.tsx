@@ -65,17 +65,26 @@ export default function AdminClasses() {
   const { data: checkins = [] } = useAdminCheckins();
 
   // Map snake_case fields to camelCase for UI
-  const classes = Array.isArray(rawClasses) ? rawClasses.map((cls: any) => ({
-    ...cls,
-    categoryId: cls.category_id,
-    durationMinutes: cls.duration, // ensure durationMinutes is set for the form
-    maxCapacity: cls.max_capacity,
-    isActive: cls.is_active,
-    createdAt: cls.created_at,
-    updatedAt: cls.updated_at,
-    // Map category and group data from API response
-    categories: cls.category,
-  })) : [];
+  const classes = Array.isArray(rawClasses) ? rawClasses.map((cls: any) => {
+    // Extract group information from the many-to-many relationship
+    const categoryGroups = cls.category?.category_groups || [];
+    const firstGroup = categoryGroups.length > 0 ? categoryGroups[0].group : null;
+    
+    return {
+      ...cls,
+      categoryId: cls.category_id,
+      durationMinutes: cls.duration, // ensure durationMinutes is set for the form
+      maxCapacity: cls.max_capacity,
+      isActive: cls.is_active,
+      createdAt: cls.created_at,
+      updatedAt: cls.updated_at,
+      // Map category and group data from API response
+      categories: {
+        ...cls.category,
+        group: firstGroup // Add group info to the category object for backward compatibility
+      },
+    };
+  }) : [];
 
   // Ensure categories is always an array
   const categories = Array.isArray(rawCategories) ? rawCategories : [];

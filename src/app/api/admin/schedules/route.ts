@@ -24,12 +24,7 @@ export async function GET(req: NextRequest) {
           category:categories (
             id,
             name,
-            color,
-            group:groups (
-              id,
-              name,
-              color
-            )
+            color
           )
         )
       `)
