@@ -51,39 +51,32 @@ export async function GET(req: NextRequest) {
     // Fetch unlinked members directly from members table
     const { data: unlinkedMembers, error: unlinkedError } = await supabaseServer()
       .from('members')
-      .select(`
-        *,
-        profiles!inner(
-          first_name,
-          last_name,
-          phone,
-          date_of_birth,
-          address,
-          profession,
-          emergency_contact_name,
-          emergency_contact_phone,
-          profile_image_url
-        ),
-        subscriptions:subscriptions(
-          id,
-          member_id,
-          plan_id,
-          start_date,
-          end_date,
-          status,
-          notes,
-          created_at,
-          updated_at
-        )
-      `)
+      .select('*')
       .is('account_id', null) // Only unlinked members
-      .eq('status', 'active')
-      .order('first_name', { ascending: true });
+      .eq('status', 'active');
 
     if (unlinkedError) {
       console.error('Error fetching unlinked members:', unlinkedError);
       return NextResponse.json({ error: 'Failed to fetch unlinked members' }, { status: 500 });
     }
+
+    // Fetch profiles for unlinked members
+    const profileIds = unlinkedMembers?.map(m => m.profile_id).filter(Boolean) || [];
+    const { data: unlinkedProfiles, error: profilesError } = await supabaseServer()
+      .from('profiles')
+      .select('*')
+      .in('id', profileIds);
+
+    if (profilesError) {
+      console.error('Error fetching unlinked profiles:', profilesError);
+      return NextResponse.json({ error: 'Failed to fetch unlinked profiles' }, { status: 500 });
+    }
+
+    // Combine members with their profiles
+    const unlinkedMembersWithProfiles = unlinkedMembers?.map(member => ({
+      ...member,
+      profiles: unlinkedProfiles?.find(p => p.id === member.profile_id) || null
+    })) || [];
 
     // Format linked members
     const linkedMembersFormatted = (linkedMembers || []).map((m: any) => ({ 
@@ -104,21 +97,21 @@ export async function GET(req: NextRequest) {
     }));
 
     // Format unlinked members
-    const unlinkedMembersFormatted = (unlinkedMembers || []).map((m: any) => ({ 
+    const unlinkedMembersFormatted = unlinkedMembersWithProfiles.map((m: any) => ({ 
       id: m.id,
       account_id: null,
-      first_name: m.profiles.first_name,
-      last_name: m.profiles.last_name,
+      first_name: m.profiles?.first_name || 'Unknown',
+      last_name: m.profiles?.last_name || 'User',
       email: null, // No email for unlinked members
-      phone: m.profiles.phone,
+      phone: m.profiles?.phone,
       is_member: true,
       credit: m.credit ?? 0,
       member_notes: m.member_notes,
       member_status: m.status,
       user_type: 'member',
       accessible_portals: ['member'],
-      subscriptions: m.subscriptions || [],
-      groupSessions: m.subscriptions?.[0]?.subscription_group_sessions || []
+      subscriptions: [],
+      groupSessions: []
     }));
 
     // Combine both lists

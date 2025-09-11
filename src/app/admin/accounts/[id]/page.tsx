@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { ConfirmationDialog } from "@/components/confirmation-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
@@ -71,6 +72,7 @@ export default function AccountDetailPage() {
     const [setPasswordValue, setSetPasswordValue] = useState("");
     const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
     const [selectedTrainerId, setSelectedTrainerId] = useState("");
+    const [isUnlinkTrainerDialogOpen, setIsUnlinkTrainerDialogOpen] = useState(false);
     const { toast } = useToast();
 
     // Fetch account data
@@ -181,7 +183,15 @@ export default function AccountDetailPage() {
 
     // Unlink trainer from account
     const handleUnlinkTrainer = () => {
-        unlinkTrainerMutation.mutate(accountId);
+        setIsUnlinkTrainerDialogOpen(true);
+    };
+
+    const confirmUnlinkTrainer = () => {
+        unlinkTrainerMutation.mutate(accountId, {
+            onSuccess: () => {
+                setIsUnlinkTrainerDialogOpen(false);
+            }
+        });
     };
 
     // Set password
@@ -959,6 +969,18 @@ export default function AccountDetailPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <ConfirmationDialog
+                open={isUnlinkTrainerDialogOpen}
+                onOpenChange={setIsUnlinkTrainerDialogOpen}
+                onConfirm={confirmUnlinkTrainer}
+                title="Unlink Trainer"
+                description="Are you sure you want to unlink this trainer from the account? This action cannot be undone."
+                confirmText="Unlink"
+                cancelText="Cancel"
+                isPending={unlinkTrainerMutation.isPending}
+                variant="destructive"
+            />
         </div>
     );
 }

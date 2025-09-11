@@ -42,6 +42,7 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 import { formatDate } from "@/lib/date";
+import { ConfirmationDialog } from "@/components/confirmation-dialog";
 
 export default function TrainerDetailsPage() {
   const params = useParams();
@@ -49,6 +50,7 @@ export default function TrainerDetailsPage() {
   const trainerId = params.id as string;
   const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
   const [selectedAccountId, setSelectedAccountId] = useState("");
+  const [isUnlinkDialogOpen, setIsUnlinkDialogOpen] = useState(false);
 
   const { data: trainer, isLoading, error } = useTrainer(trainerId);
   const { data: accounts = [] } = useAccounts();
@@ -75,7 +77,15 @@ export default function TrainerDetailsPage() {
   };
 
   const handleUnlinkAccount = () => {
-    unlinkAccountMutation.mutate(trainerId);
+    setIsUnlinkDialogOpen(true);
+  };
+
+  const confirmUnlinkAccount = () => {
+    unlinkAccountMutation.mutate(trainerId, {
+      onSuccess: () => {
+        setIsUnlinkDialogOpen(false);
+      }
+    });
   };
 
   if (isLoading) {
@@ -513,6 +523,18 @@ export default function TrainerDetailsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmationDialog
+        open={isUnlinkDialogOpen}
+        onOpenChange={setIsUnlinkDialogOpen}
+        onConfirm={confirmUnlinkAccount}
+        title="Unlink Account"
+        description="Are you sure you want to unlink this account from the trainer? This action cannot be undone."
+        confirmText="Unlink"
+        cancelText="Cancel"
+        isPending={unlinkAccountMutation.isPending}
+        variant="destructive"
+      />
     </div>
   );
 }
