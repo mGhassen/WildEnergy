@@ -48,7 +48,7 @@ export async function GET(
     }
 
     // Get member details from new user system
-    // First try to find by member_id, then by account_id as fallback
+    // First try to find by member_id in user_profiles view
     let { data: member, error: memberError } = await supabaseServer()
       .from('user_profiles')
       .select('*')
@@ -65,6 +65,61 @@ export async function GET(
       
       member = fallbackResult.data;
       memberError = fallbackResult.error;
+    }
+
+    // If still not found, try to find unlinked member directly from members table
+    if (memberError && memberError.code === 'PGRST116') {
+      const { data: unlinkedMember, error: unlinkedError } = await supabaseServer()
+        .from('members')
+        .select(`
+          *,
+          profiles!inner(
+            first_name,
+            last_name,
+            phone,
+            date_of_birth,
+            address,
+            profession,
+            emergency_contact_name,
+            emergency_contact_phone,
+            profile_image_url
+          )
+        `)
+        .eq('id', id)
+        .single();
+
+      if (!unlinkedError && unlinkedMember) {
+        // Create a member object in the expected format for unlinked members
+        member = {
+          member_id: unlinkedMember.id,
+          account_id: null, // Unlinked member has no account
+          email: null, // No email for unlinked members
+          account_status: null,
+          last_login: null,
+          first_name: unlinkedMember.profiles.first_name,
+          last_name: unlinkedMember.profiles.last_name,
+          phone: unlinkedMember.profiles.phone,
+          date_of_birth: unlinkedMember.profiles.date_of_birth,
+          address: unlinkedMember.profiles.address,
+          profession: unlinkedMember.profiles.profession,
+          emergency_contact_name: unlinkedMember.profiles.emergency_contact_name,
+          emergency_contact_phone: unlinkedMember.profiles.emergency_contact_phone,
+          profile_image_url: unlinkedMember.profiles.profile_image_url,
+          member_notes: unlinkedMember.member_notes,
+          credit: unlinkedMember.credit,
+          member_status: unlinkedMember.status,
+          trainer_id: null,
+          specialization: null,
+          experience_years: null,
+          bio: null,
+          certification: null,
+          hourly_rate: null,
+          trainer_status: null,
+          user_type: 'member', // Unlinked members are just members
+          accessible_portals: ['member'] // Unlinked members only have member portal access
+        };
+        memberError = null; // Clear the error since we found the member
+      }
     }
 
     if (memberError) {
@@ -157,7 +212,8 @@ export async function GET(
         memberNotes: member.member_notes,
         credit: member.credit,
         userType: member.user_type,
-        accessiblePortals: member.accessible_portals
+        accessiblePortals: member.accessible_portals,
+        isUnlinked: member.account_id === null // Flag to indicate if member is unlinked
       },
       subscriptions: subscriptions?.map(sub => ({
         id: sub.id,
@@ -293,6 +349,20 @@ export async function PUT(
       memberError = fallbackResult.error;
     }
 
+    // If still not found, try to find unlinked member directly from members table
+    if (memberError && memberError.code === 'PGRST116') {
+      const { data: unlinkedMember, error: unlinkedError } = await supabaseServer()
+        .from('members')
+        .select('account_id')
+        .eq('id', id)
+        .single();
+
+      if (!unlinkedError && unlinkedMember) {
+        member = unlinkedMember;
+        memberError = null;
+      }
+    }
+
     if (memberError || !member) {
       console.error('Member lookup error:', memberError);
       return NextResponse.json({ error: 'Member not found' }, { status: 404 });
@@ -300,24 +370,59 @@ export async function PUT(
 
     const accountId = member.account_id;
 
-    // Update profile data
-    const profileUpdates: Record<string, unknown> = {};
-    if (body.firstName !== undefined) profileUpdates.first_name = body.firstName;
-    if (body.lastName !== undefined) profileUpdates.last_name = body.lastName;
-    if (body.phone !== undefined) profileUpdates.phone = body.phone;
-    if (body.dateOfBirth !== undefined) profileUpdates.date_of_birth = body.dateOfBirth;
-    if (body.address !== undefined) profileUpdates.address = body.address;
-    if (body.profession !== undefined) profileUpdates.profession = body.profession;
+    // Update profile data (only for linked members)
+    if (accountId) {
+      const profileUpdates: Record<string, unknown> = {};
+      if (body.firstName !== undefined) profileUpdates.first_name = body.firstName;
+      if (body.lastName !== undefined) profileUpdates.last_name = body.lastName;
+      if (body.phone !== undefined) profileUpdates.phone = body.phone;
+      if (body.dateOfBirth !== undefined) profileUpdates.date_of_birth = body.dateOfBirth;
+      if (body.address !== undefined) profileUpdates.address = body.address;
+      if (body.profession !== undefined) profileUpdates.profession = body.profession;
 
-    if (Object.keys(profileUpdates).length > 0) {
-      const { error: profileError } = await supabaseServer()
-        .from('profiles')
-        .update(profileUpdates)
-        .eq('id', accountId);
+      if (Object.keys(profileUpdates).length > 0) {
+        const { error: profileError } = await supabaseServer()
+          .from('profiles')
+          .update(profileUpdates)
+          .eq('id', accountId);
 
-      if (profileError) {
-        console.error('Profile update error:', profileError);
-        return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
+        if (profileError) {
+          console.error('Profile update error:', profileError);
+          return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
+        }
+      }
+    } else {
+      // For unlinked members, update profile data directly through the members table
+      const profileUpdates: Record<string, unknown> = {};
+      if (body.firstName !== undefined) profileUpdates.first_name = body.firstName;
+      if (body.lastName !== undefined) profileUpdates.last_name = body.lastName;
+      if (body.phone !== undefined) profileUpdates.phone = body.phone;
+      if (body.dateOfBirth !== undefined) profileUpdates.date_of_birth = body.dateOfBirth;
+      if (body.address !== undefined) profileUpdates.address = body.address;
+      if (body.profession !== undefined) profileUpdates.profession = body.profession;
+
+      if (Object.keys(profileUpdates).length > 0) {
+        // Get the profile_id from the member record
+        const { data: memberData, error: memberDataError } = await supabaseServer()
+          .from('members')
+          .select('profile_id')
+          .eq('id', id)
+          .single();
+
+        if (memberDataError || !memberData) {
+          console.error('Error getting member profile_id:', memberDataError);
+          return NextResponse.json({ error: 'Failed to get member profile' }, { status: 500 });
+        }
+
+        const { error: profileError } = await supabaseServer()
+          .from('profiles')
+          .update(profileUpdates)
+          .eq('id', memberData.profile_id);
+
+        if (profileError) {
+          console.error('Profile update error:', profileError);
+          return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
+        }
       }
     }
 
@@ -331,10 +436,22 @@ export async function PUT(
     if (body.credit !== undefined) memberUpdates.credit = body.credit;
 
     if (Object.keys(memberUpdates).length > 0) {
-      const { error: memberError } = await supabaseServer()
-        .from('members')
-        .update(memberUpdates)
-        .eq('account_id', accountId);
+      let updateQuery;
+      if (accountId) {
+        // For linked members, update by account_id
+        updateQuery = supabaseServer()
+          .from('members')
+          .update(memberUpdates)
+          .eq('account_id', accountId);
+      } else {
+        // For unlinked members, update by member id directly
+        updateQuery = supabaseServer()
+          .from('members')
+          .update(memberUpdates)
+          .eq('id', id);
+      }
+
+      const { error: memberError } = await updateQuery;
 
       if (memberError) {
         console.error('Member update error:', memberError);
