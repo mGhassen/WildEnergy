@@ -36,7 +36,11 @@ import {
   Users,
   Clock,
   DollarSign,
-  Award
+  Award,
+  Link,
+  Unlink,
+  CheckCircle,
+  XCircle
 } from "lucide-react";
 import { getInitials } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
@@ -192,6 +196,13 @@ export default function AdminTrainers() {
 
   const handleViewTrainer = (trainer: any) => {
     router.push(`/admin/trainers/${trainer.id}`);
+  };
+
+  const openAccountDetails = (trainer: any, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent row click
+    if (trainer.account_id) {
+      router.push(`/admin/accounts/${trainer.account_id}`);
+    }
   };
 
   const openCreateModal = () => {
@@ -478,9 +489,26 @@ export default function AdminTrainers() {
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <p className="font-medium text-foreground">
-                            {trainer.first_name} {trainer.last_name}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-foreground">
+                              {trainer.first_name} {trainer.last_name}
+                            </p>
+                            {trainer.account_id ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => openAccountDetails(trainer, e)}
+                                className="h-6 w-6 p-0 hover:bg-green-100 dark:hover:bg-green-900"
+                                title="View linked account"
+                              >
+                                <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                              </Button>
+                            ) : (
+                              <div title="No account linked">
+                                <XCircle className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                            )}
+                          </div>
                           <p className="text-xs text-muted-foreground">
                             ID: {trainer.id}
                           </p>

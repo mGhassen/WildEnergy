@@ -20,6 +20,8 @@ export function useLinkAccountToTrainer() {
       queryClient.invalidateQueries({ queryKey: ['account', variables.accountId] });
       queryClient.invalidateQueries({ queryKey: ['trainers'] });
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      // Invalidate all trainer queries to refresh trainer detail pages
+      queryClient.invalidateQueries({ queryKey: ['trainer'] });
     },
   });
 }
@@ -33,6 +35,8 @@ export function useUnlinkAccountFromTrainer() {
       queryClient.invalidateQueries({ queryKey: ['account', accountId] });
       queryClient.invalidateQueries({ queryKey: ['trainers'] });
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      // Invalidate all trainer queries to refresh trainer detail pages
+      queryClient.invalidateQueries({ queryKey: ['trainer'] });
     },
   });
 }
@@ -47,6 +51,8 @@ export function useLinkAccountToMember() {
       queryClient.invalidateQueries({ queryKey: ['account', variables.accountId] });
       queryClient.invalidateQueries({ queryKey: ['members'] });
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      // Invalidate all member-details queries to refresh member detail pages
+      queryClient.invalidateQueries({ queryKey: ['member-details'] });
     },
   });
 }
@@ -60,6 +66,8 @@ export function useUnlinkAccountFromMember() {
       queryClient.invalidateQueries({ queryKey: ['account', accountId] });
       queryClient.invalidateQueries({ queryKey: ['members'] });
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      // Invalidate all member-details queries to refresh member detail pages
+      queryClient.invalidateQueries({ queryKey: ['member-details'] });
     },
   });
 }

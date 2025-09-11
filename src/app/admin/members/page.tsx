@@ -40,7 +40,9 @@ import {
   ChevronDown,
   Star,
   Zap,
-  DollarSign
+  DollarSign,
+  Link,
+  Unlink
 } from "lucide-react";
 import { formatDate } from "@/lib/date";
 import { formatCurrency } from "@/lib/config";
@@ -248,6 +250,13 @@ export default function MembersPage() {
 
   const openMemberDetails = (member: Member) => {
     router.push(`/admin/members/${member.id}`);
+  };
+
+  const openAccountDetails = (member: Member, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent row click
+    if (member.account_id) {
+      router.push(`/admin/accounts/${member.account_id}`);
+    }
   };
 
   const handleRefresh = () => {
@@ -671,9 +680,26 @@ export default function MembersPage() {
                             </span>
                           </div>
                           <div>
-                            <p className="font-medium text-foreground">
-                              {member.first_name} {member.last_name}
-                            </p>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-foreground">
+                                {member.first_name} {member.last_name}
+                              </p>
+                              {member.account_id ? (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => openAccountDetails(member, e)}
+                                  className="h-6 w-6 p-0 hover:bg-green-100 dark:hover:bg-green-900"
+                                  title="View linked account"
+                                >
+                                  <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                </Button>
+                              ) : (
+                                <div title="No account linked">
+                                  <XCircle className="h-4 w-4 text-muted-foreground" />
+                                </div>
+                              )}
+                            </div>
                             <p className="text-sm text-muted-foreground">{member.email || 'No email (unlinked member)'}</p>
                             {member.phone && (
                               <p className="text-xs text-muted-foreground">{formatPhoneNumber(member.phone)}</p>

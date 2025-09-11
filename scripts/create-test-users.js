@@ -205,6 +205,7 @@ async function createWildEnergyTestUsers() {
       const { data: accountRecord, error: accountError } = await supabase
         .from('accounts')
         .insert({
+          id: authUser.user.id, // Use auth user ID as account ID
           auth_user_id: authUser.user.id,
           email: user.email,
           status: user.status,
@@ -224,7 +225,7 @@ async function createWildEnergyTestUsers() {
       const { data: profileRecord, error: profileError } = await supabase
         .from('profiles')
         .insert({
-          id: accountRecord.id, // Use account ID as profile ID
+          id: authUser.user.id, // Use auth user ID as profile ID
           first_name: user.firstName,
           last_name: user.lastName,
           phone: user.phone,
@@ -249,8 +250,8 @@ async function createWildEnergyTestUsers() {
         const { data: memberRecord, error: memberError } = await supabase
           .from('members')
           .insert({
-            account_id: accountRecord.id,
-            profile_id: accountRecord.id,
+            account_id: authUser.user.id,
+            profile_id: authUser.user.id,
             member_notes: user.memberNotes || '',
             credit: user.credit || 0,
             status: user.status,
@@ -271,8 +272,8 @@ async function createWildEnergyTestUsers() {
         const { data: trainerRecord, error: trainerError } = await supabase
           .from('trainers')
           .insert({
-            account_id: accountRecord.id,
-            profile_id: accountRecord.id,
+            account_id: authUser.user.id,
+            profile_id: authUser.user.id,
             specialization: user.specialization || 'General Fitness',
             experience_years: user.experienceYears || 5,
             bio: user.bio || `Experienced ${user.specialization || 'fitness'} instructor`,

@@ -30,28 +30,32 @@ export async function GET(req: NextRequest) {
     // Fetch unlinked trainers directly from trainers table
     const { data: unlinkedTrainers, error: unlinkedError } = await supabaseServer()
       .from('trainers')
-      .select(`
-        *,
-        profiles!inner(
-          first_name,
-          last_name,
-          phone,
-          date_of_birth,
-          address,
-          profession,
-          emergency_contact_name,
-          emergency_contact_phone,
-          profile_image_url
-        )
-      `)
+      .select('*')
       .is('account_id', null) // Only unlinked trainers
-      .eq('status', 'active')
-      .order('first_name', { ascending: true });
+      .eq('status', 'active');
 
     if (unlinkedError) {
       console.error('Error fetching unlinked trainers:', unlinkedError);
-      return NextResponse.json({ error: 'Failed to fetch unlinked trainers', details: unlinkedError }, { status: 500 });
+      return NextResponse.json({ error: 'Failed to fetch unlinked trainers' }, { status: 500 });
     }
+
+    // Fetch profiles for unlinked trainers
+    const profileIds = unlinkedTrainers?.map(t => t.profile_id).filter(Boolean) || [];
+    const { data: unlinkedProfiles, error: profilesError } = await supabaseServer()
+      .from('profiles')
+      .select('*')
+      .in('id', profileIds);
+
+    if (profilesError) {
+      console.error('Error fetching unlinked profiles:', profilesError);
+      return NextResponse.json({ error: 'Failed to fetch unlinked profiles' }, { status: 500 });
+    }
+
+    // Combine trainers with their profiles
+    const unlinkedTrainersWithProfiles = unlinkedTrainers?.map(trainer => ({
+      ...trainer,
+      profiles: unlinkedProfiles?.find(p => p.id === trainer.profile_id) || null
+    })) || [];
 
     // Format linked trainers data
     const linkedTrainersFlat = (linkedTrainers ?? []).map((trainer) => ({
@@ -72,7 +76,7 @@ export async function GET(req: NextRequest) {
     }));
 
     // Format unlinked trainers data
-    const unlinkedTrainersFlat = (unlinkedTrainers ?? []).map((trainer) => ({
+    const unlinkedTrainersFlat = unlinkedTrainersWithProfiles.map((trainer) => ({
       id: trainer.id,
       account_id: null,
       specialization: trainer.specialization,
@@ -81,10 +85,10 @@ export async function GET(req: NextRequest) {
       certification: trainer.certification,
       hourly_rate: trainer.hourly_rate,
       status: trainer.status ?? "",
-      first_name: trainer.profiles.first_name ?? "",
-      last_name: trainer.profiles.last_name ?? "",
+      first_name: trainer.profiles?.first_name ?? "Unknown",
+      last_name: trainer.profiles?.last_name ?? "User",
       email: null, // No email for unlinked trainers
-      phone: trainer.profiles.phone ?? "",
+      phone: trainer.profiles?.phone ?? "",
       user_type: 'trainer',
       accessible_portals: ['trainer']
     }));
