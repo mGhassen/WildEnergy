@@ -733,8 +733,8 @@ export default function AdminSchedules() {
   };
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex justify-between items-center mb-6">
+    <div className="flex flex-col min-h-0">
+      <div className="flex justify-between items-center mb-6 flex-shrink-0">
         <div>
           <h1 className="text-3xl font-bold text-foreground mb-2">Schedules</h1>
           <p className="text-muted-foreground">Manage class schedule templates</p>

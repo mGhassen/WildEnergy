@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { editCourseSchema } from '@/shared/zod-schemas';
 
 export async function GET(
   req: NextRequest,
@@ -24,7 +25,7 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid course ID' }, { status: 400 });
     }
 
-    // Fetch course with comprehensive related data
+    // Fetch course with comprehensive related data including schedule for comparison
     const { data: course, error } = await supabaseServer()
       .from('courses')
       .select(`
@@ -62,8 +63,14 @@ export async function GET(
         ),
         schedule:schedules(
           id,
+          class_id,
+          trainer_id,
           day_of_week,
+          start_time,
+          end_time,
+          max_participants,
           repetition_type,
+          schedule_date,
           start_date,
           end_date,
           is_active
@@ -171,6 +178,34 @@ export async function GET(
       };
     }
 
+    // Calculate if course has been edited compared to schedule
+    const schedule = course.schedule;
+    const isEdited = schedule ? (
+      course.trainer_id !== schedule.trainer_id ||
+      course.start_time !== schedule.start_time ||
+      course.end_time !== schedule.end_time ||
+      course.max_participants !== schedule.max_participants
+    ) : false;
+
+    const differences = schedule ? {
+      trainer: course.trainer_id !== schedule.trainer_id ? {
+        original: schedule.trainer_id,
+        current: course.trainer_id
+      } : null,
+      startTime: course.start_time !== schedule.start_time ? {
+        original: schedule.start_time,
+        current: course.start_time
+      } : null,
+      endTime: course.end_time !== schedule.end_time ? {
+        original: schedule.end_time,
+        current: course.end_time
+      } : null,
+      maxParticipants: course.max_participants !== schedule.max_participants ? {
+        original: schedule.max_participants,
+        current: course.max_participants
+      } : null
+    } : null;
+
     // Return comprehensive course data
     return NextResponse.json({
       ...course,
@@ -209,7 +244,9 @@ export async function GET(
         totalCheckins,
         attendanceRate,
         availableSpots: course.max_participants - totalRegistrations
-      }
+      },
+      isEdited,
+      differences
     });
 
   } catch (error) {
@@ -373,8 +410,17 @@ export async function PUT(
 
     const updateData = await req.json();
     
-    // Remove fields that shouldn't be updated directly
-    const { id: updateId, created_at, updated_at, ...allowedUpdates } = updateData;
+    // Validate the update data
+    const validationResult = editCourseSchema.safeParse(updateData);
+    if (!validationResult.success) {
+      return NextResponse.json({ 
+        error: 'Validation failed', 
+        details: validationResult.error.issues 
+      }, { status: 400 });
+    }
+    
+    // Use the validated data directly
+    const allowedUpdates = validationResult.data;
 
     const { data: course, error } = await supabaseServer()
       .from('courses')

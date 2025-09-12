@@ -27,7 +27,8 @@ import {
   Users, 
   TrendingUp, 
   RepeatIcon, 
-  MoreHorizontal, 
+  MoreHorizontal,
+  AlertTriangle, 
   Edit, 
   Trash2, 
   Activity,
@@ -667,6 +668,12 @@ export default function ScheduleDetailsPage() {
                               <div className="text-sm text-muted-foreground">
                                 {formatTime(course.start_time)} - {formatTime(course.end_time)}
                               </div>
+                              {course.isEdited && (
+                                <Badge variant="outline" className="text-orange-600 border-orange-200 text-xs">
+                                  <AlertTriangle className="w-3 h-3 mr-1" />
+                                  Edited
+                                </Badge>
+                              )}
                             </div>
                             <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
                               <span>ID: {course.id}</span>

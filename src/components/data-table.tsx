@@ -90,6 +90,7 @@ export default function DataTable({
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const [filters, setFilters] = useState<Record<string, string>>(initialFilters);
   const [showFilters, setShowFilters] = useState(false);
+  const [currentPageSize, setCurrentPageSize] = useState(pageSize);
 
   // Show filters if there are initial filters after hydration
   useEffect(() => {
@@ -223,8 +224,8 @@ export default function DataTable({
   const paginatedData = useMemo(() => {
     if (!pagination) return groupedData;
     
-    const startIndex = (currentPage - 1) * pageSize;
-    const endIndex = startIndex + pageSize;
+    const startIndex = (currentPage - 1) * currentPageSize;
+    const endIndex = startIndex + currentPageSize;
     
     if (Array.isArray(groupedData)) {
       return groupedData.slice(startIndex, endIndex);
@@ -234,7 +235,7 @@ export default function DataTable({
       const paginatedEntries = entries.slice(startIndex, endIndex);
       return Object.fromEntries(paginatedEntries);
     }
-  }, [groupedData, currentPage, pageSize, pagination]);
+  }, [groupedData, currentPage, currentPageSize, pagination]);
 
   const totalPages = useMemo(() => {
     if (!pagination) return 1;
@@ -243,13 +244,18 @@ export default function DataTable({
       ? groupedData.length 
       : Object.values(groupedData).flat().length;
     
-    return Math.ceil(dataLength / pageSize);
-  }, [groupedData, pageSize, pagination]);
+    return Math.ceil(dataLength / currentPageSize);
+  }, [groupedData, currentPageSize, pagination]);
 
   // Reset to first page when data changes
   useEffect(() => {
     setCurrentPage(1);
   }, [data, searchTerm, filters]);
+
+  // Reset to first page when page size changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [currentPageSize]);
 
   // Handle column sorting
   const handleSort = (columnKey: string) => {
@@ -367,7 +373,7 @@ export default function DataTable({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col space-y-4">
       {/* Header - Only show if title or description is provided */}
       {(title && title !== "Data Table") || (description && description !== "Manage your data") ? (
         <div className="flex justify-between items-center">
@@ -574,7 +580,7 @@ export default function DataTable({
               <p className="text-muted-foreground">Loading...</p>
             </div>
           ) : (
-            <div className="max-h-96 overflow-y-auto">
+            <div className="max-h-[60vh] overflow-y-auto">
               {renderGroupedData()}
             </div>
           )}
@@ -582,12 +588,30 @@ export default function DataTable({
       </Card>
 
       {/* Pagination Controls */}
-      {pagination && totalPages > 1 && (
+      {pagination && (
         <div className="flex items-center justify-between px-4 py-3 border-t border-border">
-          <div className="text-sm text-muted-foreground">
-            Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, Array.isArray(groupedData) ? groupedData.length : Object.values(groupedData).flat().length)} of {Array.isArray(groupedData) ? groupedData.length : Object.values(groupedData).flat().length} items
+          <div className="flex items-center gap-4">
+            <div className="text-sm text-muted-foreground">
+              Showing {((currentPage - 1) * currentPageSize) + 1} to {Math.min(currentPage * currentPageSize, Array.isArray(groupedData) ? groupedData.length : Object.values(groupedData).flat().length)} of {Array.isArray(groupedData) ? groupedData.length : Object.values(groupedData).flat().length} items
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Rows per page:</span>
+              <Select value={currentPageSize.toString()} onValueChange={(value) => setCurrentPageSize(parseInt(value))}>
+                <SelectTrigger className="w-20">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="5">5</SelectItem>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="20">20</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
+          {totalPages > 1 && (
+            <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -623,7 +647,8 @@ export default function DataTable({
             >
               Last
             </Button>
-          </div>
+            </div>
+          )}
         </div>
       )}
 

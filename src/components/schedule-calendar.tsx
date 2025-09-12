@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ChevronLeft, ChevronRight, Calendar, Users, Clock, Plus, Search, X, Check, XCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Users, Clock, Plus, Search, X, Check, XCircle, AlertTriangle } from 'lucide-react';
 import { formatDate, formatTime, formatLongDate, getDayName, getShortDayName } from '@/lib/date';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useBulkRegisterMembers, useCheckInRegistration, useCheckOutRegistration, useAdminCancelRegistration } from '@/hooks/useRegistrations';
@@ -28,6 +28,7 @@ interface Schedule {
   repetitionType: string;
   parentScheduleId?: number;
   isActive: boolean;
+  isEdited?: boolean;
   class: {
     id: number;
     name: string;
@@ -445,7 +446,15 @@ export default function ScheduleCalendar({
                 <CardContent className={isMobile ? 'p-2' : 'p-4'}>
                   <div className={isMobile ? 'flex flex-col gap-2' : 'flex items-center justify-between'}>
                     <div className={isMobile ? '' : 'flex-1'}>
-                      <h3 className={`font-semibold ${isMobile ? 'text-base' : 'text-lg'} ${isPast ? 'text-gray-500' : ''}`}>{schedule.class?.name || 'Unknown Class'}</h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className={`font-semibold ${isMobile ? 'text-base' : 'text-lg'} ${isPast ? 'text-gray-500' : ''}`}>{schedule.class?.name || 'Unknown Class'}</h3>
+                        {schedule.isEdited && (
+                          <Badge variant="outline" className="text-orange-600 border-orange-200 text-xs">
+                            <AlertTriangle className="w-3 h-3 mr-1" />
+                            Edited
+                          </Badge>
+                        )}
+                      </div>
                       <p className={`${isPast ? 'text-gray-400' : 'text-muted-foreground'} ${isMobile ? 'text-xs' : ''}`}>
                         {schedule.trainer?.firstName || 'Unknown'} {schedule.trainer?.lastName || ''}
                       </p>
