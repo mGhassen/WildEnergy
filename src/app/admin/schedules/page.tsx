@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -95,6 +96,7 @@ function calculateEndTime(startTime: string, durationMinutes: number): string {
 }
 
 export default function AdminSchedules() {
+  const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -539,7 +541,14 @@ export default function AdminSchedules() {
     if (editingSchedule) {
       updateScheduleMutation.mutate({ scheduleId: editingSchedule.id, data: mapScheduleToApi(data, classes) });
     } else {
-      createScheduleMutation.mutate(mapScheduleToApi(data, classes));
+      createScheduleMutation.mutate(mapScheduleToApi(data, classes), {
+        onSuccess: (result) => {
+          // Navigate to the schedule detail page after successful creation
+          if (result?.id) {
+            router.push(`/admin/schedules/${result.id}`);
+          }
+        }
+      });
     }
   };
 

@@ -37,7 +37,6 @@ import {
   User,
   ChevronDown,
   ChevronRight,
-  Eye,
   UserCheck,
   UserX,
   Settings,
@@ -674,7 +673,8 @@ export default function ScheduleDetailsPage() {
                     return (
                       <div 
                         key={course.id} 
-                        className="grid grid-cols-12 gap-4 p-3 bg-muted/30 rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                        className="grid grid-cols-12 gap-4 p-3 bg-muted/30 rounded-lg border border-border hover:bg-muted/50 transition-colors cursor-pointer"
+                        onClick={() => router.push(`/admin/courses/${course.id}`)}
                       >
                         {/* Date & Time */}
                         <div className="col-span-2">
@@ -762,12 +762,7 @@ export default function ScheduleDetailsPage() {
                         </div>
 
                         {/* Actions */}
-                        <div className="col-span-2 flex items-center gap-1">
-                          <Link href={`/admin/courses/${course.id}`}>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                          </Link>
+                        <div className="col-span-2 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
@@ -777,7 +772,7 @@ export default function ScheduleDetailsPage() {
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem asChild>
                                 <Link href={`/admin/courses/${course.id}`} className="flex items-center gap-2">
-                                  <Eye className="w-4 h-4" />
+                                  <Activity className="w-4 h-4" />
                                   View Details
                                 </Link>
                               </DropdownMenuItem>
