@@ -33,7 +33,7 @@ import {
   X
 } from "lucide-react";
 import { formatDate } from "@/lib/date";
-import { DataTable } from "@/components/data-table";
+import DataTable from "@/components/data-table";
 
 interface TermsFormData {
   version: string;
