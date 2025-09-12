@@ -107,27 +107,21 @@ export default function AdminSchedules() {
   // Data table columns configuration
   const scheduleColumns = [
     {
-      key: 'code',
-      label: 'Code & Status',
-      sortable: true,
-      width: '120px',
-      render: (value: any, row: any) => (
-        <div className="flex items-center gap-2">
-          <div className={`w-3 h-3 rounded-full ${row.is_active ? 'bg-green-500' : 'bg-red-500'}`} />
-          <div className="font-mono text-sm font-medium text-foreground">
-            {row.code || `SCH-${row.id}`}
-          </div>
-        </div>
-      )
-    },
-    {
       key: 'class.name',
       label: 'Class',
       sortable: true,
-      width: '120px',
+      width: '200px',
       render: (value: any, row: any) => (
-        <div className="font-medium text-sm text-foreground truncate" title={row.class?.name || 'Unknown Class'}>
-          {row.class?.name || 'Unknown Class'}
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <div className={`w-2 h-2 rounded-full ${row.is_active ? 'bg-green-500' : 'bg-red-500'}`} />
+            <span className="text-xs text-muted-foreground font-mono">
+              {row.code || `SCH-${String(row.id).padStart(5, '0')}`}
+            </span>
+          </div>
+          <div className="font-medium text-sm text-foreground truncate" title={row.class?.name || 'Unknown Class'}>
+            {row.class?.name || 'Unknown Class'}
+          </div>
         </div>
       )
     },
@@ -146,17 +140,34 @@ export default function AdminSchedules() {
       key: 'schedule',
       label: 'Schedule & Repetition',
       sortable: true,
-      width: '140px',
-      render: (value: any, row: any) => (
-        <div className="space-y-1">
-          <div className="text-sm font-medium text-foreground">
-            {formatTime(row.startTime)} - {formatTime(row.endTime)}
+      width: '180px',
+      render: (value: any, row: any) => {
+        const repetitionType = row.repetitionType || 'weekly';
+        
+        return (
+          <div className="space-y-1">
+            <div className="text-sm font-medium text-foreground">
+              {formatTime(row.startTime)} - {formatTime(row.endTime)}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {getRepetitionLabel(repetitionType)}
+            </div>
+            {/* Date range based on repetition type */}
+            {repetitionType === 'once' ? (
+              <div className="text-xs text-foreground font-medium">
+                {row.schedule_date ? formatEuropeanDate(row.schedule_date) : 
+                 row.start_date ? formatEuropeanDate(row.start_date) : 'No date'}
+              </div>
+            ) : (
+              (row.start_date || row.end_date) && (
+                <div className="text-xs text-foreground font-medium">
+                  {row.start_date ? formatEuropeanDate(row.start_date) : 'No start'} - {row.end_date ? formatEuropeanDate(row.end_date) : 'No end'}
+                </div>
+              )
+            )}
           </div>
-          <div className="text-xs text-muted-foreground">
-            {getRepetitionLabel(row.repetitionType || 'weekly')}
-          </div>
-        </div>
-      )
+        );
+      }
     },
     {
       key: 'capacity',
@@ -604,19 +615,23 @@ export default function AdminSchedules() {
               <Calendar className="w-5 h-5 text-white" />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="font-semibold text-base truncate">{schedule.class?.name}</span>
-                <Badge variant="outline" className="text-xs">{schedule.code || `SCH-${schedule.id}`}</Badge>
-                <Badge variant="outline" className="text-xs">
-                  {schedule.class?.category?.name || 'No Category'}
-                </Badge>
-                <Badge variant="secondary" className="text-xs flex items-center gap-1">
-                  <RepeatIcon className="w-3 h-3" />
-                  {getRepetitionLabel(schedule.repetitionType || 'weekly')}
-                </Badge>
-                <Badge variant={schedule.isActive ? 'default' : 'secondary'} className="text-xs ml-1">
-                  {schedule.isActive ? 'Active' : 'Inactive'}
-                </Badge>
+              <div className="space-y-1 mb-2">
+                <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${schedule.is_active ? 'bg-green-500' : 'bg-red-500'}`} />
+                  <span className="text-xs text-muted-foreground font-mono">
+                    {schedule.code || `SCH-${String(schedule.id).padStart(5, '0')}`}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-base truncate">{schedule.class?.name}</span>
+                  <Badge variant="outline" className="text-xs">
+                    {schedule.class?.category?.name || 'No Category'}
+                  </Badge>
+                  <Badge variant="secondary" className="text-xs flex items-center gap-1">
+                    <RepeatIcon className="w-3 h-3" />
+                    {getRepetitionLabel(schedule.repetitionType || 'weekly')}
+                  </Badge>
+                </div>
               </div>
               <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
                 <div className="flex items-center gap-1">
@@ -628,7 +643,40 @@ export default function AdminSchedules() {
                     {schedule.scheduleDate ? formatEuropeanDate(schedule.scheduleDate) : getDayName(schedule.dayOfWeek)}
                   </Badge>
                   <span>{formatTime(schedule.startTime)}-{formatTime(schedule.endTime)}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {getRepetitionLabel(schedule.repetitionType || 'weekly')}
+                  </span>
                 </div>
+                {(() => {
+                  const repetitionType = schedule.repetitionType || 'weekly';
+                  
+                  // For "once" repetition, show only the single date
+                  if (repetitionType === 'once') {
+                    const singleDate = schedule.schedule_date || schedule.start_date;
+                    return singleDate ? (
+                      <div className="flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        <span className="text-xs">
+                          {formatEuropeanDate(singleDate)}
+                        </span>
+                      </div>
+                    ) : null;
+                  }
+                  
+                  // For other repetition types, show start and end dates with dash
+                  if (schedule.start_date || schedule.end_date) {
+                    return (
+                      <div className="flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        <span className="text-xs">
+                          {schedule.start_date ? formatEuropeanDate(schedule.start_date) : 'No start'} - {schedule.end_date ? formatEuropeanDate(schedule.end_date) : 'No end'}
+                        </span>
+                      </div>
+                    );
+                  }
+                  
+                  return null;
+                })()}
                 <div className="flex items-center gap-1">
                   <TrendingUp className="w-3 h-3 text-muted-foreground" />
                   <span className="font-medium text-foreground">{attendanceRate}%</span>
@@ -685,8 +733,8 @@ export default function AdminSchedules() {
   };
 
   return (
-    <div className="space-y-8">
-      <div className="flex justify-between items-center">
+    <div className="flex flex-col h-full">
+      <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold text-foreground mb-2">Schedules</h1>
           <p className="text-muted-foreground">Manage class schedule templates</p>
@@ -960,7 +1008,7 @@ export default function AdminSchedules() {
       </div>
 
       {/* Main Content - Enhanced Data Table */}
-      <div className="space-y-6">
+      <div className="flex-1 flex flex-col min-h-0">
         <DataTable
           data={schedules || []}
           columns={scheduleColumns}
@@ -970,6 +1018,8 @@ export default function AdminSchedules() {
           searchable={true}
           selectable={true}
           onRowClick={handleViewSchedule}
+          pagination={true}
+          pageSize={20}
         />
       </div>
 
