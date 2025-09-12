@@ -382,13 +382,13 @@ export default function MemberClasses() {
             const isRegistered = registeredCourseIds.has(course.id);
             return (
               <Card key={course.id} className="flex flex-col h-full">
-                <CardHeader className="pb-2 px-4 pt-4 flex-shrink-0">
-                  <div className="flex items-center justify-between mb-1">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-3">
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <CardTitle className="text-base font-semibold leading-tight cursor-pointer underline underline-offset-2">
+                        <h3 className="text-base font-semibold leading-tight cursor-pointer underline underline-offset-2">
                           {course.class?.name}
-                        </CardTitle>
+                        </h3>
                       </TooltipTrigger>
                       <TooltipContent className="max-w-xs">
                         <div className="font-semibold mb-1">{course.class?.name}</div>
@@ -404,9 +404,9 @@ export default function MemberClasses() {
                       {renderDifficultyStars(course.class?.difficulty || "beginner")}
                     </div>
                   </div>
-                  <CardDescription className="line-clamp-2 text-sm mb-3">
+                  <p className="line-clamp-2 text-sm text-muted-foreground mb-3">
                     {course.class?.description || "Join this exciting Pole Dance class and challenge yourself!"}
-                  </CardDescription>
+                  </p>
                   
                   {/* Course Details Grid */}
                   <div className="grid grid-cols-2 gap-3">
@@ -442,10 +442,9 @@ export default function MemberClasses() {
                       </span>
                     </div>
                   </div>
-                </CardHeader>
-                
-                {/* Action buttons always at the bottom */}
-                <div className="px-4 pb-4 mt-auto">
+                  
+                  {/* Action buttons always at the bottom */}
+                  <div className="mt-auto pt-4">
                   {isRegistered ? (
                     <>
                       <div className="text-green-600 text-sm mb-2 flex items-center">
@@ -489,7 +488,8 @@ export default function MemberClasses() {
                        registerMutation.isPending ? "Registering..." : "Register for Course"}
                     </Button>
                   )}
-                </div>
+                  </div>
+                </CardContent>
               </Card>
             );
           })

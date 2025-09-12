@@ -160,18 +160,17 @@ export default function MemberHistory() {
 
     return (
       <Card key={`${classData.id}-${classData.status}`} className="overflow-hidden">
-        <CardHeader className="pb-2 px-4 pt-4">
-          <div className="flex justify-between items-start">
+        <CardContent className="p-4">
+          <div className="flex justify-between items-start mb-3">
             <div>
-              <CardTitle className="text-base font-semibold leading-tight">{classData.schedule.class.name}</CardTitle>
-              <CardDescription className="mt-0.5 text-xs">
+              <h3 className="text-base font-semibold leading-tight">{classData.schedule.class.name}</h3>
+              <p className="mt-0.5 text-xs text-muted-foreground">
                 {classData.schedule.trainer.firstName} {classData.schedule.trainer.lastName}
-              </CardDescription>
+              </p>
             </div>
             {getStatusBadge(classData.status)}
           </div>
-        </CardHeader>
-        <CardContent className="flex flex-row items-center gap-4 px-4 pb-3 pt-1 min-h-[100px]">
+          <div className="flex flex-row items-center gap-4 min-h-[100px]">
           {/* Left: Info */}
           <div className="flex-1 flex flex-col gap-1 text-xs">
             <div className="flex flex-wrap gap-x-4 gap-y-1 mb-1">
@@ -205,6 +204,7 @@ export default function MemberHistory() {
               </button>
             </div>
           )}
+          </div>
         </CardContent>
       </Card>
     );
