@@ -58,6 +58,8 @@ interface DataTableProps {
   selectable?: boolean;
   title?: string;
   description?: string;
+  pagination?: boolean;
+  pageSize?: number;
 }
 
 export default function DataTable({
@@ -75,13 +77,16 @@ export default function DataTable({
   searchable = true,
   selectable = true,
   title = "Data Table",
-  description = "Manage your data"
+  description = "Manage your data",
+  pagination = false,
+  pageSize = 10
 }: DataTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [groupBy, setGroupBy] = useState<string>("none");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [currentPage, setCurrentPage] = useState(1);
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const [filters, setFilters] = useState<Record<string, string>>(initialFilters);
   const [showFilters, setShowFilters] = useState(false);
@@ -214,6 +219,38 @@ export default function DataTable({
     return groups;
   }, [sortedData, groupBy]);
 
+  // Pagination logic
+  const paginatedData = useMemo(() => {
+    if (!pagination) return groupedData;
+    
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    
+    if (Array.isArray(groupedData)) {
+      return groupedData.slice(startIndex, endIndex);
+    } else {
+      // Handle grouped data (object with arrays)
+      const entries = Object.entries(groupedData);
+      const paginatedEntries = entries.slice(startIndex, endIndex);
+      return Object.fromEntries(paginatedEntries);
+    }
+  }, [groupedData, currentPage, pageSize, pagination]);
+
+  const totalPages = useMemo(() => {
+    if (!pagination) return 1;
+    
+    const dataLength = Array.isArray(groupedData) 
+      ? groupedData.length 
+      : Object.values(groupedData).flat().length;
+    
+    return Math.ceil(dataLength / pageSize);
+  }, [groupedData, pageSize, pagination]);
+
+  // Reset to first page when data changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [data, searchTerm, filters]);
+
   // Handle column sorting
   const handleSort = (columnKey: string) => {
     if (sortColumn === columnKey) {
@@ -263,10 +300,10 @@ export default function DataTable({
   // Render grouped data
   const renderGroupedData = () => {
     if (groupBy === "none") {
-      return renderRows(sortedData);
+      return renderRows(Array.isArray(paginatedData) ? paginatedData : []);
     }
 
-    return Object.entries(groupedData).map(([groupKey, rows]) => {
+    return Object.entries(paginatedData as Record<string, any[]>).map(([groupKey, rows]) => {
       const isExpanded = expandedGroups.has(groupKey);
       const groupCount = rows.length;
       
@@ -544,11 +581,52 @@ export default function DataTable({
         </CardContent>
       </Card>
 
-      {/* Summary */}
-      <div className="text-sm text-muted-foreground">
-        Showing {filteredData.length} of {data.length} items
-        {groupBy !== "none" && ` (${Object.keys(groupedData).length} groups)`}
-      </div>
+      {/* Pagination Controls */}
+      {pagination && totalPages > 1 && (
+        <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+          <div className="text-sm text-muted-foreground">
+            Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, Array.isArray(groupedData) ? groupedData.length : Object.values(groupedData).flat().length)} of {Array.isArray(groupedData) ? groupedData.length : Object.values(groupedData).flat().length} items
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+            >
+              First
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              Previous
+            </Button>
+            <span className="text-sm text-foreground">
+              Page {currentPage} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(currentPage + 1)}
+              disabled={currentPage === totalPages}
+            >
+              Next
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage === totalPages}
+            >
+              Last
+            </Button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
