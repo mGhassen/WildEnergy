@@ -97,6 +97,7 @@ export async function POST(req: NextRequest) {
       session,
       user: {
         id: userProfile.account_id,
+        account_id: userProfile.account_id,
         email: user.email || '',
         isAdmin: Boolean(userProfile.is_admin),
         firstName: userProfile.first_name || user.email?.split('@')[0] || 'User',
@@ -105,6 +106,8 @@ export async function POST(req: NextRequest) {
         credit: userProfile.credit ?? 0,
         userType: userProfile.user_type,
         accessiblePortals: userProfile.accessible_portals,
+        member_id: userProfile.member_id,
+        trainer_id: userProfile.trainer_id,
       },
     });
   } catch (error: any) {

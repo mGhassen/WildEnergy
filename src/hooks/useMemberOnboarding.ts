@@ -6,6 +6,7 @@ export interface OnboardingStatus {
   member_id: string;
   account_id: string;
   personal_info_completed: boolean;
+  discovery_source?: string;
   terms_accepted: boolean;
   terms_accepted_at?: string;
   onboarding_completed: boolean;
@@ -20,6 +21,20 @@ export interface OnboardingStatusResponse {
     onboardingCompleted: boolean;
     termsAccepted: boolean;
     hasPersonalInfo: boolean;
+    personalInfoCompleted: boolean;
+    physicalProfileCompleted: boolean;
+    physicalProfile?: {
+      gender: string;
+      weight: number;
+      height: number;
+      goal: string;
+      activity_level: string;
+    };
+    discoverySource?: string;
+    termsAcceptedAt?: string;
+    termsVersion?: string;
+    termsTitle?: string;
+    termsEffectiveDate?: string;
     user: any;
   };
   error?: string;
@@ -27,6 +42,15 @@ export interface OnboardingStatusResponse {
 
 export interface UpdateOnboardingData {
   personal_info_completed?: boolean;
+  physical_profile_completed?: boolean;
+  physical_profile?: {
+    gender: string;
+    weight: number | null;
+    height: number | null;
+    activity_level: string;
+    goal: string;
+  };
+  discovery_source?: string;
   terms_accepted?: boolean;
   terms_accepted_at?: string;
   onboarding_completed?: boolean;
@@ -45,6 +69,8 @@ export function useOnboardingStatus() {
   return useQuery<OnboardingStatusResponse, Error>({
     queryKey: ['/api/member/onboarding/status'],
     queryFn: () => apiRequest('GET', '/api/member/onboarding/status'),
+    staleTime: 0, // Always consider data stale to force refetch
+    refetchOnMount: true, // Refetch when component mounts
   });
 }
 
@@ -81,6 +107,7 @@ export function useAcceptTerms() {
     mutationFn: ({ memberId }: { memberId: string }) => 
       apiRequest('POST', `/api/member/onboarding/${memberId}/accept-terms`),
     onSuccess: (_, { memberId }) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/member/onboarding/status'] });
       queryClient.invalidateQueries({ queryKey: ['member-onboarding', memberId] });
       queryClient.invalidateQueries({ queryKey: ['member'] });
       toast({

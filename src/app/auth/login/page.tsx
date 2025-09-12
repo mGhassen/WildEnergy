@@ -286,7 +286,7 @@ export default function LoginPage({ searchParams }: { searchParams: Promise<Reco
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handlePrefilledLogin("sarah.trainer@wildenergy.gym", "password123")}
+                    onClick={() => handlePrefilledLogin("sophie.admin@wildenergy.gym", "password123")}
                     disabled={isLoading}
                     className="text-xs"
                   >
