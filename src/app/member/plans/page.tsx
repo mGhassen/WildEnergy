@@ -46,19 +46,19 @@ export default function PlansPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {plans?.map((plan) => (
               <Card key={plan.id}>
-                <CardHeader>
-                  <div className="flex items-center justify-between mb-2">
-                    <CardTitle className="text-2xl font-bold">{plan.name}</CardTitle>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-2xl font-bold">{plan.name}</h3>
                     {getTotalSessions(plan) === maxSessions && getTotalSessions(plan) > 0 && (
                       <Badge className="bg-primary text-white ml-2">Popular</Badge>
                     )}
                   </div>
-                  <CardDescription className="mb-2 text-base">{plan.description}</CardDescription>
-                  <div className="flex items-center gap-3 mb-2">
+                  <p className="mb-3 text-base text-muted-foreground">{plan.description}</p>
+                  <div className="flex items-center gap-3 mb-4">
                     <span className="text-3xl font-bold text-primary">{formatCurrency(plan.price)}</span>
                     <span className="text-muted-foreground">/ {plan.duration_days} days</span>
                   </div>
-                  <div className="space-y-3 mt-2">
+                  <div className="space-y-3 mb-4">
                     <div className="flex flex-wrap gap-2">
                       <span className="inline-flex items-center gap-1 text-sm bg-muted px-2 py-1 rounded-full">
                         <Users className="w-4 h-4 text-primary" /> {getTotalSessions(plan)} total sessions
@@ -108,8 +108,8 @@ export default function PlansPage() {
                       </span>
                     )}
                   </div>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-4 mt-2">
+                  
+                  <div className="flex flex-col gap-4">
                   <Button
                     asChild
                     className="w-full text-base font-semibold"
@@ -117,8 +117,9 @@ export default function PlansPage() {
                   >
                     <a href={`mailto:info@gym.com?subject=Interested in ${encodeURIComponent(plan.name)} plan`}>Contact Us</a>
                   </Button>
-                  <div className="text-xs text-muted-foreground text-center">
-                    No payment required online. Contact us to activate your membership!
+                    <div className="text-xs text-muted-foreground text-center">
+                      No payment required online. Contact us to activate your membership!
+                    </div>
                   </div>
                 </CardContent>
               </Card>
