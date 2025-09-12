@@ -38,9 +38,6 @@ export function NavMain({
 
   // Function to check if a menu item is active
   const isItemActive = (url: string) => {
-    if (url === "/admin/dashboard") {
-      return pathname === "/admin" || pathname === "/admin/dashboard"
-    }
     if (url === "/admin") {
       return pathname === "/admin" || pathname === "/admin/dashboard"
     }
@@ -70,16 +67,16 @@ export function NavMain({
           return (
             <Collapsible key={item.title} asChild defaultOpen={isGroupOpen}>
               <SidebarMenuItem>
-                <CollapsibleTrigger asChild>
-                  <SidebarMenuButton 
-                    tooltip={item.title}
-                  >
-                    <item.icon />
-                    <span>{item.title}</span>
-                  </SidebarMenuButton>
-                </CollapsibleTrigger>
                 {item.items?.length ? (
                   <>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton 
+                        tooltip={item.title}
+                      >
+                        <item.icon />
+                        <span>{item.title}</span>
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
                     <CollapsibleTrigger asChild>
                       <SidebarMenuAction className="data-[state=open]:rotate-90">
                         <ChevronRight />
@@ -108,7 +105,19 @@ export function NavMain({
                       </SidebarMenuSub>
                     </CollapsibleContent>
                   </>
-                ) : null}
+                ) : (
+                  <SidebarMenuButton 
+                    asChild
+                    tooltip={item.title}
+                    isActive={isActive}
+                    className={isActive ? "bg-sidebar-accent text-sidebar-accent-foreground font-semibold" : ""}
+                  >
+                    <a href={item.url}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </a>
+                  </SidebarMenuButton>
+                )}
               </SidebarMenuItem>
             </Collapsible>
           )
