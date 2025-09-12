@@ -15,7 +15,9 @@ export function useCreateScheduleWithCourses() {
       // Generate courses for the new schedule
       if (result?.id) {
         try {
-          await apiRequest("POST", `/api/admin/schedules/${result.id}`);
+          console.log('Generating courses for schedule:', result.id);
+          const courseResult = await apiRequest("POST", `/api/admin/schedules/${result.id}`);
+          console.log('Course generation result:', courseResult);
         } catch (err) {
           console.error('Course generation failed:', err);
           // Don't throw here, just log the error
@@ -24,12 +26,12 @@ export function useCreateScheduleWithCourses() {
       
       return result;
     },
-    onSuccess: () => {
+    onSuccess: (result, variables, context) => {
       queryClient.invalidateQueries({ queryKey: ['schedules'] });
       queryClient.invalidateQueries({ queryKey: ['courses'] });
       toast({
         title: 'Schedule created',
-        description: 'The schedule has been successfully created.',
+        description: 'The schedule has been successfully created and courses generated.',
       });
     },
     onError: (error: any) => {

@@ -28,11 +28,13 @@ export async function GET(req: NextRequest) {
             name,
             description,
             color,
-            categories (
-              id,
-              name,
-              description,
-              color
+            category_groups (
+              categories (
+                id,
+                name,
+                description,
+                color
+              )
             )
           )
         )
@@ -117,11 +119,13 @@ export async function POST(req: NextRequest) {
             name,
             description,
             color,
-            categories (
-              id,
-              name,
-              description,
-              color
+            category_groups (
+              categories (
+                id,
+                name,
+                description,
+                color
+              )
             )
           )
         )
@@ -221,11 +225,13 @@ export async function PUT(req: NextRequest) {
             name,
             description,
             color,
-            categories (
-              id,
-              name,
-              description,
-              color
+            category_groups (
+              categories (
+                id,
+                name,
+                description,
+                color
+              )
             )
           )
         )

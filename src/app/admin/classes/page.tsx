@@ -409,7 +409,7 @@ export default function AdminClasses() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Class</TableHead>
-                  <TableHead>Group & Category</TableHead>
+                  <TableHead>Category</TableHead>
                   <TableHead>Duration</TableHead>
                   <TableHead>Capacity</TableHead>
                   <TableHead>Status</TableHead>
@@ -439,22 +439,16 @@ export default function AdminClasses() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-start space-x-2">
-                        {/* Long vertical bullet */}
+                      <div className="flex items-center space-x-2">
+                        {/* Category color indicator */}
                         <div 
-                          className="w-1 h-8 rounded-full mt-0.5"
-                          style={{ backgroundColor: classItem.categories?.group?.color || '#94a3b8' }}
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: classItem.categories?.color || '#94a3b8' }}
                         />
-                        <div className="flex flex-col space-y-1">
-                          {/* Group */}
-                          <span className="text-xs text-muted-foreground font-medium">
-                            {classItem.categories?.group?.name || 'No group'}
-                          </span>
-                          {/* Category */}
-                          <span className="text-sm font-semibold text-foreground">
-                            {classItem.categories?.name || categories.find((cat: any) => cat && cat.id === classItem.categoryId)?.name || 'No category'}
-                          </span>
-                        </div>
+                        {/* Category name only */}
+                        <span className="text-sm font-semibold text-foreground">
+                          {classItem.categories?.name || categories.find((cat: any) => cat && cat.id === classItem.categoryId)?.name || 'No category'}
+                        </span>
                       </div>
                     </TableCell>
                     <TableCell>

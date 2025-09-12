@@ -39,11 +39,13 @@ export async function GET(req: NextRequest) {
               name,
               description,
               color,
-              categories (
-                id,
-                name,
-                description,
-                color
+              category_groups (
+                categories (
+                  id,
+                  name,
+                  description,
+                  color
+                )
               )
             )
           )

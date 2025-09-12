@@ -32,11 +32,13 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
             name,
             description,
             color,
-            categories (
-              id,
-              name,
-              description,
-              color
+            category_groups (
+              categories (
+                id,
+                name,
+                description,
+                color
+              )
             )
           )
         )
@@ -139,11 +141,13 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
             name,
             description,
             color,
-            categories (
-              id,
-              name,
-              description,
-              color
+            category_groups (
+              categories (
+                id,
+                name,
+                description,
+                color
+              )
             )
           )
         )

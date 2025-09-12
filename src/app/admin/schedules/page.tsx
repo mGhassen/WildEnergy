@@ -353,8 +353,8 @@ export default function AdminSchedules() {
     isActive: sch.is_active,
     trainer: sch.trainer ? {
       id: sch.trainer.id,
-      firstName: sch.trainer.first_name || "",
-      lastName: sch.trainer.last_name || "",
+      firstName: sch.trainer.firstName || sch.trainer.first_name || "",
+      lastName: sch.trainer.lastName || sch.trainer.last_name || "",
     } : {
       id: sch.trainer_id,
       firstName: "",

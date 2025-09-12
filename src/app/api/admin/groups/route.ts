@@ -91,12 +91,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to create group' }, { status: 500 });
     }
 
-    // Update categories to belong to this group if provided
+    // Create category-group relationships if provided
     if (categoryIds && categoryIds.length > 0) {
+      const categoryGroupData = categoryIds.map((categoryId: number) => ({
+        group_id: group.id,
+        category_id: categoryId
+      }));
+
       const { error: categoriesError } = await supabaseServer()
-        .from('categories')
-        .update({ group_id: group.id })
-        .in('id', categoryIds);
+        .from('category_groups')
+        .insert(categoryGroupData);
 
       if (categoriesError) {
         // Rollback group creation
@@ -110,11 +114,13 @@ export async function POST(req: NextRequest) {
       .from('groups')
       .select(`
         *,
-        categories (
-          id,
-          name,
-          description,
-          color
+        category_groups (
+          categories (
+            id,
+            name,
+            description,
+            color
+          )
         )
       `)
       .eq('id', group.id)
@@ -124,7 +130,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch complete group' }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, group: completeGroup });
+    // Transform the data to match the expected interface
+    const transformedGroup = {
+      ...completeGroup,
+      categories: completeGroup.category_groups?.map((cg: any) => cg.categories) || []
+    };
+
+    return NextResponse.json({ success: true, group: transformedGroup });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to create group' }, { status: 500 });
   }
@@ -177,22 +189,26 @@ export async function PUT(req: NextRequest) {
 
     // Update group-category relationships if provided
     if (categoryIds !== undefined) {
-      // Remove all categories from this group first
+      // Remove all existing category-group relationships for this group
       const { error: removeError } = await supabaseServer()
-        .from('categories')
-        .update({ group_id: null })
+        .from('category_groups')
+        .delete()
         .eq('group_id', id);
 
       if (removeError) {
         return NextResponse.json({ error: 'Failed to remove existing categories from group' }, { status: 500 });
       }
 
-      // Assign new categories to this group
+      // Create new category-group relationships
       if (categoryIds.length > 0) {
+        const categoryGroupData = categoryIds.map((categoryId: number) => ({
+          group_id: id,
+          category_id: categoryId
+        }));
+
         const { error: categoriesError } = await supabaseServer()
-          .from('categories')
-          .update({ group_id: id })
-          .in('id', categoryIds);
+          .from('category_groups')
+          .insert(categoryGroupData);
 
         if (categoriesError) {
           return NextResponse.json({ error: 'Failed to assign categories to group' }, { status: 500 });
@@ -205,11 +221,13 @@ export async function PUT(req: NextRequest) {
       .from('groups')
       .select(`
         *,
-        categories (
-          id,
-          name,
-          description,
-          color
+        category_groups (
+          categories (
+            id,
+            name,
+            description,
+            color
+          )
         )
       `)
       .eq('id', id)
@@ -219,7 +237,13 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch complete group' }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, group: completeGroup });
+    // Transform the data to match the expected interface
+    const transformedGroup = {
+      ...completeGroup,
+      categories: completeGroup.category_groups?.map((cg: any) => cg.categories) || []
+    };
+
+    return NextResponse.json({ success: true, group: transformedGroup });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to update group' }, { status: 500 });
   }
@@ -256,10 +280,10 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Group ID is required' }, { status: 400 });
     }
 
-    // Remove categories from this group (unlink, don't delete)
+    // Remove category-group relationships (unlink, don't delete categories)
     const { error: categoriesError } = await supabaseServer()
-      .from('categories')
-      .update({ group_id: null })
+      .from('category_groups')
+      .delete()
       .eq('group_id', id);
 
     if (categoriesError) {
