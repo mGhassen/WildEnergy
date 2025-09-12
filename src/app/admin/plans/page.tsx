@@ -15,7 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertPlanSchema, insertPlanGroupSchema } from "@/shared/zod-schemas";
-import { Plus, Search, Edit, Trash2, Clock, X, Star, Users, Calendar, DollarSign, Zap } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Clock, X, Star, Users, Calendar, DollarSign, Zap, Grid3X3, Table } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 import { formatCurrency } from "@/lib/config";
@@ -47,6 +47,7 @@ export default function AdminPlans() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deletingPlan, setDeletingPlan] = useState<any>(null);
   const [linkedSubscriptions, setLinkedSubscriptions] = useState<any[]>([]);
+  const [viewType, setViewType] = useState<'cards' | 'table'>('cards');
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -448,8 +449,8 @@ export default function AdminPlans() {
         </Dialog>
       </div>
 
-      {/* Search */}
-      <div className="flex items-center space-x-2">
+      {/* Search and View Toggle */}
+      <div className="flex items-center justify-between space-x-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
           <Input
@@ -458,6 +459,28 @@ export default function AdminPlans() {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
           />
+        </div>
+        
+        {/* View Toggle */}
+        <div className="flex items-center gap-2 bg-muted p-1 rounded-lg">
+          <Button
+            variant={viewType === 'cards' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setViewType('cards')}
+            className="flex items-center gap-2"
+          >
+            <Grid3X3 className="w-4 h-4" />
+            Cards
+          </Button>
+          <Button
+            variant={viewType === 'table' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setViewType('table')}
+            className="flex items-center gap-2"
+          >
+            <Table className="w-4 h-4" />
+            Table
+          </Button>
         </div>
       </div>
 
@@ -473,20 +496,47 @@ export default function AdminPlans() {
         </div>
 
         {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(6)].map((_, i) => (
-              <Card key={i} className="animate-pulse">
-                <CardContent className="p-6">
-                  <div className="space-y-4">
-                    <div className="h-5 bg-muted rounded w-3/4"></div>
+          viewType === 'cards' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[...Array(6)].map((_, i) => (
+                <Card key={i} className="animate-pulse">
+                  <CardContent className="p-6">
+                    <div className="space-y-4">
+                      <div className="h-5 bg-muted rounded w-3/4"></div>
+                      <div className="h-4 bg-muted rounded w-1/2"></div>
+                      <div className="h-8 bg-muted rounded w-full"></div>
+                      <div className="h-10 bg-muted rounded w-full"></div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="border rounded-lg">
+              <div className="border-b p-4">
+                <div className="grid grid-cols-6 gap-4">
+                  <div className="h-4 bg-muted rounded"></div>
+                  <div className="h-4 bg-muted rounded"></div>
+                  <div className="h-4 bg-muted rounded"></div>
+                  <div className="h-4 bg-muted rounded"></div>
+                  <div className="h-4 bg-muted rounded"></div>
+                  <div className="h-4 bg-muted rounded"></div>
+                </div>
+              </div>
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="border-b p-4 animate-pulse">
+                  <div className="grid grid-cols-6 gap-4">
+                    <div className="h-4 bg-muted rounded w-3/4"></div>
                     <div className="h-4 bg-muted rounded w-1/2"></div>
-                    <div className="h-8 bg-muted rounded w-full"></div>
-                    <div className="h-10 bg-muted rounded w-full"></div>
+                    <div className="h-4 bg-muted rounded w-1/3"></div>
+                    <div className="h-4 bg-muted rounded w-1/4"></div>
+                    <div className="h-4 bg-muted rounded w-1/2"></div>
+                    <div className="h-8 bg-muted rounded w-16"></div>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                </div>
+              ))}
+            </div>
+          )
         ) : mappedPlans.length === 0 ? (
           <div className="text-center py-12">
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
@@ -501,7 +551,7 @@ export default function AdminPlans() {
               Create Your First Plan
             </Button>
           </div>
-        ) : (
+        ) : viewType === 'cards' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {mappedPlans.map((plan: any) => (
               <Card key={plan.id} className="group hover:shadow-lg transition-all duration-200 border-border/50 hover:border-primary/20 h-full flex flex-col">
@@ -623,6 +673,142 @@ export default function AdminPlans() {
                 </CardContent>
               </Card>
             ))}
+          </div>
+        ) : (
+          <div className="border rounded-lg overflow-hidden">
+            {/* Table Header */}
+            <div className="border-b bg-muted/30 p-4">
+              <div className="grid grid-cols-6 gap-4 text-sm font-medium text-muted-foreground">
+                <div>Plan Name</div>
+                <div>Price</div>
+                <div>Duration</div>
+                <div>Groups</div>
+                <div>Status</div>
+                <div>Actions</div>
+              </div>
+            </div>
+            
+            {/* Table Body */}
+            <div className="divide-y">
+              {mappedPlans.map((plan: any) => (
+                <div key={plan.id} className="p-4 hover:bg-muted/20 transition-colors">
+                  <div className="grid grid-cols-6 gap-4 items-center">
+                    {/* Plan Name */}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
+                          <span className="text-xs font-semibold text-primary">
+                            {plan.name.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="min-w-0">
+                          <div className="font-medium text-foreground truncate">
+                            {plan.name}
+                          </div>
+                          <div className="text-xs text-muted-foreground truncate">
+                            {plan.description || 'No description'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Price */}
+                    <div>
+                      <div className="text-lg font-bold text-primary">
+                        {formatPrice(plan.price)}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        per {getDurationText(plan.durationDays).toLowerCase()}
+                      </div>
+                    </div>
+                    
+                    {/* Duration */}
+                    <div>
+                      <div className="text-sm font-medium text-foreground">
+                        {plan.durationDays} days
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {getDurationText(plan.durationDays)}
+                      </div>
+                    </div>
+                    
+                    {/* Groups */}
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Users className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm font-medium">
+                          {plan.plan_groups?.length || 0}
+                        </span>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {plan.plan_groups?.length > 0 
+                          ? `${plan.plan_groups.reduce((total: number, group: any) => total + group.session_count, 0)} sessions`
+                          : 'No groups'
+                        }
+                      </div>
+                    </div>
+                    
+                    {/* Status */}
+                    <div>
+                      <Badge 
+                        variant={plan.isActive ? 'default' : 'secondary'}
+                        className={`${plan.isActive ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : ''}`}
+                      >
+                        {plan.isActive ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </div>
+                    
+                    {/* Actions */}
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEdit(plan)}
+                        className="flex items-center gap-1"
+                      >
+                        <Edit className="w-3 h-3" />
+                        Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDelete(plan)}
+                        className="hover:bg-destructive/5 hover:border-destructive/20 hover:text-destructive"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {/* Plan Groups Details - Collapsible */}
+                  {plan.plan_groups && plan.plan_groups.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-border/50">
+                      <div className="flex flex-wrap gap-2">
+                        {plan.plan_groups.map((group: any, index: number) => (
+                          <div key={index} className="flex items-center gap-2 px-2 py-1 bg-muted/30 rounded-md text-xs">
+                            <div 
+                              className="w-2 h-2 rounded-full border border-white/20" 
+                              style={{ backgroundColor: group.groups?.color || '#6B7280' }}
+                            />
+                            <span className="font-medium text-foreground">
+                              {group.groups?.name || 'Unknown Group'}
+                            </span>
+                            <span className="text-muted-foreground">
+                              ({group.session_count}s)
+                            </span>
+                            {group.is_free && (
+                              <Badge variant="outline" className="text-xs bg-green-100 text-green-700 border-green-200 px-1 py-0">
+                                FREE
+                              </Badge>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
