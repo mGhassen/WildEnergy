@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseServer } from '@/lib/supabase';
+import { supabaseServer, createSupabaseClient } from '@/lib/supabase';
 import { editCourseSchema } from '@/shared/zod-schemas';
 
 export async function GET(
@@ -180,12 +180,32 @@ export async function GET(
 
     // Calculate if course has been edited compared to schedule
     const schedule = course.schedule;
+    
+    // Debug logging to understand the data structure
+    console.log('Individual Course data:', {
+      id: course.id,
+      trainer_id: course.trainer_id,
+      start_time: course.start_time,
+      end_time: course.end_time,
+      max_participants: course.max_participants
+    });
+    
+    console.log('Individual Schedule data:', schedule ? {
+      id: schedule.id,
+      trainer_id: schedule.trainer_id,
+      start_time: schedule.start_time,
+      end_time: schedule.end_time,
+      max_participants: schedule.max_participants
+    } : 'No schedule');
+    
     const isEdited = schedule ? (
       course.trainer_id !== schedule.trainer_id ||
       course.start_time !== schedule.start_time ||
       course.end_time !== schedule.end_time ||
       course.max_participants !== schedule.max_participants
     ) : false;
+    
+    console.log('Individual Is edited:', isEdited);
 
     const differences = schedule ? {
       trainer: course.trainer_id !== schedule.trainer_id ? {
@@ -419,7 +439,7 @@ export async function PUT(
       }, { status: 400 });
     }
     
-    // Use the validated data directly
+    // Use the validated data directly (already in snake_case)
     const allowedUpdates = validationResult.data;
 
     const { data: course, error } = await supabaseServer()

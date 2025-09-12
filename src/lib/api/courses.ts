@@ -23,7 +23,7 @@ export interface AddMembersToCourseResponse {
 export interface Course {
   id: number;
   class_id: number;
-  trainer_id: number;
+  trainer_id: string;
   course_date: string;
   start_time: string;
   end_time: string;
@@ -42,8 +42,8 @@ export interface Course {
   isEdited?: boolean;
   differences?: {
     trainer?: {
-      original: number;
-      current: number;
+      original: string;
+      current: string;
     };
     startTime?: {
       original: string;

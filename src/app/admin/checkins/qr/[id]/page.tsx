@@ -32,7 +32,7 @@ interface CheckinInfo {
     start_time: string;
     end_time: string;
     class_id: number;
-    trainer_id: number;
+    trainer_id: string;
     class: {
       id: number;
       name: string;

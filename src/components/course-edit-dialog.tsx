@@ -32,10 +32,10 @@ export function CourseEditDialog({ course, isOpen, onClose }: CourseEditDialogPr
   const form = useForm<EditCourse>({
     resolver: zodResolver(editCourseSchema),
     defaultValues: {
-      trainerId: course.trainer_id,
-      startTime: course.start_time,
-      endTime: course.end_time,
-      maxParticipants: course.max_participants,
+      trainer_id: String(course.trainer_id),
+      start_time: course.start_time,
+      end_time: course.end_time,
+      max_participants: course.max_participants,
       status: course.status as 'scheduled' | 'in_progress' | 'completed' | 'cancelled',
     },
   });
@@ -46,10 +46,10 @@ export function CourseEditDialog({ course, isOpen, onClose }: CourseEditDialogPr
       await updateCourse.mutateAsync({
         courseId: course.id,
         data: {
-          trainer_id: data.trainerId,
-          start_time: data.startTime,
-          end_time: data.endTime,
-          max_participants: data.maxParticipants,
+          trainer_id: data.trainer_id,
+          start_time: data.start_time,
+          end_time: data.end_time,
+          max_participants: data.max_participants,
           status: data.status,
         },
       });
@@ -70,20 +70,20 @@ export function CourseEditDialog({ course, isOpen, onClose }: CourseEditDialogPr
     }
   };
 
-  const getTrainerName = (trainerId: number) => {
-    const trainer = trainers?.find(t => t.id === trainerId);
+  const getTrainerName = (trainerId: string | number) => {
+    const trainer = trainers?.find(t => t.id === String(trainerId));
     return trainer ? `${trainer.first_name} ${trainer.last_name}` : 'Unknown Trainer';
   };
 
-  const getOriginalValue = (field: keyof typeof course.differences) => {
+  const getOriginalValue = (field: keyof NonNullable<typeof course.differences>) => {
     return course.differences?.[field]?.original;
   };
 
-  const getCurrentValue = (field: keyof typeof course.differences) => {
+  const getCurrentValue = (field: keyof NonNullable<typeof course.differences>) => {
     return course.differences?.[field]?.current;
   };
 
-  const isFieldEdited = (field: keyof typeof course.differences) => {
+  const isFieldEdited = (field: keyof NonNullable<typeof course.differences>) => {
     return course.differences?.[field] !== null;
   };
 
@@ -106,7 +106,7 @@ export function CourseEditDialog({ course, isOpen, onClose }: CourseEditDialogPr
               {/* Trainer Selection */}
               <FormField
                 control={form.control}
-                name="trainerId"
+                name="trainer_id"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="flex items-center gap-2">
@@ -120,8 +120,8 @@ export function CourseEditDialog({ course, isOpen, onClose }: CourseEditDialogPr
                       )}
                     </FormLabel>
                     <Select
-                      value={field.value.toString()}
-                      onValueChange={(value) => field.onChange(parseInt(value))}
+                      value={field.value}
+                      onValueChange={field.onChange}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -130,7 +130,7 @@ export function CourseEditDialog({ course, isOpen, onClose }: CourseEditDialogPr
                       </FormControl>
                       <SelectContent>
                         {trainers?.map((trainer) => (
-                          <SelectItem key={trainer.id} value={trainer.id.toString()}>
+                          <SelectItem key={trainer.id} value={trainer.id}>
                             {trainer.first_name} {trainer.last_name}
                           </SelectItem>
                         ))}
@@ -138,7 +138,7 @@ export function CourseEditDialog({ course, isOpen, onClose }: CourseEditDialogPr
                     </Select>
                     {isFieldEdited('trainer') && (
                       <div className="text-xs text-muted-foreground mt-1">
-                        <span className="text-orange-600">Original:</span> {getTrainerName(getOriginalValue('trainer') || 0)}
+                        <span className="text-orange-600">Original:</span> {getTrainerName(getOriginalValue('trainer') || '')}
                       </div>
                     )}
                     <FormMessage />
@@ -149,7 +149,7 @@ export function CourseEditDialog({ course, isOpen, onClose }: CourseEditDialogPr
               {/* Max Participants */}
               <FormField
                 control={form.control}
-                name="maxParticipants"
+                name="max_participants"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="flex items-center gap-2">
@@ -183,7 +183,7 @@ export function CourseEditDialog({ course, isOpen, onClose }: CourseEditDialogPr
               {/* Start Time */}
               <FormField
                 control={form.control}
-                name="startTime"
+                name="start_time"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="flex items-center gap-2">
@@ -204,7 +204,7 @@ export function CourseEditDialog({ course, isOpen, onClose }: CourseEditDialogPr
                     </FormControl>
                     {isFieldEdited('startTime') && (
                       <div className="text-xs text-muted-foreground mt-1">
-                        <span className="text-orange-600">Original:</span> {formatTime(getOriginalValue('startTime') || '')}
+                        <span className="text-orange-600">Original:</span> {formatTime(String(getOriginalValue('startTime') || ''))}
                       </div>
                     )}
                     <FormMessage />
@@ -215,7 +215,7 @@ export function CourseEditDialog({ course, isOpen, onClose }: CourseEditDialogPr
               {/* End Time */}
               <FormField
                 control={form.control}
-                name="endTime"
+                name="end_time"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="flex items-center gap-2">
@@ -236,7 +236,7 @@ export function CourseEditDialog({ course, isOpen, onClose }: CourseEditDialogPr
                     </FormControl>
                     {isFieldEdited('endTime') && (
                       <div className="text-xs text-muted-foreground mt-1">
-                        <span className="text-orange-600">Original:</span> {formatTime(getOriginalValue('endTime') || '')}
+                        <span className="text-orange-600">Original:</span> {formatTime(String(getOriginalValue('endTime') || ''))}
                       </div>
                     )}
                     <FormMessage />

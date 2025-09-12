@@ -110,19 +110,19 @@ export const insertCourseSchema = z.object({
 });
 
 export const editCourseSchema = z.object({
-  trainerId: z.number().min(1, 'Trainer is required'),
-  startTime: z.string().min(1, 'Start time is required'),
-  endTime: z.string().min(1, 'End time is required'),
-  maxParticipants: z.number().min(1, 'Max participants must be at least 1'),
+  trainer_id: z.string().min(1, 'Trainer is required'),
+  start_time: z.string().min(1, 'Start time is required'),
+  end_time: z.string().min(1, 'End time is required'),
+  max_participants: z.number().min(1, 'Max participants must be at least 1'),
   status: z.enum(['scheduled', 'in_progress', 'completed', 'cancelled']).optional(),
 }).refine((data) => {
   // Validate that end time is after start time
-  const start = new Date(`2000-01-01T${data.startTime}`);
-  const end = new Date(`2000-01-01T${data.endTime}`);
+  const start = new Date(`2000-01-01T${data.start_time}`);
+  const end = new Date(`2000-01-01T${data.end_time}`);
   return end > start;
 }, {
   message: "End time must be after start time",
-  path: ["endTime"],
+  path: ["end_time"],
 });
 
 export const insertClassRegistrationSchema = z.object({
