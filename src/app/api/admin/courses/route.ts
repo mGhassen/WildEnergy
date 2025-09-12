@@ -50,12 +50,32 @@ export async function GET(req: NextRequest) {
     // Process courses to add comparison data with schedule
     const processedCourses = (courses || []).map(course => {
       const schedule = course.schedule;
+      
+      // Debug logging to understand the data structure
+      console.log('Course data:', {
+        id: course.id,
+        trainer_id: course.trainer_id,
+        start_time: course.start_time,
+        end_time: course.end_time,
+        max_participants: course.max_participants
+      });
+      
+      console.log('Schedule data:', schedule ? {
+        id: schedule.id,
+        trainer_id: schedule.trainer_id,
+        start_time: schedule.start_time,
+        end_time: schedule.end_time,
+        max_participants: schedule.max_participants
+      } : 'No schedule');
+      
       const isEdited = schedule ? (
         course.trainer_id !== schedule.trainer_id ||
         course.start_time !== schedule.start_time ||
         course.end_time !== schedule.end_time ||
         course.max_participants !== schedule.max_participants
       ) : false;
+      
+      console.log('Is edited:', isEdited);
 
       const differences = schedule ? {
         trainer: course.trainer_id !== schedule.trainer_id ? {

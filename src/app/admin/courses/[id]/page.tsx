@@ -60,7 +60,7 @@ interface CourseDetails {
   id: number;
   schedule_id: number;
   class_id: number;
-  trainer_id: number;
+  trainer_id: string;
   course_date: string;
   start_time: string;
   end_time: string;
@@ -70,6 +70,25 @@ interface CourseDetails {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  isEdited?: boolean;
+  differences?: {
+    trainer?: {
+      original: number;
+      current: number;
+    };
+    startTime?: {
+      original: string;
+      current: string;
+    };
+    endTime?: {
+      original: string;
+      current: string;
+    };
+    maxParticipants?: {
+      original: number;
+      current: number;
+    };
+  };
   class: {
     id: number;
     name: string;
