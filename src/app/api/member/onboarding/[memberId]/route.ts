@@ -81,6 +81,15 @@ export async function PUT(
     if (body.personal_info_completed !== undefined) {
       updateData.personal_info_completed = body.personal_info_completed;
     }
+    if (body.physical_profile_completed !== undefined) {
+      updateData.physical_profile_completed = body.physical_profile_completed;
+    }
+    if (body.physical_profile !== undefined) {
+      updateData.physical_profile = body.physical_profile;
+    }
+    if (body.discovery_source !== undefined) {
+      updateData.discovery_source = body.discovery_source;
+    }
     if (body.terms_accepted !== undefined) {
       updateData.terms_accepted = body.terms_accepted;
     }

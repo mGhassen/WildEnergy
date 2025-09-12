@@ -54,14 +54,10 @@ export async function GET(request: NextRequest) {
       console.error("Error fetching profile data:", profileError);
     }
 
-    // Check if personal info is completed based on profile data
-    const hasPersonalInfo = !!(
-      onboardingData.first_name && 
-      onboardingData.last_name && 
-      profileData?.phone && 
-      profileData?.profession && 
-      profileData?.address
-    );
+    // Check if personal info is completed based on onboarding status
+    // The personal_info_completed flag in the member_onboarding table is the source of truth
+    const hasPersonalInfo = onboardingData.personal_info_completed || false;
+    const hasPhysicalProfile = onboardingData.physical_profile_completed || false;
 
     return NextResponse.json({ 
       success: true, 
@@ -70,6 +66,13 @@ export async function GET(request: NextRequest) {
         termsAccepted: onboardingData.terms_accepted || false,
         hasPersonalInfo,
         personalInfoCompleted: onboardingData.personal_info_completed || false,
+        physicalProfileCompleted: hasPhysicalProfile,
+        physicalProfile: onboardingData.physical_profile || null,
+        discoverySource: onboardingData.discovery_source || null,
+        termsAcceptedAt: onboardingData.terms_accepted_at || null,
+        termsVersion: onboardingData.terms_version || null,
+        termsTitle: onboardingData.terms_title || null,
+        termsEffectiveDate: onboardingData.terms_effective_date || null,
         user: {
           first_name: onboardingData.first_name,
           last_name: onboardingData.last_name,

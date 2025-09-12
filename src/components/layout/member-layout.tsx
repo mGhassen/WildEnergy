@@ -16,7 +16,9 @@ import {
   X,
   ChevronDown,
   Sun,
-  Moon
+  Moon,
+  User,
+  FileText
 } from "lucide-react";
 import { getInitials } from "@/lib/auth";
 import { useState, useEffect } from "react";
@@ -24,9 +26,10 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useTheme } from "@/components/theme-provider";
 import { useOnboardingStatus } from "@/hooks/useMemberOnboarding";
+import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { MemberUserSkeleton } from "@/components/member-user-skeleton";
-import { Shield, User, GraduationCap } from "lucide-react";
+import { Shield, GraduationCap } from "lucide-react";
 
 interface MemberLayoutProps {
   children: React.ReactNode;
@@ -38,9 +41,17 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
   const { user, logout, isAuthenticated, isLoading } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const queryClient = useQueryClient();
 
   // Check onboarding status
   const { data: onboardingStatus, isLoading: isLoadingOnboarding, error: onboardingError } = useOnboardingStatus();
+
+  // Force refetch onboarding status when component mounts to ensure fresh data
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      queryClient.invalidateQueries({ queryKey: ['/api/member/onboarding/status'] });
+    }
+  }, [isAuthenticated, user, queryClient]);
 
   // Debug logging
   useEffect(() => {
@@ -53,20 +64,35 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
     });
   }, [isAuthenticated, onboardingStatus, isLoadingOnboarding, onboardingError, pathname]);
 
+  // Handle logout function
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
   // Redirect to onboarding if not completed
   useEffect(() => {
     if (isAuthenticated && onboardingStatus && !isLoadingOnboarding && !pathname.startsWith("/member/onboarding")) {
       console.log("Onboarding status data:", onboardingStatus);
       
       if (onboardingStatus.success && onboardingStatus.data) {
-        const { onboardingCompleted, hasPersonalInfo, termsAccepted } = onboardingStatus.data;
+        const { onboardingCompleted, hasPersonalInfo, physicalProfileCompleted, termsAccepted } = onboardingStatus.data;
         
-        console.log("Onboarding details:", { onboardingCompleted, hasPersonalInfo, termsAccepted });
+        console.log("Onboarding details:", { onboardingCompleted, hasPersonalInfo, physicalProfileCompleted, termsAccepted });
         
         if (!onboardingCompleted) {
           if (!hasPersonalInfo) {
             console.log("Redirecting to personal info");
             router.push("/member/onboarding/personal-info");
+          } else if (!physicalProfileCompleted) {
+            console.log("Redirecting to physical profile");
+            router.push("/member/onboarding/physical-profile");
+          } else if (!onboardingStatus.data.discoverySource) {
+            console.log("Redirecting to discovery");
+            router.push("/member/onboarding/discovery");
           } else if (!termsAccepted) {
             console.log("Redirecting to terms");
             router.push("/member/onboarding/terms");
@@ -105,19 +131,6 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
       }
     }
   }
-
-  // Don't render the member layout for onboarding pages
-  if (pathname.startsWith("/member/onboarding")) {
-    return <>{children}</>;
-  }
-  
-  const handleLogout = async () => {
-    try {
-      await logout();
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
-  };
 
   // Portal switching logic
   const getCurrentPortal = () => {
@@ -186,6 +199,11 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
   const handleNavigationClick = () => {
     setMobileMenuOpen(false);
   };
+
+  // Don't render the member layout for onboarding pages
+  if (pathname.startsWith("/member/onboarding")) {
+    return <>{children}</>;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
@@ -306,11 +324,57 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
                     })}
                   </div>
                   
+                  {/* Portal Switching */}
+                  {availablePortals.length > 0 && (
+                    <div className="mt-6 space-y-2">
+                      <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        Switch Portal
+                      </div>
+                      {availablePortals.map((portal) => {
+                        const Icon = getPortalIcon(portal);
+                        return (
+                          <div
+                            key={portal}
+                            onClick={() => {
+                              handlePortalSwitch(portal);
+                              setMobileMenuOpen(false);
+                            }}
+                            className="flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer"
+                          >
+                            <Icon className="w-4 h-4" />
+                            <div className="flex-1">
+                              <div>{getPortalName(portal)}</div>
+                              <div className="text-xs opacity-70">Access {portal} features</div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
                   {/* User Menu Items */}
                   <div className="mt-6 space-y-2">
                     <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Account
                     </div>
+                    <Link href="/member/profile" onClick={handleNavigationClick}>
+                      <div className="flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer">
+                        <User className="w-4 h-4" />
+                        <div className="flex-1">
+                          <div>My Profile</div>
+                          <div className="text-xs opacity-70">Edit your information</div>
+                        </div>
+                      </div>
+                    </Link>
+                    <Link href="/member/terms" onClick={handleNavigationClick}>
+                      <div className="flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer">
+                        <FileText className="w-4 h-4" />
+                        <div className="flex-1">
+                          <div>Terms & Conditions</div>
+                          <div className="text-xs opacity-70">View signed terms</div>
+                        </div>
+                      </div>
+                    </Link>
                     <Link href="/member/history" onClick={handleNavigationClick}>
                       <div className="flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer">
                         <History className="w-4 h-4" />
@@ -400,6 +464,18 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
                         <DropdownMenuSeparator />
                       </>
                     )}
+                    <DropdownMenuItem asChild>
+                      <Link href="/member/profile">
+                        <User className="w-4 h-4 mr-3" />
+                        My Profile
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/member/terms">
+                        <FileText className="w-4 h-4 mr-3" />
+                        Terms & Conditions
+                      </Link>
+                    </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link href="/member/history">
                         <History className="w-4 h-4 mr-3" />

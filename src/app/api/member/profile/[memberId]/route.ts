@@ -30,7 +30,9 @@ export async function GET(
       .from('members')
       .select(`
         account_id,
+        profile_id,
         profiles!inner(
+          id,
           first_name,
           last_name,
           phone,
@@ -40,7 +42,9 @@ export async function GET(
           profession,
           emergency_contact_name,
           emergency_contact_phone,
-          profile_image_url
+          profile_image_url,
+          created_at,
+          updated_at
         )
       `)
       .eq('id', memberId)
@@ -55,7 +59,15 @@ export async function GET(
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
     }
 
-    return NextResponse.json(profile.profiles);
+    const profileData = Array.isArray(profile.profiles) ? profile.profiles[0] : profile.profiles;
+    
+    return NextResponse.json({
+      profile_id: profileData.id,
+      account_id: profile.account_id,
+      ...profileData,
+      created_at: profileData?.created_at || new Date().toISOString(),
+      updated_at: profileData?.updated_at || new Date().toISOString()
+    });
   } catch (error) {
     console.error('Profile API error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -87,10 +99,10 @@ export async function PUT(
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
 
-    // Get account_id from member
+    // Get profile_id from member
     const { data: member, error: memberError } = await supabaseServer()
       .from('members')
-      .select('account_id')
+      .select('profile_id')
       .eq('id', memberId)
       .single();
 
@@ -114,7 +126,7 @@ export async function PUT(
         profile_image_url: body.profile_image_url,
         updated_at: new Date().toISOString()
       })
-      .eq('id', member.account_id)
+      .eq('id', member.profile_id)
       .select()
       .single();
 

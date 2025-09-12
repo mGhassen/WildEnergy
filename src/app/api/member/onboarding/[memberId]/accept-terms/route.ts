@@ -14,12 +14,25 @@ export async function POST(
 
     const now = new Date().toISOString();
 
+    // First, get the currently active terms version
+    const { data: activeTerms, error: termsError } = await supabaseServer()
+      .from('terms_and_conditions')
+      .select('id, version, title')
+      .eq('is_active', true)
+      .single();
+
+    if (termsError || !activeTerms) {
+      console.error('Error fetching active terms:', termsError);
+      return NextResponse.json({ error: 'No active terms version found' }, { status: 500 });
+    }
+
     // Update onboarding data to accept terms and complete onboarding
     const { data: onboarding, error } = await supabaseServer()
       .from('member_onboarding')
       .update({
         terms_accepted: true,
         terms_accepted_at: now,
+        terms_version_id: activeTerms.id,
         onboarding_completed: true,
         onboarding_completed_at: now,
         updated_at: now
@@ -33,7 +46,11 @@ export async function POST(
       return NextResponse.json({ error: 'Failed to accept terms' }, { status: 500 });
     }
 
-    return NextResponse.json(onboarding);
+    return NextResponse.json({
+      ...onboarding,
+      terms_version: activeTerms.version,
+      terms_title: activeTerms.title
+    });
   } catch (error) {
     console.error('Accept terms API error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

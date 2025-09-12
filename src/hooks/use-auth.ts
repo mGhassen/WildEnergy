@@ -66,8 +66,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [authError, setAuthError] = useState<string | null>(null); // NEW
   const router = useRouter();
 
+  // Debug user state changes
+  useEffect(() => {
+    console.log('User state changed:', user);
+  }, [user]);
+
   // Fetch user session
   const fetchSession = async (token: string) => {
+    console.log('=== FETCH SESSION CALLED ===');
     try {
       console.log('Fetching session with token:', token ? 'present' : 'missing');
       
@@ -121,10 +127,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.log('Session API success response:', data);
       
       if (data.success && data.user) {
+        console.log('Setting user data:', data.user);
         setUser(data.user);
         setAuthError(null); // Clear any previous errors
         return data.user;
       }
+      console.log('No user data in response or success is false');
       return null;
     } catch (error) {
       console.error('Session fetch error:', error);
