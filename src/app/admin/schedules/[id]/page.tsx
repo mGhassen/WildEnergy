@@ -32,7 +32,9 @@ import {
   Trash2, 
   Activity,
   MapPin,
-  User
+  User,
+  ChevronDown,
+  ChevronRight
 } from "lucide-react";
 import { getDayName, formatTime } from "@/lib/date";
 import { useToast } from "@/hooks/use-toast";
@@ -49,7 +51,7 @@ const formatEuropeanDate = (dateString: string) => {
 
 interface ScheduleFormData {
   classId: number;
-  trainerId: number;
+  trainerId: string; // Changed to string for UUID
   dayOfWeek: number;
   startTime: string;
   endTime: string;
@@ -95,6 +97,7 @@ export default function ScheduleDetailsPage() {
   
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [showTrainerDetails, setShowTrainerDetails] = useState(false);
   
   // Pagination and filtering state for courses
   const [coursesPage, setCoursesPage] = useState(1);
@@ -105,7 +108,7 @@ export default function ScheduleDetailsPage() {
   const form = useForm<ScheduleFormData>({
     defaultValues: {
       classId: 0,
-      trainerId: 0,
+      trainerId: "",
       dayOfWeek: 1,
       startTime: "",
       endTime: "",
@@ -187,7 +190,7 @@ export default function ScheduleDetailsPage() {
     if (schedule) {
       form.reset({
         classId: schedule.class_id || 0,
-        trainerId: Number(schedule.trainer_id) || 0,
+        trainerId: schedule.trainer_id || "",
         dayOfWeek: schedule.day_of_week,
         startTime: schedule.start_time,
         endTime: schedule.end_time,
@@ -302,12 +305,15 @@ export default function ScheduleDetailsPage() {
           <div>
             <div className="flex items-center gap-3 mb-2">
               <h1 className="text-3xl font-bold">{schedule.class?.name || 'Unknown Class'}</h1>
-              <Badge variant="outline" className="font-mono">
-                {schedule.code || `SCH-${schedule.id}`}
+              <Badge variant={schedule.is_active ? 'default' : 'secondary'} className="text-xs">
+                {schedule.is_active ? 'Active' : 'Inactive'}
+              </Badge>
+              <Badge variant="outline" className="text-xs">
+                {schedule.code || `SCH-${String(schedule.id).padStart(5, '0')}`}
               </Badge>
             </div>
             <p className="text-muted-foreground">
-              Schedule ID: {schedule.id} • Created {formatEuropeanDate(schedule.created_at)}
+              Created {formatEuropeanDate(schedule.created_at)}
             </p>
           </div>
         </div>
@@ -365,25 +371,46 @@ export default function ScheduleDetailsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-start gap-2">
-              <div 
-                className="w-1 h-8 mt-0.5" 
-                style={{ backgroundColor: schedule.class?.category?.color || '#6B7280' }}
-              />
-              <div className="flex flex-col">
-                <span className="text-sm text-foreground">
-                  {schedule.class?.category?.name || 'No Category'}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-foreground">
+                  {schedule.class?.name || 'Unknown Class'}
                 </span>
               </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div className="flex flex-col">
-                <span className="text-xs text-muted-foreground">Capacity</span>
-                <span className="font-medium">{schedule.max_participants || 0} members</span>
+              
+              <div className="flex items-start gap-2">
+                <div 
+                  className="w-1 h-8 mt-0.5" 
+                  style={{ backgroundColor: schedule.class?.category?.color || '#6B7280' }}
+                />
+                <div className="flex flex-col">
+                  <span className="text-xs text-muted-foreground">Category</span>
+                  <span className="text-sm text-foreground">
+                    {schedule.class?.category?.name || 'No Category'}
+                  </span>
+                </div>
               </div>
+              
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="flex flex-col">
+                  <span className="text-xs text-muted-foreground">Capacity</span>
+                  <span className="font-medium">{schedule.max_participants || (schedule.class as any)?.max_capacity || 0} members</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-xs text-muted-foreground">Duration</span>
+                  <span className="font-medium">{(schedule.class as any)?.duration || 'N/A'} min</span>
+                </div>
+              </div>
+              
+              {(schedule.class as any)?.description && (
+                <div className="pt-2 border-t border-border/50">
+                  <span className="text-xs text-muted-foreground font-medium">Description</span>
+                  <p className="text-sm text-foreground mt-1 leading-relaxed">
+                    {(schedule.class as any).description}
+                  </p>
+                </div>
+              )}
             </div>
-
           </CardContent>
         </Card>
 
@@ -397,12 +424,6 @@ export default function ScheduleDetailsPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground font-medium">Schedule Code:</span>
-                <Badge variant="outline" className="font-mono text-xs">
-                  {schedule.code || `SCH-${schedule.id}`}
-                </Badge>
-              </div>
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-muted-foreground" />
                 <span className="text-sm text-foreground">
@@ -421,12 +442,6 @@ export default function ScheduleDetailsPage() {
                   {getRepetitionLabel(schedule.repetition_type || 'weekly')}
                 </span>
               </div>
-              <div className="flex items-center gap-2">
-                <div className={`w-3 h-3 rounded-full ${schedule.is_active ? 'bg-green-500' : 'bg-red-500'}`} />
-                <span className="text-sm text-foreground">
-                  {schedule.is_active ? 'Active' : 'Inactive'}
-                </span>
-              </div>
             </div>
 
             {schedule.start_date && schedule.end_date && (
@@ -443,20 +458,93 @@ export default function ScheduleDetailsPage() {
         {/* Trainer Information */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <User className="w-5 h-5" />
-              Trainer Details
+            <CardTitle className="text-lg flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <User className="w-5 h-5" />
+                Trainer Details
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowTrainerDetails(!showTrainerDetails)}
+                className="h-8 w-8 p-0"
+              >
+                {showTrainerDetails ? (
+                  <ChevronDown className="w-4 h-4" />
+                ) : (
+                  <ChevronRight className="w-4 h-4" />
+                )}
+              </Button>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
+            <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-foreground">
-                  {schedule.trainer?.first_name} {schedule.trainer?.last_name}
+                  {(schedule.trainer as any)?.firstName || schedule.trainer?.first_name} {(schedule.trainer as any)?.lastName || schedule.trainer?.last_name}
                 </span>
+                <Badge variant={(schedule.trainer as any)?.status === 'active' ? 'default' : 'secondary'} className="text-xs">
+                  {(schedule.trainer as any)?.status || 'Unknown'}
+                </Badge>
               </div>
+              
+              {(schedule.trainer as any)?.specialization && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Specialization:</span>
+                  <span className="text-sm text-foreground">{(schedule.trainer as any).specialization}</span>
+                </div>
+              )}
+              
+              {showTrainerDetails && (
+                <>
+                  {(schedule.trainer as any)?.experience_years && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">Experience:</span>
+                      <span className="text-sm text-foreground">{(schedule.trainer as any).experience_years} years</span>
+                    </div>
+                  )}
+                  
+                  {(schedule.trainer as any)?.hourly_rate && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">Rate:</span>
+                      <span className="text-sm text-foreground">{(schedule.trainer as any).hourly_rate} TND/hour</span>
+                    </div>
+                  )}
+                  
+                  {(schedule.trainer as any)?.phone && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">Phone:</span>
+                      <span className="text-sm text-foreground">{(schedule.trainer as any).phone}</span>
+                    </div>
+                  )}
+                  
+                  {(schedule.trainer as any)?.email && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">Email:</span>
+                      <span className="text-sm text-foreground">{(schedule.trainer as any).email}</span>
+                    </div>
+                  )}
+                  
+                  {(schedule.trainer as any)?.bio && (
+                    <div className="pt-3 border-t border-border/50">
+                      <span className="text-xs text-muted-foreground font-medium">Bio</span>
+                      <p className="text-sm text-foreground mt-1 leading-relaxed">
+                        {(schedule.trainer as any).bio}
+                      </p>
+                    </div>
+                  )}
+                  
+                  {(schedule.trainer as any)?.certification && (
+                    <div className="pt-3 border-t border-border/50">
+                      <span className="text-xs text-muted-foreground font-medium">Certifications</span>
+                      <p className="text-sm text-foreground mt-1">
+                        {(schedule.trainer as any).certification}
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
-            
           </CardContent>
         </Card>
       </div>
@@ -469,47 +557,38 @@ export default function ScheduleDetailsPage() {
             Statistics & Performance
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="text-center p-4 bg-muted/30 rounded-lg border border-border">
-              <div className="text-2xl font-bold text-foreground">{scheduleCourses.length}</div>
-              <div className="text-sm text-muted-foreground">Total Courses</div>
-            </div>
-            <div className="text-center p-4 bg-muted/30 rounded-lg border border-border">
-              <div className="text-2xl font-bold text-foreground">{scheduleRegistrations.length}</div>
-              <div className="text-sm text-muted-foreground">Total Registrations</div>
-            </div>
-            <div className="text-center p-4 bg-muted/30 rounded-lg border border-border">
-              <div className="text-2xl font-bold text-foreground">{attendedMembers.length}</div>
-              <div className="text-sm text-muted-foreground">Attended Members</div>
-            </div>
-            <div className="text-center p-4 bg-muted/30 rounded-lg border border-border">
-              <div className="text-2xl font-bold text-foreground">
-                {scheduleRegistrations.length > 0 
-                  ? Math.round((attendedMembers.length / scheduleRegistrations.length) * 100)
-                  : 0}%
-              </div>
-              <div className="text-sm text-muted-foreground">Attendance Rate</div>
-            </div>
-          </div>
-          
-          {/* Additional Details */}
-          <div className="mt-6 pt-4 border-t border-border/50">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Max Capacity:</span>
-                <span className="font-medium text-foreground">{schedule.max_participants || 0} members</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Class Duration:</span>
-                <span className="font-medium text-foreground">N/A</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Repetition:</span>
-                <span className="font-medium text-foreground">{getRepetitionLabel(schedule.repetition_type || 'weekly')}</span>
+        <CardContent>        
+          {/* Course Status Breakdown */}
+          {scheduleCourses.length > 0 && (
+            <div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="text-center p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                    {scheduleCourses.filter((c: any) => c.status === 'scheduled').length}
+                  </div>
+                  <div className="text-xs text-blue-600 dark:text-blue-400">Scheduled</div>
+                </div>
+                <div className="text-center p-3 bg-yellow-50 dark:bg-yellow-950/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                  <div className="text-lg font-bold text-yellow-600 dark:text-yellow-400">
+                    {scheduleCourses.filter((c: any) => c.status === 'in_progress').length}
+                  </div>
+                  <div className="text-xs text-yellow-600 dark:text-yellow-400">In Progress</div>
+                </div>
+                <div className="text-center p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+                  <div className="text-lg font-bold text-green-600 dark:text-green-400">
+                    {scheduleCourses.filter((c: any) => c.status === 'completed').length}
+                  </div>
+                  <div className="text-xs text-green-600 dark:text-green-400">Completed</div>
+                </div>
+                <div className="text-center p-3 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-800">
+                  <div className="text-lg font-bold text-red-600 dark:text-red-400">
+                    {scheduleCourses.filter((c: any) => c.status === 'cancelled').length}
+                  </div>
+                  <div className="text-xs text-red-600 dark:text-red-400">Cancelled</div>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </CardContent>
       </Card>
 
@@ -770,7 +849,7 @@ export default function ScheduleDetailsPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Trainer</FormLabel>
-                    <Select onValueChange={value => field.onChange(Number(value))} value={String(field.value)}>
+                    <Select onValueChange={value => field.onChange(value)} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select trainer" />
@@ -778,8 +857,8 @@ export default function ScheduleDetailsPage() {
                       </FormControl>
                       <SelectContent>
                         {trainers?.map((trainer: any) => (
-                          <SelectItem key={trainer.id} value={String(trainer.id)}>
-                            {trainer.first_name} {trainer.last_name}
+                          <SelectItem key={trainer.id} value={trainer.id}>
+                            {trainer.firstName || trainer.first_name} {trainer.lastName || trainer.last_name}
                           </SelectItem>
                         ))}
                       </SelectContent>
