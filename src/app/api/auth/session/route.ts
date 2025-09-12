@@ -82,6 +82,7 @@ export async function GET(req: NextRequest) {
     // Return user info
     const userResponse = {
       id: userData.account_id,
+      account_id: userData.account_id,
       email: user.email || '',
       profileEmail: userData.profile_email || '', // Contact email
       isAdmin: Boolean(userData.is_admin),
@@ -96,6 +97,8 @@ export async function GET(req: NextRequest) {
       role: userData.user_type === 'admin' || userData.user_type === 'admin_member' || userData.user_type === 'admin_trainer' || userData.user_type === 'admin_member_trainer' ? 'admin' : 'member',
       userType: userData.user_type,
       accessiblePortals: userData.accessible_portals,
+      member_id: userData.member_id,
+      trainer_id: userData.trainer_id,
     };
 
     console.log('Session API returning user:', userResponse.id);

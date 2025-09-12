@@ -15,15 +15,15 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
 
-    // Check if user is a member
-    const { data: userCheck } = await supabaseServer()
+    // Verify user is a member (not admin)
+    const { data: userData } = await supabaseServer()
       .from('user_profiles')
-      .select('is_member, status')
+      .select('is_admin, accessible_portals')
       .eq('account_id', user.id)
       .single();
 
-    if (!userCheck?.is_member || userCheck.status !== 'active') {
-      return NextResponse.json({ error: 'Member access required' }, { status: 403 });
+    if (userData?.is_admin) {
+      return NextResponse.json({ error: 'Admin access not allowed' }, { status: 403 });
     }
 
     // Fetch active categories with group information via junction table
