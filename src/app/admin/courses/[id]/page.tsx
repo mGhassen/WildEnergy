@@ -26,6 +26,7 @@ import {
   CheckCircle, 
   XCircle, 
   AlertCircle,
+  AlertTriangle,
   Edit,
   Trash2,
   ArrowLeft,
