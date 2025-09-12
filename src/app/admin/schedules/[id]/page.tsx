@@ -36,7 +36,12 @@ import {
   MapPin,
   User,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Eye,
+  UserCheck,
+  UserX,
+  Settings,
+  BarChart3
 } from "lucide-react";
 import { getDayName, formatTime } from "@/lib/date";
 import { useToast } from "@/hooks/use-toast";
@@ -637,7 +642,23 @@ export default function ScheduleDetailsPage() {
           <CardContent>
             {paginatedCourses.length > 0 ? (
               <>
-                <div className="space-y-3">
+                {/* Enhanced Course Table */}
+                <div className="space-y-2">
+                  {/* Table Header */}
+                  <div className="grid grid-cols-12 gap-4 p-3 bg-muted/20 rounded-lg border border-border/50 text-xs font-medium text-muted-foreground">
+                    <div className="col-span-2">Date & Time</div>
+                    <div className="col-span-1">Code</div>
+                    <div className="col-span-1">Capacity</div>
+                    <div className="col-span-1">Registered</div>
+                    <div className="col-span-1">Attended</div>
+                    <div className="col-span-1">Rate</div>
+                    <div className="col-span-1">Status</div>
+                    <div className="col-span-1">Active</div>
+                    <div className="col-span-1">Edited</div>
+                    <div className="col-span-2">Actions</div>
+                  </div>
+
+                  {/* Course Rows */}
                   {paginatedCourses.map((course: any) => {
                     // Get course-specific data
                     const courseRegistrations = registrations.filter((reg: any) => reg.course_id === course.id);
@@ -651,70 +672,137 @@ export default function ScheduleDetailsPage() {
                     const capacityRate = maxCapacity > 0 ? Math.round((registeredCount / maxCapacity) * 100) : 0;
 
                     return (
-                      <Link 
+                      <div 
                         key={course.id} 
-                        href={`/admin/courses/${course.id}`}
-                        className="block"
+                        className="grid grid-cols-12 gap-4 p-3 bg-muted/30 rounded-lg border border-border hover:bg-muted/50 transition-colors"
                       >
-                        <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border border-border hover:bg-muted/50 transition-colors cursor-pointer">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
+                        {/* Date & Time */}
+                        <div className="col-span-2">
+                          <div className="flex items-center gap-2">
                             <Calendar className="w-4 h-4 text-muted-foreground" />
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <div className="font-medium text-foreground">
+                            <div>
+                              <div className="font-medium text-sm text-foreground">
                                 {formatEuropeanDate(course.course_date)}
                               </div>
-                              <div className="text-sm text-muted-foreground">
+                              <div className="text-xs text-muted-foreground">
                                 {formatTime(course.start_time)} - {formatTime(course.end_time)}
                               </div>
-                              {course.isEdited && (
-                                <Badge variant="outline" className="text-orange-600 border-orange-200 text-xs">
-                                  <AlertTriangle className="w-3 h-3 mr-1" />
-                                  Edited
-                                </Badge>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
-                              <span>ID: {course.id}</span>
-                              <span>{registeredCount}/{maxCapacity} registered</span>
-                              <span>{attendedCount} attended</span>
-                              <span>{attendanceRate}% attendance</span>
                             </div>
                           </div>
                         </div>
-                        
-                        <div className="flex items-center gap-3">
-                          {/* Capacity Bar */}
-                          <div className="w-16">
-                            <div className="text-xs text-muted-foreground mb-1 text-center">
-                              {capacityRate}%
-                            </div>
-                            <div className="w-full bg-muted rounded-full h-1.5">
-                              <div 
-                                className={`h-1.5 rounded-full transition-all duration-300 ${
-                                  capacityRate >= 100 ? 'bg-red-500' : 
-                                  capacityRate >= 80 ? 'bg-yellow-500' : 
-                                  'bg-green-500'
-                                }`}
-                                style={{ width: `${Math.min(capacityRate, 100)}%` }}
-                              />
-                            </div>
+
+                        {/* Course Code */}
+                        <div className="col-span-1 flex items-center">
+                          <span className="text-xs font-mono text-muted-foreground">
+                            {course.code || `CRS-${String(course.id).padStart(5, '0')}`}
+                          </span>
+                        </div>
+
+                        {/* Capacity */}
+                        <div className="col-span-1 flex items-center">
+                          <div className="flex items-center gap-1">
+                            <Users className="w-3 h-3 text-muted-foreground" />
+                            <span className="text-sm">{maxCapacity}</span>
                           </div>
-                          
-                          {/* Status Badge */}
-                          <div className="flex flex-col items-end gap-1">
-                            <Badge variant={course.status === 'completed' ? 'default' : 'secondary'} className="text-xs">
-                              {course.status}
+                        </div>
+
+                        {/* Registered */}
+                        <div className="col-span-1 flex items-center">
+                          <div className="flex items-center gap-1">
+                            <UserCheck className="w-3 h-3 text-blue-500" />
+                            <span className="text-sm">{registeredCount}</span>
+                          </div>
+                        </div>
+
+                        {/* Attended */}
+                        <div className="col-span-1 flex items-center">
+                          <div className="flex items-center gap-1">
+                            <UserX className="w-3 h-3 text-green-500" />
+                            <span className="text-sm">{attendedCount}</span>
+                          </div>
+                        </div>
+
+                        {/* Attendance Rate */}
+                        <div className="col-span-1 flex items-center">
+                          <div className="flex items-center gap-1">
+                            <BarChart3 className="w-3 h-3 text-muted-foreground" />
+                            <span className="text-sm">{attendanceRate}%</span>
+                          </div>
+                        </div>
+
+                        {/* Status */}
+                        <div className="col-span-1 flex items-center">
+                          <Badge 
+                            variant={
+                              course.status === 'completed' ? 'default' : 
+                              course.status === 'in_progress' ? 'secondary' :
+                              course.status === 'cancelled' ? 'destructive' : 'outline'
+                            } 
+                            className="text-xs"
+                          >
+                            {course.status}
+                          </Badge>
+                        </div>
+
+                        {/* Active Status */}
+                        <div className="col-span-1 flex items-center">
+                          <div className={`w-2 h-2 rounded-full ${course.is_active ? 'bg-green-500' : 'bg-red-500'}`} />
+                        </div>
+
+                        {/* Edited Status */}
+                        <div className="col-span-1 flex items-center">
+                          {course.isEdited ? (
+                            <Badge variant="outline" className="text-orange-600 border-orange-200 text-xs">
+                              <AlertTriangle className="w-3 h-3 mr-1" />
+                              Yes
                             </Badge>
-                            {course.is_active === false && (
-                              <Badge variant="destructive" className="text-xs">Inactive</Badge>
-                            )}
-                          </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">No</span>
+                          )}
                         </div>
+
+                        {/* Actions */}
+                        <div className="col-span-2 flex items-center gap-1">
+                          <Link href={`/admin/courses/${course.id}`}>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                          </Link>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <MoreHorizontal className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem asChild>
+                                <Link href={`/admin/courses/${course.id}`} className="flex items-center gap-2">
+                                  <Eye className="w-4 h-4" />
+                                  View Details
+                                </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem asChild>
+                                <Link href={`/admin/courses/${course.id}`} className="flex items-center gap-2">
+                                  <Edit className="w-4 h-4" />
+                                  Edit Course
+                                </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem asChild>
+                                <Link href={`/admin/registrations?courseId=${course.id}`} className="flex items-center gap-2">
+                                  <Users className="w-4 h-4" />
+                                  View Registrations
+                                </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem asChild>
+                                <Link href={`/admin/checkins?courseId=${course.id}`} className="flex items-center gap-2">
+                                  <Activity className="w-4 h-4" />
+                                  View Check-ins
+                                </Link>
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
-                      </Link>
+                      </div>
                     );
                   })}
                 </div>
