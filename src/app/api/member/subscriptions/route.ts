@@ -6,7 +6,7 @@ async function getUserFromToken(token: string) {
   if (error || !user) return null;
   const { data: userProfile } = await supabaseServer()
     .from('user_profiles')
-    .select('id, is_admin')
+    .select('member_id, is_admin')
     .eq('account_id', user.id)
     .single();
   return userProfile;
@@ -22,6 +22,9 @@ export async function GET(req: NextRequest) {
     const userProfile = await getUserFromToken(token);
     if (!userProfile) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+    }
+    if (!userProfile.member_id) {
+      return NextResponse.json({ error: 'User is not a member' }, { status: 403 });
     }
     const { data: subscriptions, error } = await supabaseServer()
       .from('subscriptions')
@@ -63,7 +66,7 @@ export async function GET(req: NextRequest) {
           )
         )
       `)
-      .eq('member_id', userProfile.id);
+      .eq('member_id', userProfile.member_id);
     if (error) {
       return NextResponse.json({ error: 'Failed to fetch subscriptions' }, { status: 500 });
     }
