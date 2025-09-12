@@ -14,10 +14,11 @@ export async function POST(
 
     const now = new Date().toISOString();
 
-    // First, get the currently active terms version
+    // First, get the currently active terms version (only terms, not interior regulations)
     const { data: activeTerms, error: termsError } = await supabaseServer()
       .from('terms_and_conditions')
       .select('id, version, title')
+      .eq('term_type', 'terms')
       .eq('is_active', true)
       .single();
 

@@ -558,6 +558,361 @@ async function seedData() {
       console.log(`✅ Found ${createdCourses.length} existing courses`);
     }
 
+    // 9. Get or Create Terms and Conditions
+    console.log('📋 Getting terms and conditions...');
+    let { data: existingTerms, error: termsQueryError } = await supabase
+      .from('terms_and_conditions')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (termsQueryError) throw termsQueryError;
+    
+    let termsCreated = 0;
+    
+    // Check if we have the required terms
+    const hasTerms = existingTerms?.some(term => term.term_type === 'terms');
+    const hasInteriorRegulation = existingTerms?.some(term => term.term_type === 'interior_regulation');
+    
+    if (!hasTerms || !hasInteriorRegulation) {
+      console.log('📋 Creating terms and conditions...');
+      
+      // Create terms and conditions (CGU) if missing
+      if (!hasTerms) {
+        // First, deactivate any existing terms of the same type (if any exist)
+        const { error: deactivateError } = await supabase
+          .from('terms_and_conditions')
+          .update({ is_active: false })
+          .eq('term_type', 'terms');
+        
+        if (deactivateError) {
+          console.log('No existing terms to deactivate, continuing...');
+        }
+        
+        // Create first terms and conditions (CGU) - version 1.0
+        const { data: newTerms1, error: terms1Error } = await supabase
+          .from('terms_and_conditions')
+          .insert({
+            version: '1.0',
+            title: 'Conditions Générales d\'Utilisation (CGU)',
+            content: `# Conditions Générales d'Utilisation (CGU)  
+**Wild Energy – Studio de Pole Dance**
+
+---
+
+## Article 1 – Objet  
+Les présentes Conditions Générales d'Utilisation (ci-après « CGU ») ont pour objet de définir les modalités et conditions dans lesquelles **Wild Energy** (ci-après « le Studio ») propose ses cours, activités et évènements de pole dance, ainsi que l'utilisation de ses services en ligne (site internet, réseaux sociaux, réservations).  
+
+Toute inscription ou participation aux activités implique l'acceptation pleine et entière des présentes CGU.  
+
+---
+
+## Article 2 – Accès aux services  
+Les cours et évènements proposés par **Wild Energy** sont accessibles sur inscription et sous réserve de disponibilité.  
+
+Les frais liés à l'inscription, au transport et à l'équipement personnel (tenue, chaussures, etc.) sont à la charge de l'élève.  
+
+Le Studio se réserve le droit de refuser l'accès à une personne ne respectant pas le règlement intérieur ou les présentes CGU.  
+
+---
+
+## Article 3 – Inscription et paiement  
+- L'inscription aux cours se fait en ligne ou directement auprès du Studio.  
+- Les paiements doivent être effectués avant le début du cours ou selon les modalités prévues par l'abonnement.  
+- Toute réservation est personnelle et non cessible.  
+
+---
+
+## Article 4 – Conditions de participation  
+Les élèves s'engagent à :  
+1. Respecter les règles de sécurité et les consignes données par les professeurs.  
+2. Informer le Studio de toute contre-indication médicale avant la participation.  
+3. Avoir une attitude respectueuse envers les autres élèves et le personnel.  
+
+Le Studio ne peut être tenu responsable en cas de blessure résultant du non-respect des consignes.  
+
+---
+
+## Article 5 – Droit à l'image  
+Dans le cadre des cours, évènements, spectacles et activités organisés par **Wild Energy**, des photos et vidéos peuvent être réalisées.  
+
+- En s'inscrivant, l'élève autorise le Studio à capter et utiliser son image et/ou sa voix à des fins de communication, promotion et diffusion (site internet, réseaux sociaux, supports publicitaires).  
+- Cette autorisation est consentie à titre gratuit, valable pour le monde entier et pour une durée de 10 ans, renouvelable tacitement.  
+- L'élève peut retirer son consentement à tout moment en adressant une demande écrite au Studio.  
+
+---
+
+## Article 6 – Propriété intellectuelle  
+Les contenus proposés par **Wild Energy** (cours, chorégraphies, supports pédagogiques, photos, vidéos, logos) sont protégés par le droit d'auteur et le droit de la propriété intellectuelle.  
+
+Toute reproduction, diffusion ou exploitation sans autorisation est strictement interdite.  
+
+---
+
+## Article 7 – Responsabilité  
+- Chaque élève est responsable de sa propre sécurité et de son état de santé lors des cours.  
+- Le Studio décline toute responsabilité en cas d'accident lié au non-respect des consignes ou à une condition médicale non signalée.  
+- Les objets personnels laissés dans les vestiaires ou dans le Studio relèvent de la responsabilité exclusive de l'élève.  
+
+---
+
+## Article 8 – Données personnelles  
+Les informations collectées lors de l'inscription (nom, prénom, coordonnées) sont utilisées uniquement pour la gestion des cours et abonnements.  
+
+Conformément à la réglementation en vigueur, chaque élève dispose d'un droit d'accès, de rectification et de suppression de ses données, sur simple demande adressée au Studio.  
+
+---
+
+## Article 9 – Annulation et remboursement  
+- Toute annulation de cours doit être signalée dans un délai de [XX heures] avant le début du cours.  
+- Les cours non annulés dans les délais sont considérés comme dus.  
+- Aucun remboursement ne sera effectué, sauf cas de force majeure ou décision exceptionnelle du Studio.  
+
+---
+
+## Article 10 – Modification des CGU  
+**Wild Energy** se réserve le droit de modifier les présentes CGU à tout moment.  
+
+Les nouvelles dispositions seront applicables dès leur mise en ligne ou leur communication aux élèves.  
+
+---
+
+## Article 11 – Loi applicable et juridiction compétente  
+Les présentes CGU sont régies par le droit [français/tunisien, à adapter].  
+Tout litige relatif à leur interprétation ou exécution relève des tribunaux compétents du ressort du siège du Studio, sauf disposition légale contraire.  
+
+---`,
+            term_type: 'terms',
+            is_active: true,
+            effective_date: new Date().toISOString()
+          })
+          .select();
+
+        if (terms1Error) throw terms1Error;
+        termsCreated++;
+        console.log(`✅ Created first terms and conditions (CGU) v1.0`);
+
+        // Create second terms and conditions (CGU) - version 2.0
+        const { data: newTerms2, error: terms2Error } = await supabase
+          .from('terms_and_conditions')
+          .insert({
+            version: '2.0',
+            title: 'Conditions Générales d\'Utilisation (CGU) - Mise à jour',
+            content: `# Conditions Générales d'Utilisation (CGU) - Version 2.0
+**Wild Energy – Studio de Pole Dance**
+
+---
+
+## Article 1 – Objet  
+Les présentes Conditions Générales d'Utilisation (ci-après « CGU ») ont pour objet de définir les modalités et conditions dans lesquelles **Wild Energy** (ci-après « le Studio ») propose ses cours, activités et évènements de pole dance, ainsi que l'utilisation de ses services en ligne (site internet, réseaux sociaux, réservations).  
+
+Toute inscription ou participation aux activités implique l'acceptation pleine et entière des présentes CGU.  
+
+---
+
+## Article 2 – Accès aux services  
+Les cours et évènements proposés par **Wild Energy** sont accessibles sur inscription et sous réserve de disponibilité.  
+
+Les frais liés à l'inscription, au transport et à l'équipement personnel (tenue, chaussures, etc.) sont à la charge de l'élève.  
+
+Le Studio se réserve le droit de refuser l'accès à une personne ne respectant pas le règlement intérieur ou les présentes CGU.  
+
+---
+
+## Article 3 – Inscription et paiement  
+- L'inscription aux cours se fait en ligne ou directement auprès du Studio.  
+- Les paiements doivent être effectués avant le début du cours ou selon les modalités prévues par l'abonnement.  
+- Toute réservation est personnelle et non cessible.  
+- Les abonnements sont valables pour une durée déterminée et ne sont pas remboursables.  
+
+---
+
+## Article 4 – Conditions de participation  
+Les élèves s'engagent à :  
+1. Respecter les règles de sécurité et les consignes données par les professeurs.  
+2. Informer le Studio de toute contre-indication médicale avant la participation.  
+3. Avoir une attitude respectueuse envers les autres élèves et le personnel.  
+4. Signer une décharge de responsabilité avant la première participation.  
+
+Le Studio ne peut être tenu responsable en cas de blessure résultant du non-respect des consignes.  
+
+---
+
+## Article 5 – Droit à l'image  
+Dans le cadre des cours, évènements, spectacles et activités organisés par **Wild Energy**, des photos et vidéos peuvent être réalisées.  
+
+- En s'inscrivant, l'élève autorise le Studio à capter et utiliser son image et/ou sa voix à des fins de communication, promotion et diffusion (site internet, réseaux sociaux, supports publicitaires).  
+- Cette autorisation est consentie à titre gratuit, valable pour le monde entier et pour une durée de 10 ans, renouvelable tacitement.  
+- L'élève peut retirer son consentement à tout moment en adressant une demande écrite au Studio.  
+
+---
+
+## Article 6 – Propriété intellectuelle  
+Les contenus proposés par **Wild Energy** (cours, chorégraphies, supports pédagogiques, photos, vidéos, logos) sont protégés par le droit d'auteur et le droit de la propriété intellectuelle.  
+
+Toute reproduction, diffusion ou exploitation sans autorisation est strictement interdite.  
+
+---
+
+## Article 7 – Responsabilité  
+- Chaque élève est responsable de sa propre sécurité et de son état de santé lors des cours.  
+- Le Studio décline toute responsabilité en cas d'accident lié au non-respect des consignes ou à une condition médicale non signalée.  
+- Les objets personnels laissés dans les vestiaires ou dans le Studio relèvent de la responsabilité exclusive de l'élève.  
+- Une assurance responsabilité civile est recommandée pour tous les participants.  
+
+---
+
+## Article 8 – Données personnelles  
+Les informations collectées lors de l'inscription (nom, prénom, coordonnées) sont utilisées uniquement pour la gestion des cours et abonnements.  
+
+Conformément à la réglementation en vigueur, chaque élève dispose d'un droit d'accès, de rectification et de suppression de ses données, sur simple demande adressée au Studio.  
+
+---
+
+## Article 9 – Annulation et remboursement  
+- Toute annulation de cours doit être signalée dans un délai de 24 heures avant le début du cours.  
+- Les cours non annulés dans les délais sont considérés comme dus.  
+- Aucun remboursement ne sera effectué, sauf cas de force majeure ou décision exceptionnelle du Studio.  
+- Les abonnements suspendus pour cause médicale peuvent être reportés sur présentation d'un certificat médical.  
+
+---
+
+## Article 10 – Modification des CGU  
+**Wild Energy** se réserve le droit de modifier les présentes CGU à tout moment.  
+
+Les nouvelles dispositions seront applicables dès leur mise en ligne ou leur communication aux élèves.  
+
+---
+
+## Article 11 – Loi applicable et juridiction compétente  
+Les présentes CGU sont régies par le droit tunisien.  
+Tout litige relatif à leur interprétation ou exécution relève des tribunaux compétents du ressort du siège du Studio, sauf disposition légale contraire.  
+
+---`,
+            term_type: 'terms',
+            is_active: false,
+            effective_date: new Date().toISOString()
+          })
+          .select();
+
+        if (terms2Error) throw terms2Error;
+        termsCreated++;
+        console.log(`✅ Created second terms and conditions (CGU) v2.0`);
+
+        // Try to create a third terms record to test the constraint
+        const { data: newTerms3, error: terms3Error } = await supabase
+          .from('terms_and_conditions')
+          .insert({
+            version: '3.0',
+            title: 'Conditions Générales d\'Utilisation (CGU) - Test Constraint',
+            content: `# Test Terms - Version 3.0
+This is a test to see if we can create multiple active terms records.`,
+            term_type: 'terms',
+            is_active: true, // This should fail due to unique constraint
+            effective_date: new Date().toISOString()
+          })
+          .select();
+
+        if (terms3Error) {
+          console.log(`❌ Expected error creating third terms (constraint working): ${terms3Error.message}`);
+        } else {
+          console.log(`⚠️  Unexpected success creating third terms - constraint might not be working!`);
+          termsCreated++;
+        }
+      }
+      
+      // Create interior regulation if missing
+      if (!hasInteriorRegulation) {
+        // Deactivate any existing interior regulations (if any exist)
+        const { error: deactivateInteriorError } = await supabase
+          .from('terms_and_conditions')
+          .update({ is_active: false })
+          .eq('term_type', 'interior_regulation');
+        
+        if (deactivateInteriorError) {
+          console.log('No existing interior regulations to deactivate, continuing...');
+        }
+        
+        // Create interior regulation
+        const { data: newInteriorRegulation, error: interiorRegulationError } = await supabase
+          .from('terms_and_conditions')
+          .insert({
+            version: '1.0',
+            title: 'Règlement Intérieur – Wild Energy',
+            content: `# Règlement Intérieur – Wild Energy
+
+Le présent règlement s'applique à tous les élèves et visiteurs du Studio. Il vise à garantir la sécurité, le respect et la bonne organisation des activités.
+
+---
+
+## Article 1 – Accès et ponctualité  
+- Les élèves doivent arriver 10 minutes avant le début du cours.  
+- Tout retard perturbe le déroulement du cours et peut justifier un refus d'accès.  
+- L'accès au Studio est strictement réservé aux personnes inscrites.  
+
+---
+
+## Article 2 – Tenue et hygiène  
+- Une tenue adaptée à la pole dance est obligatoire (short, brassière ou débardeur).  
+- L'utilisation de crème, huile ou lotion corporelle est interdite le jour du cours (risque de glissade).  
+- Les élèves doivent se présenter avec une hygiène corporelle appropriée.  
+- Les chaussures de ville sont interdites dans la salle, des chaussures propres ou pieds nus sont requis.  
+
+---
+
+## Article 3 – Sécurité et matériel  
+- Les consignes des professeurs doivent être respectées à tout moment.  
+- L'utilisation du matériel (barres, tapis, accessoires) se fait uniquement sous supervision.  
+- Toute dégradation volontaire du matériel engage la responsabilité de l'élève.  
+- Le Studio décline toute responsabilité en cas de vol ou perte d'objets personnels.  
+
+---
+
+## Article 4 – Respect et comportement  
+- Le respect entre élèves et envers le personnel est une obligation.  
+- Tout comportement agressif, discriminatoire ou inapproprié entraînera l'exclusion immédiate.  
+- L'usage de stupéfiants et la consommation d'alcool sont strictement interdits dans l'enceinte du Studio.  
+
+---
+
+## Article 5 – Photos et vidéos personnelles  
+- Les élèves ne sont pas autorisés à filmer ou photographier durant les cours sans l'accord du professeur et des autres participants.  
+- Le partage de contenus sur les réseaux sociaux doit respecter le droit à l'image des autres élèves.  
+
+---
+
+## Article 6 – Sanctions  
+Tout manquement au présent règlement intérieur pourra entraîner :  
+1. Un avertissement oral ou écrit.  
+2. L'exclusion temporaire ou définitive du Studio sans remboursement.  
+
+---
+
+## Article 7 – Acceptation  
+Toute inscription au Studio implique l'acceptation du présent règlement intérieur, qui peut être mis à jour à tout moment.  
+
+---`,
+            term_type: 'interior_regulation',
+            is_active: true,
+            effective_date: new Date().toISOString()
+          })
+          .select();
+
+        if (interiorRegulationError) throw interiorRegulationError;
+        termsCreated++;
+        console.log(`✅ Created interior regulation`);
+      }
+    } else {
+      console.log(`✅ Found ${existingTerms.length} existing terms and conditions`);
+    }
+    
+    // Get final count of all terms for summary
+    const { data: finalTerms, error: finalTermsError } = await supabase
+      .from('terms_and_conditions')
+      .select('*');
+    
+    if (finalTermsError) throw finalTermsError;
+    termsCreated = finalTerms.length;
+
     console.log('🎉 Data seeding completed successfully!');
     console.log(`📊 Summary:`);
     console.log(`   - Groups: ${groups.length}`);
@@ -568,6 +923,7 @@ async function seedData() {
     console.log(`   - Plan Groups: ${planGroups.length}`);
     console.log(`   - Schedules: ${createdSchedules.length}`);
     console.log(`   - Courses: ${createdCourses.length}`);
+    console.log(`   - Terms & Conditions: ${termsCreated}`);
 
   } catch (error) {
     console.error('❌ Error seeding data:', error);

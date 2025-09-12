@@ -9,6 +9,7 @@ export interface OnboardingStatus {
   discovery_source?: string;
   terms_accepted: boolean;
   terms_accepted_at?: string;
+  terms_version_id?: string;
   onboarding_completed: boolean;
   onboarding_completed_at?: string;
   created_at: string;
@@ -35,6 +36,7 @@ export interface OnboardingStatusResponse {
     termsVersion?: string;
     termsTitle?: string;
     termsEffectiveDate?: string;
+    terms_version_id?: string;
     user: any;
   };
   error?: string;
@@ -107,9 +109,12 @@ export function useAcceptTerms() {
     mutationFn: ({ memberId }: { memberId: string }) => 
       apiRequest('POST', `/api/member/onboarding/${memberId}/accept-terms`),
     onSuccess: (_, { memberId }) => {
+      // Invalidate all related queries to prevent stale data issues
       queryClient.invalidateQueries({ queryKey: ['/api/member/onboarding/status'] });
       queryClient.invalidateQueries({ queryKey: ['member-onboarding', memberId] });
       queryClient.invalidateQueries({ queryKey: ['member'] });
+      queryClient.invalidateQueries({ queryKey: ['terms-re-acceptance'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/terms'] });
       toast({
         title: 'Terms accepted',
         description: 'You have successfully accepted the terms and conditions.',
@@ -118,6 +123,33 @@ export function useAcceptTerms() {
     onError: (error: any) => {
       toast({
         title: 'Failed to accept terms',
+        description: error.message || 'Please try again',
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
+export function useReAcceptTerms() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: () => apiRequest('POST', '/api/member/terms/re-accept'),
+    onSuccess: () => {
+      // Invalidate all related queries to ensure fresh data
+      queryClient.invalidateQueries({ queryKey: ['/api/member/onboarding/status'] });
+      queryClient.invalidateQueries({ queryKey: ['member'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/terms'] });
+      queryClient.invalidateQueries({ queryKey: ['terms-re-acceptance'] });
+      toast({
+        title: 'Terms updated',
+        description: 'You have successfully accepted the updated terms and conditions.',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to accept updated terms',
         description: error.message || 'Please try again',
         variant: 'destructive',
       });
