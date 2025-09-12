@@ -47,6 +47,7 @@ interface ScheduleFormData {
   dayOfWeek: number;
   startTime: string;
   endTime: string;
+  maxParticipants: number;
   repetitionType: string;
   scheduleDate?: string;
   startDate?: string;
@@ -65,7 +66,7 @@ function mapScheduleToApi(data: any, classes: any[] = []) {
     day_of_week: data.dayOfWeek,
     start_time: data.startTime,
     end_time: data.endTime,
-    max_participants: 20, // Default capacity
+    max_participants: data.maxParticipants, // Use form value
     is_active: data.isActive ?? true,
     repetition_type: data.repetitionType,
     schedule_date: data.scheduleDate,
@@ -419,6 +420,7 @@ export default function AdminSchedules() {
       dayOfWeek: 1, // Monday
       startTime: "",
       endTime: "",
+      maxParticipants: 10, // Default value, will be updated when class is selected
       repetitionType: "once",
       scheduleDate: new Date().toISOString().split('T')[0],
       startDate: new Date().toISOString().split('T')[0],
@@ -432,18 +434,26 @@ export default function AdminSchedules() {
   const watchedStartTime = form.watch("startTime");
 
   useEffect(() => {
-    if (watchedClassId && watchedStartTime && classes) {
+    if (watchedClassId && classes) {
       // Find the selected class
       const selectedClass = (classes as any[]).find((cls: any) => cls.id === watchedClassId);
       
-      if (selectedClass && selectedClass.duration) {
-        // Calculate end time based on class duration
-        const endTime = calculateEndTime(watchedStartTime, selectedClass.duration);
+      if (selectedClass) {
+        // Auto-fill max participants with class capacity
+        const currentMaxParticipants = form.getValues("maxParticipants");
+        if (!currentMaxParticipants || !editingSchedule) {
+          form.setValue("maxParticipants", selectedClass.max_capacity || 10);
+        }
         
-        // Only update if the end time field is empty or if we're creating a new schedule
-        const currentEndTime = form.getValues("endTime");
-        if (!currentEndTime || !editingSchedule) {
-          form.setValue("endTime", endTime);
+        // Calculate end time based on class duration
+        if (watchedStartTime && selectedClass.duration) {
+          const endTime = calculateEndTime(watchedStartTime, selectedClass.duration);
+          
+          // Only update if the end time field is empty or if we're creating a new schedule
+          const currentEndTime = form.getValues("endTime");
+          if (!currentEndTime || !editingSchedule) {
+            form.setValue("endTime", endTime);
+          }
         }
       }
     }
@@ -572,6 +582,7 @@ export default function AdminSchedules() {
       dayOfWeek: schedule.dayOfWeek,
       startTime: schedule.startTime,
       endTime: schedule.endTime,
+      maxParticipants: schedule.maxParticipants || 10,
       repetitionType: schedule.repetitionType || "once",
       scheduleDate: schedule.scheduleDate || "",
       startDate: schedule.startDate || "",
@@ -927,6 +938,40 @@ export default function AdminSchedules() {
                     )}
                   />
                 </div>
+
+                {/* Max Participants */}
+                <FormField
+                  control={form.control}
+                  name="maxParticipants"
+                  render={({ field }) => {
+                    const selectedClassId = form.watch("classId");
+                    const selectedClass = classes?.find((cls: any) => cls.id === selectedClassId);
+                    const classCapacity = selectedClass?.max_capacity || 0;
+                    
+                    return (
+                      <FormItem>
+                        <FormLabel>Max Participants</FormLabel>
+                        <FormControl>
+                          <div className="space-y-2">
+                            <Input 
+                              type="number" 
+                              min="1" 
+                              max="100" 
+                              {...field} 
+                              onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                            />
+                            {classCapacity > 0 && (
+                              <p className="text-xs text-muted-foreground">
+                                Class capacity: {classCapacity} participants
+                              </p>
+                            )}
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
+                />
 
                 {/* Date fields based on repetition type */}
                 {form.watch("repetitionType") === "once" && (

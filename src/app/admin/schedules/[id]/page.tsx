@@ -61,6 +61,7 @@ interface ScheduleFormData {
   dayOfWeek: number;
   startTime: string;
   endTime: string;
+  maxParticipants: number;
   repetitionType: string;
   scheduleDate?: string;
   startDate?: string;
@@ -76,6 +77,7 @@ function mapScheduleToApi(data: any) {
     day_of_week: data.dayOfWeek,
     start_time: data.startTime,
     end_time: data.endTime,
+    max_participants: data.maxParticipants,
     repetition_type: data.repetitionType,
     schedule_date: data.scheduleDate,
     start_date: data.startDate,
@@ -118,6 +120,7 @@ export default function ScheduleDetailsPage() {
       dayOfWeek: 1,
       startTime: "",
       endTime: "",
+      maxParticipants: 10,
       repetitionType: "once",
       scheduleDate: "",
       startDate: "",
@@ -200,6 +203,7 @@ export default function ScheduleDetailsPage() {
         dayOfWeek: schedule.day_of_week,
         startTime: schedule.start_time,
         endTime: schedule.end_time,
+        maxParticipants: schedule.max_participants || 10,
         repetitionType: schedule.repetition_type || "once",
         scheduleDate: schedule.schedule_date || "",
         startDate: schedule.start_date || "",
@@ -1015,6 +1019,39 @@ export default function ScheduleDetailsPage() {
                   )}
                 />
               </div>
+
+              <FormField
+                control={form.control}
+                name="maxParticipants"
+                render={({ field }) => {
+                  const selectedClassId = form.watch("classId");
+                  const selectedClass = classes?.find((cls: any) => cls.id === selectedClassId);
+                  const classCapacity = selectedClass?.max_capacity || 0;
+                  
+                  return (
+                    <FormItem>
+                      <FormLabel>Max Participants</FormLabel>
+                      <FormControl>
+                        <div className="space-y-2">
+                          <Input 
+                            type="number" 
+                            min="1" 
+                            max="100" 
+                            {...field} 
+                            onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                          />
+                          {classCapacity > 0 && (
+                            <p className="text-xs text-muted-foreground">
+                              Class capacity: {classCapacity} participants
+                            </p>
+                          )}
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
+              />
 
               <FormField
                 control={form.control}
