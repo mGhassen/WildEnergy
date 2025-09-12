@@ -110,3 +110,29 @@ body {
 * {
   border-color: hsl(var(--border));
 }
+
+/* Responsive improvements */
+@media (max-width: 640px) {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+/* Ensure dialogs are properly contained on small screens */
+@media (max-width: 480px) {
+  [data-radix-dialog-content] {
+    margin: 1rem;
+    max-width: calc(100vw - 2rem);
+  }
+}
+
+/* Improve touch targets on mobile */
+@media (max-width: 768px) {
+  button, 
+  [role="button"], 
+  input[type="button"], 
+  input[type="submit"] {
+    min-height: 44px;
+  }
+}

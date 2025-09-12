@@ -541,8 +541,8 @@ export default function DataTable({
       {/* Table */}
       <Card>
         <CardContent className="p-0">
-          {/* Table Header */}
-          <div className="flex items-center border-b border-border bg-muted/30">
+          {/* Table Header - Desktop only */}
+          <div className="hidden md:flex items-center border-b border-border bg-muted/30">
             {selectable && (
               <div className="p-3">
                 <Checkbox
@@ -581,7 +581,62 @@ export default function DataTable({
             </div>
           ) : (
             <div className="max-h-[60vh] overflow-y-auto">
-              {renderGroupedData()}
+              {/* Mobile view - show cards instead of table */}
+              <div className="block md:hidden">
+                {Array.isArray(groupedData) ? (
+                  groupedData.map((row: any, index: number) => (
+                    <div key={row.id || index} className="border-b border-border p-4 space-y-2">
+                      {columns.slice(0, 3).map((column) => (
+                        <div key={column.key} className="flex justify-between">
+                          <span className="text-sm font-medium text-muted-foreground">{column.label}:</span>
+                          <span className="text-sm text-foreground">
+                            {column.render ? column.render(getNestedValue(row, column.key), row) : getNestedValue(row, column.key)}
+                          </span>
+                        </div>
+                      ))}
+                      {columns.length > 3 && (
+                        <div className="pt-2 border-t border-border">
+                          <Button variant="outline" size="sm" className="w-full">
+                            View Details
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  Object.entries(groupedData).map(([groupKey, groupRows]: [string, any[]]) => (
+                    <div key={groupKey} className="space-y-2">
+                      <div className="font-medium text-sm text-muted-foreground p-2 bg-muted/50">
+                        {groupKey}
+                      </div>
+                      {groupRows.map((row: any, index: number) => (
+                        <div key={row.id || index} className="border-b border-border p-4 space-y-2">
+                          {columns.slice(0, 3).map((column) => (
+                            <div key={column.key} className="flex justify-between">
+                              <span className="text-sm font-medium text-muted-foreground">{column.label}:</span>
+                              <span className="text-sm text-foreground">
+                                {column.render ? column.render(getNestedValue(row, column.key), row) : getNestedValue(row, column.key)}
+                              </span>
+                            </div>
+                          ))}
+                          {columns.length > 3 && (
+                            <div className="pt-2 border-t border-border">
+                              <Button variant="outline" size="sm" className="w-full">
+                                View Details
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ))
+                )}
+              </div>
+              
+              {/* Desktop view - show table */}
+              <div className="hidden md:block">
+                {renderGroupedData()}
+              </div>
             </div>
           )}
         </CardContent>

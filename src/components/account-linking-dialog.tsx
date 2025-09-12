@@ -81,7 +81,7 @@ export function AccountLinkingDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Link Account to Member</DialogTitle>
           <DialogDescription>
@@ -108,7 +108,7 @@ export function AccountLinkingDialog({
           {/* Search Results */}
           <div className="space-y-2">
             <Label>Available Accounts</Label>
-            <div className="border rounded-md max-h-60 overflow-auto">
+            <div className="border rounded-md max-h-48 sm:max-h-60 overflow-auto">
               {isSearching ? (
                 <div className="flex items-center justify-center p-4">
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />

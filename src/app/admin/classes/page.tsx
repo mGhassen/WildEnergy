@@ -255,7 +255,7 @@ export default function AdminClasses() {
                     <FormItem>
                       <FormLabel>Description</FormLabel>
                       <FormControl>
-                        <Textarea {...field} value={field.value || ""} placeholder="Brief description of the class..." />
+                        <Textarea {...field} placeholder="Brief description of the class..." />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -275,7 +275,7 @@ export default function AdminClasses() {
                             field.onChange(Number(value));
                           }
                         }} 
-                        value={field.value === null || field.value === undefined ? "none" : field.value.toString()}
+                        value={field.value?.toString() || "none"}
                       >
                         <FormControl>
                           <SelectTrigger>

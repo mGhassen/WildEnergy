@@ -39,7 +39,7 @@ export function ConfirmationDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="sm:max-w-md">
+      <AlertDialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <AlertDialogHeader>
           <AlertDialogTitle className={isDestructive ? "text-destructive" : ""}>
             {title}

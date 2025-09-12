@@ -282,7 +282,6 @@ export default function AdminCategories() {
                         <Textarea
                           placeholder="Enter category description"
                           {...field}
-                          value={field.value || ""}
                         />
                       </FormControl>
                       <FormMessage />
@@ -302,12 +301,10 @@ export default function AdminCategories() {
                             type="color"
                             className="w-12 h-10 p-1 rounded border"
                             {...field}
-                            value={field.value || "#3b82f6"}
                           />
                           <Input
                             placeholder="#3b82f6"
                             {...field}
-                            value={field.value || ""}
                             className="flex-1"
                           />
                         </div>

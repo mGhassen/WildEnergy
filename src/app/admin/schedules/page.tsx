@@ -982,7 +982,7 @@ export default function AdminSchedules() {
                       <FormItem>
                         <FormLabel>Schedule Date</FormLabel>
                         <FormControl>
-                          <Input type="date" {...field} value={field.value || ""} />
+                          <Input type="date" {...field}  />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -999,7 +999,7 @@ export default function AdminSchedules() {
                         <FormItem>
                           <FormLabel>Start Date</FormLabel>
                           <FormControl>
-                            <Input type="date" {...field} value={field.value || ""} />
+                            <Input type="date" {...field}  />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -1013,7 +1013,7 @@ export default function AdminSchedules() {
                         <FormItem>
                           <FormLabel>End Date</FormLabel>
                           <FormControl>
-                            <Input type="date" {...field} value={field.value || ""} />
+                            <Input type="date" {...field}  />
                           </FormControl>
                           <FormMessage />
                         </FormItem>

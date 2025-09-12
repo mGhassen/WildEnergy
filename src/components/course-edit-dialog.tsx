@@ -89,7 +89,7 @@ export function CourseEditDialog({ course, isOpen, onClose }: CourseEditDialogPr
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Edit className="w-5 h-5" />
@@ -102,7 +102,7 @@ export function CourseEditDialog({ course, isOpen, onClose }: CourseEditDialogPr
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               {/* Trainer Selection */}
               <FormField
                 control={form.control}
