@@ -832,7 +832,7 @@ export default function ScheduleCalendar({
 
       {/* Member Registration Modal */}
       <Dialog open={isRegistrationModalOpen} onOpenChange={setIsRegistrationModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>Register Members to Course</DialogTitle>
             <DialogDescription>

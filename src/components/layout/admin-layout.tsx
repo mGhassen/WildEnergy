@@ -379,8 +379,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           </header>
 
           {/* Page content */}
-          <main className="flex-1 overflow-auto p-4 sm:p-6">
-            {children}
+          <main className="flex-1 overflow-auto p-2 sm:p-4 lg:p-6">
+            <div className="max-w-full">
+              {children}
+            </div>
           </main>
         </SidebarInset>
         

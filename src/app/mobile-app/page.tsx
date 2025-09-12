@@ -534,7 +534,7 @@ export default function MobileApp() {
       {/* Course Detail Dialog */}
       {selectedCourse && (
         <Dialog open={!!selectedCourse} onOpenChange={() => setSelectedCourse(null)}>
-          <DialogContent className="max-w-sm mx-4">
+          <DialogContent className="max-w-sm mx-4 max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{selectedCourse.class.name}</DialogTitle>
             </DialogHeader>

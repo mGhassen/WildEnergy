@@ -191,16 +191,16 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
       {/* Header */}
       <header className="bg-card/80 backdrop-blur-sm shadow-sm border-b border-border sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
+          <div className="flex justify-between items-center h-14 sm:h-16">
             {/* Logo and Brand */}
-            <div className="flex items-center space-x-4">
-              <Link href="/member" className="flex items-center space-x-3 hover:opacity-80 transition-all duration-200 group">
-                <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary/80 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow">
-                  <Dumbbell className="w-5 h-5 text-primary-foreground" />
+            <div className="flex items-center space-x-2 sm:space-x-4">
+              <Link href="/member" className="flex items-center space-x-2 sm:space-x-3 hover:opacity-80 transition-all duration-200 group">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-primary to-primary/80 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow">
+                  <Dumbbell className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
                 </div>
-                <div>
-                  <h1 className="text-xl font-bold text-foreground">Wild Energy</h1>
+                <div className="hidden sm:block">
+                  <h1 className="text-lg sm:text-xl font-bold text-foreground">Wild Energy</h1>
                   <p className="text-xs text-muted-foreground -mt-1">Pole & Dance</p>
                 </div>
               </Link>
@@ -464,8 +464,10 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
       </nav>
 
       {/* Main content */}
-      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-        {children}
+      <main className="max-w-7xl mx-auto py-4 sm:py-6 px-2 sm:px-4 lg:px-8">
+        <div className="w-full">
+          {children}
+        </div>
       </main>
     </div>
   );

@@ -30,7 +30,7 @@ export function UnlinkAccountDialog({
 }: UnlinkAccountDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="sm:max-w-md">
+      <AlertDialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <AlertDialogHeader>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-destructive/10 rounded-full flex items-center justify-center">
