@@ -5,5 +5,7 @@ export function useTerms() {
   return useQuery<TermsData, Error>({
     queryKey: ['/api/terms'],
     queryFn: () => termsApi.getTerms(),
+    staleTime: 0, // Always refetch to get latest active terms
+    refetchOnWindowFocus: true,
   });
 }

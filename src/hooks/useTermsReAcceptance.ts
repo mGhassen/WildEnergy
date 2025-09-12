@@ -9,7 +9,7 @@ export function useTermsReAcceptance() {
   const { data: currentTerms, isLoading: termsLoading } = useTerms();
 
   return useQuery({
-    queryKey: ['terms-re-acceptance', user?.member_id],
+    queryKey: ['terms-re-acceptance', user?.member_id, onboardingStatus?.data?.terms_version_id, currentTerms?.id],
     queryFn: () => {
       // If no user or data not loaded, return false
       if (!user?.member_id || !onboardingStatus?.data || !currentTerms) {
@@ -18,12 +18,6 @@ export function useTermsReAcceptance() {
           hasOnboardingStatus: !!onboardingStatus?.data,
           hasCurrentTerms: !!currentTerms
         });
-        return false;
-      }
-
-      // Don't check for re-acceptance if user just completed onboarding
-      if (onboardingStatus.data.onboardingCompleted && onboardingStatus.data.termsAccepted) {
-        console.log('User just completed onboarding, skipping terms re-acceptance check');
         return false;
       }
 
@@ -39,10 +33,12 @@ export function useTermsReAcceptance() {
         currentTermsData: currentTerms
       });
       
+      // Only require re-acceptance if the member has accepted terms but the version differs
+      // This will trigger re-acceptance when admin changes the active terms
       return memberAcceptedVersionId !== currentActiveTermsId;
     },
     enabled: !!user?.member_id && !onboardingLoading && !termsLoading,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 0, // Always refetch to get latest data
     refetchOnWindowFocus: true,
   });
 }

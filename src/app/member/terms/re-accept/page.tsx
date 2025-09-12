@@ -72,6 +72,28 @@ export default function TermsReAcceptance() {
     }
   };
 
+  // Check if content requires scrolling when terms data loads
+  useEffect(() => {
+    if (termsData?.content) {
+      // Use a small delay to ensure the DOM is rendered
+      const timer = setTimeout(() => {
+        const termsContainer = document.querySelector('.terms-content-container');
+        if (termsContainer) {
+          const container = termsContainer as HTMLDivElement;
+          const isScrollable = container.scrollHeight > container.clientHeight;
+          
+          // If content doesn't require scrolling, automatically enable the checkbox
+          if (!isScrollable && !hasScrolledToBottom) {
+            setHasScrolledToBottom(true);
+            console.log('Content does not require scrolling, enabling checkbox');
+          }
+        }
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [termsData?.content, hasScrolledToBottom]);
+
   const handleReAccept = async () => {
     if (!termsAccepted) {
       toast({
@@ -220,7 +242,7 @@ export default function TermsReAcceptance() {
           </CardHeader>
           <CardContent>
             <div 
-              className="max-h-96 overflow-y-auto border rounded-lg p-4 bg-muted/50 prose prose-sm max-w-none"
+              className="terms-content-container max-h-96 overflow-y-auto border rounded-lg p-4 bg-muted/50 prose prose-sm max-w-none"
               onScroll={handleScroll}
             >
               <div 
@@ -231,7 +253,10 @@ export default function TermsReAcceptance() {
               />
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              Please scroll to the bottom to enable the acceptance checkbox.
+              {hasScrolledToBottom 
+                ? "You can now accept the terms and conditions below."
+                : "Please read through the terms above to enable the acceptance checkbox."
+              }
             </p>
           </CardContent>
         </Card>
@@ -262,7 +287,7 @@ export default function TermsReAcceptance() {
                 </label>
                 <p className="text-xs text-muted-foreground">
                   {!hasScrolledToBottom 
-                    ? "Please scroll through the terms above to enable this option."
+                    ? "Please read through the terms above to enable this option."
                     : "You can now accept the terms and conditions."
                   }
                 </p>
