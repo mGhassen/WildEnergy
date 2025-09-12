@@ -17,16 +17,18 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 
     const { id } = await context.params;
 
-    // Fetch group with its categories
+    // Fetch group with its categories through many-to-many relationship
     const { data: group, error } = await supabaseServer()
       .from('groups')
       .select(`
         *,
-        categories (
-          id,
-          name,
-          description,
-          color
+        category_groups(
+          category:categories (
+            id,
+            name,
+            description,
+            color
+          )
         )
       `)
       .eq('id', id)
@@ -36,7 +38,13 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       return NextResponse.json({ error: 'Failed to fetch group' }, { status: 500 });
     }
 
-    return NextResponse.json(group);
+    // Process the response to match expected format
+    const processedGroup = {
+      ...group,
+      categories: group.category_groups?.map((cg: any) => cg.category) || []
+    };
+
+    return NextResponse.json(processedGroup);
   } catch (error) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
@@ -90,22 +98,26 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
 
     // Update group-category relationships if provided
     if (categoryIds !== undefined) {
-      // Remove all categories from this group first
+      // Remove all existing category-group relationships for this group
       const { error: removeError } = await supabaseServer()
-        .from('categories')
-        .update({ group_id: null })
+        .from('category_groups')
+        .delete()
         .eq('group_id', id);
 
       if (removeError) {
         return NextResponse.json({ error: 'Failed to remove existing categories from group' }, { status: 500 });
       }
 
-      // Assign new categories to this group
+      // Create new category-group relationships
       if (categoryIds.length > 0) {
+        const categoryGroupRelations = categoryIds.map((categoryId: number) => ({
+          category_id: categoryId,
+          group_id: parseInt(id)
+        }));
+
         const { error: categoriesError } = await supabaseServer()
-          .from('categories')
-          .update({ group_id: id })
-          .in('id', categoryIds);
+          .from('category_groups')
+          .insert(categoryGroupRelations);
 
         if (categoriesError) {
           return NextResponse.json({ error: 'Failed to assign categories to group' }, { status: 500 });
@@ -113,16 +125,18 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
       }
     }
 
-    // Fetch the complete group with categories
+    // Fetch the complete group with categories through many-to-many relationship
     const { data: completeGroup, error: fetchError } = await supabaseServer()
       .from('groups')
       .select(`
         *,
-        categories (
-          id,
-          name,
-          description,
-          color
+        category_groups(
+          category:categories (
+            id,
+            name,
+            description,
+            color
+          )
         )
       `)
       .eq('id', id)
@@ -132,7 +146,13 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
       return NextResponse.json({ error: 'Failed to fetch complete group' }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, group: completeGroup });
+    // Process the response to match expected format
+    const processedGroup = {
+      ...completeGroup,
+      categories: completeGroup.category_groups?.map((cg: any) => cg.category) || []
+    };
+
+    return NextResponse.json({ success: true, group: processedGroup });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to update group' }, { status: 500 });
   }
@@ -191,10 +211,10 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
       }, { status: 400 });
     }
 
-    // Remove categories from this group (unlink, don't delete)
+    // Remove category-group relationships for this group
     const { error: categoriesError } = await supabaseServer()
-      .from('categories')
-      .update({ group_id: null })
+      .from('category_groups')
+      .delete()
       .eq('group_id', id);
 
     if (categoriesError) {
