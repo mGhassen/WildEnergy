@@ -68,6 +68,7 @@ interface CourseDetails {
   current_participants: number;
   status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
   is_active: boolean;
+  code?: string;
   created_at: string;
   updated_at: string;
   isEdited?: boolean;
@@ -318,6 +319,12 @@ export default function CourseDetailsPage() {
             Back
           </Button>
           <div>
+            <div className="flex items-center gap-2 mb-1">
+              <div className={`w-2 h-2 rounded-full ${courseData.is_active ? 'bg-green-500' : 'bg-red-500'}`} />
+              <span className="text-xs text-muted-foreground font-mono">
+                {courseData.code || `CRS-${String(courseData.id).padStart(5, '0')}`}
+              </span>
+            </div>
             <h1 className="text-3xl font-bold">{courseData.class.name}</h1>
             <p className="text-muted-foreground">
               {formatDate(courseData.course_date)} • {formatTime(courseData.start_time)} - {formatTime(courseData.end_time)}

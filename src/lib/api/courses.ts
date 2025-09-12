@@ -31,6 +31,7 @@ export interface Course {
   current_participants: number;
   status: string;
   is_active: boolean;
+  code?: string;
   created_at: string;
   updated_at: string;
   class?: any;
