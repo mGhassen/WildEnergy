@@ -205,21 +205,38 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to update schedule', details: updateError.message }, { status: 500 });
     }
 
-    // Regenerate courses for the updated schedule
-    try {
-      // First, delete all existing courses for this schedule
-      const { error: deleteCoursesError } = await supabaseServer()
+    // If schedule is being set to inactive, update all related courses to inactive
+    if (body.is_active === false) {
+      const { error: updateCoursesError } = await supabaseServer()
         .from('courses')
-        .delete()
+        .update({ is_active: false })
         .eq('schedule_id', id);
 
-      if (deleteCoursesError) {
-        console.error('Error deleting existing courses:', deleteCoursesError);
+      if (updateCoursesError) {
+        console.error('Error updating courses to inactive:', updateCoursesError);
         return NextResponse.json({ 
-          error: 'Failed to delete existing courses', 
-          details: deleteCoursesError.message 
+          error: 'Schedule updated but failed to deactivate related courses', 
+          details: updateCoursesError.message 
         }, { status: 500 });
       }
+    }
+
+    // Only regenerate courses if the schedule is active
+    if (body.is_active === true) {
+      try {
+        // First, delete all existing courses for this schedule
+        const { error: deleteCoursesError } = await supabaseServer()
+          .from('courses')
+          .delete()
+          .eq('schedule_id', id);
+
+        if (deleteCoursesError) {
+          console.error('Error deleting existing courses:', deleteCoursesError);
+          return NextResponse.json({ 
+            error: 'Failed to delete existing courses', 
+            details: deleteCoursesError.message 
+          }, { status: 500 });
+        }
 
       // Get the updated schedule with class details for course generation
       const { data: scheduleForGeneration, error: scheduleError } = await supabaseServer()
@@ -321,20 +338,28 @@ export async function PUT(request: NextRequest) {
         }
       }
 
-      console.log(`Successfully regenerated ${coursesToInsert.length} courses for schedule ${id}`);
-      
+        console.log(`Successfully regenerated ${coursesToInsert.length} courses for schedule ${id}`);
+        
+        return NextResponse.json({
+          ...updatedSchedule,
+          regeneratedCourses: coursesToInsert.length,
+          message: `Schedule updated and ${coursesToInsert.length} courses regenerated successfully`
+        });
+
+      } catch (courseError) {
+        console.error('Error during course regeneration:', courseError);
+        return NextResponse.json({ 
+          error: 'Schedule updated but failed to regenerate courses', 
+          details: String(courseError) 
+        }, { status: 500 });
+      }
+    } else {
+      // Schedule is inactive, return success without regenerating courses
       return NextResponse.json({
         ...updatedSchedule,
-        regeneratedCourses: coursesToInsert.length,
-        message: `Schedule updated and ${coursesToInsert.length} courses regenerated successfully`
+        regeneratedCourses: 0,
+        message: 'Schedule updated and set to inactive. Related courses have been deactivated.'
       });
-
-    } catch (courseError) {
-      console.error('Error during course regeneration:', courseError);
-      return NextResponse.json({ 
-        error: 'Schedule updated but failed to regenerate courses', 
-        details: String(courseError) 
-      }, { status: 500 });
     }
   } catch (error) {
     console.error('Error updating schedule:', error);
