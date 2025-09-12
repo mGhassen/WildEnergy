@@ -9,19 +9,37 @@ export function useCreateScheduleWithCourses() {
 
   return useMutation({
     mutationFn: async (data: CreateScheduleData) => {
+      console.log('🚀 Starting schedule creation with data:', data);
+      
       // Create the schedule
       const result = await scheduleApi.createSchedule(data);
+      console.log('📅 Schedule created successfully:', result);
       
       // Generate courses for the new schedule
       if (result?.id) {
         try {
-          console.log('Generating courses for schedule:', result.id);
+          console.log('🔄 Generating courses for schedule:', result.id);
+          console.log('🌐 Making POST request to:', `/api/admin/schedules/${result.id}`);
+          
           const courseResult = await apiRequest("POST", `/api/admin/schedules/${result.id}`);
-          console.log('Course generation result:', courseResult);
+          console.log('✅ Course generation result:', courseResult);
+          
+          if (courseResult?.count > 0) {
+            console.log(`🎉 Successfully generated ${courseResult.count} courses for schedule ${result.id}`);
+          } else {
+            console.warn('⚠️ Course generation returned no courses:', courseResult);
+          }
         } catch (err) {
-          console.error('Course generation failed:', err);
+          console.error('❌ Course generation failed:', err);
+          console.error('❌ Error details:', {
+            message: (err as any)?.message,
+            status: (err as any)?.status,
+            data: (err as any)?.data
+          });
           // Don't throw here, just log the error
         }
+      } else {
+        console.error('❌ No schedule ID returned from creation:', result);
       }
       
       return result;

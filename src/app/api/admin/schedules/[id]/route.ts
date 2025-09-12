@@ -495,10 +495,38 @@ export async function DELETE(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const id = extractIdFromUrl(request);
-  if (!id) return NextResponse.json({ error: 'No schedule id' }, { status: 400 });
+  try {
+    const id = extractIdFromUrl(request);
+    if (!id) return NextResponse.json({ error: 'No schedule id' }, { status: 400 });
 
-  // Fetch the schedule
+    console.log('🔄 POST /api/admin/schedules/' + id + ' - Starting course generation');
+
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.split(' ')[1];
+    if (!token) {
+      console.log('❌ No token provided');
+      return NextResponse.json({ error: 'No token provided' }, { status: 401 });
+    }
+
+    // Verify admin using new user system
+    const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
+    if (authError || !adminUser) {
+      console.log('❌ Invalid or expired token:', authError);
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+    }
+    const { data: adminCheck } = await supabaseServer()
+      .from('user_profiles')
+      .select('is_admin, accessible_portals')
+      .eq('email', adminUser.email)
+      .single();
+    if (!adminCheck?.is_admin || !adminCheck?.accessible_portals?.includes('admin')) {
+      console.log('❌ Admin access required for user:', adminUser.email);
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
+
+    console.log('✅ Authentication successful for user:', adminUser.email);
+
+    // Fetch the schedule
   const { data: schedule, error } = await supabaseServer()
     .from('schedules')
     .select('*')
@@ -575,20 +603,26 @@ export async function POST(request: NextRequest) {
     console.log('Generated recurring course dates:', generatedDates);
   }
 
-  console.log('Final coursesToInsert:', coursesToInsert);
+  console.log('📝 Final coursesToInsert:', coursesToInsert.length, 'courses');
 
   if (coursesToInsert.length === 0) {
-    console.error('No courses to insert for schedule:', schedule);
+    console.error('❌ No courses to insert for schedule:', schedule);
     return NextResponse.json({ error: 'No courses to insert' }, { status: 400 });
   }
 
+  console.log('💾 Inserting courses into database...');
   const { error: insertError } = await supabaseServer()
     .from('courses')
     .insert(coursesToInsert);
   if (insertError) {
-    console.error('Failed to insert courses:', insertError);
+    console.error('❌ Failed to insert courses:', insertError);
     return NextResponse.json({ error: 'Failed to insert courses', details: insertError }, { status: 500 });
   }
 
+  console.log('✅ Successfully inserted', coursesToInsert.length, 'courses for schedule', id);
   return NextResponse.json({ success: true, count: coursesToInsert.length });
+  } catch (error) {
+    console.error('Error generating courses:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 } 
