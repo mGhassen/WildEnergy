@@ -12,6 +12,19 @@ export async function GET(
       return NextResponse.json({ error: 'Member ID is required' }, { status: 400 });
     }
 
+    // Check authentication
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.split(' ')[1];
+    if (!token) {
+      return NextResponse.json({ error: 'No token provided' }, { status: 401 });
+    }
+
+    // Verify user (member)
+    const { data: { user }, error: authError } = await supabaseServer().auth.getUser(token);
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+    }
+
     // Get profile data through member relationship
     const { data: profile, error } = await supabaseServer()
       .from('members')
@@ -61,6 +74,19 @@ export async function PUT(
       return NextResponse.json({ error: 'Member ID is required' }, { status: 400 });
     }
 
+    // Check authentication
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.split(' ')[1];
+    if (!token) {
+      return NextResponse.json({ error: 'No token provided' }, { status: 401 });
+    }
+
+    // Verify user (member)
+    const { data: { user }, error: authError } = await supabaseServer().auth.getUser(token);
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+    }
+
     // Get account_id from member
     const { data: member, error: memberError } = await supabaseServer()
       .from('members')
@@ -88,7 +114,7 @@ export async function PUT(
         profile_image_url: body.profile_image_url,
         updated_at: new Date().toISOString()
       })
-      .eq('account_id', member.account_id)
+      .eq('id', member.account_id)
       .select()
       .single();
 

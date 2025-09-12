@@ -28,11 +28,11 @@ export async function GET(request: NextRequest) {
 
     const supabase = supabaseServer();
 
-    // Get user onboarding status - handle case where onboarding fields don't exist yet
-    const { data: userData, error } = await supabase
-      .from("users")
+    // Get user onboarding status from the new member_onboarding_status view
+    const { data: onboardingData, error } = await supabase
+      .from("member_onboarding_status")
       .select("*")
-      .eq("id", user.id)
+      .eq("account_id", user.account_id)
       .single();
 
     if (error) {
@@ -43,18 +43,39 @@ export async function GET(request: NextRequest) {
       }, { status: 500 });
     }
 
-    // Handle case where onboarding fields don't exist yet (migration not applied)
-    const onboardingCompleted = userData.onboarding_completed || false;
-    const termsAccepted = userData.terms_accepted || false;
-    const hasPersonalInfo = !!(userData.first_name && userData.last_name && userData.age && userData.profession && userData.address && userData.phone);
+    // Get profile data separately to check personal info completion
+    const { data: profileData, error: profileError } = await supabase
+      .from("profiles")
+      .select("phone, profession, address")
+      .eq("id", user.account_id)
+      .single();
+
+    if (profileError) {
+      console.error("Error fetching profile data:", profileError);
+    }
+
+    // Check if personal info is completed based on profile data
+    const hasPersonalInfo = !!(
+      onboardingData.first_name && 
+      onboardingData.last_name && 
+      profileData?.phone && 
+      profileData?.profession && 
+      profileData?.address
+    );
 
     return NextResponse.json({ 
       success: true, 
       data: {
-        onboardingCompleted,
-        termsAccepted,
+        onboardingCompleted: onboardingData.onboarding_completed || false,
+        termsAccepted: onboardingData.terms_accepted || false,
         hasPersonalInfo,
-        user: userData
+        personalInfoCompleted: onboardingData.personal_info_completed || false,
+        user: {
+          first_name: onboardingData.first_name,
+          last_name: onboardingData.last_name,
+          email: onboardingData.email,
+          member_status: onboardingData.member_status
+        }
       }
     });
 

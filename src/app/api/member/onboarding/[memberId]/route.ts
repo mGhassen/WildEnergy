@@ -12,6 +12,19 @@ export async function GET(
       return NextResponse.json({ error: 'Member ID is required' }, { status: 400 });
     }
 
+    // Check authentication
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.split(' ')[1];
+    if (!token) {
+      return NextResponse.json({ error: 'No token provided' }, { status: 401 });
+    }
+
+    // Verify user (member)
+    const { data: { user }, error: authError } = await supabaseServer().auth.getUser(token);
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+    }
+
     // Get onboarding data
     const { data: onboarding, error } = await supabaseServer()
       .from('member_onboarding')
@@ -45,6 +58,19 @@ export async function PUT(
 
     if (!memberId) {
       return NextResponse.json({ error: 'Member ID is required' }, { status: 400 });
+    }
+
+    // Check authentication
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.split(' ')[1];
+    if (!token) {
+      return NextResponse.json({ error: 'No token provided' }, { status: 401 });
+    }
+
+    // Verify user (member)
+    const { data: { user }, error: authError } = await supabaseServer().auth.getUser(token);
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
 
     // Update onboarding data

@@ -38,13 +38,12 @@ export async function GET(req: NextRequest) {
         class:classes(id, name, description, category_id, duration, max_capacity, difficulty, category:categories(id, name)),
         trainer:trainers(
           id,
-          user_id,
+          account_id,
           specialization,
           experience_years,
           bio,
           certification,
-          status,
-          user:users(id, first_name, last_name, email)
+          status
         )
       `)
       .eq('is_active', true) // Only active courses
@@ -59,6 +58,23 @@ export async function GET(req: NextRequest) {
     }
 
     console.log('Raw courses from database:', courses?.length);
+
+    // Fetch trainer details separately
+    const trainerAccountIds = courses?.map(c => c.trainer?.account_id).filter(Boolean) || [];
+    let trainerDetails: Record<string, any> = {};
+    
+    if (trainerAccountIds.length > 0) {
+      const { data: trainers } = await supabaseServer()
+        .from('user_profiles')
+        .select('account_id, first_name, last_name')
+        .in('account_id', trainerAccountIds);
+      
+      if (trainers) {
+        trainers.forEach(trainer => {
+          trainerDetails[trainer.account_id] = trainer;
+        });
+      }
+    }
 
     // Transform the data to match the member page expectations
     const transformedCourses = (courses || []).map(course => {
@@ -75,9 +91,9 @@ export async function GET(req: NextRequest) {
         },
         trainer: {
           id: course.trainer?.id,
-          user: {
-            first_name: course.trainer?.user?.first_name,
-            last_name: course.trainer?.user?.last_name
+          user: trainerDetails[course.trainer?.account_id] || {
+            first_name: 'Unknown',
+            last_name: 'Trainer'
           }
         },
         courseDate: course.course_date,

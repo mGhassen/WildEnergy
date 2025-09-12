@@ -17,7 +17,7 @@ export function useMemberSubscriptions() {
 
 export function useMemberCategories() {
   return useQuery({
-    queryKey: ['/api/categories'],
-    queryFn: () => apiFetch('/api/categories'),
+    queryKey: ['/api/member/categories'],
+    queryFn: () => apiFetch('/api/member/categories'),
   });
 }

@@ -18,7 +18,7 @@ import { FormSkeleton } from "@/components/skeletons";
 interface PersonalInfoForm {
   firstName: string;
   lastName: string;
-  age: number;
+  dateOfBirth: string;
   profession: string;
   address: string;
   phone: string;
@@ -43,7 +43,7 @@ export default function PersonalInfoOnboarding() {
   const [formData, setFormData] = useState<PersonalInfoForm>({
     firstName: "",
     lastName: "",
-    age: 0,
+    dateOfBirth: "",
     profession: "",
     address: "",
     phone: "",
@@ -56,7 +56,7 @@ export default function PersonalInfoOnboarding() {
       const baseData = {
         firstName: profile.first_name || "",
         lastName: profile.last_name || "",
-        age: profile.date_of_birth ? new Date().getFullYear() - new Date(profile.date_of_birth).getFullYear() : 0,
+        dateOfBirth: profile.date_of_birth || "",
         profession: profile.profession || "",
         address: profile.address || "",
         phone: profile.phone || "",
@@ -93,10 +93,26 @@ export default function PersonalInfoOnboarding() {
       return false;
     }
     
-    if (!formData.age || formData.age < 16 || formData.age > 100) {
+    if (!formData.dateOfBirth) {
       toast({
         title: "Erreur",
-        description: "L'âge doit être entre 16 et 100 ans",
+        description: "La date de naissance est requise",
+        variant: "destructive",
+      });
+      return false;
+    }
+    
+    // Check if user is at least 16 years old
+    const birthDate = new Date(formData.dateOfBirth);
+    const today = new Date();
+    const age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    const actualAge = monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate()) ? age - 1 : age;
+    
+    if (actualAge < 16 || actualAge > 100) {
+      toast({
+        title: "Erreur",
+        description: "Vous devez avoir entre 16 et 100 ans",
         variant: "destructive",
       });
       return false;
@@ -155,15 +171,10 @@ export default function PersonalInfoOnboarding() {
       return;
     }
 
-    // Calculate date of birth from age
-    const currentYear = new Date().getFullYear();
-    const birthYear = currentYear - formData.age;
-    const dateOfBirth = `${birthYear}-01-01`; // Approximate date
-
     const profileData = {
       first_name: formData.firstName,
       last_name: formData.lastName,
-      date_of_birth: dateOfBirth,
+      date_of_birth: formData.dateOfBirth,
       profession: formData.profession,
       address: formData.address,
       phone: formData.phone,
@@ -179,6 +190,13 @@ export default function PersonalInfoOnboarding() {
         }, {
           onSuccess: () => {
             router.push("/member/onboarding/terms");
+          },
+          onError: (onboardingError) => {
+            toast({
+              title: "Erreur",
+              description: "Erreur lors de la mise à jour du statut d'onboarding",
+              variant: "destructive",
+            });
           }
         });
       },
@@ -300,18 +318,16 @@ export default function PersonalInfoOnboarding() {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="age" className="flex items-center gap-2">
+                <Label htmlFor="dateOfBirth" className="flex items-center gap-2">
                   <Calendar className="w-4 h-4" />
-                  Âge *
+                  Date de naissance *
                 </Label>
                 <Input
-                  id="age"
-                  type="number"
-                  min="16"
-                  max="100"
-                  value={formData.age || ""}
-                  onChange={(e) => handleInputChange("age", parseInt(e.target.value) || 0)}
-                  placeholder="Votre âge"
+                  id="dateOfBirth"
+                  type="date"
+                  value={formData.dateOfBirth}
+                  onChange={(e) => handleInputChange("dateOfBirth", e.target.value)}
+                  placeholder="Votre date de naissance"
                   required
                 />
               </div>
