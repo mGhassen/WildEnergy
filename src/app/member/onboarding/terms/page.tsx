@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useTerms } from "@/hooks/useTerms";
 import { useAuth } from "@/hooks/use-auth";
@@ -31,6 +31,7 @@ export default function TermsOnboarding() {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [termsContent, setTermsContent] = useState("");
   const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Load terms acceptance state from localStorage on component mount
   useEffect(() => {
@@ -55,6 +56,53 @@ export default function TermsOnboarding() {
       });
     }
   }, [termsData, termsError, toast]);
+
+  // Check if content fits without scrolling when terms content changes
+  useEffect(() => {
+    if (termsContent && scrollContainerRef.current) {
+      // Multiple attempts to check content fit
+      const checkMultipleTimes = () => {
+        checkIfContentFits(scrollContainerRef.current);
+        // Check again after a longer delay
+        setTimeout(() => {
+          checkIfContentFits(scrollContainerRef.current);
+        }, 500);
+        // And once more after content is definitely rendered
+        setTimeout(() => {
+          checkIfContentFits(scrollContainerRef.current);
+        }, 1000);
+      };
+      
+      // Immediate check
+      checkIfContentFits(scrollContainerRef.current);
+      // Delayed checks
+      setTimeout(checkMultipleTimes, 100);
+    }
+  }, [termsContent]);
+
+  // Also check on window resize
+  useEffect(() => {
+    const handleResize = () => {
+      if (scrollContainerRef.current) {
+        checkIfContentFits(scrollContainerRef.current);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Fallback: enable checkbox after 2 seconds if still not enabled
+  useEffect(() => {
+    if (termsContent && !hasScrolledToBottom) {
+      const fallbackTimer = setTimeout(() => {
+        console.log('Fallback: enabling checkbox after timeout');
+        setHasScrolledToBottom(true);
+      }, 2000);
+      
+      return () => clearTimeout(fallbackTimer);
+    }
+  }, [termsContent, hasScrolledToBottom]);
 
   const handleLogout = async () => {
     try {
@@ -94,6 +142,25 @@ export default function TermsOnboarding() {
         description: "Vous pouvez maintenant accepter les conditions générales",
         variant: "default",
       });
+    }
+  };
+
+  // Check if content fits without scrolling (no scrollbar needed)
+  const checkIfContentFits = (element: HTMLDivElement | null) => {
+    if (!element) return;
+    
+    // Check if the scrollable container needs scrolling
+    const needsScrolling = element.scrollHeight > element.clientHeight;
+    console.log('Content check:', { 
+      scrollHeight: element.scrollHeight, 
+      clientHeight: element.clientHeight, 
+      needsScrolling, 
+      hasScrolledToBottom 
+    });
+    
+    if (!needsScrolling && !hasScrolledToBottom) {
+      console.log('Content fits without scrolling - enabling checkbox');
+      setHasScrolledToBottom(true);
     }
   };
 
@@ -207,17 +274,18 @@ export default function TermsOnboarding() {
         <CardContent className="space-y-6">
           {/* Terms Content */}
           <div 
-            className="max-h-96 overflow-y-auto border rounded-lg p-6 bg-muted/30"
+            ref={scrollContainerRef}
+            className="max-h-[28rem] overflow-y-auto border rounded-lg p-6 bg-muted/30 terms-scroll"
             onScroll={handleScroll}
           >
             <div 
-              className="text-foreground [&_h1]:text-foreground [&_h1]:text-xl [&_h1]:font-bold [&_h1]:mb-4 [&_h1]:mt-6 [&_h1]:first:mt-0
+              className="text-sm text-foreground [&_h1]:text-foreground [&_h1]:text-xl [&_h1]:font-bold [&_h1]:mb-4 [&_h1]:mt-6 [&_h1]:first:mt-0
                          [&_h2]:text-foreground [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:mb-3 [&_h2]:mt-5
                          [&_h3]:text-foreground [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mb-2 [&_h3]:mt-4
-                         [&_p]:text-foreground [&_p]:mb-3 [&_p]:leading-relaxed
+                         [&_p]:text-foreground [&_p]:mb-3 [&_p]:leading-relaxed [&_p]:text-sm
                          [&_ul]:text-foreground [&_ul]:mb-3 [&_ul]:pl-6 [&_ul]:space-y-1
                          [&_ol]:text-foreground [&_ol]:mb-3 [&_ol]:pl-6 [&_ol]:space-y-1
-                         [&_li]:text-foreground [&_li]:leading-relaxed
+                         [&_li]:text-foreground [&_li]:leading-relaxed [&_li]:text-sm
                          [&_strong]:text-foreground [&_strong]:font-semibold
                          [&_em]:text-foreground [&_em]:italic
                          [&_a]:text-primary [&_a]:underline [&_a:hover]:text-primary/80"

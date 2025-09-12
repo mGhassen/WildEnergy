@@ -14,6 +14,7 @@ import {
   ClipboardList,
   ChevronLeft,
   ChevronRight,
+  FileText,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -125,6 +126,10 @@ const data = {
         {
           title: "Groups",
           url: "/admin/groups",
+        },
+        {
+          title: "Terms & Conditions",
+          url: "/admin/terms",
         },
       ],
     },

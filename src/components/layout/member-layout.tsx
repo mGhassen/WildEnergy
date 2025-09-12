@@ -17,8 +17,7 @@ import {
   ChevronDown,
   Sun,
   Moon,
-  User,
-  FileText
+  User
 } from "lucide-react";
 import { getInitials } from "@/lib/auth";
 import { useState, useEffect } from "react";
@@ -26,6 +25,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useTheme } from "@/components/theme-provider";
 import { useOnboardingStatus } from "@/hooks/useMemberOnboarding";
+import { useTermsReAcceptance } from "@/hooks/useTermsReAcceptance";
 import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { MemberUserSkeleton } from "@/components/member-user-skeleton";
@@ -45,6 +45,9 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
 
   // Check onboarding status
   const { data: onboardingStatus, isLoading: isLoadingOnboarding, error: onboardingError } = useOnboardingStatus();
+  
+  // Check if terms re-acceptance is needed
+  const { data: needsTermsReAcceptance, isLoading: isLoadingTermsReAcceptance } = useTermsReAcceptance();
 
   // Force refetch onboarding status when component mounts to ensure fresh data
   useEffect(() => {
@@ -79,7 +82,7 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
       console.log("Onboarding status data:", onboardingStatus);
       
       if (onboardingStatus.success && onboardingStatus.data) {
-        const { onboardingCompleted, hasPersonalInfo, physicalProfileCompleted, termsAccepted } = onboardingStatus.data;
+        const { onboardingCompleted, hasPersonalInfo, physicalProfileCompleted, termsAccepted, discoverySource } = onboardingStatus.data;
         
         console.log("Onboarding details:", { onboardingCompleted, hasPersonalInfo, physicalProfileCompleted, termsAccepted });
         
@@ -90,7 +93,7 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
           } else if (!physicalProfileCompleted) {
             console.log("Redirecting to physical profile");
             router.push("/member/onboarding/physical-profile");
-          } else if (!onboardingStatus.data.discoverySource) {
+          } else if (!discoverySource) {
             console.log("Redirecting to discovery");
             router.push("/member/onboarding/discovery");
           } else if (!termsAccepted) {
@@ -100,10 +103,36 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
         }
       }
     }
-  }, [isAuthenticated, onboardingStatus, isLoadingOnboarding, pathname, router]);
+  }, [isAuthenticated, onboardingStatus?.success, onboardingStatus?.data?.onboardingCompleted, onboardingStatus?.data?.hasPersonalInfo, onboardingStatus?.data?.physicalProfileCompleted, onboardingStatus?.data?.termsAccepted, onboardingStatus?.data?.discoverySource, isLoadingOnboarding, pathname, router]);
 
-  // Show loading while checking onboarding status
-  if (isAuthenticated && user && isLoadingOnboarding && !pathname.startsWith("/member/onboarding")) {
+  // Redirect to terms re-acceptance if needed (but not if user just completed onboarding)
+  useEffect(() => {
+    if (isAuthenticated && 
+        !isLoadingTermsReAcceptance && 
+        needsTermsReAcceptance && 
+        !pathname.startsWith("/member/onboarding") &&
+        !pathname.startsWith("/member/terms/re-accept")) {
+      
+      // Check if user just completed onboarding - if so, don't redirect to re-accept
+      const justCompletedOnboarding = onboardingStatus?.data?.onboardingCompleted && 
+                                     onboardingStatus?.data?.termsAccepted;
+      
+      if (!justCompletedOnboarding) {
+        console.log("Terms re-acceptance needed, redirecting...");
+        // Add a small delay to prevent race conditions with cache updates
+        const timeoutId = setTimeout(() => {
+          router.push("/member/terms/re-accept");
+        }, 100);
+        
+        return () => clearTimeout(timeoutId);
+      } else {
+        console.log("User just completed onboarding, skipping terms re-acceptance check");
+      }
+    }
+  }, [isAuthenticated, isLoadingTermsReAcceptance, needsTermsReAcceptance, pathname, router, onboardingStatus?.data?.onboardingCompleted, onboardingStatus?.data?.termsAccepted]);
+
+  // Show loading while checking onboarding status and terms re-acceptance
+  if (isAuthenticated && user && (isLoadingOnboarding || isLoadingTermsReAcceptance) && !pathname.startsWith("/member/onboarding") && !pathname.startsWith("/member/terms/re-accept")) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center">
         <div className="text-center">
@@ -114,8 +143,8 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
     );
   }
 
-  // Don't render member layout if onboarding is not completed
-  if (isAuthenticated && user && onboardingStatus && !isLoadingOnboarding && !pathname.startsWith("/member/onboarding")) {
+  // Don't render member layout if onboarding is not completed or terms re-acceptance is needed
+  if (isAuthenticated && user && onboardingStatus && !isLoadingOnboarding && !pathname.startsWith("/member/onboarding") && !pathname.startsWith("/member/terms/re-accept")) {
     if (onboardingStatus.success && onboardingStatus.data) {
       const { onboardingCompleted } = onboardingStatus.data;
       if (!onboardingCompleted) {
@@ -129,6 +158,19 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
           </div>
         );
       }
+    }
+    
+    // Check if terms re-acceptance is needed
+    if (needsTermsReAcceptance && !isLoadingTermsReAcceptance) {
+      // Show loading while redirecting to terms re-acceptance
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Redirection vers l'acceptation des conditions...</p>
+          </div>
+        </div>
+      );
     }
   }
 
@@ -366,15 +408,6 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
                         </div>
                       </div>
                     </Link>
-                    <Link href="/member/terms" onClick={handleNavigationClick}>
-                      <div className="flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer">
-                        <FileText className="w-4 h-4" />
-                        <div className="flex-1">
-                          <div>Terms & Conditions</div>
-                          <div className="text-xs opacity-70">View signed terms</div>
-                        </div>
-                      </div>
-                    </Link>
                     <Link href="/member/history" onClick={handleNavigationClick}>
                       <div className="flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer">
                         <History className="w-4 h-4" />
@@ -468,12 +501,6 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
                       <Link href="/member/profile">
                         <User className="w-4 h-4 mr-3" />
                         My Profile
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/member/terms">
-                        <FileText className="w-4 h-4 mr-3" />
-                        Terms & Conditions
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>

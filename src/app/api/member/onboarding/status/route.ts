@@ -73,6 +73,7 @@ export async function GET(request: NextRequest) {
         termsVersion: onboardingData.terms_version || null,
         termsTitle: onboardingData.terms_title || null,
         termsEffectiveDate: onboardingData.terms_effective_date || null,
+        terms_version_id: onboardingData.terms_version_id || null,
         user: {
           first_name: onboardingData.first_name,
           last_name: onboardingData.last_name,

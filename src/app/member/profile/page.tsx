@@ -26,7 +26,10 @@ import {
   LogOut,
   ArrowLeft,
   CheckCircle,
-  Loader2
+  Loader2,
+  FileText,
+  ScrollText,
+  ExternalLink
 } from "lucide-react";
 import { getInitials } from "@/lib/auth";
 import { formatDate } from "@/lib/date";
@@ -762,6 +765,60 @@ export default function MemberProfile() {
                   {profile?.updated_at ? formatDisplayDate(profile.updated_at) : 'N/A'}
                 </p>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Legal Documents */}
+        <Card className="border-0 shadow-lg mt-8">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2 text-xl">
+              <FileText className="w-5 h-5 text-primary" />
+              Legal Documents
+            </CardTitle>
+            <CardDescription>Access your terms, conditions, and gym regulations</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Terms & Conditions */}
+              <Link href="/member/terms" className="group">
+                <div className="p-6 border border-border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer group-hover:shadow-md">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center group-hover:bg-blue-200 dark:group-hover:bg-blue-900/30 transition-colors">
+                      <FileText className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">
+                        Terms & Conditions
+                      </h3>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        View your signed terms and conditions
+                      </p>
+                    </div>
+                    <ExternalLink className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                  </div>
+                </div>
+              </Link>
+
+              {/* Interior Regulation */}
+              <Link href="/member/interior-regulation" className="group">
+                <div className="p-6 border border-border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer group-hover:shadow-md">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-green-100 dark:bg-green-900/20 rounded-lg flex items-center justify-center group-hover:bg-green-200 dark:group-hover:bg-green-900/30 transition-colors">
+                      <ScrollText className="w-6 h-6 text-green-600 dark:text-green-400" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">
+                        Interior Regulation
+                      </h3>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Gym rules, policies, and guidelines
+                      </p>
+                    </div>
+                    <ExternalLink className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                  </div>
+                </div>
+              </Link>
             </div>
           </CardContent>
         </Card>

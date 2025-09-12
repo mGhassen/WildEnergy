@@ -3,10 +3,11 @@ import { supabaseServer } from '@/lib/supabase';
 
 export async function GET(request: NextRequest) {
   try {
-    // Get the active terms and conditions
+    // Get the active terms and conditions (only terms, not interior regulations)
     const { data: terms, error } = await supabaseServer()
       .from('terms_and_conditions')
       .select('*')
+      .eq('term_type', 'terms')
       .eq('is_active', true)
       .single();
 
