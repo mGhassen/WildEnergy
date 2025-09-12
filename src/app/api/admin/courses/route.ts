@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
     if (authError || !user) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-    // Fetch all courses with related class and trainer data
+    // Fetch all courses with related class, trainer, and schedule data for comparison
     const { data: courses, error } = await supabaseServer()
       .from('courses')
       .select(`
@@ -27,6 +27,18 @@ export async function GET(req: NextRequest) {
           bio,
           certification,
           status
+        ),
+        schedule:schedules(
+          id,
+          class_id,
+          trainer_id,
+          day_of_week,
+          start_time,
+          end_time,
+          max_participants,
+          repetition_type,
+          schedule_date,
+          is_active
         )
       `)
       .order('created_at', { ascending: false });
@@ -34,8 +46,45 @@ export async function GET(req: NextRequest) {
       console.error('Supabase error:', error);
       return NextResponse.json({ error: 'Failed to fetch courses' }, { status: 500 });
     }
+
+    // Process courses to add comparison data with schedule
+    const processedCourses = (courses || []).map(course => {
+      const schedule = course.schedule;
+      const isEdited = schedule ? (
+        course.trainer_id !== schedule.trainer_id ||
+        course.start_time !== schedule.start_time ||
+        course.end_time !== schedule.end_time ||
+        course.max_participants !== schedule.max_participants
+      ) : false;
+
+      const differences = schedule ? {
+        trainer: course.trainer_id !== schedule.trainer_id ? {
+          original: schedule.trainer_id,
+          current: course.trainer_id
+        } : null,
+        startTime: course.start_time !== schedule.start_time ? {
+          original: schedule.start_time,
+          current: course.start_time
+        } : null,
+        endTime: course.end_time !== schedule.end_time ? {
+          original: schedule.end_time,
+          current: course.end_time
+        } : null,
+        maxParticipants: course.max_participants !== schedule.max_participants ? {
+          original: schedule.max_participants,
+          current: course.max_participants
+        } : null
+      } : null;
+
+      return {
+        ...course,
+        isEdited,
+        differences
+      };
+    });
+
     // Return empty array if no courses found, instead of undefined
-    return NextResponse.json(courses || []);
+    return NextResponse.json(processedCourses);
   } catch (error) {
     console.error('API error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

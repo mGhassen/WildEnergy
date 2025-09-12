@@ -39,6 +39,25 @@ export interface Course {
   registrations?: any[];
   checkins?: any[];
   statistics?: any;
+  isEdited?: boolean;
+  differences?: {
+    trainer?: {
+      original: number;
+      current: number;
+    };
+    startTime?: {
+      original: string;
+      current: string;
+    };
+    endTime?: {
+      original: string;
+      current: string;
+    };
+    maxParticipants?: {
+      original: number;
+      current: number;
+    };
+  };
 }
 
 export const courseApi = {

@@ -109,6 +109,22 @@ export const insertCourseSchema = z.object({
   isActive: z.boolean().default(true),
 });
 
+export const editCourseSchema = z.object({
+  trainerId: z.number().min(1, 'Trainer is required'),
+  startTime: z.string().min(1, 'Start time is required'),
+  endTime: z.string().min(1, 'End time is required'),
+  maxParticipants: z.number().min(1, 'Max participants must be at least 1'),
+  status: z.enum(['scheduled', 'in_progress', 'completed', 'cancelled']).optional(),
+}).refine((data) => {
+  // Validate that end time is after start time
+  const start = new Date(`2000-01-01T${data.startTime}`);
+  const end = new Date(`2000-01-01T${data.endTime}`);
+  return end > start;
+}, {
+  message: "End time must be after start time",
+  path: ["endTime"],
+});
+
 export const insertClassRegistrationSchema = z.object({
   userId: z.string().uuid(),
   courseId: z.number().min(1, "Course is required"),
@@ -143,6 +159,7 @@ export type InsertPlan = z.infer<typeof insertPlanSchema>;
 export type InsertClass = z.infer<typeof insertClassSchema>;
 export type InsertSchedule = z.infer<typeof insertScheduleSchema>;
 export type InsertCourse = z.infer<typeof insertCourseSchema>;
+export type EditCourse = z.infer<typeof editCourseSchema>;
 export type InsertClassRegistration = z.infer<typeof insertClassRegistrationSchema>;
 export type InsertCheckin = z.infer<typeof insertCheckinSchema>;
 export type InsertSubscription = z.infer<typeof insertSubscriptionSchema>; 

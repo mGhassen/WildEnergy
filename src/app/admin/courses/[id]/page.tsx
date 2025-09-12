@@ -8,6 +8,7 @@ import {
   useDeleteCourse, 
   useAddMembersToCourse 
 } from '@/hooks/useCourse';
+import { CourseEditDialog } from '@/components/course-edit-dialog';
 import { useMembers, useCheckMemberSessions } from '@/hooks/useMembers';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -173,12 +174,19 @@ const getDifficultyColor = (difficulty: string) => {
   }
 };
 
+const getTrainerName = (trainerId: number, courseData: any) => {
+  const trainer = courseData?.trainer;
+  if (!trainer) return 'Unknown Trainer';
+  return `${trainer.member?.first_name || 'Unknown'} ${trainer.member?.last_name || 'Trainer'}`;
+};
+
 export default function CourseDetailsPage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [memberManagementOpen, setMemberManagementOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
 
@@ -301,7 +309,11 @@ export default function CourseDetailsPage() {
             {getStatusIcon(courseData.status)}
             {courseData.status.replace('_', ' ').toUpperCase()}
           </Badge>
-          <Button variant="outline" size="sm">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setIsEditModalOpen(true)}
+          >
             <Edit className="w-4 h-4 mr-2" />
             Edit
           </Button>
@@ -521,6 +533,79 @@ export default function CourseDetailsPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Course Differences Section */}
+          {courseData.isEdited && courseData.differences && (
+            <Card className="border-orange-200 bg-orange-50/50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-orange-700">
+                  <AlertTriangle className="w-5 h-5" />
+                  Course Modifications
+                  <Badge variant="outline" className="text-orange-600 border-orange-300">
+                    Edited
+                  </Badge>
+                </CardTitle>
+                <CardDescription>
+                  This course has been modified from its original schedule. Changes are highlighted below.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {courseData.differences.trainer && (
+                    <div className="flex items-center justify-between p-3 bg-orange-100/50 rounded-lg border border-orange-200">
+                      <div>
+                        <label className="text-sm font-medium text-orange-800">Trainer Changed</label>
+                        <div className="text-sm text-orange-700">
+                          <span className="line-through">{getTrainerName(courseData.differences.trainer.original, courseData)}</span>
+                          <span className="mx-2">→</span>
+                          <span className="font-medium">{getTrainerName(courseData.differences.trainer.current, courseData)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {courseData.differences.startTime && (
+                    <div className="flex items-center justify-between p-3 bg-orange-100/50 rounded-lg border border-orange-200">
+                      <div>
+                        <label className="text-sm font-medium text-orange-800">Start Time Changed</label>
+                        <div className="text-sm text-orange-700">
+                          <span className="line-through">{formatTime(courseData.differences.startTime.original)}</span>
+                          <span className="mx-2">→</span>
+                          <span className="font-medium">{formatTime(courseData.differences.startTime.current)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {courseData.differences.endTime && (
+                    <div className="flex items-center justify-between p-3 bg-orange-100/50 rounded-lg border border-orange-200">
+                      <div>
+                        <label className="text-sm font-medium text-orange-800">End Time Changed</label>
+                        <div className="text-sm text-orange-700">
+                          <span className="line-through">{formatTime(courseData.differences.endTime.original)}</span>
+                          <span className="mx-2">→</span>
+                          <span className="font-medium">{formatTime(courseData.differences.endTime.current)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {courseData.differences.maxParticipants && (
+                    <div className="flex items-center justify-between p-3 bg-orange-100/50 rounded-lg border border-orange-200">
+                      <div>
+                        <label className="text-sm font-medium text-orange-800">Max Participants Changed</label>
+                        <div className="text-sm text-orange-700">
+                          <span className="line-through">{courseData.differences.maxParticipants.original}</span>
+                          <span className="mx-2">→</span>
+                          <span className="font-medium">{courseData.differences.maxParticipants.current}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
 
@@ -803,6 +888,15 @@ export default function CourseDetailsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Course Edit Dialog */}
+      {course && (
+        <CourseEditDialog
+          course={course}
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+        />
+      )}
     </div>
   );
 }
