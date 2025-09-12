@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Course } from '@/lib/api/courses';
 import { formatTime } from '@/lib/date';
-import { AlertTriangle, Clock, Users, User } from 'lucide-react';
+import { AlertTriangle, Clock, Users, User, Edit } from 'lucide-react';
 
 interface CourseEditDialogProps {
   course: Course;
