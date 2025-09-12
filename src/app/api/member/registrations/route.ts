@@ -24,13 +24,16 @@ export async function POST(req: NextRequest) {
     if (!userProfile) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
+    if (!userProfile.member_id) {
+      return NextResponse.json({ error: 'User is not a member' }, { status: 403 });
+    }
 
     const { courseId } = await req.json();
     if (!courseId) {
       return NextResponse.json({ error: 'Course ID is required' }, { status: 400 });
     }
 
-    console.log('Member registration attempt:', { userId: userProfile.id, courseId });
+    console.log('Member registration attempt:', { memberId: userProfile.member_id, courseId });
 
     // Check if course exists and is active
     const { data: course, error: courseError } = await supabaseServer()
@@ -50,7 +53,7 @@ export async function POST(req: NextRequest) {
     const { data: existing, error: existingError } = await supabaseServer()
       .from('class_registrations')
       .select('*')
-      .eq('member_id', userProfile.id)
+      .eq('member_id', userProfile.member_id)
       .eq('course_id', courseId)
       .eq('status', 'registered')
       .single();
@@ -73,7 +76,7 @@ export async function POST(req: NextRequest) {
     const { data: activeSubscription, error: subscriptionError } = await supabaseServer()
       .from('subscriptions')
       .select('id, sessions_remaining')
-      .eq('member_id', userProfile.id)
+      .eq('member_id', userProfile.member_id)
       .eq('status', 'active')
       .gt('sessions_remaining', 0)
       .order('end_date', { ascending: false })
@@ -92,7 +95,7 @@ export async function POST(req: NextRequest) {
     // Use the stored procedure to handle registration with session deduction
     const { data: result, error: procedureError } = await supabaseServer()
       .rpc('create_registration_with_updates', {
-        p_user_id: userProfile.id,
+        p_user_id: userProfile.member_id,
         p_course_id: courseId,
         p_current_participants: course.current_participants,
         p_subscription_id: activeSubscription.id

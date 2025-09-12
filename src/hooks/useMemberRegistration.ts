@@ -12,7 +12,7 @@ export function useMemberCourseRegistration() {
       const token = getAuthToken();
       console.log('Registration attempt with token:', token ? 'present' : 'missing');
       
-      const response = await fetch("/api/registrations", {
+      const response = await fetch("/api/member/registrations", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
