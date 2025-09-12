@@ -129,8 +129,6 @@ export default function DiscoveryOnboarding() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!validateForm()) return;
-    
     if (!memberId) {
       toast({
         title: "Erreur",
@@ -140,9 +138,10 @@ export default function DiscoveryOnboarding() {
       return;
     }
 
-    const discoverySource = formData.discoverySource === "other" 
+    // Discovery source is optional - use selected option or null
+    const discoverySource = selectedOption ? (formData.discoverySource === "other" 
       ? formData.customSource 
-      : formData.discoverySource;
+      : formData.discoverySource) : null;
 
     // Update onboarding with discovery source
     updateOnboardingMutation.mutate({ 
@@ -334,11 +333,11 @@ export default function DiscoveryOnboarding() {
               
               <div className="flex items-center gap-4">
                 <div className="text-sm text-muted-foreground">
-                  {selectedOption ? "Parfait ! 🎉" : "Choisissez une option"}
+                  {selectedOption ? "Parfait ! 🎉" : "Optionnel - Comment nous avez-vous trouvés ?"}
                 </div>
                 <Button 
                   type="submit" 
-                  disabled={updateOnboardingMutation.isPending || !selectedOption} 
+                  disabled={updateOnboardingMutation.isPending} 
                   className="flex items-center gap-2 px-8 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {updateOnboardingMutation.isPending ? (

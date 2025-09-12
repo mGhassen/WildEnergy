@@ -221,8 +221,6 @@ export default function PhysicalProfileOnboarding() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!validateForm()) return;
-    
     if (!memberId) {
       toast({
         title: "Erreur",
@@ -232,18 +230,20 @@ export default function PhysicalProfileOnboarding() {
       return;
     }
 
-    // Update onboarding with physical profile data
+    // Update onboarding with physical profile data (optional)
+    const physicalProfileData = formData.gender && formData.weight && formData.height && formData.goal && formData.activityLevel ? {
+      gender: formData.gender,
+      weight: parseFloat(formData.weight),
+      height: parseInt(formData.height),
+      goal: formData.goal,
+      activity_level: formData.activityLevel
+    } : null;
+
     updateOnboardingMutation.mutate({ 
       memberId, 
       data: { 
         physical_profile_completed: true,
-        physical_profile: {
-          gender: formData.gender,
-          weight: parseFloat(formData.weight),
-          height: parseInt(formData.height),
-          goal: formData.goal,
-          activity_level: formData.activityLevel
-        }
+        physical_profile: physicalProfileData
       } 
     }, {
       onSuccess: () => {
@@ -556,11 +556,11 @@ export default function PhysicalProfileOnboarding() {
               
               <div className="flex items-center gap-4">
                 <div className="text-sm text-muted-foreground">
-                  {formData.gender && formData.weight && formData.height && formData.goal && formData.activityLevel ? "Parfait ! 🎉" : "Complétez votre profil"}
+                  {formData.gender && formData.weight && formData.height && formData.goal && formData.activityLevel ? "Parfait ! 🎉" : "Optionnel - Complétez votre profil"}
                 </div>
                 <Button 
                   type="submit" 
-                  disabled={updateOnboardingMutation.isPending || !formData.gender || !formData.weight || !formData.height || !formData.goal || !formData.activityLevel} 
+                  disabled={updateOnboardingMutation.isPending} 
                   className="flex items-center gap-2 px-8 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {updateOnboardingMutation.isPending ? (
