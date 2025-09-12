@@ -67,6 +67,17 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
     });
   }, [isAuthenticated, onboardingStatus, isLoadingOnboarding, onboardingError, pathname]);
 
+  // Debug terms re-acceptance
+  useEffect(() => {
+    console.log("Terms re-acceptance check:", {
+      isAuthenticated,
+      needsTermsReAcceptance,
+      isLoadingTermsReAcceptance,
+      onboardingStatus: onboardingStatus?.data,
+      pathname
+    });
+  }, [isAuthenticated, needsTermsReAcceptance, isLoadingTermsReAcceptance, onboardingStatus?.data, pathname]);
+
   // Handle logout function
   const handleLogout = async () => {
     try {
@@ -105,7 +116,7 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
     }
   }, [isAuthenticated, onboardingStatus?.success, onboardingStatus?.data?.onboardingCompleted, onboardingStatus?.data?.hasPersonalInfo, onboardingStatus?.data?.physicalProfileCompleted, onboardingStatus?.data?.termsAccepted, onboardingStatus?.data?.discoverySource, isLoadingOnboarding, pathname, router]);
 
-  // Redirect to terms re-acceptance if needed (but not if user just completed onboarding)
+  // Redirect to terms re-acceptance if needed
   useEffect(() => {
     if (isAuthenticated && 
         !isLoadingTermsReAcceptance && 
@@ -113,23 +124,15 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
         !pathname.startsWith("/member/onboarding") &&
         !pathname.startsWith("/member/terms/re-accept")) {
       
-      // Check if user just completed onboarding - if so, don't redirect to re-accept
-      const justCompletedOnboarding = onboardingStatus?.data?.onboardingCompleted && 
-                                     onboardingStatus?.data?.termsAccepted;
+      console.log("Terms re-acceptance needed, redirecting...");
+      // Add a small delay to prevent race conditions with cache updates
+      const timeoutId = setTimeout(() => {
+        router.push("/member/terms/re-accept");
+      }, 100);
       
-      if (!justCompletedOnboarding) {
-        console.log("Terms re-acceptance needed, redirecting...");
-        // Add a small delay to prevent race conditions with cache updates
-        const timeoutId = setTimeout(() => {
-          router.push("/member/terms/re-accept");
-        }, 100);
-        
-        return () => clearTimeout(timeoutId);
-      } else {
-        console.log("User just completed onboarding, skipping terms re-acceptance check");
-      }
+      return () => clearTimeout(timeoutId);
     }
-  }, [isAuthenticated, isLoadingTermsReAcceptance, needsTermsReAcceptance, pathname, router, onboardingStatus?.data?.onboardingCompleted, onboardingStatus?.data?.termsAccepted]);
+  }, [isAuthenticated, isLoadingTermsReAcceptance, needsTermsReAcceptance, pathname, router]);
 
   // Show loading while checking onboarding status and terms re-acceptance
   if (isAuthenticated && user && (isLoadingOnboarding || isLoadingTermsReAcceptance) && !pathname.startsWith("/member/onboarding") && !pathname.startsWith("/member/terms/re-accept")) {
