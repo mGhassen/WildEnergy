@@ -194,18 +194,37 @@ export async function DELETE(request: NextRequest) {
     }, { status: 500 });
   }
   
-  // Manually delete the profile record (this will cascade to delete trainers)
-  console.log('Deleting profile record from database');
-  const { error: deleteProfileError } = await supabaseServer()
-    .from('profiles')
-    .delete()
-    .eq('id', accountId);
+  // Check if there are any members still linked to this profile
+  console.log('Checking for linked members to profile');
+  const { data: linkedMembers, error: checkMembersError } = await supabaseServer()
+    .from('members')
+    .select('id')
+    .eq('profile_id', accountId)
+    .limit(1);
   
-  if (deleteProfileError) {
-    console.error('Failed to delete profile record:', deleteProfileError);
+  if (checkMembersError) {
+    console.error('Failed to check linked members:', checkMembersError);
     return NextResponse.json({ 
-      error: `Failed to delete profile record: ${deleteProfileError.message}` 
+      error: `Failed to check linked members: ${checkMembersError.message}` 
     }, { status: 500 });
+  }
+  
+  // Only delete the profile if no members are linked to it
+  if (!linkedMembers || linkedMembers.length === 0) {
+    console.log('No linked members found, deleting profile record');
+    const { error: deleteProfileError } = await supabaseServer()
+      .from('profiles')
+      .delete()
+      .eq('id', accountId);
+    
+    if (deleteProfileError) {
+      console.error('Failed to delete profile record:', deleteProfileError);
+      return NextResponse.json({ 
+        error: `Failed to delete profile record: ${deleteProfileError.message}` 
+      }, { status: 500 });
+    }
+  } else {
+    console.log('Linked members found, preserving profile record');
   }
   
   // Manually delete the account record since there's no cascade from auth to accounts
