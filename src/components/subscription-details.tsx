@@ -80,13 +80,19 @@ interface SubscriptionDetailsProps {
   payments?: Payment[];
   showTabs?: boolean;
   isAdmin?: boolean;
+  member?: {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+  };
 }
 
 export function SubscriptionDetails({ 
   subscription, 
   payments = [], 
   showTabs = true,
-  isAdmin = false 
+  isAdmin = false,
+  member
 }: SubscriptionDetailsProps) {
   const [subTab, setSubTab] = useState<'details' | 'payments'>('details');
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -178,7 +184,14 @@ export function SubscriptionDetails({
           </Badge>
         </CardTitle>
         <CardDescription>
-          {isAdmin ? 'Subscription details' : 'Active membership details'}
+          {isAdmin && member ? (
+            <div>
+              <div className="font-medium">{member.firstName} {member.lastName}</div>
+              <div className="text-sm text-muted-foreground">{member.email}</div>
+            </div>
+          ) : (
+            isAdmin ? 'Subscription details' : 'Active membership details'
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
