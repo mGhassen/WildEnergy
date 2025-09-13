@@ -395,7 +395,7 @@ export default function MemberSubscriptions() {
                             </Badge>
                           </td>
                           <td className="px-4 py-2">{sub?.plan?.name || 'N/A'}</td>
-                          <td className="px-4 py-2">{payment.payment_method}</td>
+                          <td className="px-4 py-2">{payment.payment_type}</td>
                         </tr>
                       );
                     })}

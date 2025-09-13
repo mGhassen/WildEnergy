@@ -5,8 +5,7 @@ export interface Payment {
   subscription_id: number;
   member_id: string;
   amount: number;
-  payment_method: string;
-  method?: string; // Alternative field name for payment_method
+  payment_type: string;
   payment_reference?: string;
   payment_status: string;
   payment_date: string;
@@ -28,18 +27,18 @@ export interface CreatePaymentData {
   subscription_id: number;
   member_id: string;
   amount: number;
-  payment_method: string;
+  payment_type: string;
   payment_reference?: string;
-  status?: string;
+  payment_status?: string;
   payment_date: string;
 }
 
 export interface UpdatePaymentData {
   member_id?: string;
   amount?: number;
-  payment_method?: string;
+  payment_type?: string;
   payment_reference?: string;
-  status?: string;
+  payment_status?: string;
   payment_date?: string;
 }
 

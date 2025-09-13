@@ -97,7 +97,7 @@ type Subscription = {
 const paymentFormSchema = z.object({
   subscription_id: z.number(),
   amount: z.number().min(0.01, "Amount must be greater than 0"),
-  payment_method: z.enum(['credit', 'cash', 'card', 'bank_transfer', 'check', 'other']),
+  payment_type: z.enum(['credit', 'cash', 'card', 'bank_transfer', 'check', 'other']),
   status: z.enum(['pending', 'paid', 'failed', 'cancelled', 'refunded']).optional(),
   payment_date: z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/, "Invalid date"),
   payment_reference: z.string().optional(),
@@ -180,7 +180,7 @@ export default function AdminSubscriptionDetails() {
     defaultValues: {
       subscription_id: parseInt(subscriptionId),
       amount: 0,
-      payment_method: "cash",
+      payment_type: "cash",
       status: "paid",
       payment_date: new Date().toISOString().split('T')[0],
       payment_reference: "",
@@ -196,7 +196,7 @@ export default function AdminSubscriptionDetails() {
   const manualRefundMutation = useManualRefundSessions();
 
   // Event handlers
-  const openPaymentModal = (override?: { amount?: number; payment_type?: PaymentFormData['payment_method'] }) => {
+  const openPaymentModal = (override?: { amount?: number; payment_type?: PaymentFormData['payment_type'] }) => {
     if (!subscription) return;
     
     const amountToUse = override?.amount ?? remainingAmount;
@@ -204,7 +204,7 @@ export default function AdminSubscriptionDetails() {
     paymentForm.reset({
       subscription_id: subscription.id,
       amount: amountToUse,
-      payment_method: override?.payment_type ?? "cash",
+      payment_type: override?.payment_type ?? "cash",
       status: "paid",
       payment_date: new Date().toISOString().split('T')[0],
       payment_reference: "",
@@ -217,7 +217,7 @@ export default function AdminSubscriptionDetails() {
       subscription_id: data.subscription_id,
       member_id: subscription?.member_id || '',
       amount: data.amount,
-      payment_method: data.payment_method,
+      payment_type: data.payment_type,
       status: data.status,
       payment_date: data.payment_date,
       payment_reference: data.payment_reference,
@@ -266,7 +266,7 @@ export default function AdminSubscriptionDetails() {
     paymentForm.reset({
       subscription_id: payment.subscription_id,
       amount: payment.amount,
-      payment_method: (payment.payment_method as "cash" | "card" | "bank_transfer" | "check" | "other") || "cash",
+      payment_type: (payment.payment_type as "cash" | "card" | "bank_transfer" | "check" | "other") || "cash",
       status: (payment.payment_status as "pending" | "paid" | "failed" | "cancelled") || "paid",
       payment_date: payment.payment_date.split('T')[0],
       payment_reference: payment.payment_reference || '',
@@ -439,7 +439,7 @@ export default function AdminSubscriptionDetails() {
                         <Badge variant={payment.payment_status === 'paid' ? 'default' : payment.payment_status === 'pending' ? 'secondary' : 'destructive'} className="ml-2 text-xs capitalize">
                           {payment.payment_status}
                         </Badge>
-                        <span className="text-muted-foreground ml-2">{payment.payment_method || payment.method} • {formatDate(payment.payment_date)}</span>
+                        <span className="text-muted-foreground ml-2">{payment.payment_type} • {formatDate(payment.payment_date)}</span>
                         {payment.payment_reference && (
                           <span className="text-muted-foreground text-xs ml-2">Ref: {payment.payment_reference}</span>
                         )}
@@ -518,7 +518,7 @@ export default function AdminSubscriptionDetails() {
                 />
 
                 <Controller
-                  name="payment_method"
+                  name="payment_type"
                   control={paymentForm.control}
                   render={({ field }) => {
                     const member = subscription?.member;

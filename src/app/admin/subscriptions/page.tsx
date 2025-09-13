@@ -21,8 +21,8 @@ import { usePayments, useCreatePayment, useUpdatePayment, useDeletePayment } fro
 import { TableSkeleton, FormSkeleton } from "@/components/skeletons";
 import { ConfirmationDialog } from "@/components/confirmation-dialog";
 import { Payment } from "@/lib/api/payments";
-import { Plus, Search, Edit, Trash2, Eye, CreditCard, MoreVertical, RefreshCw } from "lucide-react";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { Plus, Search, Edit, Trash2, Eye, CreditCard, MoreVertical, RefreshCw, Filter, SortAsc, SortDesc, Calendar, DollarSign, Users, TrendingUp, ChevronDown } from "lucide-react";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { getInitials } from "@/lib/auth";
 import { formatDate } from "@/lib/date";
 import { formatCurrency } from "@/lib/config";
@@ -31,6 +31,11 @@ import { z } from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar } from "@/components/ui/avatar";
 import { DialogClose } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
+import { DateRange } from "react-day-picker";
 
 // Type definitions
 type Member = {
@@ -109,7 +114,7 @@ const subscriptionFormSchema = z.object({
 const paymentFormSchema = z.object({
   subscription_id: z.number(),
   amount: z.number().min(0.01, "Amount must be greater than 0"),
-  payment_method: z.enum(['credit', 'cash', 'card', 'bank_transfer', 'check', 'other']),
+  payment_type: z.enum(['credit', 'cash', 'card', 'bank_transfer', 'check', 'other']),
   status: z.enum(['pending', 'paid', 'failed', 'cancelled', 'refunded']).optional(),
   payment_date: z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/, "Invalid date"),
   payment_reference: z.string().optional(),
@@ -132,6 +137,17 @@ export default function AdminSubscriptions() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [subscriptionToDelete, setSubscriptionToDelete] = useState<number | null>(null);
   
+  // Enhanced filtering and sorting state
+  const [sortField, setSortField] = useState<keyof Subscription | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState<string[]>([]);
+  const [planFilter, setPlanFilter] = useState<number[]>([]);
+  const [dateRangeFilter, setDateRangeFilter] = useState<DateRange | undefined>(undefined);
+  const [selectedSubscriptions, setSelectedSubscriptions] = useState<number[]>([]);
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
+  const [showFilters, setShowFilters] = useState(false);
+  
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -147,7 +163,7 @@ export default function AdminSubscriptions() {
         ...m,
         firstName: m.firstName || m.first_name || '',
         lastName: m.lastName || m.last_name || '',
-        email: m.email,
+        email: m.email || m.account_email || '',
         status: m.member_status, // Use member_status from API
         member_status: m.member_status, // Keep original field too
         credit: m.credit || 0, // Map credit field
@@ -165,11 +181,18 @@ export default function AdminSubscriptions() {
     : [];
 
   // Map subscriptions with member and plan data
-  const mappedSubscriptions = Array.isArray(subscriptions) && Array.isArray(mappedMembers) && Array.isArray(plans)
+  const mappedSubscriptions = Array.isArray(subscriptions)
     ? subscriptions.map((sub: any) => ({
         ...sub,
-        member: mappedMembers.find((m: any) => m.id === sub.user_id) || null,
-        plan: plans.find((p: any) => p.id === sub.plan_id) || null,
+        member: sub.member ? {
+          ...sub.member,
+          firstName: sub.member.first_name || '',
+          lastName: sub.member.last_name || '',
+          email: sub.member.account_email || '',
+          status: sub.member.member_status || 'active',
+          credit: sub.member.credit || 0,
+        } : null,
+        plan: sub.plan || null,
       }))
     : [];
 
@@ -190,7 +213,7 @@ export default function AdminSubscriptions() {
     defaultValues: {
       subscription_id: 0,
       amount: 0,
-      payment_method: "cash",
+      payment_type: "cash",
       status: "paid",
       payment_date: new Date().toISOString().split('T')[0],
       payment_reference: "",
@@ -247,8 +270,8 @@ export default function AdminSubscriptions() {
     setIsEditModalOpen(true);
   };
 
-  // 1. Fix openPaymentModal to accept an optional override for payment_method and amount
-  const openPaymentModal = (subscription: Subscription, override?: { amount?: number; payment_type?: PaymentFormData['payment_method'] }) => {
+  // 1. Fix openPaymentModal to accept an optional override for payment_type and amount
+  const openPaymentModal = (subscription: Subscription, override?: { amount?: number; payment_type?: PaymentFormData['payment_type'] }) => {
     setSelectedSubscriptionForPayment(subscription);
     
     // Calculate remaining amount if not overridden
@@ -257,7 +280,7 @@ export default function AdminSubscriptions() {
     paymentForm.reset({
       subscription_id: subscription.id,
       amount: remainingAmount,
-      payment_method: override?.payment_type ?? "cash",
+      payment_type: override?.payment_type ?? "cash",
       status: "paid",
       payment_date: new Date().toISOString().split('T')[0],
       payment_reference: "",
@@ -346,14 +369,14 @@ export default function AdminSubscriptions() {
     });
   };
 
-  // 3. In handlePaymentSubmit, do not override payment_method, just use data.payment_method
+  // 3. In handlePaymentSubmit, use data.payment_type directly
   const handlePaymentSubmit = (data: PaymentFormData) => {
     console.log('Payment form data:', data);
     const paymentPayload = {
       subscription_id: data.subscription_id,
       member_id: selectedSubscriptionForPayment?.member_id || '',
       amount: data.amount,
-      payment_method: data.payment_method,
+      payment_type: data.payment_type,
       status: data.status,
       payment_date: data.payment_date,
       payment_reference: data.payment_reference,
@@ -398,7 +421,7 @@ export default function AdminSubscriptions() {
     paymentForm.reset({
       subscription_id: payment.subscription_id,
       amount: payment.amount,
-      payment_method: (payment.payment_method as "cash" | "card" | "bank_transfer" | "check" | "other") || "cash",
+      payment_type: (payment.payment_type as "cash" | "card" | "bank_transfer" | "check" | "other") || "cash",
       status: (payment.payment_status as "pending" | "paid" | "failed" | "cancelled") || "paid",
       payment_date: payment.payment_date.split('T')[0],
       payment_reference: payment.payment_reference || '',
@@ -411,17 +434,110 @@ export default function AdminSubscriptions() {
     setIsDeletePaymentModalOpen(true);
   }
 
-  // Filter subscriptions
-  const filteredSubscriptions = mappedSubscriptions.filter((subscription) =>
-    `${subscription.member?.firstName || ''} ${subscription.member?.lastName || ''} ${subscription.plan?.name || ''}`
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase())
-  );
-
   // Get payments for a subscription
   const getPaymentsForSubscription = (subscriptionId: number) => {
     return payments.filter(payment => payment.subscription_id === subscriptionId);
   };
+
+  // Enhanced filtering and sorting logic
+  const filteredAndSortedSubscriptions = (() => {
+    let filtered = mappedSubscriptions.filter((subscription) => {
+      // Search term filter
+      const searchLower = searchTerm.toLowerCase();
+      const matchesSearch = !searchTerm || (
+        subscription.member?.firstName?.toLowerCase().includes(searchLower) ||
+        subscription.member?.lastName?.toLowerCase().includes(searchLower) ||
+        subscription.member?.email?.toLowerCase().includes(searchLower) ||
+        subscription.plan?.name?.toLowerCase().includes(searchLower) ||
+        subscription.status?.toLowerCase().includes(searchLower)
+      );
+
+      // Status filter
+      const matchesStatus = statusFilter.length === 0 || statusFilter.includes(subscription.status);
+
+      // Plan filter
+      const matchesPlan = planFilter.length === 0 || planFilter.includes(subscription.plan_id);
+
+      // Payment status filter
+      const subscriptionPayments = getPaymentsForSubscription(subscription.id);
+      const totalPaid = subscriptionPayments
+        .filter((p) => p.payment_status === 'paid')
+        .reduce((sum, p) => sum + (p.amount || 0), 0);
+      const planPrice = subscription.plan?.price || 0;
+      let paymentStatus = 'not_paid';
+      if (totalPaid >= planPrice && planPrice > 0) {
+        paymentStatus = 'fully_paid';
+      } else if (totalPaid > 0 && totalPaid < planPrice) {
+        paymentStatus = 'partially_paid';
+      }
+      const matchesPaymentStatus = paymentStatusFilter.length === 0 || paymentStatusFilter.includes(paymentStatus);
+
+      // Date range filter
+      const subscriptionDate = new Date(subscription.start_date);
+      const matchesDateRange = !dateRangeFilter || !dateRangeFilter.from || !dateRangeFilter.to || 
+        (subscriptionDate >= dateRangeFilter.from && subscriptionDate <= dateRangeFilter.to);
+
+      return matchesSearch && matchesStatus && matchesPlan && matchesPaymentStatus && matchesDateRange;
+    });
+
+    // Sorting
+    if (sortField) {
+      filtered.sort((a, b) => {
+        let aValue: any = a[sortField];
+        let bValue: any = b[sortField];
+
+        // Handle nested properties
+        if (sortField === 'member') {
+          aValue = `${a.member?.firstName || ''} ${a.member?.lastName || ''}`.trim();
+          bValue = `${b.member?.firstName || ''} ${b.member?.lastName || ''}`.trim();
+        } else if (sortField === 'plan') {
+          aValue = a.plan?.name || '';
+          bValue = b.plan?.name || '';
+        }
+
+        // Handle different data types
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          aValue = aValue.toLowerCase();
+          bValue = bValue.toLowerCase();
+        }
+
+        if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return filtered;
+  })();
+
+  // Analytics data
+  const analytics = (() => {
+    const total = mappedSubscriptions.length;
+    const active = mappedSubscriptions.filter(s => s.status === 'active').length;
+    const expired = mappedSubscriptions.filter(s => s.status === 'expired').length;
+    const pending = mappedSubscriptions.filter(s => s.status === 'pending').length;
+    const cancelled = mappedSubscriptions.filter(s => s.status === 'cancelled').length;
+    
+    const totalRevenue = mappedSubscriptions.reduce((sum, sub) => {
+      const subscriptionPayments = getPaymentsForSubscription(sub.id);
+      return sum + subscriptionPayments
+        .filter(p => p.payment_status === 'paid')
+        .reduce((paymentSum, p) => paymentSum + (p.amount || 0), 0);
+    }, 0);
+
+    const totalPotentialRevenue = mappedSubscriptions.reduce((sum, sub) => sum + (sub.plan?.price || 0), 0);
+
+    return {
+      total,
+      active,
+      expired,
+      pending,
+      cancelled,
+      totalRevenue,
+      totalPotentialRevenue,
+      collectionRate: totalPotentialRevenue > 0 ? (totalRevenue / totalPotentialRevenue) * 100 : 0
+    };
+  })();
 
   // Utility functions
   const formatPrice = (price: string | number) => {
@@ -502,94 +618,465 @@ export default function AdminSubscriptions() {
           <h1 className="text-3xl font-bold text-foreground mb-2">Subscriptions</h1>
           <p className="text-muted-foreground">Manage member subscriptions</p>
         </div>
-        <Dialog open={isSubscriptionModalOpen} onOpenChange={setIsSubscriptionModalOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={openCreateSubscriptionModal}>
-              <Plus className="w-4 h-4 mr-2" />
-              Add Subscription
-            </Button>
-          </DialogTrigger>
-        </Dialog>
+        <div className="flex items-center gap-2">
+          <Dialog open={isSubscriptionModalOpen} onOpenChange={setIsSubscriptionModalOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={openCreateSubscriptionModal}>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Subscription
+              </Button>
+            </DialogTrigger>
+          </Dialog>
+        </div>
+      </div>
+
+      {/* Analytics Dashboard */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Total Subscriptions</p>
+                <p className="text-2xl font-bold">{analytics.total}</p>
+              </div>
+              <Users className="h-8 w-8 text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Active</p>
+                <p className="text-2xl font-bold text-green-600">{analytics.active}</p>
+              </div>
+              <TrendingUp className="h-8 w-8 text-green-600" />
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Total Revenue</p>
+                <p className="text-2xl font-bold">{formatCurrency(analytics.totalRevenue)}</p>
+              </div>
+              <DollarSign className="h-8 w-8 text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Collection Rate</p>
+                <p className="text-2xl font-bold">{analytics.collectionRate.toFixed(1)}%</p>
+              </div>
+              <TrendingUp className="h-8 w-8 text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
       </div>      
 
-      {/* Search */}
-      <div className="flex items-center space-x-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-          <Input
-            placeholder="Search subscriptions..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
+      {/* Search and Filters */}
+      <div className="space-y-4">
+        <div className="flex items-center space-x-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+            <Input
+              placeholder="Search subscriptions..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center gap-2"
+          >
+            <Filter className="w-4 h-4" />
+            Filters
+            {Object.values({statusFilter, paymentStatusFilter, planFilter, dateRangeFilter}).some(f => 
+              Array.isArray(f) ? f.length > 0 : f && (f.from || f.to)
+            ) && (
+              <Badge variant="secondary" className="ml-1">
+                {[statusFilter, paymentStatusFilter, planFilter].filter(f => f.length > 0).length + 
+                 (dateRangeFilter && (dateRangeFilter.from || dateRangeFilter.to) ? 1 : 0)}
+              </Badge>
+            )}
+          </Button>
         </div>
+
+        {/* Advanced Filters Panel */}
+        {showFilters && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Advanced Filters</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Status Filter */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Status</label>
+                  <div className="space-y-2">
+                    {['active', 'pending', 'expired', 'cancelled'].map((status) => (
+                      <div key={status} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`status-${status}`}
+                          checked={statusFilter.includes(status)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setStatusFilter([...statusFilter, status]);
+                            } else {
+                              setStatusFilter(statusFilter.filter(s => s !== status));
+                            }
+                          }}
+                        />
+                        <label htmlFor={`status-${status}`} className="text-sm capitalize">
+                          {status}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Payment Status Filter */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Payment Status</label>
+                  <div className="space-y-2">
+                    {[
+                      { value: 'fully_paid', label: 'Fully Paid' },
+                      { value: 'partially_paid', label: 'Partially Paid' },
+                      { value: 'not_paid', label: 'Not Paid' }
+                    ].map(({ value, label }) => (
+                      <div key={value} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`payment-${value}`}
+                          checked={paymentStatusFilter.includes(value)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setPaymentStatusFilter([...paymentStatusFilter, value]);
+                            } else {
+                              setPaymentStatusFilter(paymentStatusFilter.filter(p => p !== value));
+                            }
+                          }}
+                        />
+                        <label htmlFor={`payment-${value}`} className="text-sm">
+                          {label}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Plan Filter */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Plans</label>
+                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                    {mappedPlans.map((plan) => (
+                      <div key={plan.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`plan-${plan.id}`}
+                          checked={planFilter.includes(plan.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setPlanFilter([...planFilter, plan.id]);
+                            } else {
+                              setPlanFilter(planFilter.filter(p => p !== plan.id));
+                            }
+                          }}
+                        />
+                        <label htmlFor={`plan-${plan.id}`} className="text-sm">
+                          {plan.name}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Date Range Filter */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Date Range</label>
+                  <div className="space-y-2">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full justify-start text-left font-normal">
+                          <Calendar className="mr-2 h-4 w-4" />
+                          {dateRangeFilter?.from ? (
+                            dateRangeFilter.to ? (
+                              `${dateRangeFilter.from.toLocaleDateString()} - ${dateRangeFilter.to.toLocaleDateString()}`
+                            ) : (
+                              dateRangeFilter.from.toLocaleDateString()
+                            )
+                          ) : (
+                            "Select date range"
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="range"
+                          selected={dateRangeFilter}
+                          onSelect={(range) => setDateRangeFilter(range || undefined)}
+                          numberOfMonths={2}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Subscriptions Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Subscriptions</CardTitle>
-          <CardDescription>
-            {filteredSubscriptions.length} subscription{filteredSubscriptions.length !== 1 ? 's' : ''} found
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Subscriptions</CardTitle>
+              <CardDescription>
+                {filteredAndSortedSubscriptions.length} subscription{filteredAndSortedSubscriptions.length !== 1 ? 's' : ''} found
+                {selectedSubscriptions.length > 0 && (
+                  <span className="ml-2 text-primary">
+                    ({selectedSubscriptions.length} selected)
+                  </span>
+                )}
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              {selectedSubscriptions.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      // Bulk actions can be implemented here
+                      toast({
+                        title: "Bulk Action",
+                        description: `${selectedSubscriptions.length} subscriptions selected`,
+                      });
+                    }}
+                  >
+                    Bulk Actions
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedSubscriptions([])}
+                  >
+                    Clear Selection
+                  </Button>
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant={viewMode === 'table' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setViewMode('table')}
+                >
+                  Table
+                </Button>
+                <Button
+                  variant={viewMode === 'cards' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setViewMode('cards')}
+                >
+                  Cards
+                </Button>
+              </div>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          <Table>
+          {viewMode === 'table' ? (
+            <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Member</TableHead>
-                <TableHead>Plan</TableHead>
-                <TableHead>Start Date</TableHead>
-                <TableHead>End Date</TableHead>
+                <TableHead className="w-12">
+                  <Checkbox
+                    checked={selectedSubscriptions.length === filteredAndSortedSubscriptions.length && filteredAndSortedSubscriptions.length > 0}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setSelectedSubscriptions(filteredAndSortedSubscriptions.map(s => s.id));
+                      } else {
+                        setSelectedSubscriptions([]);
+                      }
+                    }}
+                  />
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => {
+                    if (sortField === 'member') {
+                      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                    } else {
+                      setSortField('member');
+                      setSortDirection('asc');
+                    }
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    Member
+                    {sortField === 'member' && (
+                      sortDirection === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => {
+                    if (sortField === 'plan') {
+                      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                    } else {
+                      setSortField('plan');
+                      setSortDirection('asc');
+                    }
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    Plan
+                    {sortField === 'plan' && (
+                      sortDirection === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => {
+                    if (sortField === 'start_date') {
+                      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                    } else {
+                      setSortField('start_date');
+                      setSortDirection('asc');
+                    }
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    Duration
+                    {sortField === 'start_date' && (
+                      sortDirection === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />
+                    )}
+                  </div>
+                </TableHead>
                 <TableHead>Sessions Remaining</TableHead>
                 <TableHead>Payment Status</TableHead>
-                <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredSubscriptions.map((subscription) => (
+              {filteredAndSortedSubscriptions.map((subscription) => (
                 <TableRow
                   key={subscription.id}
-                  className="group cursor-pointer"
+                  className={cn(
+                    "group cursor-pointer",
+                    selectedSubscriptions.includes(subscription.id) && "bg-muted/50"
+                  )}
                   onClick={e => {
-                    // Prevent row click if clicking on actions menu
-                    if ((e.target as HTMLElement).closest('.actions-menu')) return;
+                    // Prevent row click if clicking on actions menu or checkbox
+                    if ((e.target as HTMLElement).closest('.actions-menu') || 
+                        (e.target as HTMLElement).closest('input[type="checkbox"]')) return;
                     navigateToSubscriptionDetails(subscription);
                   }}
                 >
                   <TableCell>
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium">
-                        {getInitials(subscription.member?.firstName || '', subscription.member?.lastName || '')}
-                      </div>
-                      <div>
+                    <Checkbox
+                      checked={selectedSubscriptions.includes(subscription.id)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedSubscriptions([...selectedSubscriptions, subscription.id]);
+                        } else {
+                          setSelectedSubscriptions(selectedSubscriptions.filter(id => id !== subscription.id));
+                        }
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <div className="space-y-1">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (subscription.member?.member_id) {
+                            router.push(`/admin/members/${subscription.member.member_id}`);
+                          }
+                        }}
+                        className="text-left hover:text-primary transition-colors block"
+                      >
                         <div className="font-medium">
                           {subscription.member?.firstName} {subscription.member?.lastName}
                         </div>
-                        <div className="text-sm text-muted-foreground">
-                          {subscription.member?.email}
-                        </div>
-                      </div>
+                      </button>
                     </div>
                   </TableCell>
                   <TableCell>
                     <div>
-                      <div className="font-medium">{subscription.plan?.name}</div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (subscription.plan?.id) {
+                            router.push(`/admin/plans/${subscription.plan.id}`);
+                          }
+                        }}
+                        className="text-left hover:text-primary transition-colors"
+                      >
+                        <div className="font-medium">{subscription.plan?.name}</div>
+                      </button>
                       <div className="text-sm text-muted-foreground">
                         {formatPrice(subscription.plan?.price || 0)}
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell>{formatDate(subscription.start_date)}</TableCell>
-                  <TableCell>{formatDate(subscription.end_date)}</TableCell>
+                  <TableCell>
+                    <div className="space-y-1">
+                      <div className="text-sm">
+                        <span className="text-muted-foreground">From:</span> {formatDate(subscription.start_date)}
+                      </div>
+                      <div className="text-sm">
+                        <span className="text-muted-foreground">To:</span> {formatDate(subscription.end_date)}
+                      </div>
+                      {(() => {
+                        const startDate = new Date(subscription.start_date);
+                        const endDate = new Date(subscription.end_date);
+                        const today = new Date();
+                        const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+                        const daysRemaining = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                        const daysElapsed = totalDays - daysRemaining;
+                        const progressPercentage = Math.max(0, Math.min(100, (daysElapsed / totalDays) * 100));
+                        
+                        return (
+                          <div className="space-y-1">
+                            <div className="text-xs text-muted-foreground">
+                              {daysRemaining > 0 ? `${daysRemaining} days left` : 'Expired'}
+                            </div>
+                            <div className="w-full bg-muted rounded-full h-1.5">
+                              <div 
+                                className={cn(
+                                  "h-1.5 rounded-full transition-all",
+                                  daysRemaining > 30 ? "bg-green-500" : 
+                                  daysRemaining > 7 ? "bg-yellow-500" : 
+                                  daysRemaining > 0 ? "bg-orange-500" : "bg-red-500"
+                                )}
+                                style={{ width: `${progressPercentage}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <div className="text-center">
                       <div className="font-medium text-lg">
                         {subscription.subscription_group_sessions?.reduce((sum: number, group: any) => sum + (group.sessions_remaining || 0), 0) || 0}
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        remaining
+                        of {subscription.subscription_group_sessions?.reduce((sum: number, group: any) => sum + (group.total_sessions || 0), 0) || 0} total
                       </div>
                     </div>
                   </TableCell>
@@ -602,6 +1089,8 @@ export default function AdminSubscriptions() {
                           .filter((p) => p.payment_status === 'paid')
                           .reduce((sum, p) => sum + (p.amount || 0), 0);
                         const planPrice = subscription.plan?.price || 0;
+                        const remainingAmount = Math.max(0, planPrice - totalPaid);
+                        
                         let status = 'Not Paid';
                         let color: 'default' | 'destructive' | 'secondary' | 'outline' = 'destructive';
                         if (totalPaid >= planPrice && planPrice > 0) {
@@ -611,7 +1100,20 @@ export default function AdminSubscriptions() {
                           status = 'Partially Paid';
                           color = 'secondary';
                         }
-                        return <Badge variant={color}>{status}</Badge>;
+                        
+                        return (
+                          <div className="space-y-1">
+                            <Badge variant={color}>{status}</Badge>
+                            <div className="text-xs text-muted-foreground">
+                              {formatCurrency(totalPaid)} / {formatCurrency(planPrice)}
+                            </div>
+                            {remainingAmount > 0 && (
+                              <div className="text-xs text-destructive">
+                                {formatCurrency(remainingAmount)} remaining
+                              </div>
+                            )}
+                          </div>
+                        );
                       })()
                     }
                   </TableCell>
@@ -698,6 +1200,146 @@ export default function AdminSubscriptions() {
               ))}
             </TableBody>
           </Table>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredAndSortedSubscriptions.map((subscription) => {
+                const subscriptionPayments = getPaymentsForSubscription(subscription.id);
+                const totalPaid = subscriptionPayments
+                  .filter((p) => p.payment_status === 'paid')
+                  .reduce((sum, p) => sum + (p.amount || 0), 0);
+                const planPrice = subscription.plan?.price || 0;
+                const remainingAmount = Math.max(0, planPrice - totalPaid);
+                const startDate = new Date(subscription.start_date);
+                const endDate = new Date(subscription.end_date);
+                const today = new Date();
+                const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+                const daysRemaining = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                
+                return (
+                  <Card 
+                    key={subscription.id} 
+                    className={cn(
+                      "cursor-pointer transition-all hover:shadow-md",
+                      selectedSubscriptions.includes(subscription.id) && "ring-2 ring-primary"
+                    )}
+                    onClick={() => navigateToSubscriptionDetails(subscription)}
+                  >
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center space-x-3">
+                          <Checkbox
+                            checked={selectedSubscriptions.includes(subscription.id)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedSubscriptions([...selectedSubscriptions, subscription.id]);
+                              } else {
+                                setSelectedSubscriptions(selectedSubscriptions.filter(id => id !== subscription.id));
+                              }
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium">
+                            {getInitials(subscription.member?.firstName || '', subscription.member?.lastName || '')}
+                          </div>
+                        </div>
+                        <Badge variant={getStatusColor(subscription.status)}>
+                          {getStatusText(subscription.status)}
+                        </Badge>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (subscription.member?.member_id) {
+                            router.push(`/admin/members/${subscription.member.member_id}`);
+                          }
+                        }}
+                        className="text-left hover:text-primary transition-colors"
+                      >
+                        <h3 className="font-semibold text-lg">
+                          {subscription.member?.firstName} {subscription.member?.lastName}
+                        </h3>
+                      </button>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (subscription.plan?.id) {
+                              router.push(`/admin/plans/${subscription.plan.id}`);
+                            }
+                          }}
+                          className="text-left hover:text-primary transition-colors"
+                        >
+                          <h4 className="font-medium">{subscription.plan?.name}</h4>
+                        </button>
+                        <p className="text-sm text-muted-foreground">
+                          {formatCurrency(subscription.plan?.price || 0)}
+                        </p>
+                      </div>
+                      
+                      <div className="space-y-2 text-sm">
+                        <div>
+                          <p className="text-muted-foreground">Duration</p>
+                          <div className="space-y-1">
+                            <p className="font-medium">
+                              {formatDate(subscription.start_date)} - {formatDate(subscription.end_date)}
+                            </p>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground">
+                                {daysRemaining > 0 ? `${daysRemaining} days left` : 'Expired'}
+                              </span>
+                              <div className="flex-1 bg-muted rounded-full h-1.5">
+                                <div 
+                                  className={cn(
+                                    "h-1.5 rounded-full transition-all",
+                                    daysRemaining > 30 ? "bg-green-500" : 
+                                    daysRemaining > 7 ? "bg-yellow-500" : 
+                                    daysRemaining > 0 ? "bg-orange-500" : "bg-red-500"
+                                  )}
+                                  style={{ 
+                                    width: `${Math.max(0, Math.min(100, ((totalDays - daysRemaining) / totalDays) * 100))}%` 
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Sessions</span>
+                          <span className="font-medium">
+                            {subscription.subscription_group_sessions?.reduce((sum: number, group: any) => sum + (group.sessions_remaining || 0), 0) || 0} remaining
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Payment</span>
+                          <span className="font-medium">
+                            {formatCurrency(totalPaid)} / {formatCurrency(planPrice)}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="pt-2 border-t">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-muted-foreground">Payment Status</span>
+                          <Badge variant={
+                            totalPaid >= planPrice && planPrice > 0 ? 'default' : 
+                            totalPaid > 0 ? 'secondary' : 'destructive'
+                          }>
+                            {totalPaid >= planPrice && planPrice > 0 ? 'Fully Paid' : 
+                             totalPaid > 0 ? 'Partially Paid' : 'Not Paid'}
+                          </Badge>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -1180,7 +1822,7 @@ export default function AdminSubscriptions() {
                 />
 
                 <Controller
-                  name="payment_method"
+                  name="payment_type"
                   control={paymentForm.control}
                   render={({ field }) => {
                     const subscriptionId = paymentForm.getValues('subscription_id');

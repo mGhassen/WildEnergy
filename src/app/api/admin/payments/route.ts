@@ -83,9 +83,9 @@ export async function POST(req: NextRequest) {
       member_id: rawPaymentData.member_id,
       amount: parseFloat(rawPaymentData.amount),
       payment_type: rawPaymentData.payment_type || 'cash',
-      payment_status: rawPaymentData.payment_status || 'paid',
+      payment_status: rawPaymentData.payment_status || rawPaymentData.status || 'paid',
       payment_date: rawPaymentData.payment_date || new Date().toISOString().split('T')[0],
-      transaction_id: rawPaymentData.transaction_id || null,
+      transaction_id: rawPaymentData.payment_reference || rawPaymentData.transaction_id || null,
       notes: rawPaymentData.notes || null,
     };
     
