@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Columns, Grid3x3, List, Grid2x2, CalendarRange } from "lucide-react";
+import { Columns, List, Grid2x2, CalendarRange } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
 import { UserSelect } from "@/calendar/components/header/user-select";
+import { CategorySelect } from "@/calendar/components/header/category-select";
 import { TodayButton } from "@/calendar/components/header/today-button";
 import { DateNavigator } from "@/calendar/components/header/date-navigator";
 
@@ -60,17 +61,6 @@ export function CalendarHeader({ view, events }: IProps) {
               </Link>
             </Button>
 
-            <Button
-              asChild
-              aria-label="View by year"
-              size="icon"
-              variant={view === "year" ? "default" : "outline"}
-              className="-ml-px rounded-none [&_svg]:size-5"
-            >
-              <Link href={`${basePath}?view=year`}>
-                <Grid3x3 strokeWidth={1.8} />
-              </Link>
-            </Button>
 
             <Button
               asChild
@@ -86,6 +76,7 @@ export function CalendarHeader({ view, events }: IProps) {
           </div>
 
           <UserSelect />
+          <CategorySelect />
         </div>
 
       </div>

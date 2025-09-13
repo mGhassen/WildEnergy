@@ -11,6 +11,8 @@ interface ICalendarContext {
   setSelectedDate: (date: Date | undefined) => void;
   selectedUserId: IUser["id"] | "all";
   setSelectedUserId: (userId: IUser["id"] | "all") => void;
+  selectedCategoryId: number | "all";
+  setSelectedCategoryId: (categoryId: number | "all") => void;
   badgeVariant: TBadgeVariant;
   setBadgeVariant: (variant: TBadgeVariant) => void;
   users: IUser[];
@@ -43,6 +45,7 @@ export function CalendarProvider({ children, users, events }: { children: React.
 
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedUserId, setSelectedUserId] = useState<IUser["id"] | "all">("all");
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | "all">("all");
 
   // Use the events prop directly instead of local state
   const [localEvents, setLocalEvents] = useState<IEvent[]>(events);
@@ -67,6 +70,8 @@ export function CalendarProvider({ children, users, events }: { children: React.
         setSelectedDate: handleSelectDate,
         selectedUserId,
         setSelectedUserId,
+        selectedCategoryId,
+        setSelectedCategoryId,
         badgeVariant,
         setBadgeVariant,
         users,
