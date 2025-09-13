@@ -32,7 +32,8 @@ export default function Register() {
       await register({
         email: credentials.email,
         password: credentials.password,
-        full_name: `${credentials.firstName} ${credentials.lastName}`,
+        firstName: credentials.firstName,
+        lastName: credentials.lastName,
       });
 
       // Redirect to account status page after successful registration
