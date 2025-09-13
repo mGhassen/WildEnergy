@@ -133,33 +133,51 @@ function AccountStatusContent() {
     // Determine the actual status based on both user status and auth confirmation
     let effectiveStatus = status;
     
-    // If user status is 'pending' but email is confirmed, they're waiting for admin approval
+    // If user status is 'pending' and email is confirmed, they're waiting for admin approval
     if (status === 'pending' && authStatus === 'confirmed') {
-      effectiveStatus = 'archived';
+      effectiveStatus = 'pending'; // Keep as pending - waiting for admin approval
     }
-    // If user status is 'archived' but email is not confirmed, they need to confirm email first
-    else if (status === 'archived' && authStatus === 'unconfirmed') {
-      effectiveStatus = 'pending';
+    // If user status is 'pending' but email is not confirmed, they need to confirm email first
+    else if (status === 'pending' && authStatus === 'unconfirmed') {
+      effectiveStatus = 'pending'; // Still pending - need to confirm email first
     }
 
     switch (effectiveStatus) {
       case 'pending':
-        return {
-          icon: <Mail className="w-6 h-6 text-primary" />,
-          title: "Confirm Your Email",
-          description: "We've sent you a confirmation email to complete your account setup.",
-          color: "text-primary",
-          bgColor: "bg-primary/10",
-          instructions: [
-            "1. Check your email inbox",
-            "2. Click the confirmation link in the email",
-            "3. Set your password and complete setup",
-            "4. Return here to log in"
-          ],
-          actionText: "Resend Confirmation Email",
-          actionHandler: handleResendEmail,
-          showResendButton: true
-        };
+        // Check if email is confirmed to determine the right message
+        if (authStatus === 'confirmed') {
+          return {
+            icon: <Clock className="w-6 h-6 text-orange-600" />,
+            title: "Account Pending Approval",
+            description: "Your email has been confirmed. Your account is now waiting for admin approval.",
+            color: "text-orange-600",
+            bgColor: "bg-orange-100",
+            instructions: [
+              "1. Admin reviews your account",
+              "2. You'll receive an approval notification",
+              "3. You can then log in to your account"
+            ],
+            actionText: "Check Approval Status",
+            actionHandler: handleCheckStatus
+          };
+        } else {
+          return {
+            icon: <Mail className="w-6 h-6 text-primary" />,
+            title: "Confirm Your Email",
+            description: "We've sent you a confirmation email to complete your account setup.",
+            color: "text-primary",
+            bgColor: "bg-primary/10",
+            instructions: [
+              "1. Check your email inbox",
+              "2. Click the confirmation link in the email",
+              "3. Set your password and complete setup",
+              "4. Return here to log in"
+            ],
+            actionText: "Resend Confirmation Email",
+            actionHandler: handleResendEmail,
+            showResendButton: true
+          };
+        }
       
       case 'archived':
         return {

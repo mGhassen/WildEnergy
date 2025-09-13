@@ -62,6 +62,7 @@ interface Member {
   credit: number;
   member_notes?: string;
   member_status: string;
+  account_status?: string; // Account status for error styling
   // subscription_status removed - calculated dynamically from subscriptions
   user_type: string;
   accessible_portals: string[];
@@ -76,6 +77,56 @@ interface Member {
 // Helper functions
 const getInitials = (firstName: string, lastName: string): string => {
   return `${firstName?.charAt(0) || ''}${lastName?.charAt(0) || ''}`.toUpperCase();
+};
+
+// Helper function to get account icon styling based on status
+const getAccountIconConfig = (accountStatus?: string) => {
+  if (!accountStatus) {
+    return {
+      icon: XCircle,
+      className: "h-4 w-4 text-muted-foreground",
+      buttonClassName: "h-6 w-6 p-0 hover:bg-muted-foreground/10",
+      title: "No account linked"
+    };
+  }
+
+  switch (accountStatus) {
+    case 'active':
+      return {
+        icon: CheckCircle,
+        className: "h-4 w-4 text-green-600 dark:text-green-400",
+        buttonClassName: "h-6 w-6 p-0 hover:bg-green-100 dark:hover:bg-green-900",
+        title: "Account active"
+      };
+    case 'pending':
+      return {
+        icon: Clock,
+        className: "h-4 w-4 text-orange-600 dark:text-orange-400",
+        buttonClassName: "h-6 w-6 p-0 hover:bg-orange-100 dark:hover:bg-orange-900",
+        title: "Account pending approval"
+      };
+    case 'suspended':
+      return {
+        icon: AlertTriangle,
+        className: "h-4 w-4 text-red-600 dark:text-red-400",
+        buttonClassName: "h-6 w-6 p-0 hover:bg-red-100 dark:hover:bg-red-900",
+        title: "Account suspended"
+      };
+    case 'archived':
+      return {
+        icon: XCircle,
+        className: "h-4 w-4 text-gray-600 dark:text-gray-400",
+        buttonClassName: "h-6 w-6 p-0 hover:bg-gray-100 dark:hover:bg-gray-900",
+        title: "Account archived"
+      };
+    default:
+      return {
+        icon: AlertTriangle,
+        className: "h-4 w-4 text-yellow-600 dark:text-yellow-400",
+        buttonClassName: "h-6 w-6 p-0 hover:bg-yellow-100 dark:hover:bg-yellow-900",
+        title: "Unknown account status"
+      };
+  }
 };
 
 const formatPhoneNumber = (phone: string): string => {
@@ -684,21 +735,26 @@ export default function MembersPage() {
                               <p className="font-medium text-foreground">
                                 {member.first_name} {member.last_name}
                               </p>
-                              {member.account_id ? (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={(e) => openAccountDetails(member, e)}
-                                  className="h-6 w-6 p-0 hover:bg-green-100 dark:hover:bg-green-900"
-                                  title="View linked account"
-                                >
-                                  <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
-                                </Button>
-                              ) : (
-                                <div title="No account linked">
-                                  <XCircle className="h-4 w-4 text-muted-foreground" />
-                                </div>
-                              )}
+                              {(() => {
+                                const iconConfig = getAccountIconConfig(member.account_status);
+                                const IconComponent = iconConfig.icon;
+                                
+                                return member.account_id ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={(e) => openAccountDetails(member, e)}
+                                    className={iconConfig.buttonClassName}
+                                    title={iconConfig.title}
+                                  >
+                                    <IconComponent className={iconConfig.className} />
+                                  </Button>
+                                ) : (
+                                  <div title={iconConfig.title}>
+                                    <IconComponent className={iconConfig.className} />
+                                  </div>
+                                );
+                              })()}
                             </div>
                             <p className="text-sm text-muted-foreground">{member.email || 'No email (unlinked member)'}</p>
                             {member.phone && (

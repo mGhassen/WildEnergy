@@ -11,9 +11,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useMemberDetails } from "@/hooks/useMemberDetails";
 import { useUnlinkAccountFromMember } from "@/hooks/useAccountLinking";
 import { useUpdateMemberDetails } from "@/hooks/useUpdateMemberDetails";
+import { useDeleteMember } from "@/hooks/useMembers";
 import { useToast } from "@/hooks/use-toast";
 import { AccountLinkingDialog } from "@/components/account-linking-dialog";
 import { UnlinkAccountDialog } from "@/components/unlink-account-dialog";
+import { ConfirmationDialog } from "@/components/confirmation-dialog";
 import { 
   ArrowLeft,
   MoreHorizontal,
@@ -191,6 +193,7 @@ export default function MemberDetailsPage() {
   const [activeTab, setActiveTab] = useState("overview");
   const [showLinkDialog, setShowLinkDialog] = useState(false);
   const [showUnlinkDialog, setShowUnlinkDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
   // Fetch member details
@@ -199,6 +202,7 @@ export default function MemberDetailsPage() {
   // Account linking hooks
   const unlinkAccountMutation = useUnlinkAccountFromMember();
   const updateMemberMutation = useUpdateMemberDetails();
+  const deleteMemberMutation = useDeleteMember();
   const { toast } = useToast();
 
   // Edit form state
@@ -378,8 +382,19 @@ export default function MemberDetailsPage() {
   };
 
   const handleDeleteMember = () => {
-    // TODO: Implement delete member functionality
-    console.log('Delete member:', member.id);
+    setShowDeleteDialog(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    try {
+      await deleteMemberMutation.mutateAsync(member.id);
+      setShowDeleteDialog(false);
+      // Navigate back to members list after successful deletion
+      router.push('/admin/members');
+    } catch (error) {
+      console.error('Failed to delete member:', error);
+      // Error handling is done in the hook
+    }
   };
 
   const handleSendEmail = () => {
@@ -1100,6 +1115,19 @@ export default function MemberDetailsPage() {
         onConfirm={handleConfirmUnlink}
         memberName={`${member.firstName} ${member.lastName}`}
         isPending={unlinkAccountMutation.isPending}
+      />
+
+      {/* Delete Member Confirmation Dialog */}
+      <ConfirmationDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        onConfirm={handleConfirmDelete}
+        title="Delete Member"
+        description={`Are you sure you want to delete ${member.firstName} ${member.lastName}? This action cannot be undone and will permanently remove all member data.`}
+        confirmText="Delete Member"
+        cancelText="Cancel"
+        variant="destructive"
+        isPending={deleteMemberMutation.isPending}
       />
     </div>
   );

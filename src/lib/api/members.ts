@@ -12,6 +12,7 @@ export interface Member {
   credit: number;
   member_notes?: string;
   member_status?: string;
+  account_status?: string; // Account status for error styling
   // subscription_status removed - should be determined dynamically from subscriptions table
   user_type: string;
   accessible_portals: string[];

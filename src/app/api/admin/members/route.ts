@@ -90,6 +90,7 @@ export async function GET(req: NextRequest) {
       credit: m.credit ?? 0,
       member_notes: m.member_notes,
       member_status: m.member_status,
+      account_status: m.account_status, // Include account status
       user_type: m.user_type,
       accessible_portals: m.accessible_portals,
       subscriptions: m.subscriptions || [],

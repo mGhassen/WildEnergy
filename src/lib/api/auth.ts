@@ -21,6 +21,9 @@ export interface AuthResponse {
     refresh_token?: string;
   };
   user?: any;
+  redirectTo?: string;
+  status?: string;
+  authStatus?: string;
 }
 
 export interface SessionData {
@@ -57,8 +60,8 @@ export const authApi = {
     return apiRequest('POST', '/api/auth/accept-invitation', { token, password });
   },
 
-  async checkAccountStatus(): Promise<{ status: string; message?: string }> {
-    return apiRequest('GET', '/api/auth/account-status');
+  async checkAccountStatus(email: string): Promise<{ success: boolean; status?: string; authStatus?: string; message?: string; error?: string }> {
+    return apiRequest('POST', '/api/auth/check-status', { email });
   },
 
   async getMemberSession(): Promise<SessionData> {

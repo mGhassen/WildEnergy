@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { authApi, RegisterData, LoginCredentials } from '@/lib/api/auth';
+import { authApi, RegisterData, LoginCredentials, AuthResponse } from '@/lib/api/auth';
 
 export interface User {
   id: string;
@@ -94,8 +94,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         
         // Handle specific status codes
         if (response.status === 403) {
-          // User is archived, suspended, or pending
-          if (errorData.status === 'archived') {
+          // User is pending, suspended, or other restricted status
+          if (errorData.status === 'pending') {
             // Redirect to waiting approval page
             router.push('/auth/waiting-approval');
             setAuthError(errorData.error || 'Account pending approval');
@@ -221,14 +221,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       if (!data.success) {
         // Handle specific error cases
-        if (data.error && data.error.toLowerCase().includes('archived')) {
-          // User is archived (pending admin approval)
+        if (data.error === 'Email not confirmed' && data.redirectTo) {
+          // Email not confirmed - redirect to account status page
           localStorage.setItem('account_status_email', email);
-          router.push(`/auth/account-status?email=${encodeURIComponent(email)}`);
+          router.push(data.redirectTo);
           return;
         }
         if (data.error && data.error.toLowerCase().includes('pending')) {
-          // User is pending (needs to confirm invitation)
+          // User is pending (pending admin approval)
           localStorage.setItem('account_status_email', email);
           router.push(`/auth/account-status?email=${encodeURIComponent(email)}`);
           return;
@@ -274,6 +274,33 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setLoginError(null); // Clear any previous errors
     } catch (error) {
       console.error('Login error:', error);
+      
+      // Check if this is an error with redirect information (from apiRequest)
+      if (error instanceof Error && (error as any).data) {
+        const errorData = (error as any).data;
+        console.log('Error data:', errorData);
+        
+        // Handle email confirmation redirect
+        if (errorData.error === 'Email not confirmed' && errorData.redirectTo) {
+          localStorage.setItem('account_status_email', email);
+          router.push(errorData.redirectTo);
+          return; // Don't throw error, just redirect
+        }
+        
+        // Handle other redirect cases
+        if (errorData.error && errorData.error.toLowerCase().includes('pending')) {
+          localStorage.setItem('account_status_email', email);
+          router.push(`/auth/account-status?email=${encodeURIComponent(email)}`);
+          return; // Don't throw error, just redirect
+        }
+        
+        if (errorData.error && errorData.error.toLowerCase().includes('suspended')) {
+          localStorage.setItem('account_status_email', email);
+          router.push(`/auth/account-status?email=${encodeURIComponent(email)}`);
+          return; // Don't throw error, just redirect
+        }
+      }
+      
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
       if (typeof window !== 'undefined') {
@@ -368,7 +395,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     },
     checkAccountStatus: async (email: string) => {
       try {
-        return await authApi.checkAccountStatus();
+        return await authApi.checkAccountStatus(email);
       } catch (error: any) {
         throw new Error(error.message || 'Failed to check account status');
       }

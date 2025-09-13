@@ -402,10 +402,40 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Account has no auth user' }, { status: 400 });
     }
 
-    // Delete from auth using the auth_user_id (this will cascade to account, which will cascade to other tables)
+    // Delete from auth using the auth_user_id
     const { error: deleteAuthError } = await supabaseServer().auth.admin.deleteUser(account.auth_user_id);
     if (deleteAuthError) {
       return NextResponse.json({ error: 'Failed to delete user from auth' }, { status: 500 });
+    }
+    
+    // First, unlink any members from this account (set account_id to NULL)
+    const { error: unlinkMembersError } = await supabaseServer()
+      .from('members')
+      .update({ account_id: null })
+      .eq('account_id', accountId);
+    
+    if (unlinkMembersError) {
+      return NextResponse.json({ error: 'Failed to unlink members from account' }, { status: 500 });
+    }
+    
+    // Manually delete the profile record (this will cascade to delete trainers)
+    const { error: deleteProfileError } = await supabaseServer()
+      .from('profiles')
+      .delete()
+      .eq('id', accountId);
+    
+    if (deleteProfileError) {
+      return NextResponse.json({ error: 'Failed to delete profile record' }, { status: 500 });
+    }
+    
+    // Manually delete the account record since there's no cascade from auth to accounts
+    const { error: deleteAccountError } = await supabaseServer()
+      .from('accounts')
+      .delete()
+      .eq('id', accountId);
+    
+    if (deleteAccountError) {
+      return NextResponse.json({ error: 'Failed to delete account record' }, { status: 500 });
     }
     
     return NextResponse.json({ success: true });

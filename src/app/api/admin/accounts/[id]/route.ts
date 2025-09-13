@@ -180,6 +180,48 @@ export async function DELETE(request: NextRequest) {
     }, { status: 500 });
   }
   
-  console.log('Successfully deleted user from Supabase Auth and cascaded to database');
+  // First, unlink any members from this account (set account_id to NULL)
+  console.log('Unlinking members from account');
+  const { error: unlinkMembersError } = await supabaseServer()
+    .from('members')
+    .update({ account_id: null })
+    .eq('account_id', accountId);
+  
+  if (unlinkMembersError) {
+    console.error('Failed to unlink members from account:', unlinkMembersError);
+    return NextResponse.json({ 
+      error: `Failed to unlink members from account: ${unlinkMembersError.message}` 
+    }, { status: 500 });
+  }
+  
+  // Manually delete the profile record (this will cascade to delete trainers)
+  console.log('Deleting profile record from database');
+  const { error: deleteProfileError } = await supabaseServer()
+    .from('profiles')
+    .delete()
+    .eq('id', accountId);
+  
+  if (deleteProfileError) {
+    console.error('Failed to delete profile record:', deleteProfileError);
+    return NextResponse.json({ 
+      error: `Failed to delete profile record: ${deleteProfileError.message}` 
+    }, { status: 500 });
+  }
+  
+  // Manually delete the account record since there's no cascade from auth to accounts
+  console.log('Deleting account record from database');
+  const { error: deleteAccountError } = await supabaseServer()
+    .from('accounts')
+    .delete()
+    .eq('id', accountId);
+  
+  if (deleteAccountError) {
+    console.error('Failed to delete account record:', deleteAccountError);
+    return NextResponse.json({ 
+      error: `Failed to delete account record: ${deleteAccountError.message}` 
+    }, { status: 500 });
+  }
+  
+  console.log('Successfully deleted user from Supabase Auth, unlinked members, and deleted account from database');
   return NextResponse.json({ message: `User ${accountId} deleted` });
 } 

@@ -29,6 +29,28 @@ export async function POST(req: NextRequest) {
 
     if (error || !session || !user) {
       console.log('❌ Auth failed:', error?.message);
+      
+      // Check if this is an email confirmation error
+      if (error?.message === 'Email not confirmed') {
+        // Check if user profile exists for this email
+        const { data: userProfile, error: profileError } = await supabaseServer()
+          .from('user_profiles')
+          .select('*')
+          .eq('email', email)
+          .single();
+
+        if (!profileError && userProfile) {
+          // User exists but email not confirmed - redirect to account status
+          return NextResponse.json({
+            success: false,
+            error: 'Email not confirmed',
+            redirectTo: `/auth/account-status?email=${encodeURIComponent(email)}`,
+            status: 'pending',
+            authStatus: 'unconfirmed'
+          }, { status: 403 });
+        }
+      }
+      
       return NextResponse.json({
         success: false,
         error: 'Invalid email or password',
@@ -41,7 +63,7 @@ export async function POST(req: NextRequest) {
     const { data: userProfile, error: profileError } = await supabaseServer()
       .from('user_profiles')
       .select('*')
-      .eq('account_email', user.email)
+      .eq('email', user.email)
       .single();
 
     console.log('👤 Profile query result:', { 
