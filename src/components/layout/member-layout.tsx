@@ -211,14 +211,19 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
     setMobileMenuOpen(false);
   };
 
-  // Now handle all conditional rendering AFTER all hooks are called
+  // Determine what to render based on conditions
+  const shouldShowOnboarding = pathname.startsWith("/member/onboarding");
+  const shouldShowLoading = isAuthenticated && user && (isLoadingOnboarding || termsLoading) && !shouldShowOnboarding && !pathname.startsWith("/member/terms/re-accept");
+  const shouldShowOnboardingRedirect = isAuthenticated && user && onboardingStatus && !isLoadingOnboarding && !shouldShowOnboarding && !pathname.startsWith("/member/terms/re-accept") && onboardingStatus.success && onboardingStatus.data && !onboardingStatus.data.onboardingCompleted;
+  const shouldShowTermsRedirect = isAuthenticated && user && onboardingStatus && !isLoadingOnboarding && !shouldShowOnboarding && !pathname.startsWith("/member/terms/re-accept") && needsTermsReAcceptance && !termsLoading;
+
   // Don't render the member layout for onboarding pages
-  if (pathname.startsWith("/member/onboarding")) {
+  if (shouldShowOnboarding) {
     return <>{children}</>;
   }
 
   // Show loading while checking onboarding status and terms re-acceptance
-  if (isAuthenticated && user && (isLoadingOnboarding || termsLoading) && !pathname.startsWith("/member/onboarding") && !pathname.startsWith("/member/terms/re-accept")) {
+  if (shouldShowLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center">
         <div className="text-center">
@@ -229,35 +234,28 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
     );
   }
 
-  // Don't render member layout if onboarding is not completed or terms re-acceptance is needed
-  if (isAuthenticated && user && onboardingStatus && !isLoadingOnboarding && !pathname.startsWith("/member/onboarding") && !pathname.startsWith("/member/terms/re-accept")) {
-    if (onboardingStatus.success && onboardingStatus.data) {
-      const { onboardingCompleted } = onboardingStatus.data;
-      if (!onboardingCompleted) {
-        // Show loading while redirecting
-        return (
-          <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-muted-foreground">Redirection vers l'onboarding...</p>
-            </div>
-          </div>
-        );
-      }
-    }
-    
-    // Check if terms re-acceptance is needed
-    if (needsTermsReAcceptance && !termsLoading) {
-      // Show loading while redirecting to terms re-acceptance
-      return (
-        <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Redirection vers l'acceptation des conditions...</p>
-          </div>
+  // Show loading while redirecting to onboarding
+  if (shouldShowOnboardingRedirect) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Redirection vers l'onboarding...</p>
         </div>
-      );
-    }
+      </div>
+    );
+  }
+  
+  // Show loading while redirecting to terms re-acceptance
+  if (shouldShowTermsRedirect) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Redirection vers l'acceptation des conditions...</p>
+        </div>
+      </div>
+    );
   }
 
 

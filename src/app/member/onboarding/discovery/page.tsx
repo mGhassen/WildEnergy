@@ -169,8 +169,12 @@ export default function DiscoveryOnboarding() {
     }
   };
 
+  // Determine what to render based on conditions
+  const shouldShowLoading = isLoading;
+  const shouldShowError = !isLoading && !user;
+
   // Show loading while user data is being fetched
-  if (isLoading) {
+  if (shouldShowLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center p-4">
         <div className="w-full max-w-2xl">
@@ -185,7 +189,7 @@ export default function DiscoveryOnboarding() {
   }
 
   // If no user after loading, show error
-  if (!user) {
+  if (shouldShowError) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center p-4">
         <div className="text-center">
@@ -333,7 +337,7 @@ export default function DiscoveryOnboarding() {
               
               <div className="flex items-center gap-4">
                 <div className="text-sm text-muted-foreground">
-                  {selectedOption ? "Parfait ! 🎉" : "Optionnel - Comment nous avez-vous trouvés ?"}
+                  {selectedOption ? "Parfait ! 🎉" : "Comment nous avez-vous trouvés ?"}
                 </div>
                 <Button 
                   type="submit" 

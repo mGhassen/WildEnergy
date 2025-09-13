@@ -261,8 +261,12 @@ export default function PersonalInfoOnboarding() {
     }
   };
 
+  // Determine what to render based on conditions
+  const shouldShowLoading = isLoading || profileLoading;
+  const shouldShowError = !isLoading && !profileLoading && !user;
+
   // Show loading while user data is being fetched
-  if (isLoading || profileLoading) {
+  if (shouldShowLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center p-4">
         <div className="w-full max-w-2xl">
@@ -277,7 +281,7 @@ export default function PersonalInfoOnboarding() {
   }
 
   // If no user after loading, show error
-  if (!user) {
+  if (shouldShowError) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center p-4">
         <div className="text-center">
