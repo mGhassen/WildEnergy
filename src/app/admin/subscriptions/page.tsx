@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,7 +31,6 @@ import { z } from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar } from "@/components/ui/avatar";
 import { DialogClose } from "@/components/ui/dialog";
-import { SubscriptionDetails } from "@/components/subscription-details";
 
 // Type definitions
 type Member = {
@@ -119,9 +119,9 @@ type SubscriptionFormData = z.infer<typeof subscriptionFormSchema>;
 type PaymentFormData = z.infer<typeof paymentFormSchema>;
 
 export default function AdminSubscriptions() {
+  const router = useRouter();
   const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
@@ -267,9 +267,8 @@ export default function AdminSubscriptions() {
     setIsPaymentModalOpen(true);
   };
 
-  const openDetailsModal = (subscription: Subscription) => {
-    setSelectedSubscription(subscription);
-    setIsDetailsModalOpen(true);
+  const navigateToSubscriptionDetails = (subscription: Subscription) => {
+    router.push(`/admin/subscriptions/${subscription.id}`);
   };
 
   const handleSubscriptionSubmit = (data: SubscriptionFormData) => {
@@ -366,9 +365,20 @@ export default function AdminSubscriptions() {
       updatePaymentMutation.mutate({
         paymentId: editingPayment.id,
         data: paymentPayload
+      }, {
+        onSuccess: () => {
+          setIsPaymentModalOpen(false);
+          setEditingPayment(null);
+          paymentForm.reset();
+        }
       });
     } else {
-      createPaymentMutation.mutate(paymentPayload);
+      createPaymentMutation.mutate(paymentPayload, {
+        onSuccess: () => {
+          setIsPaymentModalOpen(false);
+          paymentForm.reset();
+        }
+      });
     }
   };
 
@@ -547,7 +557,7 @@ export default function AdminSubscriptions() {
                   onClick={e => {
                     // Prevent row click if clicking on actions menu
                     if ((e.target as HTMLElement).closest('.actions-menu')) return;
-                    openDetailsModal(subscription);
+                    navigateToSubscriptionDetails(subscription);
                   }}
                 >
                   <TableCell>
@@ -624,7 +634,7 @@ export default function AdminSubscriptions() {
                           <DropdownMenuItem 
                             onClick={(e) => {
                               e.stopPropagation();
-                              openDetailsModal(subscription);
+                              navigateToSubscriptionDetails(subscription);
                             }}
                           >
                             <Eye className="w-4 h-4 mr-2" /> View
@@ -1283,112 +1293,6 @@ export default function AdminSubscriptions() {
           </DialogContent>
         </Dialog>
 
-      {/* Details Modal */}
-      <Dialog open={isDetailsModalOpen} onOpenChange={setIsDetailsModalOpen}>
-        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Subscription Details</DialogTitle>
-          </DialogHeader>
-          <Tabs defaultValue="details" className="w-full">
-            <TabsList className="mb-0 px-6 pt-4 bg-transparent">
-              <TabsTrigger value="details">Details</TabsTrigger>
-              <TabsTrigger value="payments">Payments</TabsTrigger>
-            </TabsList>
-            <div className="p-6">
-              <TabsContent value="details">
-                {selectedSubscription && (
-                  <SubscriptionDetails 
-                    subscription={selectedSubscription as any} 
-                    payments={payments as any}
-                    showTabs={false}
-                    isAdmin={true}
-                  />
-                )}
-              </TabsContent>
-              <TabsContent value="payments">
-                <Card className="shadow-none border-none bg-transparent">
-                  <CardHeader className="p-0 mb-4 flex flex-col gap-2">
-                    <div className="flex items-center gap-2">
-                      <CreditCard className="w-5 h-5 text-primary" />
-                      <CardTitle className="text-lg">Payments</CardTitle>
-                    </div>
-                    {/* Payment summary row */}
-                    {(() => {
-                      const subscriptionPayments = selectedSubscription ? getPaymentsForSubscription(selectedSubscription.id) : [];
-                      const totalPaid = subscriptionPayments
-                        .filter((p) => p.status === 'paid')
-                        .reduce((sum, p) => sum + (p.amount || 0), 0);
-                      const planPrice = selectedSubscription?.plan?.price || 0;
-                      let status = 'Not Paid';
-                      let color: 'default' | 'destructive' | 'secondary' | 'outline' = 'destructive';
-                      if (totalPaid >= planPrice && planPrice > 0) {
-                        status = 'Fully Paid';
-                        color = 'default';
-                      } else if (totalPaid > 0 && totalPaid < planPrice) {
-                        status = 'Partially Paid';
-                        color = 'secondary';
-                      }
-                      return (
-                        <div className="flex flex-wrap gap-4 items-center text-sm mt-2">
-                          <div className="flex items-center gap-1">
-                            <span className="text-muted-foreground">Total Paid:</span>
-                            <span className="font-semibold">{formatPrice(totalPaid)}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <span className="text-muted-foreground">Plan Price:</span>
-                            <span className="font-semibold">{formatPrice(planPrice)}</span>
-                          </div>
-                          <Badge variant={color}>{status}</Badge>
-                        </div>
-                      );
-                    })()}
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    {(() => {
-                      const subscriptionPayments = selectedSubscription ? getPaymentsForSubscription(selectedSubscription.id) : [];
-                      if (subscriptionPayments.length === 0) {
-                        return (
-                          <div className="pt-3 border-t">
-                            <p className="text-sm text-muted-foreground">No payments recorded for this subscription.</p>
-                          </div>
-                        );
-                      }
-                      return (
-                        <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-                          {subscriptionPayments.map((payment) => (
-                            <div key={payment.id} className="border rounded-lg p-3 text-xs flex flex-col md:flex-row md:items-center md:justify-between bg-muted/30 shadow-sm gap-2">
-                              <div className="flex flex-col md:flex-row md:items-center gap-2 flex-1">
-                                <span className="font-semibold text-base text-primary">{formatPrice(payment.amount)}</span>
-                                <Badge variant={payment.status === 'paid' ? 'default' : payment.status === 'pending' ? 'secondary' : 'destructive'} className="ml-2 text-xs capitalize">
-                                  {payment.status}
-                                </Badge>
-                                <span className="text-muted-foreground ml-2">{payment.payment_method} • {formatDate(payment.payment_date)}</span>
-                                {payment.payment_reference && (
-                                  <span className="text-muted-foreground text-xs ml-2">Ref: {payment.payment_reference}</span>
-                                )}
-                              </div>
-                              <div className="flex gap-2 mt-2 md:mt-0 md:ml-4">
-                                <Button size="icon" variant="ghost" onClick={() => handleEditPayment(payment)} title="Edit Payment">
-                                  <span className="sr-only">Edit Payment</span>
-                                  <Edit className="w-4 h-4" />
-                                </Button>
-                                <Button size="icon" variant="ghost" onClick={() => handleDeletePayment(payment)} title="Delete Payment">
-                                  <span className="sr-only">Delete Payment</span>
-                                  <Trash2 className="w-4 h-4 text-destructive" />
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    })()}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </div>
-          </Tabs>
-        </DialogContent>
-      </Dialog>
 
       {/* Payment Delete Confirmation Modal */}
       <Dialog open={isDeletePaymentModalOpen} onOpenChange={setIsDeletePaymentModalOpen}>
