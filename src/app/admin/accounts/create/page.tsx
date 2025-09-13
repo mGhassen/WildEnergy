@@ -23,7 +23,10 @@ import {
     CheckCircle,
     AlertCircle,
     Info,
-    Sparkles
+    Sparkles,
+    Dumbbell,
+    GraduationCap,
+    Star
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -50,6 +53,19 @@ const createAccountSchema = z.object({
     
     // Password (only required if creationMethod is "password")
     customPassword: z.string().optional(),
+    
+    // Member data
+    createAsMember: z.boolean(),
+    memberNotes: z.string().optional(),
+    credit: z.number().min(0).optional(),
+    
+    // Trainer data
+    createAsTrainer: z.boolean(),
+    specialization: z.string().optional(),
+    experienceYears: z.number().min(0).optional(),
+    bio: z.string().optional(),
+    certification: z.string().optional(),
+    hourlyRate: z.number().min(0).optional(),
 }).refine((data) => {
     // Password validation - only required if using password method
     if (data.creationMethod === "password" && (!data.customPassword || data.customPassword.length < 8)) {
@@ -81,6 +97,15 @@ export default function CreateAccountPage() {
             status: "active",
             creationMethod: "invite",
             customPassword: "",
+            createAsMember: true, // Default to creating as member
+            memberNotes: "",
+            credit: 0,
+            createAsTrainer: false, // Default to not creating as trainer
+            specialization: "",
+            experienceYears: 0,
+            bio: "",
+            certification: "",
+            hourlyRate: 0,
         },
     });
 
@@ -104,6 +129,23 @@ export default function CreateAccountPage() {
             status: data.status,
             creationMethod: data.creationMethod,
             password: data.creationMethod === "password" ? data.customPassword : undefined,
+            // Include member data if creating as member
+            ...(data.createAsMember && {
+                memberData: {
+                    memberNotes: data.memberNotes || '',
+                    credit: data.credit || 0,
+                }
+            }),
+            // Include trainer data if creating as trainer
+            ...(data.createAsTrainer && {
+                trainerData: {
+                    specialization: data.specialization || '',
+                    experienceYears: data.experienceYears || 0,
+                    bio: data.bio || '',
+                    certification: data.certification || '',
+                    hourlyRate: data.hourlyRate || 0,
+                }
+            })
         };
 
         createAccountMutation.mutate(createData, {
@@ -468,6 +510,247 @@ export default function CreateAccountPage() {
                                         </div>
                                     )}
 
+                                    {/* Member Data Section */}
+                                    <div className="space-y-6">
+                                        <div className="flex items-center gap-2 mb-4">
+                                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                                            <h3 className="font-semibold text-lg">Member Information</h3>
+                                        </div>
+                                        
+                                        <FormField
+                                            control={form.control}
+                                            name="createAsMember"
+                                            render={({ field }) => (
+                                                <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                                                    <FormControl>
+                                                        <Checkbox
+                                                            checked={field.value}
+                                                            onCheckedChange={field.onChange}
+                                                        />
+                                                    </FormControl>
+                                                    <div className="space-y-1 leading-none">
+                                                        <FormLabel className="text-sm font-medium">
+                                                            Create as Member
+                                                        </FormLabel>
+                                                        <FormDescription className="text-xs">
+                                                            Enable this to create a member record along with the account
+                                                        </FormDescription>
+                                                    </div>
+                                                </FormItem>
+                                            )}
+                                        />
+
+                                        {form.watch("createAsMember") && (
+                                            <div className="space-y-4 pl-6 border-l-2 border-blue-100">
+                                                <FormField
+                                                    control={form.control}
+                                                    name="memberNotes"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel className="text-sm font-medium">
+                                                                Member Notes
+                                                            </FormLabel>
+                                                            <FormControl>
+                                                                <Input 
+                                                                    placeholder="Optional notes about this member"
+                                                                    {...field} 
+                                                                />
+                                                            </FormControl>
+                                                            <FormDescription className="text-xs">
+                                                                Internal notes about this member (not visible to them)
+                                                            </FormDescription>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                                
+                                                <FormField
+                                                    control={form.control}
+                                                    name="credit"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel className="text-sm font-medium">
+                                                                Initial Credit
+                                                            </FormLabel>
+                                                            <FormControl>
+                                                                <Input 
+                                                                    type="number"
+                                                                    min="0"
+                                                                    step="0.01"
+                                                                    placeholder="0.00"
+                                                                    {...field}
+                                                                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                                                />
+                                                            </FormControl>
+                                                            <FormDescription className="text-xs">
+                                                                Starting credit balance for this member
+                                                            </FormDescription>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Trainer Data Section */}
+                                    <div className="space-y-6">
+                                        <div className="flex items-center gap-2 mb-4">
+                                            <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                                            <h3 className="font-semibold text-lg">Trainer Information</h3>
+                                        </div>
+                                        
+                                        <FormField
+                                            control={form.control}
+                                            name="createAsTrainer"
+                                            render={({ field }) => (
+                                                <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                                                    <FormControl>
+                                                        <Checkbox
+                                                            checked={field.value}
+                                                            onCheckedChange={field.onChange}
+                                                        />
+                                                    </FormControl>
+                                                    <div className="space-y-1 leading-none">
+                                                        <FormLabel className="text-sm font-medium flex items-center gap-2">
+                                                            <Dumbbell className="w-4 h-4 text-purple-500" />
+                                                            Create as Trainer
+                                                        </FormLabel>
+                                                        <FormDescription className="text-xs">
+                                                            Enable this to create a trainer record along with the account
+                                                        </FormDescription>
+                                                    </div>
+                                                </FormItem>
+                                            )}
+                                        />
+
+                                        {form.watch("createAsTrainer") && (
+                                            <div className="space-y-4 pl-6 border-l-2 border-purple-100">
+                                                <FormField
+                                                    control={form.control}
+                                                    name="specialization"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel className="text-sm font-medium flex items-center gap-1">
+                                                                <Star className="w-4 h-4 text-purple-500" />
+                                                                Specialization
+                                                            </FormLabel>
+                                                            <FormControl>
+                                                                <Input 
+                                                                    placeholder="e.g., Personal Training, Yoga, CrossFit"
+                                                                    {...field} 
+                                                                />
+                                                            </FormControl>
+                                                            <FormDescription className="text-xs">
+                                                                Primary area of expertise
+                                                            </FormDescription>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                                
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="experienceYears"
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel className="text-sm font-medium">
+                                                                    Experience (Years)
+                                                                </FormLabel>
+                                                                <FormControl>
+                                                                    <Input 
+                                                                        type="number"
+                                                                        min="0"
+                                                                        placeholder="0"
+                                                                        {...field}
+                                                                        onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                                                                    />
+                                                                </FormControl>
+                                                                <FormDescription className="text-xs">
+                                                                    Years of training experience
+                                                                </FormDescription>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                    
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="hourlyRate"
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel className="text-sm font-medium">
+                                                                    Hourly Rate (TND)
+                                                                </FormLabel>
+                                                                <FormControl>
+                                                                    <Input 
+                                                                        type="number"
+                                                                        min="0"
+                                                                        step="0.01"
+                                                                        placeholder="0.00"
+                                                                        {...field}
+                                                                        onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                                                    />
+                                                                </FormControl>
+                                                                <FormDescription className="text-xs">
+                                                                    Rate per hour in TND
+                                                                </FormDescription>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                </div>
+                                                
+                                                <FormField
+                                                    control={form.control}
+                                                    name="certification"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel className="text-sm font-medium flex items-center gap-1">
+                                                                <GraduationCap className="w-4 h-4 text-purple-500" />
+                                                                Certification
+                                                            </FormLabel>
+                                                            <FormControl>
+                                                                <Input 
+                                                                    placeholder="e.g., NASM-CPT, ACE, ISSA"
+                                                                    {...field} 
+                                                                />
+                                                            </FormControl>
+                                                            <FormDescription className="text-xs">
+                                                                Professional certifications held
+                                                            </FormDescription>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                                
+                                                <FormField
+                                                    control={form.control}
+                                                    name="bio"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel className="text-sm font-medium">
+                                                                Bio
+                                                            </FormLabel>
+                                                            <FormControl>
+                                                                <textarea 
+                                                                    className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                                                    placeholder="Brief description of training philosophy and experience..."
+                                                                    {...field} 
+                                                                />
+                                                            </FormControl>
+                                                            <FormDescription className="text-xs">
+                                                                Brief description of training philosophy and experience
+                                                            </FormDescription>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+
                                     {/* Submit Buttons */}
                                     <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-8 border-t">
                                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -594,6 +877,29 @@ export default function CreateAccountPage() {
                                     </div>
                                 </div>
                             </div>
+                            
+                            <div className="space-y-3">
+                                <h4 className="font-semibold text-sm flex items-center gap-2">
+                                    <Dumbbell className="w-4 h-4 text-purple-500" />
+                                    Account Types
+                                </h4>
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-2 p-2 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
+                                        <User className="w-4 h-4 text-blue-500" />
+                                        <div className="text-sm">
+                                            <div className="font-medium">Member</div>
+                                            <div className="text-xs text-muted-foreground">Gym member access</div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 p-2 bg-purple-50 dark:bg-purple-950/20 rounded-lg">
+                                        <Dumbbell className="w-4 h-4 text-purple-500" />
+                                        <div className="text-sm">
+                                            <div className="font-medium">Trainer</div>
+                                            <div className="text-xs text-muted-foreground">Staff trainer access</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </CardContent>
                     </Card>
 
@@ -622,6 +928,14 @@ export default function CreateAccountPage() {
                                 <div className="flex items-start gap-2">
                                     <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
                                     <span>Grant admin access only when necessary</span>
+                                </div>
+                                <div className="flex items-start gap-2">
+                                    <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                                    <span>Create trainer accounts for staff members</span>
+                                </div>
+                                <div className="flex items-start gap-2">
+                                    <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                                    <span>Include specialization and experience details</span>
                                 </div>
                             </div>
                         </CardContent>

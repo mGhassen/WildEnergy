@@ -92,8 +92,15 @@ export const accountApi = {
     return apiRequest('GET', '/api/admin/accounts');
   },
 
-  async searchAccounts(query: string, limit: number = 10): Promise<{ accounts: Account[] }> {
-    return apiRequest('GET', `/api/admin/accounts/search?q=${encodeURIComponent(query)}&limit=${limit}`);
+  async searchAccounts(query: string, limit: number = 10, memberId?: string): Promise<{ accounts: Account[]; error?: string }> {
+    const params = new URLSearchParams({
+      q: query,
+      limit: limit.toString()
+    });
+    if (memberId) {
+      params.append('memberId', memberId);
+    }
+    return apiRequest('GET', `/api/admin/accounts/search?${params.toString()}`);
   },
 
   async getAccount(accountId: string): Promise<Account> {

@@ -688,72 +688,7 @@ export default function AccountDetailPage() {
                                 </div>
                             </div>
                         </CardContent>
-                    </Card>
-
-                    {/* Trainer Information */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center space-x-2">
-                                <GraduationCap className="w-5 h-5" />
-                                <span>Trainer Information</span>
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            {account.trainer_id ? (
-                                <div className="space-y-4">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <Badge variant="default" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
-                                                <Link className="w-3 h-3 mr-1" />
-                                                Linked to Trainer
-                                            </Badge>
-                                        </div>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={handleUnlinkTrainer}
-                                            disabled={unlinkTrainerMutation.isPending}
-                                        >
-                                            <Unlink className="w-3 h-3 mr-1" />
-                                            Unlink
-                                        </Button>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <p className="text-sm text-muted-foreground">
-                                            Trainer ID: {account.trainer_id}
-                                        </p>
-                                        {account.specialization && (
-                                            <p className="text-sm">
-                                                <span className="font-medium">Specialization:</span> {account.specialization}
-                                            </p>
-                                        )}
-                                        {account.experience_years && (
-                                            <p className="text-sm">
-                                                <span className="font-medium">Experience:</span> {account.experience_years} years
-                                            </p>
-                                        )}
-                                        {account.hourly_rate && (
-                                            <p className="text-sm">
-                                                <span className="font-medium">Hourly Rate:</span> ${account.hourly_rate}/hour
-                                            </p>
-                                        )}
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="text-center py-6">
-                                    <UserMinus className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                                    <h3 className="text-lg font-semibold text-foreground mb-2">No Trainer Linked</h3>
-                                    <p className="text-muted-foreground mb-4">
-                                        This account is not linked to any trainer profile.
-                                    </p>
-                                    <Button onClick={() => setIsLinkDialogOpen(true)}>
-                                        <Link className="w-4 h-4 mr-2" />
-                                        Link Trainer
-                                    </Button>
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
+                    </Card>                    
 
                     {/* Account Status & Roles */}
                     <Card>
@@ -764,34 +699,6 @@ export default function AccountDetailPage() {
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-6">
-                            {/* Account Status */}
-                            <div>
-                                <Label htmlFor="accountStatus" className="text-base font-medium">Account Status</Label>
-                                {isEditing ? (
-                                    <Select
-                                        value={editForm.accountStatus}
-                                        onValueChange={(value) => setEditForm({...editForm, accountStatus: value})}
-                                    >
-                                        <SelectTrigger className="mt-2">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="active">Active</SelectItem>
-                                            <SelectItem value="pending">Pending</SelectItem>
-                                            <SelectItem value="archived">Archived</SelectItem>
-                                            <SelectItem value="suspended">Suspended</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                ) : (
-                                    <div className="mt-2">
-                                        <Badge className={`${getStatusColor(account.account_status)} text-sm px-3 py-1`}>
-                                            {getStatusIcon(account.account_status)}
-                                            <span className="ml-2 capitalize">{account.account_status}</span>
-                                        </Badge>
-                                    </div>
-                                )}
-                            </div>
-
                             {/* Roles */}
                             <div>
                                 <Label className="text-base font-medium">Roles & Permissions</Label>

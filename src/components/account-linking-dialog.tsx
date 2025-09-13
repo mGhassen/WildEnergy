@@ -24,7 +24,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useSearchAccounts, useLinkAccountToMember } from "@/hooks/useAccountLinking";
 import { Account } from "@/lib/api/accounts";
-import { Search, User, Mail, Calendar, Loader2, Check } from "lucide-react";
+import { Search, User, Mail, Calendar, Loader2, Check, AlertCircle } from "lucide-react";
 import { formatDate } from "@/lib/date";
 
 interface AccountLinkingDialogProps {
@@ -46,7 +46,7 @@ export function AccountLinkingDialog({
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const debouncedQuery = useDebounce(searchQuery, 300);
 
-  const { data: searchResults, isLoading: isSearching } = useSearchAccounts(debouncedQuery);
+  const { data: searchResults, isLoading: isSearching } = useSearchAccounts(debouncedQuery, 10, memberId);
   const linkAccountMutation = useLinkAccountToMember();
 
   // Reset state when dialog opens/closes
@@ -78,6 +78,7 @@ export function AccountLinkingDialog({
   };
 
   const accounts = searchResults?.accounts || [];
+  const hasError = searchResults?.error;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -109,7 +110,17 @@ export function AccountLinkingDialog({
           <div className="space-y-2">
             <Label>Available Accounts</Label>
             <div className="border rounded-md max-h-48 sm:max-h-60 overflow-auto">
-              {isSearching ? (
+              {hasError ? (
+                <div className="flex items-center justify-center p-4">
+                  <div className="text-center">
+                    <AlertCircle className="w-8 h-8 text-orange-500 mx-auto mb-2" />
+                    <span className="text-sm text-orange-600 font-medium">{hasError}</span>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      This member already has an account linked and cannot be linked to another account.
+                    </p>
+                  </div>
+                </div>
+              ) : isSearching ? (
                 <div className="flex items-center justify-center p-4">
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
                   <span className="text-sm text-muted-foreground">Searching...</span>
@@ -186,7 +197,7 @@ export function AccountLinkingDialog({
           </Button>
           <Button
             onClick={handleLinkAccount}
-            disabled={!selectedAccount || linkAccountMutation.isPending}
+            disabled={!selectedAccount || linkAccountMutation.isPending || !!hasError}
           >
             {linkAccountMutation.isPending ? (
               <>

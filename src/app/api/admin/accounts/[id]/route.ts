@@ -96,22 +96,40 @@ export async function PUT(request: NextRequest) {
     const profileUpdates: Record<string, unknown> = {};
     if (profileData.firstName !== undefined) profileUpdates.first_name = profileData.firstName;
     if (profileData.lastName !== undefined) profileUpdates.last_name = profileData.lastName;
-    if (profileData.phone !== undefined) profileUpdates.phone = profileData.phone;
-    if (profileData.profileEmail !== undefined) profileUpdates.profile_email = profileData.profileEmail;
-    if (profileData.dateOfBirth !== undefined) profileUpdates.date_of_birth = profileData.dateOfBirth;
-    if (profileData.address !== undefined) profileUpdates.address = profileData.address;
-    if (profileData.profession !== undefined) profileUpdates.profession = profileData.profession;
-    if (profileData.emergencyContactName !== undefined) profileUpdates.emergency_contact_name = profileData.emergencyContactName;
-    if (profileData.emergencyContactPhone !== undefined) profileUpdates.emergency_contact_phone = profileData.emergencyContactPhone;
+    if (profileData.phone !== undefined) {
+      profileUpdates.phone = profileData.phone === "" ? null : profileData.phone;
+    }
+    if (profileData.profileEmail !== undefined) {
+      profileUpdates.profile_email = profileData.profileEmail === "" ? null : profileData.profileEmail;
+    }
+    if (profileData.dateOfBirth !== undefined) {
+      profileUpdates.date_of_birth = profileData.dateOfBirth === "" ? null : profileData.dateOfBirth;
+    }
+    if (profileData.address !== undefined) {
+      profileUpdates.address = profileData.address === "" ? null : profileData.address;
+    }
+    if (profileData.profession !== undefined) {
+      profileUpdates.profession = profileData.profession === "" ? null : profileData.profession;
+    }
+    if (profileData.emergencyContactName !== undefined) {
+      profileUpdates.emergency_contact_name = profileData.emergencyContactName === "" ? null : profileData.emergencyContactName;
+    }
+    if (profileData.emergencyContactPhone !== undefined) {
+      profileUpdates.emergency_contact_phone = profileData.emergencyContactPhone === "" ? null : profileData.emergencyContactPhone;
+    }
     
     if (Object.keys(profileUpdates).length > 0) {
       const { error: profileError } = await supabaseServer()
         .from('profiles')
         .update(profileUpdates)
-        .eq('id', accountId);
+        .eq('id', accountId); // In this system, profile.id = account.id
       
       if (profileError) {
-        return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
+        console.error('Profile update error:', profileError);
+        return NextResponse.json({ 
+          error: 'Failed to update profile', 
+          details: profileError.message 
+        }, { status: 500 });
       }
     }
   }

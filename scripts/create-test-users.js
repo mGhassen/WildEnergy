@@ -201,31 +201,10 @@ async function createWildEnergyTestUsers() {
       
       console.log(`✅ Auth user created: ${user.email} (ID: ${authUser.user.id})`);
       
-      // Step 2: Create account record
-      const { data: accountRecord, error: accountError } = await supabase
-        .from('accounts')
-        .insert({
-          id: authUser.user.id, // Use auth user ID as account ID
-          auth_user_id: authUser.user.id,
-          email: user.email,
-          status: user.status,
-          is_admin: user.isAdmin || false
-        })
-        .select()
-        .single();
-      
-      if (accountError) {
-        console.error(`❌ Account creation error: ${accountError.message}`);
-        continue;
-      }
-      
-      console.log(`✅ Account record created: ${accountRecord.id}`);
-      
-      // Step 3: Create profile record
+      // Step 2: Create profile record first
       const { data: profileRecord, error: profileError } = await supabase
         .from('profiles')
         .insert({
-          id: authUser.user.id, // Use auth user ID as profile ID
           first_name: user.firstName,
           last_name: user.lastName,
           phone: user.phone,
@@ -243,6 +222,27 @@ async function createWildEnergyTestUsers() {
       
       console.log(`✅ Profile record created: ${profileRecord.id}`);
       
+      // Step 3: Create account record with foreign key to profile
+      const { data: accountRecord, error: accountError } = await supabase
+        .from('accounts')
+        .insert({
+          id: authUser.user.id, // Use auth user ID as account ID
+          auth_user_id: authUser.user.id,
+          email: user.email,
+          status: user.status,
+          is_admin: user.isAdmin || false,
+          profile_id: profileRecord.id // Link to profile via foreign key
+        })
+        .select()
+        .single();
+      
+      if (accountError) {
+        console.error(`❌ Account creation error: ${accountError.message}`);
+        continue;
+      }
+      
+      console.log(`✅ Account record created: ${accountRecord.id}`);
+      
       // Step 4: Admin status is now handled in the accounts table (is_admin column)
       
       // Step 5: If user has member data, create member record
@@ -251,7 +251,7 @@ async function createWildEnergyTestUsers() {
           .from('members')
           .insert({
             account_id: authUser.user.id,
-            profile_id: authUser.user.id,
+            profile_id: profileRecord.id, // Use profile.id instead of authUser.user.id
             member_notes: user.memberNotes || '',
             credit: user.credit || 0,
             status: user.status,
@@ -273,7 +273,7 @@ async function createWildEnergyTestUsers() {
           .from('trainers')
           .insert({
             account_id: authUser.user.id,
-            profile_id: authUser.user.id,
+            profile_id: profileRecord.id, // Use profile.id instead of authUser.user.id
             specialization: user.specialization || 'General Fitness',
             experience_years: user.experienceYears || 5,
             bio: user.bio || `Experienced ${user.specialization || 'fitness'} instructor`,

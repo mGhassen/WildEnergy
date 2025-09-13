@@ -1,11 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { accountApi } from '@/lib/api/accounts';
 
-export function useSearchAccounts(query: string, limit: number = 10) {
+export function useSearchAccounts(query: string, limit: number = 10, memberId?: string) {
   return useQuery({
-    queryKey: ['accounts', 'search', query, limit],
-    queryFn: () => accountApi.searchAccounts(query, limit),
-    enabled: query.length > 0,
+    queryKey: ['accounts', 'search', query, limit, memberId],
+    queryFn: () => accountApi.searchAccounts(query, limit, memberId),
     staleTime: 30000, // 30 seconds
   });
 }

@@ -12,9 +12,11 @@ import { useMemberDetails } from "@/hooks/useMemberDetails";
 import { useUnlinkAccountFromMember } from "@/hooks/useAccountLinking";
 import { useUpdateMemberDetails } from "@/hooks/useUpdateMemberDetails";
 import { useDeleteMember } from "@/hooks/useMembers";
+import { useCreateAccountFromMember } from "@/hooks/useCreateAccountFromMember";
 import { useToast } from "@/hooks/use-toast";
 import { AccountLinkingDialog } from "@/components/account-linking-dialog";
 import { UnlinkAccountDialog } from "@/components/unlink-account-dialog";
+import { CreateAccountDialog } from "@/components/create-account-dialog";
 import { ConfirmationDialog } from "@/components/confirmation-dialog";
 import { 
   ArrowLeft,
@@ -193,6 +195,7 @@ export default function MemberDetailsPage() {
   const [activeTab, setActiveTab] = useState("overview");
   const [showLinkDialog, setShowLinkDialog] = useState(false);
   const [showUnlinkDialog, setShowUnlinkDialog] = useState(false);
+  const [showCreateAccountDialog, setShowCreateAccountDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
@@ -340,6 +343,25 @@ export default function MemberDetailsPage() {
   };
 
   const handleSaveMember = async () => {
+    // Validate required fields
+    if (!editForm.firstName.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "First name is required",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!editForm.lastName.trim()) {
+      toast({
+        title: "Validation Error", 
+        description: "Last name is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       await updateMemberMutation.mutateAsync({
         memberId: member.id,
@@ -422,6 +444,10 @@ export default function MemberDetailsPage() {
 
   const handleLinkAccount = () => {
     setShowLinkDialog(true);
+  };
+
+  const handleCreateAccount = () => {
+    setShowCreateAccountDialog(true);
   };
 
   const handleUnlinkAccount = () => {
@@ -529,10 +555,16 @@ export default function MemberDetailsPage() {
                   {unlinkAccountMutation.isPending ? 'Unlinking...' : 'Unlink Account'}
                 </DropdownMenuItem>
               ) : (
-                <DropdownMenuItem onClick={handleLinkAccount}>
-                  <Link className="w-4 h-4 mr-2" />
-                  Link Account
-                </DropdownMenuItem>
+                <>
+                  <DropdownMenuItem onClick={handleCreateAccount}>
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    Create Account
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleLinkAccount}>
+                    <Link className="w-4 h-4 mr-2" />
+                    Link Account
+                  </DropdownMenuItem>
+                </>
               )}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSendEmail} disabled={!member.email}>
@@ -671,28 +703,39 @@ export default function MemberDetailsPage() {
                   <User className="w-5 h-5" />
                   Personal Information
                 </CardTitle>
+                {isEditing && (
+                  <CardDescription>
+                    Fields marked with <span className="text-destructive">*</span> are required
+                  </CardDescription>
+                )}
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-sm font-medium text-muted-foreground">First Name</Label>
+                    <Label className="text-sm font-medium text-muted-foreground">
+                      First Name <span className="text-destructive">*</span>
+                    </Label>
                     {isEditing ? (
                       <Input
                         value={editForm.firstName}
                         onChange={(e) => setEditForm({...editForm, firstName: e.target.value})}
                         className="mt-1"
+                        required
                       />
                     ) : (
                       <p className="text-sm">{member.firstName}</p>
                     )}
                   </div>
                   <div>
-                    <Label className="text-sm font-medium text-muted-foreground">Last Name</Label>
+                    <Label className="text-sm font-medium text-muted-foreground">
+                      Last Name <span className="text-destructive">*</span>
+                    </Label>
                     {isEditing ? (
                       <Input
                         value={editForm.lastName}
                         onChange={(e) => setEditForm({...editForm, lastName: e.target.value})}
                         className="mt-1"
+                        required
                       />
                     ) : (
                       <p className="text-sm">{member.lastName}</p>
@@ -701,7 +744,32 @@ export default function MemberDetailsPage() {
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Account Email</Label>
-                  <p className="text-sm">{member.email || 'No email (unlinked member)'}</p>
+                  {member.email ? (
+                    <p className="text-sm">{member.email}</p>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm text-muted-foreground">No account linked</p>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="link"
+                          size="sm"
+                          onClick={handleCreateAccount}
+                          className="h-auto p-0 text-primary hover:text-primary/80"
+                        >
+                          Create Account
+                        </Button>
+                        <span className="text-muted-foreground">•</span>
+                        <Button
+                          variant="link"
+                          size="sm"
+                          onClick={handleLinkAccount}
+                          className="h-auto p-0 text-primary hover:text-primary/80"
+                        >
+                          Link Account
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Contact Email</Label>
@@ -714,7 +782,7 @@ export default function MemberDetailsPage() {
                       placeholder="Contact email"
                     />
                   ) : (
-                    <p className="text-sm">{member.email || 'No email (unlinked member)'}</p>
+                    <p className="text-sm">{member.email || 'N/A'}</p>
                   )}
                 </div>
                 <div>
@@ -1115,6 +1183,14 @@ export default function MemberDetailsPage() {
         onConfirm={handleConfirmUnlink}
         memberName={`${member.firstName} ${member.lastName}`}
         isPending={unlinkAccountMutation.isPending}
+      />
+
+      {/* Create Account Dialog */}
+      <CreateAccountDialog
+        isOpen={showCreateAccountDialog}
+        onClose={() => setShowCreateAccountDialog(false)}
+        memberId={memberId}
+        memberName={`${member.firstName} ${member.lastName}`}
       />
 
       {/* Delete Member Confirmation Dialog */}
