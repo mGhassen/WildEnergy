@@ -30,7 +30,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     // Check if plan has active subscriptions
     const { data: subscriptions, error: subscriptionError } = await supabaseServer()
       .from('subscriptions')
-      .select('id, user_id, status, users (id, first_name, last_name, email)')
+      .select('id, member_id, status, users (id, first_name, last_name, email)')
       .eq('plan_id', id);
 
     if (subscriptionError) {

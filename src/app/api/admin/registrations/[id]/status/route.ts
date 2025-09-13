@@ -18,7 +18,7 @@ export async function GET(
       .select(`
         id,
         status,
-        user_id,
+        member_id,
         course_id,
         registration_date,
         course:courses(
@@ -42,7 +42,7 @@ export async function GET(
       registration: {
         id: registration.id,
         status: registration.status,
-        userId: registration.user_id,
+        userId: registration.member_id,
         courseId: registration.course_id,
         registrationDate: registration.registration_date,
         course: registration.course

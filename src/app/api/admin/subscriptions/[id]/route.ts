@@ -134,7 +134,7 @@ export async function PUT(request: NextRequest) {
 
     const flattenedSubscription = {
       id: updatedSubscription.id,
-      user_id: updatedSubscription.user_id,
+      user_id: updatedSubscription.member_id,
       plan_id: updatedSubscription.plan_id,
       start_date: updatedSubscription.start_date,
       end_date: updatedSubscription.end_date,

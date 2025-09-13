@@ -99,7 +99,7 @@ export async function POST(
       .from('checkins')
       .insert({
         registration_id: registrationId,
-        user_id: registration.user_id,
+        user_id: registration.member_id,
         checkin_time: new Date().toISOString(),
         session_consumed: true,
         notes: 'Checked in by admin'

@@ -59,7 +59,7 @@ export async function POST(
     }
 
     // Only allow non-admins to cancel their own registrations
-    if (!userProfile.is_admin && registration.user_id !== userProfile.id) {
+    if (!userProfile.is_admin && registration.member_id !== userProfile.id) {
       return NextResponse.json({ error: 'You can only cancel your own registrations' }, { status: 403 });
     }
 
@@ -90,7 +90,7 @@ export async function POST(
     const { data: result, error: procedureError } = await supabaseServer ()
       .rpc('cancel_registration_with_updates', {
         p_registration_id: registrationId,
-        p_user_id: registration.user_id,
+        p_user_id: registration.member_id,
         p_is_within_24_hours: isWithin24Hours,
         p_subscription_id: registration.subscription_id,
         p_force_refund: refundSession

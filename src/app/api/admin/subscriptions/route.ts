@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
     
     // Convert camelCase to snake_case for database
     const dbData: Record<string, any> = {
-      member_id: subData.memberId || subData.member_id || subData.user_id,
+      member_id: subData.memberId || subData.member_id,
       plan_id: subData.planId || subData.plan_id,
       start_date: subData.startDate || subData.start_date,
       end_date: subData.endDate || subData.end_date,

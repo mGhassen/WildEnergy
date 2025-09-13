@@ -153,7 +153,7 @@ export default function AdminSubscriptionDetails() {
   const mappedSubscriptions = Array.isArray(subscriptions) && Array.isArray(mappedMembers) && Array.isArray(plans)
     ? subscriptions.map((sub: any) => ({
         ...sub,
-        member: mappedMembers.find((m: any) => m.id === sub.member_id || m.id === sub.user_id) || null,
+        member: mappedMembers.find((m: any) => m.id === sub.member_id) || null,
         plan: plans.find((p: any) => p.id === sub.plan_id) || null,
       }))
     : [];

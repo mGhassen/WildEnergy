@@ -194,7 +194,7 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
     // Check if plan has active subscriptions
     const { data: subscriptions, error: subscriptionError } = await supabaseServer()
       .from('subscriptions')
-      .select('id, user_id, status')
+      .select('id, member_id, status')
       .eq('plan_id', id);
 
     if (subscriptionError) {

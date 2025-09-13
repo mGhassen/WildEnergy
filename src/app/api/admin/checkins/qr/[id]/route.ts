@@ -69,7 +69,7 @@ export async function GET(
         id,
         status,
         registration_date,
-        user_id,
+        member_id,
         course_id,
         qr_code,
         users (
@@ -102,13 +102,13 @@ export async function GET(
       // Let's also check what QR codes exist in the database
       const { data: allQrCodes, error: qrError } = await supabaseServer()
         .from('class_registrations')
-        .select('qr_code, id, user_id')
+        .select('qr_code, id, member_id')
         .not('qr_code', 'is', null);
       
       if (qrError) {
         console.log('Check-in QR API - Error fetching all QR codes:', qrError);
       } else {
-        console.log('Check-in QR API - Available QR codes in database:', allQrCodes?.map(r => ({ qr_code: r.qr_code, id: r.id, user_id: r.user_id })));
+        console.log('Check-in QR API - Available QR codes in database:', allQrCodes?.map(r => ({ qr_code: r.qr_code, id: r.id, member_id: r.member_id })));
       }
       
       return NextResponse.json(
@@ -149,7 +149,7 @@ export async function GET(
     const { data: activeSubscription } = await supabaseServer()
       .from('subscriptions')
       .select('id, plan_id, status, sessions_remaining, plans(name)')
-      .eq('user_id', registration.user_id)
+      .eq('member_id', registration.member_id)
       .eq('status', 'active')
       .order('end_date', { ascending: false })
       .limit(1)
@@ -158,7 +158,7 @@ export async function GET(
     // Get registered and checked-in counts for this course (excluding cancelled)
     const { data: courseRegistrations } = await supabaseServer()
       .from('class_registrations')
-      .select('id, user_id, status')
+      .select('id, member_id, status')
       .eq('course_id', courseObj.id)
       .neq('status', 'cancelled');
 
