@@ -6,10 +6,10 @@ import { formatDate } from "@/lib/date";
 import { formatCurrency, CURRENCY_SYMBOL } from "@/lib/config";
 import { useAuth } from "@/hooks/use-auth";
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { CreditCard, Clock, CheckCircle, XCircle, Info, Calendar, Users, Eye } from "lucide-react";
 import { SubscriptionDetails } from "@/components/subscription-details";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useMemberSubscriptions } from "@/hooks/useMemberSubscriptions";
 import { useMemberPayments } from "@/hooks/useMemberPayments";
 import { useMemberRegistrations } from "@/hooks/useMemberRegistrations";
@@ -81,10 +81,9 @@ interface Profile {
 }
 
 export default function MemberSubscriptions() {
+  const router = useRouter();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [mainTab, setMainTab] = useState<'active' | 'history'>('active');
-  const [selectedSubscription, setSelectedSubscription] = useState<any | null>(null);
-  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 
   // Get user credit from auth context
   const credit = user?.credit ?? 0;
@@ -143,9 +142,8 @@ export default function MemberSubscriptions() {
   const getPaymentsForSub = (subId: number) => allPayments.filter(p => p.subscription_id === subId);
 
   // Handle opening subscription details
-  const openSubscriptionDetails = (subscription: any) => {
-    setSelectedSubscription(subscription);
-    setIsDetailsModalOpen(true);
+  const navigateToSubscriptionDetails = (subscription: any) => {
+    router.push(`/member/subscriptions/${subscription.id}`);
   };
 
   // Get status badge for subscription
@@ -288,7 +286,7 @@ export default function MemberSubscriptions() {
                   <Card 
                     key={sub.id} 
                     className="cursor-pointer hover:shadow-lg transition-all duration-200 border-l-4 border-l-primary/20 hover:border-l-primary"
-                    onClick={() => openSubscriptionDetails(sub)}
+                    onClick={() => navigateToSubscriptionDetails(sub)}
                   >
                     <CardContent className="p-6">
                       <div className="space-y-4">
@@ -409,22 +407,6 @@ export default function MemberSubscriptions() {
         </div>
       )}
 
-      {/* Subscription Details Dialog */}
-      <Dialog open={isDetailsModalOpen} onOpenChange={setIsDetailsModalOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Subscription Details</DialogTitle>
-          </DialogHeader>
-          {selectedSubscription && (
-            <SubscriptionDetails 
-              subscription={selectedSubscription as any} 
-              payments={allPayments as any}
-              showTabs={true}
-              isAdmin={false}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
