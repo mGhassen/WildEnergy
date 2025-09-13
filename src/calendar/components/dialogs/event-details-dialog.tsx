@@ -5,6 +5,7 @@ import { Calendar, Clock, Text, User } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { EditEventDialog } from "@/calendar/components/dialogs/edit-event-dialog";
+import { CourseDetailsDialog } from "@/calendar/components/dialogs/course-details-dialog";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 import type { IEvent } from "@/calendar/interfaces";
@@ -18,6 +19,18 @@ export function EventDetailsDialog({ event, children }: IProps) {
   const startDate = parseISO(event.startDate);
   const endDate = parseISO(event.endDate);
 
+  // Check if this is a course event by looking for course-specific patterns in the description
+  const isCourseEvent = event.description?.includes('Instructor:') || 
+                       event.description?.includes('Difficulty:') || 
+                       event.description?.includes('Duration:') ||
+                       event.category?.name;
+
+  // If it's a course event, use the CourseDetailsDialog
+  if (isCourseEvent) {
+    return <CourseDetailsDialog event={event}>{children}</CourseDetailsDialog>;
+  }
+
+  // Otherwise, use the standard event details dialog
   return (
     <>
       <Dialog>

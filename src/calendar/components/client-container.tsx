@@ -20,16 +20,13 @@ interface IProps {
 }
 
 export function ClientContainer({ view }: IProps) {
-  const { selectedDate, selectedUserId, selectedCategoryId, events } = useCalendar();
+  const { selectedDate, selectedCategoryId, events } = useCalendar();
 
   const filteredEvents = useMemo(() => {
     return events.filter(event => {
       const eventStartDate = parseISO(event.startDate);
       const eventEndDate = parseISO(event.endDate);
 
-      // Apply user filter
-      const isUserMatch = selectedUserId === "all" || event.user.id === selectedUserId;
-      
       // Apply category filter
       const isCategoryMatch = selectedCategoryId === "all" || event.category?.id === selectedCategoryId;
 
@@ -37,7 +34,7 @@ export function ClientContainer({ view }: IProps) {
         const monthStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
         const monthEnd = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0, 23, 59, 59, 999);
         const isInSelectedMonth = eventStartDate <= monthEnd && eventEndDate >= monthStart;
-        return isInSelectedMonth && isUserMatch && isCategoryMatch;
+        return isInSelectedMonth && isCategoryMatch;
       }
 
       if (view === "week") {
@@ -52,17 +49,17 @@ export function ClientContainer({ view }: IProps) {
         weekEnd.setHours(23, 59, 59, 999);
 
         const isInSelectedWeek = eventStartDate <= weekEnd && eventEndDate >= weekStart;
-        return isInSelectedWeek && isUserMatch && isCategoryMatch;
+        return isInSelectedWeek && isCategoryMatch;
       }
 
       if (view === "day") {
         const dayStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 0, 0, 0);
         const dayEnd = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 23, 59, 59);
         const isInSelectedDay = eventStartDate <= dayEnd && eventEndDate >= dayStart;
-        return isInSelectedDay && isUserMatch && isCategoryMatch;
+        return isInSelectedDay && isCategoryMatch;
       }
     });
-  }, [selectedDate, selectedUserId, selectedCategoryId, events, view]);
+  }, [selectedDate, selectedCategoryId, events, view]);
 
   const singleDayEvents = filteredEvents.filter(event => {
     const startDate = parseISO(event.startDate);

@@ -2,11 +2,13 @@
 
 import { format, parseISO } from "date-fns";
 import { cva } from "class-variance-authority";
-import { Clock, Text, User } from "lucide-react";
+import { Clock, Text, User, QrCode } from "lucide-react";
+import { useState } from "react";
 
 import { useCalendar } from "@/calendar/contexts/calendar-context";
 
 import { EventDetailsDialog } from "@/calendar/components/dialogs/event-details-dialog";
+import QRGenerator from "@/components/qr-generator";
 
 import type { IEvent } from "@/calendar/interfaces";
 import type { VariantProps } from "class-variance-authority";
@@ -34,9 +36,14 @@ const agendaEventCardVariants = cva(
         "yellow-dot": "bg-neutral-50 dark:bg-neutral-900 [&_.event-dot]:fill-yellow-600",
         "gray-dot": "bg-neutral-50 dark:bg-neutral-900 [&_.event-dot]:fill-neutral-600",
       },
+      isRegistered: {
+        true: "border-l-4 border-l-green-500",
+        false: "",
+      },
     },
     defaultVariants: {
       color: "blue-dot",
+      isRegistered: false,
     },
   }
 );
@@ -48,14 +55,18 @@ interface IProps {
 }
 
 export function AgendaEventCard({ event, eventCurrentDay, eventTotalDays }: IProps) {
-  const { badgeVariant } = useCalendar();
+  const { badgeVariant, registrations } = useCalendar();
+  const [selectedQR, setSelectedQR] = useState<string | null>(null);
 
   const startDate = parseISO(event.startDate);
   const endDate = parseISO(event.endDate);
 
   const color = (badgeVariant === "dot" ? `${event.color}-dot` : event.color) as VariantProps<typeof agendaEventCardVariants>["color"];
 
-  const agendaEventCardClasses = agendaEventCardVariants({ color });
+  const agendaEventCardClasses = agendaEventCardVariants({ 
+    color, 
+    isRegistered: event.isRegistered || false 
+  });
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" || e.key === " ") {
@@ -64,45 +75,88 @@ export function AgendaEventCard({ event, eventCurrentDay, eventTotalDays }: IPro
     }
   };
 
+  const handleQRClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    // Get QR code from registration data
+    const userRegistration = registrations.find(reg => reg.course_id === event.id && reg.status === 'registered');
+    if (userRegistration?.qr_code) {
+      setSelectedQR(userRegistration.qr_code);
+    }
+  };
+
   return (
-    <EventDetailsDialog event={event}>
-      <div role="button" tabIndex={0} className={agendaEventCardClasses} onKeyDown={handleKeyDown}>
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-1.5">
-            {["mixed", "dot"].includes(badgeVariant) && (
-              <svg width="8" height="8" viewBox="0 0 8 8" className="event-dot shrink-0">
-                <circle cx="4" cy="4" r="4" />
-              </svg>
-            )}
-
-            <p className="font-medium">
-              {eventCurrentDay && eventTotalDays && (
-                <span className="mr-1 text-xs">
-                  Day {eventCurrentDay} of {eventTotalDays} •{" "}
-                </span>
+    <>
+      <EventDetailsDialog event={event}>
+        <div role="button" tabIndex={0} className={agendaEventCardClasses} onKeyDown={handleKeyDown}>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-1.5">
+              {["mixed", "dot"].includes(badgeVariant) && (
+                <svg width="8" height="8" viewBox="0 0 8 8" className="event-dot shrink-0">
+                  <circle cx="4" cy="4" r="4" />
+                </svg>
               )}
-              {event.title}
-            </p>
-          </div>
 
-          <div className="mt-1 flex items-center gap-1">
-            <User className="size-3 shrink-0" />
-            <p className="text-xs text-foreground">{event.user.name}</p>
-          </div>
+              <p className="font-medium">
+                {eventCurrentDay && eventTotalDays && (
+                  <span className="mr-1 text-xs">
+                    Day {eventCurrentDay} of {eventTotalDays} •{" "}
+                  </span>
+                )}
+                {event.title}
+              </p>
+            </div>
 
-          <div className="flex items-center gap-1">
-            <Clock className="size-3 shrink-0" />
-            <p className="text-xs text-foreground">
-              {format(startDate, "h:mm a")} - {format(endDate, "h:mm a")}
-            </p>
-          </div>
+            <div className="mt-1 flex items-center gap-1">
+              <User className="size-3 shrink-0" />
+              <p className="text-xs text-foreground">{event.user.name}</p>
+            </div>
 
-          <div className="flex items-center gap-1">
-            <Text className="size-3 shrink-0" />
-            <p className="text-xs text-foreground">{event.description}</p>
+            <div className="flex items-center gap-1">
+              <Clock className="size-3 shrink-0" />
+              <p className="text-xs text-foreground">
+                {format(startDate, "h:mm a")} - {format(endDate, "h:mm a")}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <Text className="size-3 shrink-0" />
+              <p className="text-xs text-foreground">{event.description}</p>
+            </div>
+          </div>
+          
+          {event.isRegistered && (
+            <button
+              onClick={handleQRClick}
+              className="shrink-0 p-2 hover:bg-green-100 dark:hover:bg-green-900 rounded"
+              title="Show QR Code"
+            >
+              <QrCode className="w-5 h-5 text-green-600 dark:text-green-400" />
+            </button>
+          )}
+        </div>
+      </EventDetailsDialog>
+
+      {/* QR Code Modal - Same as browse courses */}
+      {selectedQR && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setSelectedQR(null)}>
+          <div className="bg-white dark:bg-gray-900 p-6 rounded-lg shadow-xl max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold mb-4 text-center text-foreground">Your QR Code</h3>
+            <div className="mb-4">
+              <div className="w-[300px] h-[300px] bg-muted rounded flex items-center justify-center">
+                {selectedQR ? (
+                  <QRGenerator value={selectedQR} size={300} />
+                ) : (
+                  <span className="text-muted-foreground">No QR Code Available</span>
+                )}
+              </div>
+            </div>
+            <div className="text-center">
+              <p className="text-sm text-muted-foreground mb-2">QR Code Value:</p>
+              <p className="text-xs font-mono bg-muted p-2 rounded break-all text-foreground">{selectedQR}</p>
+            </div>
           </div>
         </div>
-      </div>
-    </EventDetailsDialog>
+      )}
+    </>
   );
 }

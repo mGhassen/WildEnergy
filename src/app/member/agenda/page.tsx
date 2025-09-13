@@ -4,6 +4,7 @@ import React, { useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useMemberCourses } from '@/hooks/useMemberCourses';
 import { useMemberSubscriptions } from '@/hooks/useMemberSubscriptions';
+import { useMemberRegistrations } from '@/hooks/useMemberRegistrations';
 import { CalendarProvider } from '@/calendar/contexts/calendar-context';
 import { ClientContainer } from '@/calendar/components/client-container';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -41,10 +42,12 @@ interface Course {
 }
 
 // Convert courses to big-calendar events format
-const convertCoursesToEvents = (courses: any[]) => {
+const convertCoursesToEvents = (courses: any[], registrations: any[] = []) => {
   if (!courses) return [];
 
   return courses.map((course: any) => {
+    // Check if user is registered for this course
+    const isRegistered = registrations.some(reg => reg.course_id === course.id && reg.status === 'registered');
     const instructorName = course.trainer?.user ? 
       `${course.trainer.user.first_name} ${course.trainer.user.last_name}` : 
       'Unknown Trainer';
@@ -99,7 +102,8 @@ const convertCoursesToEvents = (courses: any[]) => {
         id: course.class.category.id,
         name: course.class.category.name,
         color: course.class.category.color
-      } : undefined
+      } : undefined,
+      isRegistered: isRegistered
     };
   });
 };
@@ -109,16 +113,18 @@ export default function MemberAgenda() {
   const view = searchParams.get('view') || 'week';
   const { data: courses, isLoading: coursesLoading, error: coursesError } = useMemberCourses();
   const { data: subscription } = useMemberSubscriptions();
+  const { data: registrations } = useMemberRegistrations();
 
   // Convert courses to events
   const events = useMemo(() => {
-    const convertedEvents = convertCoursesToEvents(courses || []);
+    const convertedEvents = convertCoursesToEvents(courses || [], registrations || []);
     console.log('=== MEMBER AGENDA EVENTS DEBUG ===');
     console.log('Courses count:', courses?.length || 0);
+    console.log('Registrations count:', registrations?.length || 0);
     console.log('Converted events count:', convertedEvents.length);
-    console.log('Events:', convertedEvents);
+    console.log('Events with registration status:', convertedEvents);
     return convertedEvents;
-  }, [courses]);
+  }, [courses, registrations]);
 
   // Create a single user for the member
   const users = useMemo(() => {
@@ -170,20 +176,10 @@ export default function MemberAgenda() {
           <h1 className="text-3xl font-bold text-foreground">My Class Schedule</h1>
           <p className="text-muted-foreground mt-1">View and manage your class registrations</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="text-sm">
-            {events.length} classes
-          </Badge>
-          {subscription && subscription.length > 0 && (
-            <Badge variant="secondary" className="text-sm">
-              {(subscription[0] as any).sessions_remaining || 0} sessions left
-            </Badge>
-          )}
-        </div>
       </div>
 
       {/* Big Calendar */}
-      <CalendarProvider users={users} events={events}>
+      <CalendarProvider users={users} events={events} registrations={registrations || []}>
         <div className="mx-auto flex max-w-screen-2xl flex-col gap-4">
           <ClientContainer view={view as any} />
         </div>

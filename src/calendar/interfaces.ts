@@ -19,6 +19,7 @@ export interface IEvent {
     name: string;
     color: string;
   };
+  isRegistered?: boolean;
 }
 
 export interface ICalendarCell {

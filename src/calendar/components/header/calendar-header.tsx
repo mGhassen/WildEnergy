@@ -4,7 +4,6 @@ import { Columns, List, Grid2x2, CalendarRange } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
-import { UserSelect } from "@/calendar/components/header/user-select";
 import { CategorySelect } from "@/calendar/components/header/category-select";
 import { TodayButton } from "@/calendar/components/header/today-button";
 import { DateNavigator } from "@/calendar/components/header/date-navigator";
@@ -75,7 +74,6 @@ export function CalendarHeader({ view, events }: IProps) {
             </Button>
           </div>
 
-          <UserSelect />
           <CategorySelect />
         </div>
 
