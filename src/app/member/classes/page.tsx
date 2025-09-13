@@ -184,6 +184,7 @@ export default function MemberClasses() {
 
   // Helper function to check if member can register for a course based on subscription group sessions
   const canRegisterForCourse = (course: Course) => {
+    // First check if member has any active subscriptions
     if (!activeSubscriptions.length) return false;
     
     // Get the category ID for this course
@@ -534,6 +535,7 @@ export default function MemberClasses() {
                       variant={isCourseInPast(course) ? "secondary" : "default"}
                     >
                       {isCourseInPast(course) ? "Course Ended" :
+                       !activeSubscriptions.length ? "No Active Subscription" :
                        !canRegisterForCourse(course) ? "No Sessions Left" :
                        registerMutation.isPending ? "Registering..." : "Register for Course"}
                     </Button>

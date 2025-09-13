@@ -15,7 +15,6 @@ import {
   Activity,
   CheckCircle,
   XCircle,
-  AlertCircle,
   Info,
   QrCode,
   UserCheck,
@@ -31,6 +30,8 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { useMemberCourse } from "@/hooks/useMemberCourses";
 import { useMemberCourseRegistration } from "@/hooks/useMemberRegistration";
 import { useMemberRegistrations } from "@/hooks/useMemberRegistrations";
+import { useMemberSubscriptions } from "@/hooks/useMemberSubscriptions";
+import type { Subscription } from "@/lib/api/subscriptions";
 import { useCancelRegistration } from "@/hooks/useRegistrations";
 import { Skeleton } from "@/components/ui/skeleton";
 import QRGenerator from "@/components/qr-generator";
@@ -57,9 +58,14 @@ export function CourseDetailsDialog({ event, children }: IProps) {
   
   // Fetch registrations to check if user is already registered
   const { data: registrations } = useMemberRegistrations();
+  const { data: subscriptionsRaw } = useMemberSubscriptions();
   const registrationMutation = useMemberCourseRegistration();
   const cancelMutation = useCancelRegistration();
   const { toast } = useToast();
+
+  // Process subscriptions
+  const subscriptions = Array.isArray(subscriptionsRaw) ? subscriptionsRaw : [];
+  const activeSubscriptions = subscriptions.filter((sub: any) => sub.status === 'active');
 
   // Extract course information from event description
   const descriptionLines = event.description?.split('\n') || [];
@@ -83,7 +89,7 @@ export function CourseDetailsDialog({ event, children }: IProps) {
       category: event.category
     },
     trainer: {
-      member: {
+      user: {
         first_name: instructor.split(' ')[0] || 'Unknown',
         last_name: instructor.split(' ').slice(1).join(' ') || 'Trainer'
       },
@@ -112,6 +118,42 @@ export function CourseDetailsDialog({ event, children }: IProps) {
     const cutoffTime = new Date(startDate.getTime() - (24 * 60 * 60 * 1000));
     const now = new Date();
     return now >= cutoffTime && now < startDate;
+  };
+
+  // Helper function to check if member can register for a course based on subscription group sessions
+  const canRegisterForCourse = () => {
+    // First check if member has any active subscriptions
+    if (!activeSubscriptions.length) return false;
+    
+    // Get the category ID for this course
+    const categoryId = courseData.class?.category?.id;
+    if (!categoryId) return false;
+    
+    // Check if any active subscription has remaining sessions for this course's group
+    for (const subscription of activeSubscriptions) {
+      const groupSessions = (subscription as any).subscription_group_sessions || [];
+      
+      // Find group sessions that include this category
+      for (const groupSession of groupSessions) {
+        if (groupSession.sessions_remaining > 0) {
+          // Check if this group includes the course's category
+          // We need to check the plan's groups to see if any group contains this category
+          const planGroups = (subscription as any).plan?.plan_groups || [];
+          for (const planGroup of planGroups) {
+            if (planGroup.group_id === groupSession.group_id) {
+              // Check if this group has the course's category
+              const groupCategories = planGroup.groups?.category_groups || [];
+              const hasCategory = groupCategories.some((cat: any) => cat.categories?.id === categoryId);
+              if (hasCategory) {
+                return true;
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    return false;
   };
 
   const handleRegister = async () => {
@@ -272,7 +314,7 @@ export function CourseDetailsDialog({ event, children }: IProps) {
                     <div className="flex items-center gap-2 mb-1">
                       <div className="text-lg font-semibold text-foreground">
                         {courseLoading ? <Skeleton className="h-6 w-40" /> : 
-                          `${courseData.trainer?.member?.first_name || 'Unknown'} ${courseData.trainer?.member?.last_name || 'Trainer'}`}
+                          `${courseData.trainer?.user?.first_name || 'Unknown'} ${courseData.trainer?.user?.last_name || 'Trainer'}`}
                       </div>
                       <Badge variant="secondary" className="text-xs">
                         Instructor
@@ -318,23 +360,6 @@ export function CourseDetailsDialog({ event, children }: IProps) {
                   </div>
                 )}
 
-                {/* Status Information */}
-                {isUpcoming && (
-                  <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                    <div className="flex items-start gap-2">
-                      <AlertCircle className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5" />
-                      <div>
-                        <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                          Upcoming Course
-                        </p>
-                        <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-                          This course is scheduled for {format(startDate, "MMMM d")} at {format(startDate, "h:mm a")}.
-                          Make sure to arrive on time!
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
 
                 {isOngoing && (
                   <div className="mt-4 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
@@ -407,11 +432,14 @@ export function CourseDetailsDialog({ event, children }: IProps) {
                   ) : (
                     <Button 
                       onClick={handleRegister} 
-                      disabled={registrationMutation.isPending || isCompleted}
+                      disabled={registrationMutation.isPending || isCompleted || !canRegisterForCourse()}
                       className="w-full text-base py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
                     >
                       <UserCheck className="w-5 h-5 mr-2" />
-                      {registrationMutation.isPending ? 'Registering...' : 'Register for Course'}
+                      {registrationMutation.isPending ? 'Registering...' : 
+                       !activeSubscriptions.length ? 'No Active Subscription' :
+                       !canRegisterForCourse() ? 'No Sessions Left' :
+                       'Register for Course'}
                     </Button>
                   )}
                 </div>
