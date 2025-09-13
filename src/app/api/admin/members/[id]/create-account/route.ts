@@ -4,10 +4,10 @@ import { mapMemberStatusToAccountStatus } from '@/lib/status-mapping';
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const memberId = params.id;
+    const { id: memberId } = await params;
     
     // Verify admin access
     const authHeader = req.headers.get('authorization');
