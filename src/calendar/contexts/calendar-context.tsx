@@ -21,6 +21,8 @@ interface ICalendarContext {
   events: IEvent[];
   setLocalEvents: Dispatch<SetStateAction<IEvent[]>>;
   registrations: any[];
+  eventMode?: 'dialog' | 'navigation';
+  eventBasePath?: string;
 }
 
 const CalendarContext = createContext({} as ICalendarContext);
@@ -37,7 +39,21 @@ const WORKING_HOURS = {
 
 const VISIBLE_HOURS = { from: 7, to: 18 };
 
-export function CalendarProvider({ children, users, events, registrations = [] }: { children: React.ReactNode; users: IUser[]; events: IEvent[]; registrations?: any[] }) {
+export function CalendarProvider({ 
+  children, 
+  users, 
+  events, 
+  registrations = [], 
+  eventMode = 'dialog', 
+  eventBasePath = '/admin/courses' 
+}: { 
+  children: React.ReactNode; 
+  users: IUser[]; 
+  events: IEvent[]; 
+  registrations?: any[];
+  eventMode?: 'dialog' | 'navigation';
+  eventBasePath?: string;
+}) {
   const [badgeVariant, setBadgeVariant] = useState<TBadgeVariant>("colored");
   const [visibleHours, setVisibleHours] = useState<TVisibleHours>(VISIBLE_HOURS);
   const [workingHours, setWorkingHours] = useState<TWorkingHours>(WORKING_HOURS);
@@ -79,6 +95,8 @@ export function CalendarProvider({ children, users, events, registrations = [] }
         events: localEvents,
         setLocalEvents,
         registrations,
+        eventMode,
+        eventBasePath,
       }}
     >
       {children}

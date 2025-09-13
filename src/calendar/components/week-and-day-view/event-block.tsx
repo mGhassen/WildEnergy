@@ -6,7 +6,7 @@ import { useState } from "react";
 import { useCalendar } from "@/calendar/contexts/calendar-context";
 
 import { DraggableEvent } from "@/calendar/components/dnd/draggable-event";
-import { EventDetailsDialog } from "@/calendar/components/dialogs/event-details-dialog";
+import { EventWrapper } from "@/calendar/components/event-wrapper";
 import QRGenerator from "@/components/qr-generator";
 
 import { cn } from "@/lib/utils";
@@ -93,7 +93,7 @@ export function EventBlock({ event, className }: IProps) {
   return (
     <>
       <DraggableEvent event={event}>
-        <EventDetailsDialog event={event}>
+        <EventWrapper event={event}>
           <div role="button" tabIndex={0} className={calendarWeekEventCardClasses} style={{ height: `${heightInPixels}px` }} onKeyDown={handleKeyDown}>
             <div className="flex items-center gap-1.5 truncate">
               {["mixed", "dot"].includes(badgeVariant) && (
@@ -121,7 +121,7 @@ export function EventBlock({ event, className }: IProps) {
               </p>
             )}
           </div>
-        </EventDetailsDialog>
+        </EventWrapper>
       </DraggableEvent>
 
       {/* QR Code Modal - Same as browse courses */}

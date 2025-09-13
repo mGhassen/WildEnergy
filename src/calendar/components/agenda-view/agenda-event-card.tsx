@@ -8,7 +8,7 @@ import { useState } from "react";
 import { useCalendar } from "@/calendar/contexts/calendar-context";
 import { Button } from "@/components/ui/button";
 
-import { EventDetailsDialog } from "@/calendar/components/dialogs/event-details-dialog";
+import { EventWrapper } from "@/calendar/components/event-wrapper";
 import QRGenerator from "@/components/qr-generator";
 
 import type { IEvent } from "@/calendar/interfaces";
@@ -87,7 +87,7 @@ export function AgendaEventCard({ event, eventCurrentDay, eventTotalDays }: IPro
 
   return (
     <>
-      <EventDetailsDialog event={event}>
+      <EventWrapper event={event}>
         <div role="button" tabIndex={0} className={agendaEventCardClasses} onKeyDown={handleKeyDown}>
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-1.5">
@@ -135,7 +135,7 @@ export function AgendaEventCard({ event, eventCurrentDay, eventTotalDays }: IPro
             </button>
           )}
         </div>
-      </EventDetailsDialog>
+      </EventWrapper>
 
       {/* QR Code Modal - Same as browse courses */}
       {selectedQR && (
