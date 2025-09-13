@@ -168,10 +168,9 @@ export async function POST(req: NextRequest) {
     for (const memberId of newMembers) {
       const { data: activeSubscription, error: subscriptionError } = await supabaseServer()
         .from('subscriptions')
-        .select('id, sessions_remaining')
+        .select('id')
         .eq('member_id', memberId)
         .eq('status', 'active')
-        .gt('sessions_remaining', 0)
         .order('end_date', { ascending: false })
         .limit(1)
         .single();
@@ -210,10 +209,9 @@ export async function POST(req: NextRequest) {
         // Get member's active subscription
         const { data: activeSubscription } = await supabaseServer()
           .from('subscriptions')
-          .select('id, sessions_remaining')
+          .select('id')
           .eq('member_id', memberId)
           .eq('status', 'active')
-          .gt('sessions_remaining', 0)
           .order('end_date', { ascending: false })
           .limit(1)
           .single();

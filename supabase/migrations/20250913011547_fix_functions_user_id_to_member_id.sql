@@ -208,14 +208,8 @@ BEGIN
         updated_at = NOW()
     WHERE id = p_course_id;
     
-    -- Also deduct from general subscription sessions for backward compatibility
-    IF p_subscription_id IS NOT NULL THEN
-      UPDATE subscriptions 
-      SET sessions_remaining = sessions_remaining - 1,
-          updated_at = NOW()
-      WHERE id = p_subscription_id 
-        AND sessions_remaining > 0;
-    END IF;
+    -- Note: Session tracking is now handled by subscription_group_sessions table
+    -- No need to update subscriptions table as sessions_remaining column was removed
     
     -- Return the created registration with group session info
     SELECT json_build_object(

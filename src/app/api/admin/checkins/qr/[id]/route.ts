@@ -148,7 +148,7 @@ export async function GET(
     // Get member's active subscription info
     const { data: activeSubscription } = await supabaseServer()
       .from('subscriptions')
-      .select('id, plan_id, status, sessions_remaining, plans(name)')
+      .select('id, plan_id, status, plans(name)')
       .eq('member_id', registration.member_id)
       .eq('status', 'active')
       .order('end_date', { ascending: false })
@@ -258,7 +258,6 @@ export async function GET(
         activeSubscription: activeSubscription ? {
           id: activeSubscription.id,
           planName: (activeSubscription.plans as any)?.name,
-          sessionsRemaining: activeSubscription.sessions_remaining,
           status: activeSubscription.status
         } : null
       },
