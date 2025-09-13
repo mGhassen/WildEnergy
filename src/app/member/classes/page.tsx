@@ -25,6 +25,7 @@ import QRGenerator from "@/components/qr-generator";
 interface Category {
   id: number;
   name: string;
+  color: string;
 }
 
 interface Trainer {
@@ -300,17 +301,6 @@ export default function MemberClasses() {
     registerMutation.mutate(courseId);
   };
 
-  const getCategoryColor = (category: string) => {
-    const colors: Record<string, string> = {
-      yoga: "bg-green-100 text-green-800",
-      hiit: "bg-red-100 text-red-800",
-      strength: "bg-blue-100 text-blue-800",
-      cardio: "bg-orange-100 text-orange-800",
-      pilates: "bg-purple-100 text-purple-800",
-      boxing: "bg-gray-100 text-gray-800",
-    };
-    return colors[category?.toLowerCase()] || "bg-gray-100 text-gray-800";
-  };
 
   const getDifficultyColor = (difficulty: string) => {
     const colors: Record<string, string> = {
@@ -449,13 +439,24 @@ export default function MemberClasses() {
                       </TooltipContent>
                     </Tooltip>
                     <div className="flex items-center gap-2">
-                      <Badge className={getCategoryColor(course.class?.category?.name || "unknown")}>{course.class?.category?.name ? course.class.category.name.charAt(0).toUpperCase() + course.class.category.name.slice(1) : "Unknown"}</Badge>
+                      <Badge 
+                        className="text-white border-0"
+                        style={{ 
+                          backgroundColor: course.class?.category?.color || '#6b7280'
+                        }}
+                      >
+                        {course.class?.category?.name ? course.class.category.name.charAt(0).toUpperCase() + course.class.category.name.slice(1) : "Unknown"}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="line-clamp-2 text-sm text-muted-foreground flex-1">
+                      {course.class?.description || "Join this exciting Pole Dance class and challenge yourself!"}
+                    </p>
+                    <div className="ml-2">
                       {renderDifficultyStars(course.class?.difficulty || "beginner")}
                     </div>
                   </div>
-                  <p className="line-clamp-2 text-sm text-muted-foreground mb-3">
-                    {course.class?.description || "Join this exciting Pole Dance class and challenge yourself!"}
-                  </p>
                   
                   {/* Course Details Grid */}
                   <div className="grid grid-cols-2 gap-3">
