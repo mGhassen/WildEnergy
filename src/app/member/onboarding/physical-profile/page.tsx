@@ -267,8 +267,12 @@ export default function PhysicalProfileOnboarding() {
     }
   };
 
+  // Determine what to render based on conditions
+  const shouldShowLoading = isLoading;
+  const shouldShowError = !isLoading && !user;
+
   // Show loading while user data is being fetched
-  if (isLoading) {
+  if (shouldShowLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center p-4">
         <div className="w-full max-w-2xl">
@@ -283,7 +287,7 @@ export default function PhysicalProfileOnboarding() {
   }
 
   // If no user after loading, show error
-  if (!user) {
+  if (shouldShowError) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center p-4">
         <div className="text-center">
@@ -556,7 +560,7 @@ export default function PhysicalProfileOnboarding() {
               
               <div className="flex items-center gap-4">
                 <div className="text-sm text-muted-foreground">
-                  {formData.gender && formData.weight && formData.height && formData.goal && formData.activityLevel ? "Parfait ! 🎉" : "Optionnel - Complétez votre profil"}
+                  {formData.gender && formData.weight && formData.height && formData.goal && formData.activityLevel ? "Parfait ! 🎉" : "Complétez votre profil"}
                 </div>
                 <Button 
                   type="submit" 

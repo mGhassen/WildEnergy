@@ -164,8 +164,11 @@ export default function TermsOnboarding() {
     }
   };
 
+  // Determine what to render based on conditions
+  const shouldShowLoading = isLoading || !user || onboardingLoading || termsLoading;
+
   // Show loading while user data is being fetched
-  if (isLoading || !user || onboardingLoading || termsLoading) {
+  if (shouldShowLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center p-4">
         <div className="w-full max-w-2xl">
