@@ -138,7 +138,6 @@ export async function PUT(request: NextRequest) {
       plan_id: updatedSubscription.plan_id,
       start_date: updatedSubscription.start_date,
       end_date: updatedSubscription.end_date,
-      sessions_remaining: updatedSubscription.sessions_remaining,
       status: updatedSubscription.status,
       notes: updatedSubscription.notes,
       created_at: updatedSubscription.created_at,
