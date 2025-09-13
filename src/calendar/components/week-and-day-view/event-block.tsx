@@ -1,10 +1,13 @@
 import { cva } from "class-variance-authority";
 import { format, differenceInMinutes, parseISO } from "date-fns";
+import { QrCode } from "lucide-react";
+import { useState } from "react";
 
 import { useCalendar } from "@/calendar/contexts/calendar-context";
 
 import { DraggableEvent } from "@/calendar/components/dnd/draggable-event";
 import { EventDetailsDialog } from "@/calendar/components/dialogs/event-details-dialog";
+import QRGenerator from "@/components/qr-generator";
 
 import { cn } from "@/lib/utils";
 
@@ -35,9 +38,14 @@ const calendarWeekEventCardVariants = cva(
         "yellow-dot": "bg-neutral-50 dark:bg-neutral-900 [&_.event-dot]:fill-yellow-600",
         "gray-dot": "bg-neutral-50 dark:bg-neutral-900 [&_.event-dot]:fill-neutral-600",
       },
+      isRegistered: {
+        true: "border-l-4 border-l-green-500",
+        false: "",
+      },
     },
     defaultVariants: {
       color: "blue-dot",
+      isRegistered: false,
     },
   }
 );
@@ -47,7 +55,8 @@ interface IProps extends HTMLAttributes<HTMLDivElement>, Omit<VariantProps<typeo
 }
 
 export function EventBlock({ event, className }: IProps) {
-  const { badgeVariant } = useCalendar();
+  const { badgeVariant, registrations } = useCalendar();
+  const [selectedQR, setSelectedQR] = useState<string | null>(null);
 
   const start = parseISO(event.startDate);
   const end = parseISO(event.endDate);
@@ -56,7 +65,14 @@ export function EventBlock({ event, className }: IProps) {
 
   const color = (badgeVariant === "dot" ? `${event.color}-dot` : event.color) as VariantProps<typeof calendarWeekEventCardVariants>["color"];
 
-  const calendarWeekEventCardClasses = cn(calendarWeekEventCardVariants({ color, className }), durationInMinutes < 35 && "py-0 justify-center");
+  const calendarWeekEventCardClasses = cn(
+    calendarWeekEventCardVariants({ 
+      color, 
+      isRegistered: event.isRegistered || false,
+      className 
+    }), 
+    durationInMinutes < 35 && "py-0 justify-center"
+  );
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" || e.key === " ") {
@@ -65,27 +81,70 @@ export function EventBlock({ event, className }: IProps) {
     }
   };
 
+  const handleQRClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    // Get QR code from registration data
+    const userRegistration = registrations.find(reg => reg.course_id === event.id && reg.status === 'registered');
+    if (userRegistration?.qr_code) {
+      setSelectedQR(userRegistration.qr_code);
+    }
+  };
+
   return (
-    <DraggableEvent event={event}>
-      <EventDetailsDialog event={event}>
-        <div role="button" tabIndex={0} className={calendarWeekEventCardClasses} style={{ height: `${heightInPixels}px` }} onKeyDown={handleKeyDown}>
-          <div className="flex items-center gap-1.5 truncate">
-            {["mixed", "dot"].includes(badgeVariant) && (
-              <svg width="8" height="8" viewBox="0 0 8 8" className="event-dot shrink-0">
-                <circle cx="4" cy="4" r="4" />
-              </svg>
+    <>
+      <DraggableEvent event={event}>
+        <EventDetailsDialog event={event}>
+          <div role="button" tabIndex={0} className={calendarWeekEventCardClasses} style={{ height: `${heightInPixels}px` }} onKeyDown={handleKeyDown}>
+            <div className="flex items-center gap-1.5 truncate">
+              {["mixed", "dot"].includes(badgeVariant) && (
+                <svg width="8" height="8" viewBox="0 0 8 8" className="event-dot shrink-0">
+                  <circle cx="4" cy="4" r="4" />
+                </svg>
+              )}
+
+              <p className="truncate font-semibold">{event.title}</p>
+              
+              {event.isRegistered && (
+                <button
+                  onClick={handleQRClick}
+                  className="shrink-0 p-1 hover:bg-green-100 dark:hover:bg-green-900 rounded"
+                  title="Show QR Code"
+                >
+                  <QrCode className="w-4 h-4 text-green-600 dark:text-green-400" />
+                </button>
+              )}
+            </div>
+
+            {durationInMinutes > 25 && (
+              <p>
+                {format(start, "h:mm a")} - {format(end, "h:mm a")}
+              </p>
             )}
-
-            <p className="truncate font-semibold">{event.title}</p>
           </div>
+        </EventDetailsDialog>
+      </DraggableEvent>
 
-          {durationInMinutes > 25 && (
-            <p>
-              {format(start, "h:mm a")} - {format(end, "h:mm a")}
-            </p>
-          )}
+      {/* QR Code Modal - Same as browse courses */}
+      {selectedQR && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setSelectedQR(null)}>
+          <div className="bg-white dark:bg-gray-900 p-6 rounded-lg shadow-xl max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold mb-4 text-center text-foreground">Your QR Code</h3>
+            <div className="mb-4">
+              <div className="w-[300px] h-[300px] bg-muted rounded flex items-center justify-center">
+                {selectedQR ? (
+                  <QRGenerator value={selectedQR} size={300} />
+                ) : (
+                  <span className="text-muted-foreground">No QR Code Available</span>
+                )}
+              </div>
+            </div>
+            <div className="text-center">
+              <p className="text-sm text-muted-foreground mb-2">QR Code Value:</p>
+              <p className="text-xs font-mono bg-muted p-2 rounded break-all text-foreground">{selectedQR}</p>
+            </div>
+          </div>
         </div>
-      </EventDetailsDialog>
-    </DraggableEvent>
+      )}
+    </>
   );
 }

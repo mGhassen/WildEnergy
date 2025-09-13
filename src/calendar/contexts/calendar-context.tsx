@@ -9,8 +9,6 @@ import type { TBadgeVariant, TVisibleHours, TWorkingHours } from "@/calendar/typ
 interface ICalendarContext {
   selectedDate: Date;
   setSelectedDate: (date: Date | undefined) => void;
-  selectedUserId: IUser["id"] | "all";
-  setSelectedUserId: (userId: IUser["id"] | "all") => void;
   selectedCategoryId: number | "all";
   setSelectedCategoryId: (categoryId: number | "all") => void;
   badgeVariant: TBadgeVariant;
@@ -22,6 +20,7 @@ interface ICalendarContext {
   setVisibleHours: Dispatch<SetStateAction<TVisibleHours>>;
   events: IEvent[];
   setLocalEvents: Dispatch<SetStateAction<IEvent[]>>;
+  registrations: any[];
 }
 
 const CalendarContext = createContext({} as ICalendarContext);
@@ -38,13 +37,12 @@ const WORKING_HOURS = {
 
 const VISIBLE_HOURS = { from: 7, to: 18 };
 
-export function CalendarProvider({ children, users, events }: { children: React.ReactNode; users: IUser[]; events: IEvent[] }) {
+export function CalendarProvider({ children, users, events, registrations = [] }: { children: React.ReactNode; users: IUser[]; events: IEvent[]; registrations?: any[] }) {
   const [badgeVariant, setBadgeVariant] = useState<TBadgeVariant>("colored");
   const [visibleHours, setVisibleHours] = useState<TVisibleHours>(VISIBLE_HOURS);
   const [workingHours, setWorkingHours] = useState<TWorkingHours>(WORKING_HOURS);
 
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [selectedUserId, setSelectedUserId] = useState<IUser["id"] | "all">("all");
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | "all">("all");
 
   // Use the events prop directly instead of local state
@@ -68,8 +66,6 @@ export function CalendarProvider({ children, users, events }: { children: React.
       value={{
         selectedDate,
         setSelectedDate: handleSelectDate,
-        selectedUserId,
-        setSelectedUserId,
         selectedCategoryId,
         setSelectedCategoryId,
         badgeVariant,
@@ -82,6 +78,7 @@ export function CalendarProvider({ children, users, events }: { children: React.
         // If you go to the refetch approach, you can remove the localEvents and pass the events directly
         events: localEvents,
         setLocalEvents,
+        registrations,
       }}
     >
       {children}
