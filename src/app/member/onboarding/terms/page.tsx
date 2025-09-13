@@ -164,11 +164,8 @@ export default function TermsOnboarding() {
     }
   };
 
-  // Determine what to render based on conditions
-  const shouldShowLoading = isLoading || !user || onboardingLoading || termsLoading;
-
   // Show loading while user data is being fetched
-  if (shouldShowLoading) {
+  if (isLoading || !user || onboardingLoading || termsLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center p-4">
         <div className="w-full max-w-2xl">
@@ -211,7 +208,11 @@ export default function TermsOnboarding() {
           title: "Félicitations !",
           description: "Votre inscription est maintenant complète. Bienvenue chez Wild Energy !",
         });
-        router.push("/member");
+        
+        // Add a small delay to ensure cache is updated before redirect
+        setTimeout(() => {
+          router.push("/member");
+        }, 500);
       },
       onError: (error: any) => {
         toast({

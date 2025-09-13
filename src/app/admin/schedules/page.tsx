@@ -468,7 +468,19 @@ export default function AdminSchedules() {
     if (createScheduleMutation.isSuccess) {
       setIsModalOpen(false);
       setEditingSchedule(null);
-      form.reset();
+      form.reset({
+        classId: 0,
+        trainerId: "",
+        dayOfWeek: 1,
+        startTime: "",
+        endTime: "",
+        maxParticipants: 10,
+        repetitionType: "once",
+        scheduleDate: new Date().toISOString().split('T')[0],
+        startDate: new Date().toISOString().split('T')[0],
+        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        isActive: true,
+      });
     }
   }, [createScheduleMutation.isSuccess, form]);
 
@@ -476,7 +488,19 @@ export default function AdminSchedules() {
     if (updateScheduleMutation.isSuccess) {
       setIsModalOpen(false);
       setEditingSchedule(null);
-      form.reset();
+      form.reset({
+        classId: 0,
+        trainerId: "",
+        dayOfWeek: 1,
+        startTime: "",
+        endTime: "",
+        maxParticipants: 10,
+        repetitionType: "once",
+        scheduleDate: new Date().toISOString().split('T')[0],
+        startDate: new Date().toISOString().split('T')[0],
+        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        isActive: true,
+      });
     }
   }, [updateScheduleMutation.isSuccess, form]);
 
@@ -785,7 +809,7 @@ export default function AdminSchedules() {
                     return (
                       <FormItem>
                         <FormLabel>Class</FormLabel>
-                        <Select onValueChange={value => field.onChange(Number(value))} value={String(field.value)}>
+                        <Select onValueChange={value => field.onChange(Number(value))} value={field.value ? String(field.value) : ""}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Select class" />
@@ -867,7 +891,7 @@ export default function AdminSchedules() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Trainer</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value || ""}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select trainer" />
@@ -892,7 +916,7 @@ export default function AdminSchedules() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Repetition Type</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value || ""}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select repetition" />
@@ -1029,7 +1053,7 @@ export default function AdminSchedules() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Day of Week</FormLabel>
-                        <Select onValueChange={value => field.onChange(Number(value))} value={String(field.value)}>
+                        <Select onValueChange={value => field.onChange(Number(value))} value={field.value ? String(field.value) : ""}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Select day of week" />

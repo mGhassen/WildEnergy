@@ -121,7 +121,7 @@ export default function AdminPayments() {
   // Map payments to include member and subscription/plan data
   const mappedPayments = Array.isArray(payments) && Array.isArray(mappedMembers) && Array.isArray(subscriptions) && Array.isArray(mappedPlans)
     ? payments.map((payment: any) => {
-        const member = mappedMembers.find((m: any) => m.id === payment.user_id) || null;
+        const member = mappedMembers.find((m: any) => m.id === payment.member_id) || null;
         const subscription = subscriptions.find((s: any) => s.id === payment.subscription_id) || null;
         const plan = subscription ? mappedPlans.find((p: any) => p.id === subscription.plan_id) || null : null;
         
@@ -143,7 +143,7 @@ export default function AdminPayments() {
           .includes(filters.searchTerm.toLowerCase());
 
       // Member filter
-      const memberMatch = filters.selectedMember === "all" || payment.user_id === filters.selectedMember;
+      const memberMatch = filters.selectedMember === "all" || payment.member_id === filters.selectedMember;
 
       // Plan filter
       const planMatch = filters.selectedPlan === "all" || payment.subscription?.plan?.id === parseInt(filters.selectedPlan);
@@ -196,7 +196,7 @@ export default function AdminPayments() {
       thisMonth: monthPayments.filter(p => p.payment_status === 'paid').reduce((sum, p) => sum + Number(p.amount), 0),
       totalPayments: filteredPayments.length,
       completedPayments: completedPayments.length,
-      uniqueMembers: new Set(filteredPayments.map(p => p.user_id)).size,
+      uniqueMembers: new Set(filteredPayments.map(p => p.member_id)).size,
       totalCredits,
     };
   }, [filteredPayments, mappedMembers]);

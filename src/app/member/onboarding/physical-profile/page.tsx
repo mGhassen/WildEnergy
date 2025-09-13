@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -137,7 +137,7 @@ export default function PhysicalProfileOnboarding() {
   // Get member ID from user
   const memberId = user?.member_id;
   
-  // Fetch onboarding data
+  // Fetch onboarding data - always call hooks at the top level
   const { data: onboarding } = useMemberOnboarding(memberId || '');
   const updateOnboardingMutation = useUpdateMemberOnboarding();
   
@@ -237,7 +237,7 @@ export default function PhysicalProfileOnboarding() {
       height: parseInt(formData.height),
       goal: formData.goal,
       activity_level: formData.activityLevel
-    } : null;
+    } : undefined;
 
     updateOnboardingMutation.mutate({ 
       memberId, 
@@ -267,12 +267,8 @@ export default function PhysicalProfileOnboarding() {
     }
   };
 
-  // Determine what to render based on conditions
-  const shouldShowLoading = isLoading;
-  const shouldShowError = !isLoading && !user;
-
   // Show loading while user data is being fetched
-  if (shouldShowLoading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center p-4">
         <div className="w-full max-w-2xl">
@@ -287,7 +283,7 @@ export default function PhysicalProfileOnboarding() {
   }
 
   // If no user after loading, show error
-  if (shouldShowError) {
+  if (!user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center p-4">
         <div className="text-center">
@@ -353,7 +349,7 @@ export default function PhysicalProfileOnboarding() {
                 Genre
               </Label>
               <RadioGroup
-                value={formData.gender}
+                value={formData.gender || ""}
                 onValueChange={(value) => handleInputChange("gender", value)}
                 className="grid grid-cols-2 md:grid-cols-4 gap-4"
               >
@@ -382,7 +378,7 @@ export default function PhysicalProfileOnboarding() {
                 <Input
                   id="weight"
                   type="number"
-                  value={formData.weight}
+                  value={formData.weight || ""}
                   onChange={(e) => handleInputChange("weight", e.target.value)}
                   placeholder="Ex: 65"
                   className="text-center text-lg"
@@ -400,7 +396,7 @@ export default function PhysicalProfileOnboarding() {
                 <Input
                   id="height"
                   type="number"
-                  value={formData.height}
+                  value={formData.height || ""}
                   onChange={(e) => handleInputChange("height", e.target.value)}
                   placeholder="Ex: 170"
                   className="text-center text-lg"

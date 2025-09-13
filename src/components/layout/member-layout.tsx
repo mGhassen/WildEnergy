@@ -83,7 +83,10 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
       termsLoading,
       onboardingStatus: onboardingStatus?.data,
       currentTerms,
-      pathname
+      pathname,
+      memberAcceptedVersionId: onboardingStatus?.data?.terms_version_id,
+      currentActiveTermsId: currentTerms?.id,
+      versionMismatch: onboardingStatus?.data?.terms_version_id !== currentTerms?.id
     });
   }, [isAuthenticated, needsTermsReAcceptance, termsLoading, onboardingStatus?.data, currentTerms, pathname]);
 
@@ -96,52 +99,61 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
     }
   };
 
-  // Redirect to onboarding if not completed
+  // Combined redirect logic to prevent race conditions
   useEffect(() => {
-    if (isAuthenticated && onboardingStatus && !isLoadingOnboarding && !pathname.startsWith("/member/onboarding")) {
-      console.log("Onboarding status data:", onboardingStatus);
+    if (!isAuthenticated || isLoadingOnboarding || termsLoading) {
+      return;
+    }
+
+    // Skip redirects if already on onboarding or terms pages
+    if (pathname.startsWith("/member/onboarding") || pathname.startsWith("/member/terms/re-accept")) {
+      return;
+    }
+
+    if (onboardingStatus?.success && onboardingStatus.data) {
+      const { onboardingCompleted, hasPersonalInfo, physicalProfileCompleted, termsAccepted, discoverySource } = onboardingStatus.data;
       
-      if (onboardingStatus.success && onboardingStatus.data) {
-        const { onboardingCompleted, hasPersonalInfo, physicalProfileCompleted, termsAccepted, discoverySource } = onboardingStatus.data;
-        
-        console.log("Onboarding details:", { onboardingCompleted, hasPersonalInfo, physicalProfileCompleted, termsAccepted });
-        
-        if (!onboardingCompleted) {
-          if (!hasPersonalInfo) {
-            console.log("Redirecting to personal info");
-            router.push("/member/onboarding/personal-info");
-          } else if (!physicalProfileCompleted) {
-            console.log("Redirecting to physical profile");
-            router.push("/member/onboarding/physical-profile");
-          } else if (!discoverySource) {
-            console.log("Redirecting to discovery");
-            router.push("/member/onboarding/discovery");
-          } else if (!termsAccepted) {
-            console.log("Redirecting to terms");
-            router.push("/member/onboarding/terms");
-          }
+      console.log("Onboarding details:", { onboardingCompleted, hasPersonalInfo, physicalProfileCompleted, termsAccepted });
+      
+      // First priority: Complete onboarding if not done
+      if (!onboardingCompleted) {
+        if (!hasPersonalInfo) {
+          console.log("Redirecting to personal info");
+          router.push("/member/onboarding/personal-info");
+        } else if (!physicalProfileCompleted) {
+          console.log("Redirecting to physical profile");
+          router.push("/member/onboarding/physical-profile");
+        } else if (!discoverySource) {
+          console.log("Redirecting to discovery");
+          router.push("/member/onboarding/discovery");
+        } else if (!termsAccepted) {
+          console.log("Redirecting to terms");
+          router.push("/member/onboarding/terms");
         }
+        return; // Exit early to prevent re-acceptance check
+      }
+
+      // Second priority: Check for terms re-acceptance ONLY after onboarding is complete
+      if (onboardingCompleted && needsTermsReAcceptance) {
+        console.log("Terms re-acceptance needed, redirecting...");
+        router.push("/member/terms/re-accept");
+        return;
       }
     }
-  }, [isAuthenticated, onboardingStatus?.success, onboardingStatus?.data?.onboardingCompleted, onboardingStatus?.data?.hasPersonalInfo, onboardingStatus?.data?.physicalProfileCompleted, onboardingStatus?.data?.termsAccepted, onboardingStatus?.data?.discoverySource, isLoadingOnboarding, pathname, router]);
-
-  // Redirect to terms re-acceptance if needed
-  useEffect(() => {
-    if (isAuthenticated && 
-        !termsLoading && 
-        needsTermsReAcceptance && 
-        !pathname.startsWith("/member/onboarding") &&
-        !pathname.startsWith("/member/terms/re-accept")) {
-      
-      console.log("Terms re-acceptance needed, redirecting...");
-      // Add a small delay to prevent race conditions with cache updates
-      const timeoutId = setTimeout(() => {
-        router.push("/member/terms/re-accept");
-      }, 100);
-      
-      return () => clearTimeout(timeoutId);
-    }
-  }, [isAuthenticated, termsLoading, needsTermsReAcceptance, pathname, router]);
+  }, [
+    isAuthenticated, 
+    isLoadingOnboarding, 
+    termsLoading,
+    onboardingStatus?.success, 
+    onboardingStatus?.data?.onboardingCompleted, 
+    onboardingStatus?.data?.hasPersonalInfo, 
+    onboardingStatus?.data?.physicalProfileCompleted, 
+    onboardingStatus?.data?.termsAccepted, 
+    onboardingStatus?.data?.discoverySource, 
+    needsTermsReAcceptance,
+    pathname, 
+    router
+  ]);
 
   // Portal switching logic
   const getCurrentPortal = () => {

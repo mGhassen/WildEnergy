@@ -106,7 +106,7 @@ export default function AdminCourses() {
   const activeMembers = members.filter((member: any) => {
     const sub = subscriptions.find(
       (s: any) =>
-        s.user_id === member.id &&
+        s.member_id === member.id &&
         s.status === 'active' &&
         new Date(s.end_date) > new Date() &&
         s.sessions_remaining > 0
@@ -114,7 +114,7 @@ export default function AdminCourses() {
     
     // Debug logging
     if (!sub) {
-      const memberSub = subscriptions.find((s: any) => s.user_id === member.id);
+      const memberSub = subscriptions.find((s: any) => s.member_id === member.id);
       console.log(`Member ${member.first_name} ${member.last_name} (${member.id}) filtered out:`, {
         hasSubscription: !!memberSub,
         subscriptionStatus: memberSub?.status,

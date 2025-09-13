@@ -223,7 +223,7 @@ export default function ScheduleCalendar({
   // Helper: does member have an active subscription?
   function hasActiveSubscription(memberId: string | number) {
     return subscriptions.some((sub: any) =>
-      sub.user_id === memberId &&
+      sub.member_id === memberId &&
       sub.status === 'active' &&
       new Date(sub.end_date) > new Date() &&
       sub.sessions_remaining > 0

@@ -138,10 +138,10 @@ export default function DiscoveryOnboarding() {
       return;
     }
 
-    // Discovery source is optional - use selected option or null
+    // Discovery source is optional - use selected option or undefined
     const discoverySource = selectedOption ? (formData.discoverySource === "other" 
       ? formData.customSource 
-      : formData.discoverySource) : null;
+      : formData.discoverySource) : undefined;
 
     // Update onboarding with discovery source
     updateOnboardingMutation.mutate({ 
@@ -169,12 +169,8 @@ export default function DiscoveryOnboarding() {
     }
   };
 
-  // Determine what to render based on conditions
-  const shouldShowLoading = isLoading;
-  const shouldShowError = !isLoading && !user;
-
   // Show loading while user data is being fetched
-  if (shouldShowLoading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center p-4">
         <div className="w-full max-w-2xl">
@@ -189,7 +185,7 @@ export default function DiscoveryOnboarding() {
   }
 
   // If no user after loading, show error
-  if (shouldShowError) {
+  if (!user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center p-4">
         <div className="text-center">
