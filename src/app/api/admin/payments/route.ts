@@ -108,6 +108,42 @@ export async function POST(req: NextRequest) {
       }, { status: 500 });
     }
     
+    // Handle credit deduction if payment type is credit
+    if (paymentData.payment_type === 'credit' && paymentData.payment_status === 'paid') {
+      try {
+        // Get current member credit
+        const { data: member, error: memberError } = await supabaseServer()
+          .from('members')
+          .select('credit')
+          .eq('id', paymentData.member_id)
+          .single();
+          
+        if (memberError) {
+          console.error('Error fetching member credit:', memberError);
+        } else if (member) {
+          const currentCredit = parseFloat(member.credit || '0');
+          const newCredit = Math.max(0, currentCredit - paymentData.amount);
+          
+          // Update member credit
+          const { error: creditUpdateError } = await supabaseServer()
+            .from('members')
+            .update({ 
+              credit: newCredit.toString(),
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', paymentData.member_id);
+            
+          if (creditUpdateError) {
+            console.error('Error updating member credit:', creditUpdateError);
+          } else {
+            console.log(`Deducted ${paymentData.amount} TND from member ${paymentData.member_id} credit. New balance: ${newCredit} TND`);
+          }
+        }
+      } catch (error) {
+        console.error('Error processing credit deduction:', error);
+      }
+    }
+
     // Check if this payment completes the subscription
     if (payment.subscription_id) {
       // Get the subscription and plan details
