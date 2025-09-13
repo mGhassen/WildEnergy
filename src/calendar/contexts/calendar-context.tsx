@@ -18,6 +18,8 @@ interface ICalendarContext {
   setWorkingHours: Dispatch<SetStateAction<TWorkingHours>>;
   visibleHours: TVisibleHours;
   setVisibleHours: Dispatch<SetStateAction<TVisibleHours>>;
+  hourHeight: number;
+  setHourHeight: Dispatch<SetStateAction<number>>;
   events: IEvent[];
   setLocalEvents: Dispatch<SetStateAction<IEvent[]>>;
   registrations: any[];
@@ -37,7 +39,8 @@ const WORKING_HOURS = {
   6: { from: 8, to: 12 },
 };
 
-const VISIBLE_HOURS = { from: 7, to: 18 };
+const VISIBLE_HOURS = { from: 0, to: 24 };
+const DEFAULT_HOUR_HEIGHT = 48;
 
 export function CalendarProvider({ 
   children, 
@@ -57,6 +60,21 @@ export function CalendarProvider({
   const [badgeVariant, setBadgeVariant] = useState<TBadgeVariant>("colored");
   const [visibleHours, setVisibleHours] = useState<TVisibleHours>(VISIBLE_HOURS);
   const [workingHours, setWorkingHours] = useState<TWorkingHours>(WORKING_HOURS);
+  
+  // Load hour height from localStorage or use default
+  const [hourHeight, setHourHeight] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('calendar-hour-height');
+      if (saved) {
+        const parsed = parseInt(saved, 10);
+        // Validate the saved value is within valid range
+        if (parsed >= 48 && parsed <= 200) {
+          return parsed;
+        }
+      }
+    }
+    return DEFAULT_HOUR_HEIGHT;
+  });
 
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | "all">("all");
@@ -71,6 +89,13 @@ export function CalendarProvider({
     console.log('Visible hours:', visibleHours);
     setLocalEvents(events);
   }, [events]);
+
+  // Save hour height to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('calendar-hour-height', hourHeight.toString());
+    }
+  }, [hourHeight]);
 
   const handleSelectDate = (date: Date | undefined) => {
     if (!date) return;
@@ -91,6 +116,8 @@ export function CalendarProvider({
         setVisibleHours,
         workingHours,
         setWorkingHours,
+        hourHeight,
+        setHourHeight,
         // If you go to the refetch approach, you can remove the localEvents and pass the events directly
         events: localEvents,
         setLocalEvents,

@@ -9,6 +9,7 @@ import { SingleCalendar } from "@/components/ui/single-calendar";
 import { EventBlock } from "@/calendar/components/week-and-day-view/event-block";
 import { CalendarTimeline } from "@/calendar/components/week-and-day-view/calendar-time-line";
 import { DayViewMultiDayEventsRow } from "@/calendar/components/week-and-day-view/day-view-multi-day-events-row";
+import { ResizableHourSidebar } from "@/calendar/components/week-and-day-view/resizable-hour-sidebar";
 
 import { cn } from "@/lib/utils";
 import { groupEvents, getEventBlockStyle, isWorkingHour, getCurrentEvents, getVisibleHours } from "@/calendar/helpers";
@@ -21,7 +22,7 @@ interface IProps {
 }
 
 export function CalendarDayView({ singleDayEvents, multiDayEvents }: IProps) {
-  const { selectedDate, setSelectedDate, users, visibleHours, workingHours } = useCalendar();
+  const { selectedDate, setSelectedDate, users, visibleHours, workingHours, hourHeight } = useCalendar();
 
   const { hours, earliestEventHour, latestEventHour } = getVisibleHours(visibleHours, singleDayEvents);
 
@@ -56,18 +57,10 @@ export function CalendarDayView({ singleDayEvents, multiDayEvents }: IProps) {
           </div>
         </div>
 
-        <ScrollArea className="h-[800px]" type="always">
+        <ScrollArea className="h-[800px] max-h-[800px]" type="always">
           <div className="flex">
             {/* Hours column */}
-            <div className="relative w-18">
-              {displayHours.map((hour, index) => (
-                <div key={hour} className="relative" style={{ height: "96px" }}>
-                  <div className="absolute -top-3 right-2 flex h-6 items-center">
-                    <span className="text-xs text-muted-foreground">{format(new Date().setHours(hour, 0, 0, 0), "hh a")}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <ResizableHourSidebar displayHours={displayHours} view="day" />
 
             {/* Day grid */}
             <div className="relative flex-1 border-l">
@@ -76,7 +69,7 @@ export function CalendarDayView({ singleDayEvents, multiDayEvents }: IProps) {
                   const isDisabled = !isWorkingHour(selectedDate, hour, workingHours);
 
                   return (
-                    <div key={hour} className={cn("relative", isDisabled && "bg-calendar-disabled-hour")} style={{ height: "96px" }}>
+                    <div key={hour} className={cn("relative", isDisabled && "bg-calendar-disabled-hour")} style={{ height: `${hourHeight}px` }}>
                       {index !== 0 && <div className="pointer-events-none absolute inset-x-0 top-0 border-b"></div>}
 
                       <div className="pointer-events-none absolute inset-x-0 top-1/2 border-b border-dashed"></div>
