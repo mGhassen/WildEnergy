@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: inviteError?.message || 'Failed to invite user' }, { status: 400 });
       }
       authUserId = inviteData.user.id;
-      accountStatus = 'active'; // Invited users start with 'active' status
+      // Keep the user-selected status, don't override to 'active'
     } else {
       // Create auth user with password
       const { data: authData, error: signUpError } = await supabaseServer().auth.signUp({ 
@@ -147,17 +147,8 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: memberError.message || 'Failed to create member record' }, { status: 500 });
       }
 
-      // Update account status to match member status
-      const accountStatus = mapMemberStatusToAccountStatus(memberStatus);
-      const { error: accountStatusError } = await supabaseServer()
-        .from('accounts')
-        .update({ status: accountStatus })
-        .eq('id', account.id);
-
-      if (accountStatusError) {
-        console.error('Failed to sync account status with member status:', accountStatusError);
-        // Don't fail the request, just log the error
-      }
+      // Note: Account status is already set correctly from user selection
+      // We don't override it with member status mapping during account creation
     }
     
     // Create trainer record if trainer data is provided
