@@ -7,6 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { EventBlock } from "@/calendar/components/week-and-day-view/event-block";
 import { CalendarTimeline } from "@/calendar/components/week-and-day-view/calendar-time-line";
 import { WeekViewMultiDayEventsRow } from "@/calendar/components/week-and-day-view/week-view-multi-day-events-row";
+import { ResizableHourSidebar } from "@/calendar/components/week-and-day-view/resizable-hour-sidebar";
 
 import { cn } from "@/lib/utils";
 import { groupEvents, getEventBlockStyle, isWorkingHour, getVisibleHours } from "@/calendar/helpers";
@@ -19,17 +20,9 @@ interface IProps {
 }
 
 export function CalendarWeekView({ singleDayEvents, multiDayEvents }: IProps) {
-  const { selectedDate, workingHours, visibleHours } = useCalendar();
+  const { selectedDate, workingHours, visibleHours, hourHeight } = useCalendar();
 
   const { hours, earliestEventHour, latestEventHour } = getVisibleHours(visibleHours, singleDayEvents);
-
-  console.log('=== WEEK VIEW HOURS DEBUG ===');
-  console.log('Visible hours:', visibleHours);
-  console.log('Single day events:', singleDayEvents);
-  console.log('Generated hours:', hours);
-  console.log('Earliest event hour:', earliestEventHour);
-  console.log('Latest event hour:', latestEventHour);
-  console.log('Hours length:', hours.length);
 
   // Fallback hours if none are generated - use default working hours
   const displayHours = hours.length > 0 ? hours : Array.from({ length: 12 }, (_, i) => i + 7);
@@ -64,18 +57,10 @@ export function CalendarWeekView({ singleDayEvents, multiDayEvents }: IProps) {
           </div>
         </div>
 
-        <ScrollArea className="h-[736px]" type="always">
+        <ScrollArea className="h-[736px] max-h-[736px]" type="always">
           <div className="flex overflow-hidden">
             {/* Hours column */}
-            <div className="relative w-18">
-              {displayHours.map((hour, index) => (
-                <div key={hour} className="relative" style={{ height: "96px" }}>
-                  <div className="absolute -top-3 right-2 flex h-6 items-center">
-                    {index !== 0 && <span className="text-xs text-muted-foreground">{format(new Date().setHours(hour, 0, 0, 0), "hh a")}</span>}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <ResizableHourSidebar displayHours={displayHours} view="week" />
 
             {/* Week grid */}
             <div className="relative flex-1 border-l">
@@ -95,7 +80,7 @@ export function CalendarWeekView({ singleDayEvents, multiDayEvents }: IProps) {
                         const isDisabled = !isWorkingHour(day, hour, workingHours);
 
                         return (
-                          <div key={hour} className={cn("relative", isDisabled && "bg-calendar-disabled-hour")} style={{ height: "96px" }}>
+                          <div key={hour} className={cn("relative", isDisabled && "bg-calendar-disabled-hour")} style={{ height: `${hourHeight}px` }}>
                             {index !== 0 && <div className="pointer-events-none absolute inset-x-0 top-0 border-b"></div>}
 
                             <div className="pointer-events-none absolute inset-x-0 top-1/2 border-b border-dashed"></div>
