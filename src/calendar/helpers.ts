@@ -18,11 +18,6 @@ import {
   eachDayOfInterval,
   startOfDay,
   differenceInDays,
-  endOfYear,
-  startOfYear,
-  subYears,
-  addYears,
-  isSameYear,
   isWithinInterval,
 } from "date-fns";
 
@@ -40,10 +35,6 @@ export function rangeText(view: TCalendarView, date: Date) {
     case "agenda":
       start = startOfMonth(date);
       end = endOfMonth(date);
-      break;
-    case "year":
-      start = startOfYear(date);
-      end = endOfYear(date);
       break;
     case "month":
       start = startOfMonth(date);
@@ -65,7 +56,6 @@ export function rangeText(view: TCalendarView, date: Date) {
 export function navigateDate(date: Date, view: TCalendarView, direction: "previous" | "next"): Date {
   const operations = {
     agenda: direction === "next" ? addMonths : subMonths,
-    year: direction === "next" ? addYears : subYears,
     month: direction === "next" ? addMonths : subMonths,
     week: direction === "next" ? addWeeks : subWeeks,
     day: direction === "next" ? addDays : subDays,
@@ -77,7 +67,6 @@ export function navigateDate(date: Date, view: TCalendarView, direction: "previo
 export function getEventsCount(events: IEvent[], date: Date, view: TCalendarView): number {
   const compareFns = {
     agenda: isSameMonth,
-    year: isSameYear,
     day: isSameDay,
     week: isSameWeek,
     month: isSameMonth,

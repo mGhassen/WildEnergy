@@ -14,6 +14,11 @@ export interface IEvent {
   color: TEventColor;
   description: string;
   user: IUser;
+  category?: {
+    id: number;
+    name: string;
+    color: string;
+  };
 }
 
 export interface ICalendarCell {

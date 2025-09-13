@@ -97,7 +97,12 @@ const convertCoursesToEvents = (courses: any[]) => {
         id: course.trainer?.id?.toString() || 'unknown',
         name: instructorName,
         picturePath: null
-      }
+      },
+      category: course.class?.category ? {
+        id: course.class.category.id,
+        name: course.class.category.name,
+        color: course.class.category.color
+      } : undefined
     };
   });
 };
