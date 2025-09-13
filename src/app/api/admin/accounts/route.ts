@@ -418,14 +418,27 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to unlink members from account' }, { status: 500 });
     }
     
-    // Manually delete the profile record (this will cascade to delete trainers)
-    const { error: deleteProfileError } = await supabaseServer()
-      .from('profiles')
-      .delete()
-      .eq('id', accountId);
+    // Check if there are any members still linked to this profile
+    const { data: linkedMembers, error: checkMembersError } = await supabaseServer()
+      .from('members')
+      .select('id')
+      .eq('profile_id', accountId)
+      .limit(1);
     
-    if (deleteProfileError) {
-      return NextResponse.json({ error: 'Failed to delete profile record' }, { status: 500 });
+    if (checkMembersError) {
+      return NextResponse.json({ error: 'Failed to check linked members' }, { status: 500 });
+    }
+    
+    // Only delete the profile if no members are linked to it
+    if (!linkedMembers || linkedMembers.length === 0) {
+      const { error: deleteProfileError } = await supabaseServer()
+        .from('profiles')
+        .delete()
+        .eq('id', accountId);
+      
+      if (deleteProfileError) {
+        return NextResponse.json({ error: 'Failed to delete profile record' }, { status: 500 });
+      }
     }
     
     // Manually delete the account record since there's no cascade from auth to accounts
