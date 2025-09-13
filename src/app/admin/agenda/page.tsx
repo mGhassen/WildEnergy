@@ -75,15 +75,34 @@ const convertCoursesToEvents = (courses: any[]) => {
     const startDate = new Date(`${course.courseDate}T${course.startTime}`);
     const endDate = new Date(`${course.courseDate}T${course.endTime}`);
 
-    // Generate color based on category
-    const getColor = (categoryName?: string): "blue" | "green" | "red" | "yellow" | "purple" | "orange" => {
-      const colors = ["blue", "green", "red", "yellow", "purple", "orange"];
-      if (!categoryName) return "blue";
-      const hash = categoryName.split('').reduce((a, b) => {
-        a = ((a << 5) - a) + b.charCodeAt(0);
-        return a & a;
-      }, 0);
-      return colors[Math.abs(hash) % colors.length] as "blue" | "green" | "red" | "yellow" | "purple" | "orange";
+    // Use category color or default to blue
+    const getColor = (category?: { color: string }): "blue" | "green" | "red" | "yellow" | "purple" | "orange" | "gray" => {
+      if (!category?.color) return "blue";
+      
+      // Map hex colors to calendar color names
+      const colorMap: Record<string, "blue" | "green" | "red" | "yellow" | "purple" | "orange" | "gray"> = {
+        '#FF0000': 'red',
+        '#00FF00': 'green', 
+        '#0000FF': 'blue',
+        '#FFFF00': 'yellow',
+        '#FF00FF': 'purple',
+        '#FFA500': 'orange',
+        '#808080': 'gray',
+        '#FFD700': 'yellow', // Gold
+        '#FF69B4': 'purple', // Hot pink
+        '#00CED1': 'blue',   // Dark turquoise
+        '#32CD32': 'green',  // Lime green
+        '#FF6347': 'orange', // Tomato
+        '#9370DB': 'purple', // Medium purple
+        '#20B2AA': 'green',  // Light sea green
+        '#FF1493': 'purple', // Deep pink
+        '#00BFFF': 'blue',   // Deep sky blue
+        '#FF8C00': 'orange', // Dark orange
+        '#DC143C': 'red',    // Crimson
+        '#8B008B': 'purple', // Dark magenta
+      };
+      
+      return colorMap[category.color.toUpperCase()] || 'blue';
     };
 
     return {
@@ -92,7 +111,7 @@ const convertCoursesToEvents = (courses: any[]) => {
       description: `${course.class?.description || ''}\n\nInstructor: ${instructorName}\nParticipants: ${course.currentParticipants}/${course.maxParticipants}\nStatus: ${course.status}`,
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString(),
-      color: getColor(course.class?.category?.name),
+      color: getColor(course.class?.category),
       user: {
         id: course.trainer?.id?.toString() || 'unknown',
         name: instructorName,
