@@ -94,7 +94,7 @@ export default function CreateAccountPage() {
             lastName: "",
             phone: "",
             isAdmin: false,
-            status: "active",
+            status: "pending",
             creationMethod: "invite",
             customPassword: "",
             createAsMember: true, // Default to creating as member
