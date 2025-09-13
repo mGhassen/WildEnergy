@@ -356,16 +356,16 @@ export default function AdminSchedules() {
   const schedules = ((rawSchedules as any[]) || []).map((sch: any) => ({
     ...sch,
     class: sch.classes || sch.class || {}, // Use classes from API response
-    classId: Number((sch.classes?.id ?? sch.class?.id ?? sch.class_id)),
-    trainerId: Number(sch.trainer?.account_id ?? sch.trainer_id),
-    startTime: sch.start_time,
-    endTime: sch.end_time,
+    classId: Number((sch.classes?.id ?? sch.class?.id ?? sch.class_id)) || 0,
+    trainerId: String(sch.trainer?.account_id ?? sch.trainer_id ?? ""),
+    startTime: sch.start_time || "",
+    endTime: sch.end_time || "",
     scheduleDate: sch.schedule_date ? sch.schedule_date.split('T')[0] : "",
     startDate: sch.start_date ? sch.start_date.split('T')[0] : "",
     endDate: sch.end_date ? sch.end_date.split('T')[0] : "",
-    dayOfWeek: Number(sch.day_of_week),
-    repetitionType: sch.repetition_type,
-    isActive: sch.is_active,
+    dayOfWeek: Number(sch.day_of_week) || 1,
+    repetitionType: sch.repetition_type || "once",
+    isActive: Boolean(sch.is_active),
     trainer: sch.trainer ? {
       id: sch.trainer.id,
       firstName: sch.trainer.firstName || sch.trainer.first_name || "",
@@ -579,15 +579,15 @@ export default function AdminSchedules() {
     form.reset({
       classId: schedule.classId || 0,
       trainerId: schedule.trainerId || "",
-      dayOfWeek: schedule.dayOfWeek,
-      startTime: schedule.startTime,
-      endTime: schedule.endTime,
+      dayOfWeek: schedule.dayOfWeek || 1,
+      startTime: schedule.startTime || "",
+      endTime: schedule.endTime || "",
       maxParticipants: schedule.maxParticipants || 10,
       repetitionType: schedule.repetitionType || "once",
       scheduleDate: schedule.scheduleDate || "",
       startDate: schedule.startDate || "",
       endDate: schedule.endDate || "",
-      isActive: schedule.isActive,
+      isActive: Boolean(schedule.isActive),
     });
     setIsModalOpen(true);
   };
