@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import { useMemberCourseRegistration } from "@/hooks/useMemberRegistration";
 import { useMemberRegistrations } from "@/hooks/useMemberRegistrations";
 import { useAuth } from "@/hooks/use-auth";
 import { apiFetch } from "@/lib/api";
+import { Registration } from "@/lib/api/registrations";
 import { CardSkeleton, ListSkeleton } from "@/components/skeletons";
 import { useToast } from "@/hooks/use-toast";
 import { Search, Clock, Users, Calendar, Star, Check, AlertTriangle, QrCode } from "lucide-react";
@@ -79,15 +80,6 @@ interface Subscription {
   }>;
 }
 
-interface Registration {
-  id: number;
-  course_id: number;
-  user_id: string;
-  status: string;
-  registration_date: string;
-  qr_code: string;
-  notes?: string;
-}
 
 // Convert courses to big-calendar events format
 const convertCoursesToEvents = (courses: any[], registrations: any[] = []) => {
@@ -156,7 +148,7 @@ const convertCoursesToEvents = (courses: any[], registrations: any[] = []) => {
   });
 };
 
-export default function MemberCourses() {
+function MemberCourses() {
   const searchParams = useSearchParams();
   const view = searchParams.get('view') || 'week';
   const [searchTerm, setSearchTerm] = useState("");
@@ -757,5 +749,13 @@ export default function MemberCourses() {
         isPending={cancelMutation.isPending}
       />
     </div>
+  );
+}
+
+export default function CoursesPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <MemberCourses />
+    </Suspense>
   );
 }

@@ -10,7 +10,7 @@ type TAvatarGroupRef = ElementRef<"div">;
 type TAvatarGroupProps = HTMLAttributes<HTMLDivElement> & { max?: number; spacing?: number };
 
 const AvatarGroup = forwardRef<TAvatarGroupRef, TAvatarGroupProps>(({ className, children, max = 1, spacing = 10, ...props }, ref) => {
-  const avatarItems = Children.toArray(children) as ReactElement[];
+  const avatarItems = Children.toArray(children) as ReactElement<any>[];
 
   const renderContent = useMemo(() => {
     return (
@@ -19,7 +19,7 @@ const AvatarGroup = forwardRef<TAvatarGroupRef, TAvatarGroupProps>(({ className,
           return cloneElement(child, {
             className: cn(child.props.className, "border-2 border-background"),
             style: { marginLeft: index === 0 ? 0 : -spacing, ...child.props.style },
-          });
+          } as any);
         })}
 
         {avatarItems.length > max && (

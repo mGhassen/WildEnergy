@@ -3,13 +3,16 @@ import { apiRequest } from '@/lib/queryClient';
 export interface Registration {
   id: number;
   user_id: string;
-  class_id: number;
+  class_id?: number;
   course_id?: number;
   subscription_id?: number;
   status: string;
-  registered_at: string;
-  created_at: string;
-  updated_at: string;
+  registered_at?: string;
+  registration_date?: string;
+  qr_code?: string;
+  notes?: string;
+  created_at?: string;
+  updated_at?: string;
   user?: {
     id: string;
     full_name: string;
@@ -24,6 +27,28 @@ export interface Registration {
   course?: {
     id: number;
     name: string;
+    course_date?: string;
+    start_time?: string;
+    end_time?: string;
+    class?: {
+      id: number;
+      name: string;
+      description?: string;
+      category?: {
+        id: number;
+        name: string;
+      };
+    };
+    trainer?: {
+      id: number;
+      account_id: string;
+      specialization?: string;
+      experience_years?: number;
+      user?: {
+        first_name: string;
+        last_name: string;
+      };
+    };
   };
 }
 
