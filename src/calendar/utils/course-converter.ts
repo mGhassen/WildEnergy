@@ -42,7 +42,12 @@ interface RegistrationData {
 
 // Color mapping for consistent color assignment
 const getEventColor = (category?: { color: string }): TEventColor => {
-  if (!category?.color) return "blue";
+  if (!category?.color) {
+    console.log('No category color found, using default blue');
+    return "blue";
+  }
+  
+  console.log('Category color:', category.color);
   
   const colorMap: Record<string, TEventColor> = {
     '#FF0000': 'red',
@@ -66,7 +71,9 @@ const getEventColor = (category?: { color: string }): TEventColor => {
     '#8B008B': 'purple', // Dark magenta
   };
   
-  return colorMap[category.color.toUpperCase()] || 'blue';
+  const mappedColor = colorMap[category.color.toUpperCase()] || 'blue';
+  console.log('Mapped color:', mappedColor);
+  return mappedColor;
 };
 
 // Convert courses to calendar events for member view
@@ -148,9 +155,15 @@ export const convertCoursesToMemberEvents = (
 export const convertCoursesToAdminEvents = (courses: any[]): IEvent[] => {
   if (!courses || !Array.isArray(courses)) return [];
 
+  console.log('Converting admin courses to events:', courses.length);
   const validEvents: IEvent[] = [];
   
   for (const course of courses) {
+    console.log('Processing course:', {
+      id: course.id,
+      class: course.class,
+      category: course.class?.category
+    });
     const instructorName = course.trainer?.specialization || 'Unknown Trainer';
 
     // Create start and end dates using correct field names (snake_case from API)

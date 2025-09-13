@@ -142,7 +142,12 @@ export default function AdminAgenda() {
       </div>
 
       {/* Big Calendar */}
-      <CalendarProvider users={users} events={events}>
+      <CalendarProvider 
+        users={users} 
+        events={events}
+        eventMode="navigation"
+        eventBasePath="/admin/courses"
+      >
         <div className="mx-auto flex max-w-screen-2xl flex-col gap-4">
           <ClientContainer view={view as any} />
         </div>
