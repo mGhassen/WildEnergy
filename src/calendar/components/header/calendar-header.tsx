@@ -18,7 +18,7 @@ interface IProps {
 
 export function CalendarHeader({ view, events }: IProps) {
   const pathname = usePathname();
-  const basePath = pathname.includes('/admin') ? '/admin/agenda' : '/member/agenda';
+  const basePath = pathname.includes('/admin') ? '/admin/agenda' : pathname;
   
   return (
     <div className="flex flex-col gap-4 border-b p-4 lg:flex-row lg:items-center lg:justify-between">
