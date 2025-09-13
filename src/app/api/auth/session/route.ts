@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
     const { data: userData, error: dbError } = await supabaseServer()
       .from('user_profiles')
       .select('*')
-      .eq('account_email', user.email)
+      .eq('email', user.email)
       .single();
 
     if (dbError) {
@@ -57,17 +57,10 @@ export async function GET(req: NextRequest) {
     console.log('User profile found, account status:', userData.account_status);
 
     // Status checks
-    if (userData.account_status === 'archived') {
-      return NextResponse.json({
-        success: false,
-        error: 'Account is pending approval. Please wait for admin approval.',
-        status: 'archived',
-      }, { status: 403 });
-    }
     if (userData.account_status === 'pending') {
       return NextResponse.json({
         success: false,
-        error: 'Account is pending confirmation. Please check your email for confirmation link.',
+        error: 'Account is pending approval. Please wait for admin approval.',
         status: 'pending',
       }, { status: 403 });
     }

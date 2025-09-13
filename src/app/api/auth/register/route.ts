@@ -34,13 +34,14 @@ export async function POST(req: NextRequest) {
     const authUserId = authData.user.id;
     
     try {
-      // 2. Create account record with 'archived' status (waiting for admin approval)
+      // 2. Create account record with 'pending' status (waiting for admin approval)
       const { error: accountError } = await supabaseServer()
         .from('accounts')
         .insert({
           id: authUserId,
+          auth_user_id: authUserId, // Link to auth user
           email,
-          status: 'archived', // Users with passwords start with 'archived' status
+          status: 'pending', // Users with passwords start with 'pending' status
           is_admin: false,
         });
 

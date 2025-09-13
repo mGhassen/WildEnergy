@@ -465,4 +465,251 @@ export async function PUT(
     console.error('Member update error:', error);
     return NextResponse.json({ error: 'Failed to update member' }, { status: 500 });
   }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await context.params;
+    
+    if (!id) {
+      return NextResponse.json({ error: 'Member ID is required' }, { status: 400 });
+    }
+
+    // Get the authorization header
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const token = authHeader.substring(7);
+    
+    // Verify the token
+    const { data: { user: authUser }, error: authError } = await supabaseServer().auth.getUser(token);
+    if (authError || !authUser) {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    }
+
+    // Check if the user is an admin using new user system
+    const { data: profile, error: profileError } = await supabaseServer()
+      .from('user_profiles')
+      .select('is_admin, accessible_portals')
+      .eq('email', authUser.email)
+      .single();
+
+    if (profileError) {
+      console.error('Profile lookup error:', profileError);
+      return NextResponse.json({ error: 'Failed to verify admin status' }, { status: 500 });
+    }
+
+    if (!profile || !profile.is_admin || !profile.accessible_portals?.includes('admin')) {
+      console.error('Admin check failed:', { 
+        isAdmin: profile?.is_admin, 
+        portals: profile?.accessible_portals,
+        userEmail: authUser.email 
+      });
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
+    }
+
+    // Get the member first to find the account_id and check for dependencies
+    let { data: member, error: memberError } = await supabaseServer()
+      .from('user_profiles')
+      .select('account_id, member_id')
+      .eq('member_id', id)
+      .single();
+
+    // If not found by member_id, try by account_id
+    if (memberError && memberError.code === 'PGRST116') {
+      const fallbackResult = await supabaseServer()
+        .from('user_profiles')
+        .select('account_id, member_id')
+        .eq('account_id', id)
+        .single();
+      
+      member = fallbackResult.data;
+      memberError = fallbackResult.error;
+    }
+
+    // If still not found, try to find unlinked member directly from members table
+    if (memberError && memberError.code === 'PGRST116') {
+      const { data: unlinkedMember, error: unlinkedError } = await supabaseServer()
+        .from('members')
+        .select('account_id, id')
+        .eq('id', id)
+        .single();
+
+      if (!unlinkedError && unlinkedMember) {
+        member = {
+          account_id: unlinkedMember.account_id,
+          member_id: unlinkedMember.id
+        };
+        memberError = null;
+      }
+    }
+
+    if (memberError || !member) {
+      console.error('Member lookup error:', memberError);
+      return NextResponse.json({ error: 'Member not found' }, { status: 404 });
+    }
+
+    const accountId = member.account_id;
+    const memberId = member.member_id;
+
+    // Check for dependencies before deletion
+    const { data: registrations } = await supabaseServer()
+      .from('class_registrations')
+      .select('id')
+      .eq('member_id', memberId)
+      .limit(1);
+
+    const { data: subscriptions } = await supabaseServer()
+      .from('subscriptions')
+      .select('id')
+      .eq('member_id', memberId)
+      .limit(1);
+
+    const { data: payments } = await supabaseServer()
+      .from('payments')
+      .select('id')
+      .eq('member_id', memberId)
+      .limit(1);
+
+    const { data: checkins } = await supabaseServer()
+      .from('checkins')
+      .select('id')
+      .eq('member_id', memberId)
+      .limit(1);
+
+    // Check if member has any dependencies
+    if (registrations && registrations.length > 0) {
+      return NextResponse.json({ 
+        error: 'Cannot delete member with existing registrations',
+        message: 'This member has class registrations. Please cancel all registrations first.',
+        details: {
+          registrationsCount: registrations.length,
+          subscriptionsCount: subscriptions?.length || 0,
+          paymentsCount: payments?.length || 0,
+          checkinsCount: checkins?.length || 0
+        }
+      }, { status: 400 });
+    }
+
+    if (subscriptions && subscriptions.length > 0) {
+      return NextResponse.json({ 
+        error: 'Cannot delete member with existing subscriptions',
+        message: 'This member has active subscriptions. Please cancel all subscriptions first.',
+        details: {
+          registrationsCount: registrations?.length || 0,
+          subscriptionsCount: subscriptions.length,
+          paymentsCount: payments?.length || 0,
+          checkinsCount: checkins?.length || 0
+        }
+      }, { status: 400 });
+    }
+
+    if (payments && payments.length > 0) {
+      return NextResponse.json({ 
+        error: 'Cannot delete member with existing payments',
+        message: 'This member has payment records. Please contact support to handle payment data.',
+        details: {
+          registrationsCount: registrations?.length || 0,
+          subscriptionsCount: subscriptions?.length || 0,
+          paymentsCount: payments.length,
+          checkinsCount: checkins?.length || 0
+        }
+      }, { status: 400 });
+    }
+
+    // If member is linked to an account, delete the auth user (this will cascade)
+    if (accountId) {
+      // Get the auth_user_id from the accounts table
+      const { data: account, error: accountError } = await supabaseServer()
+        .from('accounts')
+        .select('auth_user_id')
+        .eq('id', accountId)
+        .single();
+
+      if (accountError || !account) {
+        return NextResponse.json({ error: 'Account not found' }, { status: 404 });
+      }
+
+      if (account.auth_user_id) {
+        // Delete from Supabase Auth (this will cascade to account, which will cascade to member)
+        const { error: deleteAuthError } = await supabaseServer().auth.admin.deleteUser(account.auth_user_id);
+        if (deleteAuthError) {
+          console.error('Auth delete error:', deleteAuthError);
+          return NextResponse.json({ 
+            error: 'Failed to delete member from authentication', 
+            details: deleteAuthError.message 
+          }, { status: 500 });
+        }
+      } else {
+        // Account exists but has no auth user, just delete the account directly
+        const { error: deleteAccountError } = await supabaseServer()
+          .from('accounts')
+          .delete()
+          .eq('id', accountId);
+
+        if (deleteAccountError) {
+          console.error('Account delete error:', deleteAccountError);
+          return NextResponse.json({ 
+            error: 'Failed to delete account', 
+            details: deleteAccountError.message 
+          }, { status: 500 });
+        }
+      }
+    } else {
+      // For unlinked members, delete directly from members table
+      // First get the profile_id to delete the profile as well
+      const { data: memberData, error: memberDataError } = await supabaseServer()
+        .from('members')
+        .select('profile_id')
+        .eq('id', memberId)
+        .single();
+
+      if (memberDataError || !memberData) {
+        console.error('Error getting member profile_id:', memberDataError);
+        return NextResponse.json({ error: 'Failed to get member profile' }, { status: 500 });
+      }
+
+      // Delete the member record
+      const { error: deleteMemberError } = await supabaseServer()
+        .from('members')
+        .delete()
+        .eq('id', memberId);
+
+      if (deleteMemberError) {
+        console.error('Member delete error:', deleteMemberError);
+        return NextResponse.json({ 
+          error: 'Failed to delete member', 
+          details: deleteMemberError.message 
+        }, { status: 500 });
+      }
+
+      // Delete the profile record
+      const { error: deleteProfileError } = await supabaseServer()
+        .from('profiles')
+        .delete()
+        .eq('id', memberData.profile_id);
+
+      if (deleteProfileError) {
+        console.error('Profile delete error:', deleteProfileError);
+        // Don't fail the request since member is already deleted
+        console.warn('Member deleted but profile deletion failed:', deleteProfileError.message);
+      }
+    }
+
+    return NextResponse.json({ 
+      success: true, 
+      message: 'Member deleted successfully',
+      memberId: memberId,
+      wasLinked: !!accountId
+    });
+
+  } catch (error) {
+    console.error('Member delete error:', error);
+    return NextResponse.json({ error: 'Failed to delete member' }, { status: 500 });
+  }
 } 

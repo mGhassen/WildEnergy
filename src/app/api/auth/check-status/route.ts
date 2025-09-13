@@ -56,13 +56,11 @@ function getStatusMessage(status: string, authStatus: string): string {
   switch (status) {
     case 'active':
       return 'Account is active and ready to use.';
-    case 'archived':
-      return 'Account is pending admin approval. Please wait for approval.';
     case 'pending':
       if (authStatus === 'unconfirmed') {
         return 'Account is pending email confirmation. Please check your email and click the confirmation link.';
       }
-      return 'Account is pending invitation acceptance.';
+      return 'Account is pending admin approval. Please wait for approval.';
     case 'suspended':
       return 'Account has been suspended. Please contact support.';
     default:

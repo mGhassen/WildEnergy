@@ -24,7 +24,13 @@ async function throwIfResNotOk(res: Response) {
         message = text;
       }
     } catch {
-      // If text parsing fails, use the status message
+      // If text parsing failed, use the status message
+    }
+
+    // Don't throw error for redirect responses (403 with redirectTo)
+    if (res.status === 403 && errorData.redirectTo) {
+      // Return the response data instead of throwing
+      return { shouldThrow: false, data: errorData };
     }
 
     const error = new Error(message);
@@ -37,6 +43,8 @@ async function throwIfResNotOk(res: Response) {
     
     throw error;
   }
+  
+  return { shouldThrow: false };
 }
 
 export async function apiRequest(
@@ -62,7 +70,12 @@ export async function apiRequest(
     credentials: "include",
   });
 
-  await throwIfResNotOk(res);
+  const throwResult = await throwIfResNotOk(res);
+  
+  // If throwIfResNotOk returned data instead of throwing, return that data
+  if (throwResult && !throwResult.shouldThrow && throwResult.data) {
+    return throwResult.data;
+  }
   
   // Parse JSON response
   const contentType = res.headers.get("content-type");
