@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { accountApi, Account, CreateAccountData, UpdateAccountData } from '@/lib/api/accounts';
 import { useToast } from '@/hooks/use-toast';
+import { getAuthToken } from '@/lib/api';
 
 export function useAccounts() {
   return useQuery<Account[], Error>({
@@ -299,6 +300,90 @@ export function useResendAccountInvitation() {
     onError: (error: any) => {
       toast({
         title: 'Failed to resend invitation',
+        description: error.message || 'Please try again',
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
+// Create member from account
+export function useCreateMemberFromAccount() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ accountId, data }: { accountId: string; data: { memberNotes?: string; credit?: number; status?: string } }) => {
+      const response = await fetch(`/api/admin/accounts/${accountId}/create-member`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getAuthToken()}`,
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create member');
+      }
+
+      return response.json();
+    },
+    onSuccess: (data, { accountId }) => {
+      queryClient.invalidateQueries({ queryKey: ['account', accountId] });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['members'] });
+      toast({
+        title: 'Member created',
+        description: data.message || 'Member has been successfully created for this account.',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to create member',
+        description: error.message || 'Please try again',
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
+// Create trainer from account
+export function useCreateTrainerFromAccount() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ accountId, data }: { accountId: string; data: { specialization?: string; experienceYears?: number; bio?: string; certification?: string; hourlyRate?: number; status?: string } }) => {
+      const response = await fetch(`/api/admin/accounts/${accountId}/create-trainer`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getAuthToken()}`,
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create trainer');
+      }
+
+      return response.json();
+    },
+    onSuccess: (data, { accountId }) => {
+      queryClient.invalidateQueries({ queryKey: ['account', accountId] });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['trainers'] });
+      toast({
+        title: 'Trainer created',
+        description: data.message || 'Trainer has been successfully created for this account.',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to create trainer',
         description: error.message || 'Please try again',
         variant: 'destructive',
       });

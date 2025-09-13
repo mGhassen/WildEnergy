@@ -51,7 +51,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { useAccount, useUpdateAccount, useDeleteAccount, useLinkAccountTrainer, useUnlinkAccountTrainer, useSetAccountPassword, useApproveAccount, useDisapproveAccount } from "@/hooks/useAccounts";
+import { useAccount, useUpdateAccount, useDeleteAccount, useLinkAccountTrainer, useUnlinkAccountTrainer, useSetAccountPassword, useApproveAccount, useDisapproveAccount, useCreateMemberFromAccount, useCreateTrainerFromAccount } from "@/hooks/useAccounts";
 import { useTrainers } from "@/hooks/useTrainers";
 import { Account } from "@/lib/api/accounts";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -73,6 +73,8 @@ export default function AccountDetailPage() {
     const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
     const [selectedTrainerId, setSelectedTrainerId] = useState("");
     const [isUnlinkTrainerDialogOpen, setIsUnlinkTrainerDialogOpen] = useState(false);
+    const [isCreateMemberDialogOpen, setIsCreateMemberDialogOpen] = useState(false);
+    const [isCreateTrainerDialogOpen, setIsCreateTrainerDialogOpen] = useState(false);
     const { toast } = useToast();
 
     // Fetch account data
@@ -85,6 +87,8 @@ export default function AccountDetailPage() {
     const setPasswordMutation = useSetAccountPassword();
     const approveAccountMutation = useApproveAccount();
     const disapproveAccountMutation = useDisapproveAccount();
+    const createMemberMutation = useCreateMemberFromAccount();
+    const createTrainerMutation = useCreateTrainerFromAccount();
 
     // Filter trainers that are not already linked to accounts
     const availableTrainers = trainers.filter(trainer => 
@@ -104,6 +108,23 @@ export default function AccountDetailPage() {
         emergencyContactPhone: "",
         accountStatus: "",
         isAdmin: false,
+    });
+
+    // Create member form state
+    const [createMemberForm, setCreateMemberForm] = useState({
+        memberNotes: "",
+        credit: 0,
+        status: "active",
+    });
+
+    // Create trainer form state
+    const [createTrainerForm, setCreateTrainerForm] = useState({
+        specialization: "",
+        experienceYears: 0,
+        bio: "",
+        certification: "",
+        hourlyRate: 0,
+        status: "active",
     });
 
     // Populate edit form when account data changes
@@ -190,6 +211,43 @@ export default function AccountDetailPage() {
         unlinkTrainerMutation.mutate(accountId, {
             onSuccess: () => {
                 setIsUnlinkTrainerDialogOpen(false);
+            }
+        });
+    };
+
+    // Create member
+    const handleCreateMember = () => {
+        createMemberMutation.mutate({
+            accountId,
+            data: createMemberForm
+        }, {
+            onSuccess: () => {
+                setIsCreateMemberDialogOpen(false);
+                setCreateMemberForm({
+                    memberNotes: "",
+                    credit: 0,
+                    status: "active",
+                });
+            }
+        });
+    };
+
+    // Create trainer
+    const handleCreateTrainer = () => {
+        createTrainerMutation.mutate({
+            accountId,
+            data: createTrainerForm
+        }, {
+            onSuccess: () => {
+                setIsCreateTrainerDialogOpen(false);
+                setCreateTrainerForm({
+                    specialization: "",
+                    experienceYears: 0,
+                    bio: "",
+                    certification: "",
+                    hourlyRate: 0,
+                    status: "active",
+                });
             }
         });
     };
@@ -732,26 +790,43 @@ export default function AccountDetailPage() {
                                                 ? 'hover:bg-blue-50 cursor-pointer border-blue-200' 
                                                 : 'opacity-60'
                                         }`}
-                                        onClick={() => account.member_id && router.push('/admin/members')}
+                                        onClick={() => account.member_id && router.push(`/admin/members/${account.member_id}`)}
                                     >
                                         <div className="flex items-center space-x-3">
                                             <User className="w-5 h-5 text-blue-600" />
                                             <div>
                                                 <p className="font-medium">Member</p>
                                                 <p className="text-sm text-muted-foreground">
-                                                    {account.member_id ? 'Click to view members list' : 'Gym membership and class access'}
+                                                    {account.member_id ? 'Click to view member details' : 'Gym membership and class access'}
                                                 </p>
                                             </div>
                                         </div>
                                         <div className="flex items-center space-x-2">
-                                            <Badge variant={account.member_id ? "default" : "secondary"}>
-                                                {account.member_id ? "View Details" : "Not Assigned"}
+                                            {account.member_id ? (
+                                                <>
+                                                    <Badge variant="default">
+                                                        View Details
                                             </Badge>
-                                            {account.member_id && account.member_status && (
+                                                    {account.member_status && (
                                                 <Badge className={`${getStatusColor(account.member_status)} text-xs`}>
                                                     {getStatusIcon(account.member_status)}
                                                     <span className="ml-1 capitalize">{account.member_status}</span>
                                                 </Badge>
+                                                    )}
+                                                </>
+                                            ) : (
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setIsCreateMemberDialogOpen(true);
+                                                    }}
+                                                    className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                                                >
+                                                    <UserPlus className="w-4 h-4 mr-1" />
+                                                    Create Member
+                                                </Button>
                                             )}
                                         </div>
                                     </div>
@@ -763,26 +838,43 @@ export default function AccountDetailPage() {
                                                 ? 'hover:bg-green-50 cursor-pointer border-green-200' 
                                                 : 'opacity-60'
                                         }`}
-                                        onClick={() => account.trainer_id && router.push('/admin/trainers')}
+                                        onClick={() => account.trainer_id && router.push(`/admin/trainers/${account.trainer_id}`)}
                                     >
                                         <div className="flex items-center space-x-3">
                                             <GraduationCap className="w-5 h-5 text-green-600" />
                                             <div>
                                                 <p className="font-medium">Trainer</p>
                                                 <p className="text-sm text-muted-foreground">
-                                                    {account.trainer_id ? 'Click to view trainers list' : 'Class instruction and member training'}
+                                                    {account.trainer_id ? 'Click to view trainer details' : 'Class instruction and member training'}
                                                 </p>
                                             </div>
                                         </div>
                                         <div className="flex items-center space-x-2">
-                                            <Badge variant={account.trainer_id ? "default" : "secondary"}>
-                                                {account.trainer_id ? "View Details" : "Not Assigned"}
+                                            {account.trainer_id ? (
+                                                <>
+                                                    <Badge variant="default">
+                                                        View Details
                                             </Badge>
-                                            {account.trainer_id && account.trainer_status && (
+                                                    {account.trainer_status && (
                                                 <Badge className={`${getStatusColor(account.trainer_status)} text-xs`}>
                                                     {getStatusIcon(account.trainer_status)}
                                                     <span className="ml-1 capitalize">{account.trainer_status}</span>
                                                 </Badge>
+                                                    )}
+                                                </>
+                                            ) : (
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setIsCreateTrainerDialogOpen(true);
+                                                    }}
+                                                    className="text-green-600 border-green-300 hover:bg-green-50"
+                                                >
+                                                    <UserPlus className="w-4 h-4 mr-1" />
+                                                    Create Trainer
+                                                </Button>
                                             )}
                                         </div>
                                     </div>
@@ -992,6 +1084,195 @@ export default function AccountDetailPage() {
                 isPending={unlinkTrainerMutation.isPending}
                 variant="destructive"
             />
+
+            {/* Create Member Dialog */}
+            <Dialog open={isCreateMemberDialogOpen} onOpenChange={setIsCreateMemberDialogOpen}>
+                <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <UserPlus className="w-5 h-5" />
+                            Create Member
+                        </DialogTitle>
+                        <DialogDescription>
+                            Create a member record for this account. This will give the account access to member features.
+                        </DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="memberNotes">Member Notes</Label>
+                            <Textarea
+                                id="memberNotes"
+                                placeholder="Optional notes about this member..."
+                                value={createMemberForm.memberNotes}
+                                onChange={(e) => setCreateMemberForm({...createMemberForm, memberNotes: e.target.value})}
+                                rows={3}
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="credit">Credit</Label>
+                                <Input
+                                    id="credit"
+                                    type="number"
+                                    placeholder="0"
+                                    value={createMemberForm.credit}
+                                    onChange={(e) => setCreateMemberForm({...createMemberForm, credit: Number(e.target.value)})}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="memberStatus">Status</Label>
+                                <Select value={createMemberForm.status} onValueChange={(value) => setCreateMemberForm({...createMemberForm, status: value})}>
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="active">Active</SelectItem>
+                                        <SelectItem value="inactive">Inactive</SelectItem>
+                                        <SelectItem value="suspended">Suspended</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsCreateMemberDialogOpen(false)}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleCreateMember}
+                            disabled={createMemberMutation.isPending}
+                        >
+                            {createMemberMutation.isPending ? (
+                                <>
+                                    <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-background border-t-foreground" />
+                                    Creating...
+                                </>
+                            ) : (
+                                <>
+                                    <UserPlus className="w-4 h-4 mr-2" />
+                                    Create Member
+                                </>
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Create Trainer Dialog */}
+            <Dialog open={isCreateTrainerDialogOpen} onOpenChange={setIsCreateTrainerDialogOpen}>
+                <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <UserPlus className="w-5 h-5" />
+                            Create Trainer
+                        </DialogTitle>
+                        <DialogDescription>
+                            Create a trainer record for this account. This will give the account access to trainer features.
+                        </DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="specialization">Specialization</Label>
+                            <Input
+                                id="specialization"
+                                placeholder="e.g., Personal Training, Yoga, Pilates"
+                                value={createTrainerForm.specialization}
+                                onChange={(e) => setCreateTrainerForm({...createTrainerForm, specialization: e.target.value})}
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="experienceYears">Experience (Years)</Label>
+                                <Input
+                                    id="experienceYears"
+                                    type="number"
+                                    placeholder="0"
+                                    value={createTrainerForm.experienceYears}
+                                    onChange={(e) => setCreateTrainerForm({...createTrainerForm, experienceYears: Number(e.target.value)})}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="hourlyRate">Hourly Rate</Label>
+                                <Input
+                                    id="hourlyRate"
+                                    type="number"
+                                    placeholder="0"
+                                    value={createTrainerForm.hourlyRate}
+                                    onChange={(e) => setCreateTrainerForm({...createTrainerForm, hourlyRate: Number(e.target.value)})}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="certification">Certification</Label>
+                            <Input
+                                id="certification"
+                                placeholder="e.g., NASM, ACE, ACSM"
+                                value={createTrainerForm.certification}
+                                onChange={(e) => setCreateTrainerForm({...createTrainerForm, certification: e.target.value})}
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="bio">Bio</Label>
+                            <Textarea
+                                id="bio"
+                                placeholder="Brief description of the trainer's background and expertise..."
+                                value={createTrainerForm.bio}
+                                onChange={(e) => setCreateTrainerForm({...createTrainerForm, bio: e.target.value})}
+                                rows={3}
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="trainerStatus">Status</Label>
+                            <Select value={createTrainerForm.status} onValueChange={(value) => setCreateTrainerForm({...createTrainerForm, status: value})}>
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="active">Active</SelectItem>
+                                    <SelectItem value="inactive">Inactive</SelectItem>
+                                    <SelectItem value="suspended">Suspended</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsCreateTrainerDialogOpen(false)}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleCreateTrainer}
+                            disabled={createTrainerMutation.isPending}
+                        >
+                            {createTrainerMutation.isPending ? (
+                                <>
+                                    <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-background border-t-foreground" />
+                                    Creating...
+                                </>
+                            ) : (
+                                <>
+                                    <UserPlus className="w-4 h-4 mr-2" />
+                                    Create Trainer
+                                </>
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
