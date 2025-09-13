@@ -6,6 +6,7 @@ import { Clock, Text, User, QrCode } from "lucide-react";
 import { useState } from "react";
 
 import { useCalendar } from "@/calendar/contexts/calendar-context";
+import { Button } from "@/components/ui/button";
 
 import { EventDetailsDialog } from "@/calendar/components/dialogs/event-details-dialog";
 import QRGenerator from "@/components/qr-generator";

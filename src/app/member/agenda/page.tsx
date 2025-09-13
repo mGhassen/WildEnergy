@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from 'react';
+import React, { useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useMemberCourses } from '@/hooks/useMemberCourses';
 import { useMemberSubscriptions } from '@/hooks/useMemberSubscriptions';
@@ -108,7 +108,7 @@ const convertCoursesToEvents = (courses: any[], registrations: any[] = []) => {
   });
 };
 
-export default function MemberAgenda() {
+function MemberAgenda() {
   const searchParams = useSearchParams();
   const view = searchParams.get('view') || 'week';
   const { data: courses, isLoading: coursesLoading, error: coursesError } = useMemberCourses();
@@ -185,5 +185,13 @@ export default function MemberAgenda() {
         </div>
       </CalendarProvider>
     </div>
+  );
+}
+
+export default function AgendaPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <MemberAgenda />
+    </Suspense>
   );
 }
