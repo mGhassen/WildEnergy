@@ -94,7 +94,7 @@ export default function MemberSubscriptionDetails() {
 
   const subscriptionPayments = subscription ? getPaymentsForSubscription(subscription.id) : [];
   const totalPaid = subscriptionPayments
-    .filter((p) => p.status === 'paid' || p.payment_status === 'paid')
+    .filter((p) => p.payment_status === 'paid')
     .reduce((sum, p) => sum + (p.amount || 0), 0);
   const planPrice = Number(subscription?.plan?.price) || 0;
   const remainingAmount = Math.max(0, planPrice - totalPaid);

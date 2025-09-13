@@ -217,7 +217,7 @@ export default function AdminSubscriptions() {
   const getRemainingAmount = (subscription: Subscription) => {
     const subscriptionPayments = getPaymentsForSubscription(subscription.id);
     const totalPaid = subscriptionPayments
-      .filter(p => p.status === 'paid')
+      .filter(p => p.payment_status === 'paid')
       .reduce((sum, p) => sum + (p.amount || 0), 0);
     
     // Plan price is a number from the API
@@ -399,7 +399,7 @@ export default function AdminSubscriptions() {
       subscription_id: payment.subscription_id,
       amount: payment.amount,
       payment_method: (payment.payment_method as "cash" | "card" | "bank_transfer" | "check" | "other") || "cash",
-      status: (payment.status as "pending" | "paid" | "failed" | "cancelled") || "paid",
+      status: (payment.payment_status as "pending" | "paid" | "failed" | "cancelled") || "paid",
       payment_date: payment.payment_date.split('T')[0],
       payment_reference: payment.payment_reference || '',
     });
@@ -599,7 +599,7 @@ export default function AdminSubscriptions() {
                       (() => {
                         const subscriptionPayments = getPaymentsForSubscription(subscription.id);
                         const totalPaid = subscriptionPayments
-                          .filter((p) => p.status === 'paid')
+                          .filter((p) => p.payment_status === 'paid')
                           .reduce((sum, p) => sum + (p.amount || 0), 0);
                         const planPrice = subscription.plan?.price || 0;
                         let status = 'Not Paid';
@@ -649,7 +649,7 @@ export default function AdminSubscriptions() {
                           {(() => {
                             const subscriptionPayments = getPaymentsForSubscription(subscription.id);
                             const totalPaid = subscriptionPayments
-                              .filter((p) => p.status === 'paid')
+                              .filter((p) => p.payment_status === 'paid')
                               .reduce((sum, p) => sum + (p.amount || 0), 0);
                             const planPrice = subscription.plan?.price || 0;
                             if (totalPaid >= planPrice) {

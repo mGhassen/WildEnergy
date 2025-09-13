@@ -6,8 +6,9 @@ export interface Payment {
   member_id: string;
   amount: number;
   payment_method: string;
+  method?: string; // Alternative field name for payment_method
   payment_reference?: string;
-  status: string;
+  payment_status: string;
   payment_date: string;
   created_at: string;
   updated_at: string;

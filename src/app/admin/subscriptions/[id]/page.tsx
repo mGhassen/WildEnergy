@@ -168,7 +168,7 @@ export default function AdminSubscriptionDetails() {
 
   const subscriptionPayments = subscription ? getPaymentsForSubscription(subscription.id) : [];
   const totalPaid = subscriptionPayments
-    .filter((p) => p.status === 'paid' || p.payment_status === 'paid')
+    .filter((p) => p.payment_status === 'paid')
     .reduce((sum, p) => sum + (p.amount || 0), 0);
   const planPrice = Number(subscription?.plan?.price) || 0;
   const remainingAmount = Math.max(0, planPrice - totalPaid);
@@ -267,7 +267,7 @@ export default function AdminSubscriptionDetails() {
       subscription_id: payment.subscription_id,
       amount: payment.amount,
       payment_method: (payment.payment_method as "cash" | "card" | "bank_transfer" | "check" | "other") || "cash",
-      status: (payment.status as "pending" | "paid" | "failed" | "cancelled") || "paid",
+      status: (payment.payment_status as "pending" | "paid" | "failed" | "cancelled") || "paid",
       payment_date: payment.payment_date.split('T')[0],
       payment_reference: payment.payment_reference || '',
     });
@@ -352,12 +352,7 @@ export default function AdminSubscriptionDetails() {
           </Button>
           <div>
             <h1 className="text-3xl font-bold text-foreground">Subscription Details</h1>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-muted-foreground">{subscription.member?.firstName} {subscription.member?.lastName} - {subscription.plan?.name}</span>
-              <Badge variant={subscription.status === 'active' ? 'default' : subscription.status === 'pending' ? 'secondary' : 'destructive'}>
-                {subscription.status === 'active' ? 'Active' : subscription.status === 'pending' ? 'Pending' : subscription.status === 'expired' ? 'Expired' : subscription.status === 'cancelled' ? 'Cancelled' : subscription.status}
-              </Badge>
-            </div>
+            
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -441,8 +436,8 @@ export default function AdminSubscriptionDetails() {
                     <div key={payment.id} className="border rounded-lg p-3 text-xs flex flex-col md:flex-row md:items-center md:justify-between bg-muted/30 shadow-sm gap-2">
                       <div className="flex flex-col md:flex-row md:items-center gap-2 flex-1">
                         <span className="font-semibold text-base text-primary">{formatPrice(payment.amount)}</span>
-                        <Badge variant={(payment.status === 'paid' || payment.payment_status === 'paid') ? 'default' : (payment.status === 'pending' || payment.payment_status === 'pending') ? 'secondary' : 'destructive'} className="ml-2 text-xs capitalize">
-                          {payment.status || payment.payment_status}
+                        <Badge variant={payment.payment_status === 'paid' ? 'default' : payment.payment_status === 'pending' ? 'secondary' : 'destructive'} className="ml-2 text-xs capitalize">
+                          {payment.payment_status}
                         </Badge>
                         <span className="text-muted-foreground ml-2">{payment.payment_method || payment.method} • {formatDate(payment.payment_date)}</span>
                         {payment.payment_reference && (
