@@ -124,9 +124,8 @@ export default function AdminSubscriptions() {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
   const [editingSubscription, setEditingSubscription] = useState<Subscription | null>(null);
-  const [, setSelectedSubscriptionForPayment] = useState<Subscription | null>(null);
+  const [selectedSubscriptionForPayment, setSelectedSubscriptionForPayment] = useState<Subscription | null>(null);
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [isDeletePaymentModalOpen, setIsDeletePaymentModalOpen] = useState(false);
   const [paymentToDelete, setPaymentToDelete] = useState<Payment | null>(null);
@@ -251,7 +250,6 @@ export default function AdminSubscriptions() {
   // 1. Fix openPaymentModal to accept an optional override for payment_method and amount
   const openPaymentModal = (subscription: Subscription, override?: { amount?: number; payment_type?: PaymentFormData['payment_method'] }) => {
     setSelectedSubscriptionForPayment(subscription);
-    setSelectedSubscription(subscription); // Set selectedSubscription for the credit button
     
     // Calculate remaining amount if not overridden
     const remainingAmount = override?.amount ?? getRemainingAmount(subscription);
@@ -353,7 +351,7 @@ export default function AdminSubscriptions() {
     console.log('Payment form data:', data);
     const paymentPayload = {
       subscription_id: data.subscription_id,
-      member_id: selectedSubscription?.member_id || '',
+      member_id: selectedSubscriptionForPayment?.member_id || '',
       amount: data.amount,
       payment_method: data.payment_method,
       status: data.status,
@@ -1147,12 +1145,12 @@ export default function AdminSubscriptions() {
                   variant="secondary"
                   size="sm"
                   onClick={() => {
-                    if (!selectedSubscription) return;
-                    const remainingAmount = getRemainingAmount(selectedSubscription);
+                    if (!selectedSubscriptionForPayment) return;
+                    const remainingAmount = getRemainingAmount(selectedSubscriptionForPayment);
                     const useAmount = Math.min(Number(member.credit) || 0, remainingAmount);
-                    openPaymentModal(selectedSubscription, { amount: useAmount, payment_type: 'credit' });
+                    openPaymentModal(selectedSubscriptionForPayment, { amount: useAmount, payment_type: 'credit' });
                   }}
-                  disabled={!member.credit || Number(member.credit) <= 0 || !selectedSubscription}
+                  disabled={!member.credit || Number(member.credit) <= 0 || !selectedSubscriptionForPayment}
                 >
                   Use Credit
                 </Button>
