@@ -21,7 +21,10 @@ export default function CalendarView({ schedules, registrations, onBookClass, su
     const week = [];
     const startOfWeek = new Date(date);
     const day = startOfWeek.getDay();
-    const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
+    // Calculate days to subtract to get to Monday (1)
+    // If day is 0 (Sunday), subtract 6 to get to Monday
+    // Otherwise, subtract (day - 1) to get to Monday
+    const diff = startOfWeek.getDate() - (day === 0 ? 6 : day - 1);
     startOfWeek.setDate(diff);
 
     for (let i = 0; i < 7; i++) {
@@ -108,11 +111,14 @@ export default function CalendarView({ schedules, registrations, onBookClass, su
       {/* Weekly Schedule View */}
       <div className="space-y-4">
         {weekDates.map((date, dayIndex) => {
-          const daySchedules = getSchedulesForDay(dayIndex === 6 ? 0 : dayIndex + 1, date);
+          // Map Monday-first week indices to JavaScript day numbers
+          // dayIndex 0 (Monday) → day 1, dayIndex 6 (Sunday) → day 0
+          const dayOfWeek = dayIndex === 6 ? 0 : dayIndex + 1;
+          const daySchedules = getSchedulesForDay(dayOfWeek, date);
           const isToday = date.toDateString() === new Date().toDateString();
           
           return (
-            <div key={dayIndex} className="space-y-3">
+            <div key={dayIndex} className={`space-y-3 ${isToday ? 'border-2 border-primary rounded-lg p-1' : ''}`}>
               {/* Day Header */}
               <div className={`flex items-center gap-3 p-4 rounded-lg border ${
                 isToday ? 'bg-primary/5 border-primary/20' : 'bg-muted/30'

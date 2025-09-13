@@ -138,8 +138,8 @@ export function AgendaEventCard({ event, eventCurrentDay, eventTotalDays }: IPro
 
       {/* QR Code Modal - Same as browse courses */}
       {selectedQR && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setSelectedQR(null)}>
-          <div className="bg-white dark:bg-gray-900 p-6 rounded-lg shadow-xl max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setSelectedQR(null)}>
+          <div className="bg-background border border-border p-6 rounded-lg shadow-xl max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-semibold mb-4 text-center text-foreground">Your QR Code</h3>
             <div className="mb-4">
               <div className="w-[300px] h-[300px] bg-muted rounded flex items-center justify-center">
@@ -154,6 +154,12 @@ export function AgendaEventCard({ event, eventCurrentDay, eventTotalDays }: IPro
               <p className="text-sm text-muted-foreground mb-2">QR Code Value:</p>
               <p className="text-xs font-mono bg-muted p-2 rounded break-all text-foreground">{selectedQR}</p>
             </div>
+            <Button
+              onClick={() => setSelectedQR(null)}
+              className="mt-4 w-full"
+            >
+              Close
+            </Button>
           </div>
         </div>
       )}

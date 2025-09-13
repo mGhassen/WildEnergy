@@ -725,22 +725,22 @@ export default function MemberCourses() {
 
       {/* QR Code Modal */}
       {selectedQR && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setSelectedQR(null)}>
-          <div className="bg-white p-6 rounded-lg shadow-xl max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold mb-4 text-center">Your QR Code</h3>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setSelectedQR(null)}>
+          <div className="bg-background border border-border p-6 rounded-lg shadow-xl max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold mb-4 text-center text-foreground">Your QR Code</h3>
             <div className="mb-4">
               <QRGenerator value={selectedQR} size={300} />
             </div>
             <div className="text-center">
               <p className="text-sm text-muted-foreground mb-2">QR Code Value:</p>
-              <p className="text-xs font-mono bg-muted p-2 rounded break-all">{selectedQR}</p>
+              <p className="text-xs font-mono bg-muted p-2 rounded break-all text-foreground">{selectedQR}</p>
             </div>
-            <button
+            <Button
               onClick={() => setSelectedQR(null)}
-              className="mt-4 w-full bg-primary text-white py-2 px-4 rounded hover:bg-primary/90"
+              className="mt-4 w-full"
             >
               Close
-            </button>
+            </Button>
           </div>
         </div>
       )}

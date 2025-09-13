@@ -41,8 +41,8 @@ export function rangeText(view: TCalendarView, date: Date) {
       end = endOfMonth(date);
       break;
     case "week":
-      start = startOfWeek(date);
-      end = endOfWeek(date);
+      start = startOfWeek(date, { weekStartsOn: 1 });
+      end = endOfWeek(date, { weekStartsOn: 1 });
       break;
     case "day":
       return format(date, formatString);
@@ -68,7 +68,7 @@ export function getEventsCount(events: IEvent[], date: Date, view: TCalendarView
   const compareFns = {
     agenda: isSameMonth,
     day: isSameDay,
-    week: isSameWeek,
+    week: (date1: Date, date2: Date) => isSameWeek(date1, date2, { weekStartsOn: 1 }),
     month: isSameMonth,
   };
 
@@ -162,7 +162,11 @@ export function getCalendarCells(selectedDate: Date): ICalendarCell[] {
   const currentMonth = selectedDate.getMonth();
 
   const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
-  const getFirstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
+  const getFirstDayOfMonth = (year: number, month: number) => {
+    const day = new Date(year, month, 1).getDay();
+    // Convert Sunday (0) to 6, Monday (1) to 0, etc. to make Monday the first day
+    return day === 0 ? 6 : day - 1;
+  };
 
   const daysInMonth = getDaysInMonth(currentYear, currentMonth);
   const firstDayOfMonth = getFirstDayOfMonth(currentYear, currentMonth);

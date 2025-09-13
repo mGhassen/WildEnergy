@@ -22,6 +22,7 @@ export function DateNavigator({ view, events }: IProps) {
 
   const month = formatDate(selectedDate, "MMMM");
   const year = selectedDate.getFullYear();
+  const isToday = selectedDate.toDateString() === new Date().toDateString();
 
   const eventCount = useMemo(() => getEventsCount(events, selectedDate, view), [events, selectedDate, view]);
 
@@ -31,7 +32,7 @@ export function DateNavigator({ view, events }: IProps) {
   return (
     <div className="space-y-0.5">
       <div className="flex items-center gap-2">
-        <span className="text-lg font-semibold">
+        <span className={`text-lg font-semibold ${isToday ? 'text-primary' : 'text-foreground'}`}>
           {month} {year}
         </span>
         <Badge variant="outline" className="px-1.5">
@@ -44,7 +45,9 @@ export function DateNavigator({ view, events }: IProps) {
           <ChevronLeft />
         </Button>
 
-        <p className="text-sm text-muted-foreground">{rangeText(view, selectedDate)}</p>
+        <p className={`text-sm ${isToday ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
+          {rangeText(view, selectedDate)}
+        </p>
 
         <Button variant="outline" className="size-6.5 px-0 [&_svg]:size-4.5" onClick={handleNext}>
           <ChevronRight />

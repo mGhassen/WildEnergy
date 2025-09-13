@@ -1,12 +1,14 @@
-import { format } from "date-fns";
+import { format, isSameDay, isSameWeek } from "date-fns";
 import { useEffect, useState } from "react";
 
 interface IProps {
   firstVisibleHour: number;
   lastVisibleHour: number;
+  selectedDate: Date;
+  view: 'day' | 'week';
 }
 
-export function CalendarTimeline({ firstVisibleHour, lastVisibleHour }: IProps) {
+export function CalendarTimeline({ firstVisibleHour, lastVisibleHour, selectedDate, view }: IProps) {
   const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
@@ -30,6 +32,18 @@ export function CalendarTimeline({ firstVisibleHour, lastVisibleHour }: IProps) 
 
   const currentHour = currentTime.getHours();
   if (currentHour < firstVisibleHour || currentHour >= lastVisibleHour) return null;
+
+  // Only show timeline for today
+  const isToday = isSameDay(currentTime, new Date());
+  
+  // For day view: only show if selected date is today
+  // For week view: only show if today is in the selected week
+  const shouldShowTimeline = isToday && (
+    view === 'day' ? isSameDay(selectedDate, currentTime) : 
+    isSameWeek(selectedDate, currentTime, { weekStartsOn: 1 })
+  );
+
+  if (!shouldShowTimeline) return null;
 
   return (
     <div className="pointer-events-none absolute inset-x-0 z-50 border-t border-primary" style={{ top: `${getCurrentTimePosition()}%` }}>

@@ -109,7 +109,7 @@ export function CalendarDayView({ singleDayEvents, multiDayEvents }: IProps) {
                 )}
               </div>
 
-              <CalendarTimeline firstVisibleHour={earliestEventHour} lastVisibleHour={latestEventHour} />
+              <CalendarTimeline firstVisibleHour={earliestEventHour} lastVisibleHour={latestEventHour} selectedDate={selectedDate} view="day" />
             </div>
           </div>
         </ScrollArea>

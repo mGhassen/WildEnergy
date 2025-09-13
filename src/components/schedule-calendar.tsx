@@ -151,6 +151,7 @@ export default function ScheduleCalendar({
 }: ScheduleCalendarProps) {
   const [internalCurrentDate, setInternalCurrentDate] = useState(new Date());
   const currentDate = externalCurrentDate || internalCurrentDate;
+  const isToday = currentDate.toDateString() === new Date().toDateString();
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
   const [isRegistrationModalOpen, setIsRegistrationModalOpen] = useState(false);
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
@@ -338,7 +339,12 @@ export default function ScheduleCalendar({
       return formatDate(currentDate);
     } else if (viewMode === "weekly") {
       const startOfWeek = new Date(currentDate);
-      startOfWeek.setDate(currentDate.getDate() - currentDate.getDay());
+      const day = startOfWeek.getDay();
+      // Calculate days to subtract to get to Monday (1)
+      // If day is 0 (Sunday), subtract 6 to get to Monday
+      // Otherwise, subtract (day - 1) to get to Monday
+      const diff = startOfWeek.getDate() - (day === 0 ? 6 : day - 1);
+      startOfWeek.setDate(diff);
       const endOfWeek = new Date(startOfWeek);
       endOfWeek.setDate(startOfWeek.getDate() + 6);
       return `${formatDate(startOfWeek)} - ${formatDate(endOfWeek)}`;
@@ -388,7 +394,12 @@ export default function ScheduleCalendar({
     if (viewMode === "weekly") {
       // For weekly view, show schedules for any day in the current week
       const startOfWeek = new Date(currentDate);
-      startOfWeek.setDate(currentDate.getDate() - currentDate.getDay());
+      const day = startOfWeek.getDay();
+      // Calculate days to subtract to get to Monday (1)
+      // If day is 0 (Sunday), subtract 6 to get to Monday
+      // Otherwise, subtract (day - 1) to get to Monday
+      const diff = startOfWeek.getDate() - (day === 0 ? 6 : day - 1);
+      startOfWeek.setDate(diff);
       startOfWeek.setHours(0, 0, 0, 0);
       
       const endOfWeek = new Date(startOfWeek);
@@ -490,7 +501,12 @@ export default function ScheduleCalendar({
 
   const renderWeeklyView = () => {
     const startOfWeek = new Date(currentDate);
-    startOfWeek.setDate(currentDate.getDate() - currentDate.getDay());
+    const day = startOfWeek.getDay();
+    // Calculate days to subtract to get to Monday (1)
+    // If day is 0 (Sunday), subtract 6 to get to Monday
+    // Otherwise, subtract (day - 1) to get to Monday
+    const diff = startOfWeek.getDate() - (day === 0 ? 6 : day - 1);
+    startOfWeek.setDate(diff);
     
     const weekDays = [];
     for (let i = 0; i < 7; i++) {
@@ -503,6 +519,7 @@ export default function ScheduleCalendar({
       <div className="grid grid-cols-7 gap-2">
         {weekDays.map((day, dayIndex) => {
           const dayStr = day.toISOString().split('T')[0];
+          const isToday = day.toDateString() === new Date().toDateString();
           const daySchedules = schedules.filter(schedule => {
             // For schedules without scheduleDate, use dayOfWeek
             if (!schedule.scheduleDate) {
@@ -516,9 +533,9 @@ export default function ScheduleCalendar({
           const dayNumber = day.getDate();
           
           return (
-            <Card key={dayIndex} className="h-96 flex flex-col">
+            <Card key={dayIndex} className={`h-96 flex flex-col ${isToday ? 'border-2 border-primary' : ''}`}>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">
+                <CardTitle className={`text-sm font-medium ${isToday ? 'text-primary' : ''}`}>
                   {dayName} {dayNumber}
                 </CardTitle>
               </CardHeader>
@@ -559,7 +576,12 @@ export default function ScheduleCalendar({
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
     const startDate = new Date(firstDay);
-    startDate.setDate(startDate.getDate() - firstDay.getDay());
+    const day = firstDay.getDay();
+    // Calculate days to subtract to get to Monday (1)
+    // If day is 0 (Sunday), subtract 6 to get to Monday
+    // Otherwise, subtract (day - 1) to get to Monday
+    const diff = startDate.getDate() - (day === 0 ? 6 : day - 1);
+    startDate.setDate(diff);
     
     const weeks = [];
     const currentWeekDate = new Date(startDate);
@@ -667,7 +689,7 @@ export default function ScheduleCalendar({
       {/* Calendar Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <h2 className="text-2xl font-bold">{getDateRange()}</h2>
+          <h2 className={`text-2xl font-bold ${isToday ? 'text-primary' : 'text-foreground'}`}>{getDateRange()}</h2>
           <div className="flex items-center gap-1">
             <Button variant="outline" size="icon" onClick={() => navigateDate(-1)}>
               <ChevronLeft className="w-4 h-4" />
