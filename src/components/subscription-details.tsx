@@ -367,13 +367,21 @@ export function SubscriptionDetails({
                           </div>
 
                           {/* Categories */}
-                          {planGroup.categories && planGroup.categories.length > 0 && (
+                          {planGroup.groups.category_groups && planGroup.groups.category_groups.length > 0 && (
                             <div className="space-y-2">
                               <div className="text-sm font-medium text-muted-foreground">Categories</div>
                               <div className="flex flex-wrap gap-2">
-                                {planGroup.categories.map((category: any) => (
-                                  <Badge key={category.id} variant="outline" className="text-xs">
-                                    {category.name}
+                                {planGroup.groups.category_groups.map((categoryGroup: any) => (
+                                  <Badge 
+                                    key={categoryGroup.categories.id} 
+                                    variant="outline" 
+                                    className="text-xs border-0 text-white"
+                                    style={{ 
+                                      backgroundColor: categoryGroup.categories.color,
+                                      color: 'white'
+                                    }}
+                                  >
+                                    {categoryGroup.categories.name}
                                   </Badge>
                                 ))}
                               </div>

@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
       .from('courses')
       .select(`
         *,
-        class:classes(id, name, description, category_id, duration, max_capacity, difficulty, category:categories(id, name)),
+        class:classes(id, name, description, category_id, duration, max_capacity, difficulty, category:categories(id, name, color)),
         trainer:trainers(
           id,
           account_id,
