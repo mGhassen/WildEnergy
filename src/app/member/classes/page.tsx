@@ -58,7 +58,18 @@ interface Course {
 interface Subscription {
   id: number;
   status: string;
-  sessions_remaining: number;
+  subscription_group_sessions?: Array<{
+    id: number;
+    group_id: number;
+    sessions_remaining: number;
+    total_sessions: number;
+    groups: {
+      id: number;
+      name: string;
+      description: string;
+      color: string;
+    };
+  }>;
 }
 
 interface Registration {
@@ -104,7 +115,10 @@ export default function MemberClasses() {
   
   const subscriptions = Array.isArray(subscriptionsRaw) ? subscriptionsRaw : [];
   const activeSubscriptions = subscriptions.filter((sub: Subscription) => sub.status === 'active');
-  const totalSessionsRemaining = activeSubscriptions.reduce((sum: number, sub: Subscription) => sum + (sub.sessions_remaining || 0), 0);
+  const totalSessionsRemaining = activeSubscriptions.reduce((sum: number, sub: Subscription) => {
+    const groupSessions = sub.subscription_group_sessions || [];
+    return sum + groupSessions.reduce((groupSum: number, group: any) => groupSum + (group.sessions_remaining || 0), 0);
+  }, 0);
 
   const { data: registrations = [] } = useQuery({
     queryKey: ["/api/registrations"],
@@ -165,6 +179,41 @@ export default function MemberClasses() {
     const cutoffTime = new Date(courseDateTime.getTime() - (24 * 60 * 60 * 1000));
     const now = new Date();
     return now >= cutoffTime && now < courseDateTime;
+  };
+
+  // Helper function to check if member can register for a course based on subscription group sessions
+  const canRegisterForCourse = (course: Course) => {
+    if (!activeSubscriptions.length) return false;
+    
+    // Get the category ID for this course
+    const categoryId = course.class?.category?.id;
+    if (!categoryId) return false;
+    
+    // Check if any active subscription has remaining sessions for this course's group
+    for (const subscription of activeSubscriptions) {
+      const groupSessions = subscription.subscription_group_sessions || [];
+      
+      // Find group sessions that include this category
+      for (const groupSession of groupSessions) {
+        if (groupSession.sessions_remaining > 0) {
+          // Check if this group includes the course's category
+          // We need to check the plan's groups to see if any group contains this category
+          const planGroups = subscription.plan?.plan_groups || [];
+          for (const planGroup of planGroups) {
+            if (planGroup.group_id === groupSession.group_id) {
+              // Check if this group has the course's category
+              const groupCategories = planGroup.groups?.category_groups || [];
+              const hasCategory = groupCategories.some((cat: any) => cat.categories?.id === categoryId);
+              if (hasCategory) {
+                return true;
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    return false;
   };
 
   const handleCancel = (course: Course) => {
@@ -239,7 +288,7 @@ export default function MemberClasses() {
       return;
     }
     
-    if (!activeSubscriptions.length || totalSessionsRemaining <= 0) {
+    if (!canRegisterForCourse(course)) {
       toast({
         title: "No sessions remaining",
         description: "Please renew your subscription to book courses.",
@@ -480,11 +529,11 @@ export default function MemberClasses() {
                     <Button
                       className="w-full text-base py-2"
                       onClick={() => handleRegister(course.id, course.scheduleId)}
-                      disabled={registerMutation.isPending || !activeSubscriptions.length || totalSessionsRemaining <= 0 || isCourseInPast(course)}
+                      disabled={registerMutation.isPending || !canRegisterForCourse(course) || isCourseInPast(course)}
                       variant={isCourseInPast(course) ? "secondary" : "default"}
                     >
                       {isCourseInPast(course) ? "Course Ended" :
-                       !activeSubscriptions.length || totalSessionsRemaining <= 0 ? "No Sessions Left" :
+                       !canRegisterForCourse(course) ? "No Sessions Left" :
                        registerMutation.isPending ? "Registering..." : "Register for Course"}
                     </Button>
                   )}

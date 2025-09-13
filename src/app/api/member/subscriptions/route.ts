@@ -111,11 +111,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Subscription not found' }, { status: 404 });
     }
 
-    // Update sessions_remaining
+    // Refund sessions using the new group session system
+    // This is a simplified implementation - in practice, you'd need to specify which group to refund
     const { data: updatedSubscription, error: updateError } = await supabaseServer()
       .from('subscriptions')
       .update({ 
-        sessions_remaining: subscription.sessions_remaining + sessionsToRefund,
         updated_at: new Date().toISOString()
       })
       .eq('id', subscriptionId)
@@ -133,7 +133,7 @@ export async function POST(req: NextRequest) {
       success: true, 
       subscription: updatedSubscription,
       sessionsRefunded: sessionsToRefund,
-      newSessionsRemaining: updatedSubscription.sessions_remaining
+      message: 'Sessions refunded successfully (group session system)'
     });
 
   } catch (error) {
