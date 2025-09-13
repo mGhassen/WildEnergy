@@ -944,7 +944,7 @@ export default function ScheduleDetailsPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Trainer</FormLabel>
-                    <Select onValueChange={value => field.onChange(value)} value={field.value}>
+                    <Select onValueChange={value => field.onChange(value)} value={field.value ?? ""}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select trainer" />
@@ -1059,7 +1059,7 @@ export default function ScheduleDetailsPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Repetition</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value ?? ""}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select repetition type" />
