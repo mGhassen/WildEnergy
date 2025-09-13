@@ -153,27 +153,10 @@ export async function POST(req: NextRequest) {
     const authUserId = authUser.user.id;
     
     try {
-      // Create account record
-      const { data: account, error: accountError } = await supabaseServer()
-        .from('accounts')
-        .insert({
-          id: authUserId,
-          email,
-          status: 'active',
-          is_admin: false,
-        })
-        .select()
-        .single();
-      
-      if (accountError) {
-        throw new Error(`Failed to create account: ${accountError.message}`);
-      }
-      
-      // Create profile record
+      // Create profile record first
       const { data: profile, error: profileError } = await supabaseServer()
         .from('profiles')
         .insert({
-          id: authUserId,
           first_name: firstName,
           last_name: lastName,
           phone: phone || null,
@@ -185,12 +168,29 @@ export async function POST(req: NextRequest) {
         throw new Error(`Failed to create profile: ${profileError.message}`);
       }
       
+      // Create account record
+      const { data: account, error: accountError } = await supabaseServer()
+        .from('accounts')
+        .insert({
+          id: authUserId,
+          email,
+          status: 'active',
+          is_admin: false,
+          profile_id: profile.id, // Link to profile via foreign key
+        })
+        .select()
+        .single();
+      
+      if (accountError) {
+        throw new Error(`Failed to create account: ${accountError.message}`);
+      }
+      
       // Create trainer record
       const { data: trainer, error: trainerError } = await supabaseServer()
         .from('trainers')
         .insert({
           account_id: authUserId,
-          profile_id: authUserId,
+          profile_id: profile.id, // Use profile.id instead of authUserId
           specialization: specialization || '',
           experience_years: experienceYears || 0,
           bio: bio || '',

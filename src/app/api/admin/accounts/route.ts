@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { mapMemberStatusToAccountStatus } from '@/lib/status-mapping';
 
 export async function GET(req: NextRequest) {
   try {
@@ -95,27 +96,10 @@ export async function POST(req: NextRequest) {
       accountStatus = status || 'active'; // Use provided status or default to active for password users
     }
     
-    // Create account record
-    const { data: account, error: accountError } = await supabaseServer()
-      .from('accounts')
-      .insert([{
-        auth_user_id: authUserId, // Link to auth user
-        email,
-        status: accountStatus,
-        is_admin: !!isAdmin,
-      }])
-      .select()
-      .single();
-    
-    if (accountError) {
-      return NextResponse.json({ error: accountError.message || 'Failed to create account' }, { status: 500 });
-    }
-    
-    // Create profile record
+    // Create profile record first
     const { data: profile, error: profileError } = await supabaseServer()
       .from('profiles')
       .insert([{
-        id: account.id, // Profile ID matches account ID
         first_name: firstName,
         last_name: lastName,
         phone: phone || null,
@@ -127,22 +111,52 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: profileError.message || 'Failed to create profile' }, { status: 500 });
     }
     
+    // Create account record with foreign key to profile
+    const { data: account, error: accountError } = await supabaseServer()
+      .from('accounts')
+      .insert([{
+        auth_user_id: authUserId, // Link to auth user
+        email,
+        status: accountStatus,
+        is_admin: !!isAdmin,
+        profile_id: profile.id, // Link to profile via foreign key
+      }])
+      .select()
+      .single();
+    
+    if (accountError) {
+      return NextResponse.json({ error: accountError.message || 'Failed to create account' }, { status: 500 });
+    }
+    
     // Create member record if member data is provided
     if (memberData) {
+      const memberStatus = memberData.status || 'active';
       const { data: member, error: memberError } = await supabaseServer()
         .from('members')
         .insert([{
           account_id: account.id,
-          profile_id: account.id,
+          profile_id: profile.id, // Use profile.id instead of account.id
           member_notes: memberData.memberNotes || '',
           credit: memberData.credit || 0,
-          status: 'active',
+          status: memberStatus,
         }])
         .select()
         .single();
       
       if (memberError) {
         return NextResponse.json({ error: memberError.message || 'Failed to create member record' }, { status: 500 });
+      }
+
+      // Update account status to match member status
+      const accountStatus = mapMemberStatusToAccountStatus(memberStatus);
+      const { error: accountStatusError } = await supabaseServer()
+        .from('accounts')
+        .update({ status: accountStatus })
+        .eq('id', account.id);
+
+      if (accountStatusError) {
+        console.error('Failed to sync account status with member status:', accountStatusError);
+        // Don't fail the request, just log the error
       }
     }
     
@@ -152,7 +166,7 @@ export async function POST(req: NextRequest) {
         .from('trainers')
         .insert([{
           account_id: account.id,
-          profile_id: account.id,
+          profile_id: profile.id, // Use profile.id instead of account.id
           specialization: trainerData.specialization || '',
           experience_years: trainerData.experienceYears || 0,
           bio: trainerData.bio || '',
@@ -278,9 +292,24 @@ export async function PUT(req: NextRequest) {
           if (memberError) {
             return NextResponse.json({ error: 'Failed to update member' }, { status: 500 });
           }
+
+          // Sync account status if member status was updated
+          if (memberData.status !== undefined) {
+            const accountStatus = mapMemberStatusToAccountStatus(memberData.status);
+            const { error: accountStatusError } = await supabaseServer()
+              .from('accounts')
+              .update({ status: accountStatus })
+              .eq('id', accountId);
+
+            if (accountStatusError) {
+              console.error('Failed to sync account status with member status:', accountStatusError);
+              // Don't fail the request, just log the error
+            }
+          }
         }
       } else {
         // Create new member record
+        const memberStatus = memberData.status || 'active';
         const { error: memberError } = await supabaseServer()
           .from('members')
           .insert([{
@@ -288,11 +317,23 @@ export async function PUT(req: NextRequest) {
             profile_id: accountId,
             member_notes: memberData.memberNotes || '',
             credit: memberData.credit || 0,
-            status: memberData.status || 'active',
+            status: memberStatus,
           }]);
         
         if (memberError) {
           return NextResponse.json({ error: 'Failed to create member record' }, { status: 500 });
+        }
+
+        // Update account status to match member status
+        const accountStatus = mapMemberStatusToAccountStatus(memberStatus);
+        const { error: accountStatusError } = await supabaseServer()
+          .from('accounts')
+          .update({ status: accountStatus })
+          .eq('id', accountId);
+
+        if (accountStatusError) {
+          console.error('Failed to sync account status with member status:', accountStatusError);
+          // Don't fail the request, just log the error
         }
       }
     }

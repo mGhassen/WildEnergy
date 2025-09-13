@@ -259,23 +259,10 @@ async function seedData() {
     ];
 
       for (const trainer of trainerData) {
-        // Create account
-        const { data: account, error: accountError } = await supabase
-          .from('accounts')
-          .insert({
-            email: trainer.email,
-            status: 'active'
-          })
-          .select()
-          .single();
-        
-        if (accountError) throw accountError;
-        
-        // Create profile
+        // Create profile first
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .insert({
-            id: account.id,
             first_name: trainer.firstName,
             last_name: trainer.lastName,
             phone: trainer.phone,
@@ -287,12 +274,25 @@ async function seedData() {
         
         if (profileError) throw profileError;
         
+        // Create account with foreign key to profile
+        const { data: account, error: accountError } = await supabase
+          .from('accounts')
+          .insert({
+            email: trainer.email,
+            status: 'active',
+            profile_id: profile.id
+          })
+          .select()
+          .single();
+        
+        if (accountError) throw accountError;
+        
         // Create trainer record
         const { data: trainerRecord, error: trainerError } = await supabase
           .from('trainers')
           .insert({
             account_id: account.id,
-            profile_id: account.id,
+            profile_id: profile.id, // Use profile.id instead of account.id
             specialization: trainer.specialization,
             experience_years: trainer.experience_years,
             bio: trainer.bio,

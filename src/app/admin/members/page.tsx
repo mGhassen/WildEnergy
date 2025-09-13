@@ -468,7 +468,10 @@ export default function MembersPage() {
             <Download className="w-4 h-4 mr-2" />
             Export
           </Button>
-          <Button size="sm">
+          <Button 
+            size="sm"
+            onClick={() => window.location.href = '/admin/accounts/create'}
+          >
             <UserPlus className="w-4 h-4 mr-2" />
             Add Member
           </Button>

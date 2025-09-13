@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { z } from 'zod';
 
 export async function GET(
   request: NextRequest,
@@ -74,6 +75,20 @@ export async function GET(
   }
 }
 
+// Validation schema for profile update
+const updateProfileSchema = z.object({
+  first_name: z.string().min(1, 'First name is required').optional(),
+  last_name: z.string().min(1, 'Last name is required').optional(),
+  phone: z.string().optional(),
+  profile_email: z.string().email('Invalid email format').optional(),
+  date_of_birth: z.string().optional(),
+  address: z.string().optional(),
+  profession: z.string().optional(),
+  emergency_contact_name: z.string().optional(),
+  emergency_contact_phone: z.string().optional(),
+  profile_image_url: z.string().url('Invalid URL format').optional(),
+});
+
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ memberId: string }> }
@@ -84,6 +99,16 @@ export async function PUT(
 
     if (!memberId) {
       return NextResponse.json({ error: 'Member ID is required' }, { status: 400 });
+    }
+
+    // Validate request body
+    const validationResult = updateProfileSchema.safeParse(body);
+    if (!validationResult.success) {
+      console.error('Profile update validation error:', validationResult.error);
+      return NextResponse.json({ 
+        error: 'Validation failed', 
+        details: validationResult.error.issues 
+      }, { status: 400 });
     }
 
     // Check authentication
@@ -111,28 +136,38 @@ export async function PUT(
     }
 
     // Update profile data
+    const updateData = {
+      first_name: body.first_name,
+      last_name: body.last_name,
+      phone: body.phone === "" ? null : body.phone,
+      profile_email: body.profile_email === "" ? null : body.profile_email,
+      date_of_birth: body.date_of_birth === "" ? null : body.date_of_birth,
+      address: body.address === "" ? null : body.address,
+      profession: body.profession === "" ? null : body.profession,
+      emergency_contact_name: body.emergency_contact_name === "" ? null : body.emergency_contact_name,
+      emergency_contact_phone: body.emergency_contact_phone === "" ? null : body.emergency_contact_phone,
+      profile_image_url: body.profile_image_url === "" ? null : body.profile_image_url,
+      updated_at: new Date().toISOString()
+    };
+
+    console.log('Updating profile with data:', updateData);
+    console.log('Profile ID:', member.profile_id);
+
     const { data: profile, error } = await supabaseServer()
       .from('profiles')
-      .update({
-        first_name: body.first_name,
-        last_name: body.last_name,
-        phone: body.phone,
-        profile_email: body.profile_email,
-        date_of_birth: body.date_of_birth,
-        address: body.address,
-        profession: body.profession,
-        emergency_contact_name: body.emergency_contact_name,
-        emergency_contact_phone: body.emergency_contact_phone,
-        profile_image_url: body.profile_image_url,
-        updated_at: new Date().toISOString()
-      })
+      .update(updateData)
       .eq('id', member.profile_id)
       .select()
       .single();
 
     if (error) {
       console.error('Error updating profile:', error);
-      return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
+      console.error('Profile ID:', member.profile_id);
+      console.error('Update data:', updateData);
+      return NextResponse.json({ 
+        error: 'Failed to update profile', 
+        details: error.message 
+      }, { status: 500 });
     }
 
     return NextResponse.json(profile);

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { mapMemberStatusToAccountStatus } from '@/lib/status-mapping';
 
 export async function GET(
   request: NextRequest,
@@ -375,10 +376,22 @@ export async function PUT(
       const profileUpdates: Record<string, unknown> = {};
       if (body.firstName !== undefined) profileUpdates.first_name = body.firstName;
       if (body.lastName !== undefined) profileUpdates.last_name = body.lastName;
-      if (body.phone !== undefined) profileUpdates.phone = body.phone;
-      if (body.dateOfBirth !== undefined) profileUpdates.date_of_birth = body.dateOfBirth;
-      if (body.address !== undefined) profileUpdates.address = body.address;
-      if (body.profession !== undefined) profileUpdates.profession = body.profession;
+      if (body.phone !== undefined) {
+        // Convert empty string to null for optional fields
+        profileUpdates.phone = body.phone === "" ? null : body.phone;
+      }
+      if (body.profileEmail !== undefined) {
+        profileUpdates.profile_email = body.profileEmail === "" ? null : body.profileEmail;
+      }
+      if (body.dateOfBirth !== undefined) {
+        profileUpdates.date_of_birth = body.dateOfBirth === "" ? null : body.dateOfBirth;
+      }
+      if (body.address !== undefined) {
+        profileUpdates.address = body.address === "" ? null : body.address;
+      }
+      if (body.profession !== undefined) {
+        profileUpdates.profession = body.profession === "" ? null : body.profession;
+      }
 
       if (Object.keys(profileUpdates).length > 0) {
         const { error: profileError } = await supabaseServer()
@@ -388,7 +401,12 @@ export async function PUT(
 
         if (profileError) {
           console.error('Profile update error:', profileError);
-          return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
+          console.error('Profile update data:', profileUpdates);
+          console.error('Account ID:', accountId);
+          return NextResponse.json({ 
+            error: 'Failed to update profile', 
+            details: profileError.message 
+          }, { status: 500 });
         }
       }
     } else {
@@ -396,10 +414,22 @@ export async function PUT(
       const profileUpdates: Record<string, unknown> = {};
       if (body.firstName !== undefined) profileUpdates.first_name = body.firstName;
       if (body.lastName !== undefined) profileUpdates.last_name = body.lastName;
-      if (body.phone !== undefined) profileUpdates.phone = body.phone;
-      if (body.dateOfBirth !== undefined) profileUpdates.date_of_birth = body.dateOfBirth;
-      if (body.address !== undefined) profileUpdates.address = body.address;
-      if (body.profession !== undefined) profileUpdates.profession = body.profession;
+      if (body.phone !== undefined) {
+        // Convert empty string to null for optional fields
+        profileUpdates.phone = body.phone === "" ? null : body.phone;
+      }
+      if (body.profileEmail !== undefined) {
+        profileUpdates.profile_email = body.profileEmail === "" ? null : body.profileEmail;
+      }
+      if (body.dateOfBirth !== undefined) {
+        profileUpdates.date_of_birth = body.dateOfBirth === "" ? null : body.dateOfBirth;
+      }
+      if (body.address !== undefined) {
+        profileUpdates.address = body.address === "" ? null : body.address;
+      }
+      if (body.profession !== undefined) {
+        profileUpdates.profession = body.profession === "" ? null : body.profession;
+      }
 
       if (Object.keys(profileUpdates).length > 0) {
         // Get the profile_id from the member record
@@ -421,7 +451,12 @@ export async function PUT(
 
         if (profileError) {
           console.error('Profile update error:', profileError);
-          return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
+          console.error('Profile update data:', profileUpdates);
+          console.error('Profile ID:', memberData.profile_id);
+          return NextResponse.json({ 
+            error: 'Failed to update profile', 
+            details: profileError.message 
+          }, { status: 500 });
         }
       }
     }
@@ -431,7 +466,10 @@ export async function PUT(
 
     // Update member data
     const memberUpdates: Record<string, unknown> = {};
-    if (body.memberNotes !== undefined) memberUpdates.member_notes = body.memberNotes;
+    if (body.memberNotes !== undefined) {
+      // Convert empty string to null for optional fields
+      memberUpdates.member_notes = body.memberNotes === "" ? null : body.memberNotes;
+    }
     if (body.status !== undefined) memberUpdates.status = body.status;
     if (body.credit !== undefined) memberUpdates.credit = body.credit;
 
@@ -456,6 +494,20 @@ export async function PUT(
       if (memberError) {
         console.error('Member update error:', memberError);
         return NextResponse.json({ error: 'Failed to update member' }, { status: 500 });
+      }
+
+      // Sync account status if member status was updated and member has an account
+      if (body.status !== undefined && accountId) {
+        const accountStatus = mapMemberStatusToAccountStatus(body.status);
+        const { error: accountStatusError } = await supabaseServer()
+          .from('accounts')
+          .update({ status: accountStatus })
+          .eq('id', accountId);
+
+        if (accountStatusError) {
+          console.error('Failed to sync account status with member status:', accountStatusError);
+          // Don't fail the request, just log the error
+        }
       }
     }
 
