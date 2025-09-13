@@ -205,6 +205,12 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
       description: "Find and book classes"
     },
     { 
+      name: "My Schedule", 
+      href: "/member/agenda", 
+      icon: Calendar,
+      description: "View your class schedule"
+    },
+    { 
       name: "My Subscriptions", 
       href: "/member/subscriptions", 
       icon: CreditCard,
