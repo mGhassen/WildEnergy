@@ -275,7 +275,7 @@ export default function MemberSubscriptions() {
               .map((sub) => {
                 const subscriptionPayments = getPaymentsForSub(sub.id);
                 const totalPaid = subscriptionPayments
-                  .filter(p => p.status === 'paid')
+                  .filter(p => p.payment_status === 'paid')
                   .reduce((sum, p) => sum + (p.amount || 0), 0);
                 const planPrice = Number(sub.plan?.price) || 0;
                 const remainingAmount = Math.max(0, planPrice - totalPaid);
@@ -390,8 +390,8 @@ export default function MemberSubscriptions() {
                           <td className="px-4 py-2">{formatDate(payment.payment_date)}</td>
                           <td className="px-4 py-2">{formatCurrency(payment.amount)}</td>
                           <td className="px-4 py-2">
-                            <Badge variant={payment.status === 'paid' ? 'default' : 'secondary'}>
-                              {payment.status === 'paid' ? 'Paid' : payment.status}
+                            <Badge variant={payment.payment_status === 'paid' ? 'default' : 'secondary'}>
+                              {payment.payment_status === 'paid' ? 'Paid' : payment.payment_status}
                             </Badge>
                           </td>
                           <td className="px-4 py-2">{sub?.plan?.name || 'N/A'}</td>
