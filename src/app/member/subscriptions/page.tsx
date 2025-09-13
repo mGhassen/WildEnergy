@@ -74,19 +74,12 @@ interface MemberSubscription {
   }[];
 }
 
-interface Profile {
-  user?: {
-    credit?: number;
-  };
-}
 
 export default function MemberSubscriptions() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [mainTab, setMainTab] = useState<'active' | 'history'>('active');
 
-  // Get user credit from auth context
-  const credit = user?.credit ?? 0;
 
   // Fetch all subscriptions
   const { data: subscriptionsRaw, isLoading, error } = useMemberSubscriptions();
@@ -164,20 +157,12 @@ export default function MemberSubscriptions() {
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4 space-y-8">
-      {/* Header with credit tag */}
+      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold text-foreground mb-2 md:mb-0">My Subscriptions</h1>
           <p className="text-muted-foreground">View all your subscriptions and payment history</p>
         </div>
-        <Card className="flex items-center gap-3 px-4 py-2 bg-gradient-to-r from-green-100 to-green-50 border-green-200 shadow-none">
-          <span className="inline-flex items-center gap-1 text-green-700 font-semibold text-lg">
-            {formatCurrency(credit)}
-          </span>
-          <Badge variant={credit > 0 ? "default" : "secondary"} className="ml-2 px-2 py-1 rounded-full text-xs">
-            {credit > 0 ? "Crédit disponible" : "Aucun crédit"}
-          </Badge>
-        </Card>
       </div>
 
       {/* Main Tabs */}
