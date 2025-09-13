@@ -36,6 +36,8 @@ export async function PUT(request: NextRequest) {
 
     const rawPaymentData = await request.json();
     console.log('Updating payment with data:', rawPaymentData);
+    console.log('Payment method from frontend:', rawPaymentData.payment_method);
+    console.log('Payment type from frontend:', rawPaymentData.payment_type);
 
     // Validate required fields
     if (!rawPaymentData.subscription_id) {
@@ -54,9 +56,9 @@ export async function PUT(request: NextRequest) {
       member_id: rawPaymentData.member_id,
       amount: parseFloat(rawPaymentData.amount),
       payment_type: rawPaymentData.payment_type || 'cash',
-      payment_status: rawPaymentData.payment_status || 'paid',
+      payment_status: rawPaymentData.payment_status || rawPaymentData.status || 'paid',
       payment_date: rawPaymentData.payment_date || new Date().toISOString().split('T')[0],
-      transaction_id: rawPaymentData.transaction_id || null,
+      transaction_id: rawPaymentData.payment_reference || rawPaymentData.transaction_id || null,
       notes: rawPaymentData.notes || null,
       updated_at: new Date().toISOString(),
     };

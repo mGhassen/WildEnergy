@@ -22,11 +22,19 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
     
-    // Fetch all subscriptions with plan data and group sessions
+    // Fetch all subscriptions with plan data, member data, and group sessions
     const { data: subscriptions, error } = await supabaseServer()
       .from('subscriptions')
       .select(`
         *,
+        member:user_profiles!member_id(
+          member_id,
+          first_name,
+          last_name,
+          account_email,
+          member_status,
+          credit
+        ),
         plan:plans(
           id,
           name,

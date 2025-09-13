@@ -153,7 +153,7 @@ export function SubscriptionDetails({
       subscription_id: subscription.id,
       member_id: subscription.member_id || '',
       amount: parseFloat(paymentFormData.amount),
-      payment_method: paymentFormData.payment_type,
+      payment_type: paymentFormData.payment_type,
       status: paymentFormData.payment_status,
       payment_date: paymentFormData.payment_date,
       payment_reference: paymentFormData.transaction_id || undefined,

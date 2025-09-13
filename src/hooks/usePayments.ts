@@ -25,6 +25,7 @@ export function useCreatePayment() {
     mutationFn: (data: CreatePaymentData) => paymentApi.createPayment(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payments'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/member/payments'] });
       queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
       toast({
         title: 'Payment created',
@@ -51,6 +52,7 @@ export function useUpdatePayment() {
     onSuccess: (_, { paymentId }) => {
       queryClient.invalidateQueries({ queryKey: ['payment', paymentId] });
       queryClient.invalidateQueries({ queryKey: ['payments'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/member/payments'] });
       toast({
         title: 'Payment updated',
         description: 'The payment has been successfully updated.',
@@ -74,6 +76,7 @@ export function useDeletePayment() {
     mutationFn: (paymentId: number) => paymentApi.deletePayment(paymentId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payments'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/member/payments'] });
       toast({
         title: 'Payment deleted',
         description: 'The payment has been successfully deleted.',
