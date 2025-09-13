@@ -122,6 +122,7 @@ export function CourseDetailsDialog({ event, children }: IProps) {
         description: "You have been successfully registered for this course.",
       });
     } catch (error: any) {
+      console.error('Registration error:', error);
       toast({
         title: "Registration failed",
         description: error.message || "Please try again later.",
@@ -199,14 +200,14 @@ export function CourseDetailsDialog({ event, children }: IProps) {
               <DialogHeader>
                 <div className="flex items-center justify-between">
                   <DialogTitle className="text-2xl font-bold text-foreground">
-                    {courseData.class.name}
+                    {courseData.class?.name || 'Unknown Class'}
                   </DialogTitle>
                   <div className="flex items-center gap-2">
                     <Badge className={statusInfo.color}>
                       <StatusIcon className="w-3 h-3 mr-1" />
                       {statusInfo.status}
                     </Badge>
-                    {courseData.class.category && (
+                    {courseData.class?.category && (
                       <Badge 
                         variant="outline" 
                         className="text-sm border-0 px-3 py-1"
@@ -248,7 +249,7 @@ export function CourseDetailsDialog({ event, children }: IProps) {
                     <Target className="w-6 h-6 mx-auto mb-2 text-muted-foreground" />
                     <p className="text-sm font-medium text-foreground">Difficulty</p>
                     <div className="text-sm text-muted-foreground capitalize">
-                      {courseLoading ? <Skeleton className="h-4 w-16 mx-auto" /> : courseData.class.difficulty}
+                      {courseLoading ? <Skeleton className="h-4 w-16 mx-auto" /> : courseData.class?.difficulty || 'Unknown'}
                     </div>
                   </div>
 
@@ -271,7 +272,7 @@ export function CourseDetailsDialog({ event, children }: IProps) {
                     <div className="flex items-center gap-2 mb-1">
                       <div className="text-lg font-semibold text-foreground">
                         {courseLoading ? <Skeleton className="h-6 w-40" /> : 
-                          `${courseData.trainer.member.first_name} ${courseData.trainer.member.last_name}`}
+                          `${courseData.trainer?.member?.first_name || 'Unknown'} ${courseData.trainer?.member?.last_name || 'Trainer'}`}
                       </div>
                       <Badge variant="secondary" className="text-xs">
                         Instructor
@@ -279,21 +280,21 @@ export function CourseDetailsDialog({ event, children }: IProps) {
                     </div>
                     
                     <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                      {courseData.trainer.specialization && (
+                      {courseData.trainer?.specialization && (
                         <span className="flex items-center gap-1">
                           <Star className="w-3 h-3" />
                           {courseLoading ? <Skeleton className="h-4 w-24" /> : courseData.trainer.specialization}
                         </span>
                       )}
 
-                      {courseData.trainer.experience_years > 0 && (
+                      {(courseData.trainer?.experience_years || 0) > 0 && (
                         <span className="flex items-center gap-1">
                           <Award className="w-3 h-3" />
                           {courseLoading ? <Skeleton className="h-4 w-16" /> : `${courseData.trainer.experience_years} years`}
                         </span>
                       )}
 
-                      {courseData.trainer.certification && (
+                      {courseData.trainer?.certification && (
                         <span className="flex items-center gap-1">
                           <Award className="w-3 h-3" />
                           {courseLoading ? <Skeleton className="h-4 w-32" /> : courseData.trainer.certification}
@@ -301,7 +302,7 @@ export function CourseDetailsDialog({ event, children }: IProps) {
                       )}
                     </div>
 
-                    {courseData.trainer.bio && (
+                    {courseData.trainer?.bio && (
                       <div className="text-sm text-muted-foreground mt-2">
                         {courseLoading ? <Skeleton className="h-4 w-full" /> : courseData.trainer.bio}
                       </div>
@@ -309,7 +310,7 @@ export function CourseDetailsDialog({ event, children }: IProps) {
                   </div>
                 </div>
 
-                {courseData.class.description && (
+                {courseData.class?.description && (
                   <div className="mt-6 pt-4 border-t">
                     <div className="text-sm text-muted-foreground">
                       {courseLoading ? <Skeleton className="h-4 w-full" /> : courseData.class.description}

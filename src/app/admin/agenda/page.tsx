@@ -11,8 +11,10 @@ import { CalendarProvider } from '@/calendar/contexts/calendar-context';
 import { ClientContainer } from '@/calendar/components/client-container';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { AlertTriangle } from 'lucide-react';
 import { CardSkeleton } from '@/components/skeletons';
+import { convertCoursesToAdminEvents, createAdminUsers } from '@/calendar/utils/course-converter';
 
 interface Course {
   id: number;
@@ -64,67 +66,6 @@ interface Course {
   };
 }
 
-// Convert courses to big-calendar events format
-const convertCoursesToEvents = (courses: any[]) => {
-  if (!courses) return [];
-
-  return courses.map((course: any) => {
-    const instructorName = course.trainer?.specialization || 'Unknown Trainer';
-
-    // Create start and end dates
-    const startDate = new Date(`${course.courseDate}T${course.startTime}`);
-    const endDate = new Date(`${course.courseDate}T${course.endTime}`);
-
-    // Use category color or default to blue
-    const getColor = (category?: { color: string }): "blue" | "green" | "red" | "yellow" | "purple" | "orange" | "gray" => {
-      if (!category?.color) return "blue";
-      
-      // Map hex colors to calendar color names
-      const colorMap: Record<string, "blue" | "green" | "red" | "yellow" | "purple" | "orange" | "gray"> = {
-        '#FF0000': 'red',
-        '#00FF00': 'green', 
-        '#0000FF': 'blue',
-        '#FFFF00': 'yellow',
-        '#FF00FF': 'purple',
-        '#FFA500': 'orange',
-        '#808080': 'gray',
-        '#FFD700': 'yellow', // Gold
-        '#FF69B4': 'purple', // Hot pink
-        '#00CED1': 'blue',   // Dark turquoise
-        '#32CD32': 'green',  // Lime green
-        '#FF6347': 'orange', // Tomato
-        '#9370DB': 'purple', // Medium purple
-        '#20B2AA': 'green',  // Light sea green
-        '#FF1493': 'purple', // Deep pink
-        '#00BFFF': 'blue',   // Deep sky blue
-        '#FF8C00': 'orange', // Dark orange
-        '#DC143C': 'red',    // Crimson
-        '#8B008B': 'purple', // Dark magenta
-      };
-      
-      return colorMap[category.color.toUpperCase()] || 'blue';
-    };
-
-    return {
-      id: course.id,
-      title: course.class?.name || 'Unknown Class',
-      description: `${course.class?.description || ''}\n\nInstructor: ${instructorName}\nParticipants: ${course.currentParticipants}/${course.maxParticipants}\nStatus: ${course.status}`,
-      startDate: startDate.toISOString(),
-      endDate: endDate.toISOString(),
-      color: getColor(course.class?.category),
-      user: {
-        id: course.trainer?.id?.toString() || 'unknown',
-        name: instructorName,
-        picturePath: null
-      },
-      category: course.class?.category ? {
-        id: course.class.category.id,
-        name: course.class.category.name,
-        color: course.class.category.color
-      } : undefined
-    };
-  });
-};
 
 export default function AdminAgenda() {
   const searchParams = useSearchParams();
@@ -139,18 +80,11 @@ export default function AdminAgenda() {
 
   // Convert courses to events
   const events = useMemo(() => {
-    return convertCoursesToEvents(courses || []);
+    return convertCoursesToAdminEvents(courses || []);
   }, [courses]);
 
   // Create users from trainers
-  const users = useMemo(() => {
-    if (!trainers) return [];
-    return trainers.map((trainer: any) => ({
-      id: trainer.id.toString(),
-      name: trainer.specialization || 'Unknown Trainer',
-      picturePath: null
-    }));
-  }, [trainers]);
+  const users = useMemo(() => createAdminUsers(trainers || []), [trainers]);
 
   if (coursesLoading) {
     return (
@@ -179,6 +113,13 @@ export default function AdminAgenda() {
             <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-destructive" />
             <h3 className="text-lg font-medium mb-2">Error loading courses</h3>
             <p className="text-muted-foreground">There was an error loading the course schedule. Please try again.</p>
+            <Button 
+              onClick={() => window.location.reload()} 
+              className="mt-4"
+              variant="outline"
+            >
+              Retry
+            </Button>
           </CardContent>
         </Card>
       </div>

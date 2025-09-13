@@ -18,6 +18,7 @@ import { apiFetch } from "@/lib/api";
 import { Registration } from "@/lib/api/registrations";
 import { CardSkeleton, ListSkeleton } from "@/components/skeletons";
 import { useToast } from "@/hooks/use-toast";
+import type { IEvent } from "@/calendar/interfaces";
 import { Search, Clock, Users, Calendar, Star, Check, AlertTriangle, QrCode } from "lucide-react";
 import { formatTime, getDayName } from "@/lib/date";
 import { formatDate } from "@/lib/date";
@@ -27,6 +28,7 @@ import { ConfirmationDialog } from "@/components/confirmation-dialog";
 import QRGenerator from "@/components/qr-generator";
 import { CalendarProvider } from '@/calendar/contexts/calendar-context';
 import { ClientContainer } from '@/calendar/components/client-container';
+import { convertCoursesToMemberEvents, createMemberUsers } from '@/calendar/utils/course-converter';
 
 // Types for member classes page
 interface Category {
@@ -59,6 +61,10 @@ interface Course {
   courseDate: string;
   startTime: string;
   endTime: string;
+  // API field names (snake_case)
+  course_date?: string;
+  start_time?: string;
+  end_time?: string;
   isActive: boolean;
   scheduleId: number;
 }
@@ -81,72 +87,6 @@ interface Subscription {
 }
 
 
-// Convert courses to big-calendar events format
-const convertCoursesToEvents = (courses: any[], registrations: any[] = []) => {
-  if (!courses) return [];
-
-  return courses.map((course: any) => {
-    // Check if user is registered for this course
-    const isRegistered = registrations.some(reg => reg.course_id === course.id && reg.status === 'registered');
-    const instructorName = course.trainer?.user ? 
-      `${course.trainer.user.first_name} ${course.trainer.user.last_name}` : 
-      'Unknown Trainer';
-
-    // Create start and end dates
-    const startDate = new Date(`${course.courseDate}T${course.startTime}`);
-    const endDate = new Date(`${course.courseDate}T${course.endTime}`);
-
-    // Use category color or default to blue
-    const getColor = (category?: { color: string }): "blue" | "green" | "red" | "yellow" | "purple" | "orange" | "gray" => {
-      if (!category?.color) return "blue";
-      
-      // Map hex colors to calendar color names
-      const colorMap: Record<string, "blue" | "green" | "red" | "yellow" | "purple" | "orange" | "gray"> = {
-        '#FF0000': 'red',
-        '#00FF00': 'green', 
-        '#0000FF': 'blue',
-        '#FFFF00': 'yellow',
-        '#FF00FF': 'purple',
-        '#FFA500': 'orange',
-        '#808080': 'gray',
-        '#FFD700': 'yellow', // Gold
-        '#FF69B4': 'purple', // Hot pink
-        '#00CED1': 'blue',   // Dark turquoise
-        '#32CD32': 'green',  // Lime green
-        '#FF6347': 'orange', // Tomato
-        '#9370DB': 'purple', // Medium purple
-        '#20B2AA': 'green',  // Light sea green
-        '#FF1493': 'purple', // Deep pink
-        '#00BFFF': 'blue',   // Deep sky blue
-        '#FF8C00': 'orange', // Dark orange
-        '#DC143C': 'red',    // Crimson
-        '#8B008B': 'purple', // Dark magenta
-      };
-      
-      return colorMap[category.color.toUpperCase()] || 'blue';
-    };
-
-    return {
-      id: course.id,
-      title: course.class?.name || 'Unknown Class',
-      description: `${course.class?.description || ''}\n\nInstructor: ${instructorName}\nDifficulty: ${course.class?.difficulty || 'Unknown'}\nDuration: ${course.class?.duration || 60} minutes`,
-      startDate: startDate.toISOString(),
-      endDate: endDate.toISOString(),
-      color: getColor(course.class?.category),
-      user: {
-        id: course.trainer?.id?.toString() || 'unknown',
-        name: instructorName,
-        picturePath: null
-      },
-      category: course.class?.category ? {
-        id: course.class.category.id,
-        name: course.class.category.name,
-        color: course.class.category.color
-      } : undefined,
-      isRegistered: isRegistered
-    };
-  });
-};
 
 function MemberCourses() {
   const searchParams = useSearchParams();
@@ -207,7 +147,7 @@ function MemberCourses() {
 
   // Convert courses to events for calendar
   const events = useMemo(() => {
-    const convertedEvents = convertCoursesToEvents(courses || [], registrations || []);
+    const convertedEvents = convertCoursesToMemberEvents(courses || [], registrations || []);
     console.log('=== MEMBER COURSES EVENTS DEBUG ===');
     console.log('Courses count:', courses?.length || 0);
     console.log('Registrations count:', registrations?.length || 0);
@@ -217,13 +157,7 @@ function MemberCourses() {
   }, [courses, registrations]);
 
   // Create a single user for the member
-  const users = useMemo(() => {
-    return [{
-      id: 'member',
-      name: 'My Classes',
-      picturePath: null
-    }];
-  }, []);
+  const users = useMemo(() => createMemberUsers(), []);
 
   // Create a set of course IDs that the user is registered for (only active registrations)
   const registrationsArray = Array.isArray(registrations) ? registrations : [];
@@ -240,21 +174,33 @@ function MemberCourses() {
 
   // Helper function to check if cancellation is allowed
   const canCancelRegistration = (course: Course) => {
-    const courseDateTime = new Date(`${course.courseDate}T${course.startTime}`);
+    const courseDate = course.course_date || course.courseDate;
+    const startTime = course.start_time || course.startTime;
+    if (!courseDate || !startTime) return false;
+    
+    const courseDateTime = new Date(`${courseDate}T${startTime}`);
     const now = new Date();
     return now < courseDateTime;
   };
 
   // Helper function to check if course is in the past
   const isCourseInPast = (course: Course) => {
-    const courseDateTime = new Date(`${course.courseDate}T${course.startTime}`);
+    const courseDate = course.course_date || course.courseDate;
+    const startTime = course.start_time || course.startTime;
+    if (!courseDate || !startTime) return true; // Consider invalid courses as past
+    
+    const courseDateTime = new Date(`${courseDate}T${startTime}`);
     const now = new Date();
     return now >= courseDateTime;
   };
 
   // Helper function to check if within 24 hours
   const isWithin24Hours = (course: Course) => {
-    const courseDateTime = new Date(`${course.courseDate}T${course.startTime}`);
+    const courseDate = course.course_date || course.courseDate;
+    const startTime = course.start_time || course.startTime;
+    if (!courseDate || !startTime) return false;
+    
+    const courseDateTime = new Date(`${courseDate}T${startTime}`);
     const cutoffTime = new Date(courseDateTime.getTime() - (24 * 60 * 60 * 1000));
     const now = new Date();
     return now >= cutoffTime && now < courseDateTime;
@@ -330,7 +276,7 @@ function MemberCourses() {
 
     const matchesCategory = !categoryFilter || categoryFilter === "all" || categoryName === categoryFilter.toLowerCase();
 
-    const courseDate = new Date(course.courseDate);
+    const courseDate = new Date(course.course_date || course.courseDate);
     const matchesDay = !dayFilter || dayFilter === "all" || courseDate.getDay().toString() === dayFilter;
 
     // Only show active courses that haven't ended yet
@@ -539,8 +485,8 @@ function MemberCourses() {
                             <TooltipContent className="max-w-xs">
                               <div className="font-semibold mb-1">{course.class?.name}</div>
                               <div className="text-xs text-muted-foreground mb-1">{course.class?.description}</div>
-                              <div className="text-xs text-muted-foreground mb-1">Date: {formatDate(course.courseDate)}</div>
-                              <div className="text-xs text-muted-foreground mb-1">Time: {formatTime(course.startTime)} - {formatTime(course.endTime)}</div>
+                              <div className="text-xs text-muted-foreground mb-1">Date: {formatDate(course.course_date || course.courseDate)}</div>
+                              <div className="text-xs text-muted-foreground mb-1">Time: {formatTime(course.start_time || course.startTime)} - {formatTime(course.end_time || course.endTime)}</div>
                               <div className="text-xs text-muted-foreground mb-1">Category: {course.class?.category?.name || '-'}</div>
                               <div className="text-xs text-muted-foreground mb-1">Difficulty: {course.class?.difficulty || '-'}</div>
                             </TooltipContent>
@@ -579,7 +525,7 @@ function MemberCourses() {
                           <div className="flex items-center text-sm text-muted-foreground">
                             <Calendar className="w-4 h-4 mr-2 text-primary" />
                             <span className="font-medium text-foreground">
-                              {formatDate(course.courseDate)}
+                              {formatDate(course.course_date || course.courseDate)}
                             </span>
                           </div>
                           
@@ -587,7 +533,7 @@ function MemberCourses() {
                           <div className="flex items-center text-sm text-muted-foreground">
                             <Clock className="w-4 h-4 mr-2 text-primary" />
                             <span className="font-medium text-foreground">
-                              {formatTime(course.startTime)} - {formatTime(course.endTime)}
+                              {formatTime(course.start_time || course.startTime)} - {formatTime(course.end_time || course.endTime)}
                             </span>
                           </div>
                           

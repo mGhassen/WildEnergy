@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AlertTriangle } from 'lucide-react';
 import { CardSkeleton } from '@/components/skeletons';
+import { convertCoursesToMemberEvents, createMemberUsers } from '@/calendar/utils/course-converter';
 
 interface Course {
   id: number;
@@ -41,72 +42,7 @@ interface Course {
   scheduleId: number;
 }
 
-// Convert courses to big-calendar events format
-const convertCoursesToEvents = (courses: any[], registrations: any[] = []) => {
-  if (!courses) return [];
 
-  return courses.map((course: any) => {
-    // Check if user is registered for this course
-    const isRegistered = registrations.some(reg => reg.course_id === course.id && reg.status === 'registered');
-    const instructorName = course.trainer?.user ? 
-      `${course.trainer.user.first_name} ${course.trainer.user.last_name}` : 
-      'Unknown Trainer';
-
-    // Create start and end dates
-    const startDate = new Date(`${course.courseDate}T${course.startTime}`);
-    const endDate = new Date(`${course.courseDate}T${course.endTime}`);
-
-    // Use category color or default to blue
-    const getColor = (category?: { color: string }): "blue" | "green" | "red" | "yellow" | "purple" | "orange" | "gray" => {
-      if (!category?.color) return "blue";
-      
-      // Map hex colors to calendar color names
-      const colorMap: Record<string, "blue" | "green" | "red" | "yellow" | "purple" | "orange" | "gray"> = {
-        '#FF0000': 'red',
-        '#00FF00': 'green', 
-        '#0000FF': 'blue',
-        '#FFFF00': 'yellow',
-        '#FF00FF': 'purple',
-        '#FFA500': 'orange',
-        '#808080': 'gray',
-        '#FFD700': 'yellow', // Gold
-        '#FF69B4': 'purple', // Hot pink
-        '#00CED1': 'blue',   // Dark turquoise
-        '#32CD32': 'green',  // Lime green
-        '#FF6347': 'orange', // Tomato
-        '#9370DB': 'purple', // Medium purple
-        '#20B2AA': 'green',  // Light sea green
-        '#FF1493': 'purple', // Deep pink
-        '#00BFFF': 'blue',   // Deep sky blue
-        '#FF8C00': 'orange', // Dark orange
-        '#DC143C': 'red',    // Crimson
-        '#8B008B': 'purple', // Dark magenta
-      };
-      
-      return colorMap[category.color.toUpperCase()] || 'blue';
-    };
-
-    return {
-      id: course.id,
-      title: course.class?.name || 'Unknown Class',
-      description: `${course.class?.description || ''}\n\nInstructor: ${instructorName}\nDifficulty: ${course.class?.difficulty || 'Unknown'}\nDuration: ${course.class?.duration || 60} minutes`,
-      startDate: startDate.toISOString(),
-      endDate: endDate.toISOString(),
-      color: getColor(course.class?.category),
-      user: {
-        id: course.trainer?.id?.toString() || 'unknown',
-        name: instructorName,
-        picturePath: null
-      },
-      category: course.class?.category ? {
-        id: course.class.category.id,
-        name: course.class.category.name,
-        color: course.class.category.color
-      } : undefined,
-      isRegistered: isRegistered
-    };
-  });
-};
 
 function MemberAgenda() {
   const searchParams = useSearchParams();
@@ -117,7 +53,7 @@ function MemberAgenda() {
 
   // Convert courses to events
   const events = useMemo(() => {
-    const convertedEvents = convertCoursesToEvents(courses || [], registrations || []);
+    const convertedEvents = convertCoursesToMemberEvents(courses || [], registrations || []);
     console.log('=== MEMBER AGENDA EVENTS DEBUG ===');
     console.log('Courses count:', courses?.length || 0);
     console.log('Registrations count:', registrations?.length || 0);
@@ -127,13 +63,7 @@ function MemberAgenda() {
   }, [courses, registrations]);
 
   // Create a single user for the member
-  const users = useMemo(() => {
-    return [{
-      id: 'member',
-      name: 'My Classes',
-      picturePath: null
-    }];
-  }, []);
+  const users = useMemo(() => createMemberUsers(), []);
 
   if (coursesLoading) {
     return (
