@@ -39,9 +39,11 @@ export function ClientContainer({ view }: IProps) {
 
       if (view === "week") {
         const dayOfWeek = selectedDate.getDay();
-
+        
+        // Calculate Monday as first day of week
         const weekStart = new Date(selectedDate);
-        weekStart.setDate(selectedDate.getDate() - dayOfWeek);
+        const diff = weekStart.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1);
+        weekStart.setDate(diff);
         weekStart.setHours(0, 0, 0, 0);
 
         const weekEnd = new Date(weekStart);

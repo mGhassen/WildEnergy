@@ -34,7 +34,7 @@ export function CalendarWeekView({ singleDayEvents, multiDayEvents }: IProps) {
   // Fallback hours if none are generated - use default working hours
   const displayHours = hours.length > 0 ? hours : Array.from({ length: 12 }, (_, i) => i + 7);
 
-  const weekStart = startOfWeek(selectedDate);
+  const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
   return (
@@ -52,11 +52,14 @@ export function CalendarWeekView({ singleDayEvents, multiDayEvents }: IProps) {
           <div className="relative z-20 flex border-b">
             <div className="w-18"></div>
             <div className="grid flex-1 grid-cols-7 divide-x border-l">
-              {weekDays.map((day, index) => (
-                <span key={index} className="py-2 text-center text-xs font-medium text-muted-foreground">
-                  {format(day, "EE")} <span className="ml-1 font-semibold text-foreground">{format(day, "d")}</span>
-                </span>
-              ))}
+              {weekDays.map((day, index) => {
+                const isToday = day.toDateString() === new Date().toDateString();
+                return (
+                  <span key={index} className={`py-2 text-center text-xs font-medium ${isToday ? 'border-b-2 border-primary text-primary' : 'text-muted-foreground'}`}>
+                    {format(day, "EE")} <span className={`ml-1 font-semibold ${isToday ? 'text-primary' : 'text-foreground'}`}>{format(day, "d")}</span>
+                  </span>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -78,6 +81,7 @@ export function CalendarWeekView({ singleDayEvents, multiDayEvents }: IProps) {
             <div className="relative flex-1 border-l">
               <div className="grid grid-cols-7 divide-x">
                 {weekDays.map((day, dayIndex) => {
+                  const isToday = day.toDateString() === new Date().toDateString();
                   const dayEvents = singleDayEvents.filter(event => {
                     const eventStartDate = parseISO(event.startDate);
                     const eventEndDate = parseISO(event.endDate);
@@ -86,7 +90,7 @@ export function CalendarWeekView({ singleDayEvents, multiDayEvents }: IProps) {
                   const groupedEvents = groupEvents(dayEvents);
 
                   return (
-                    <div key={dayIndex} className="relative">
+                    <div key={dayIndex} className={`relative ${isToday ? 'border-l-2 border-r-2 border-primary' : ''}`}>
                       {displayHours.map((hour, index) => {
                         const isDisabled = !isWorkingHour(day, hour, workingHours);
 
@@ -127,7 +131,7 @@ export function CalendarWeekView({ singleDayEvents, multiDayEvents }: IProps) {
                 })}
               </div>
 
-              <CalendarTimeline firstVisibleHour={earliestEventHour} lastVisibleHour={latestEventHour} />
+              <CalendarTimeline firstVisibleHour={earliestEventHour} lastVisibleHour={latestEventHour} selectedDate={selectedDate} view="week" />
             </div>
           </div>
         </ScrollArea>
