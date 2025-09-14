@@ -287,7 +287,7 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
                 <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-primary to-primary/80 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow">
                   <Dumbbell className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
                 </div>
-                <div className="hidden sm:block">
+                <div>
                   <h1 className="text-lg sm:text-xl font-bold text-foreground">Wild Energy</h1>
                   <p className="text-xs text-muted-foreground -mt-1">Pole & Dance</p>
                 </div>
