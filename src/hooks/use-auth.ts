@@ -3,6 +3,7 @@
 import React, { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { authApi, RegisterData, LoginCredentials, AuthResponse } from '@/lib/api/auth';
+import { createSupabaseClient } from '@/lib/supabase';
 
 export interface User {
   id: string;
@@ -44,6 +45,7 @@ interface AuthState {
   resendConfirmation: (email: string) => Promise<void>;
   // Google OAuth
   loginWithGoogle: () => Promise<void>;
+  completeGoogleRegistration: (googleData: any) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
@@ -157,38 +159,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const refreshToken = urlParams.get('refresh_token');
       const userId = urlParams.get('user_id');
 
-      if (googleAuth === 'success' && accessToken && userId) {
-        console.log('Google OAuth callback detected');
-        
-        // Store tokens
-        localStorage.setItem('access_token', accessToken);
-        if (refreshToken) {
-          localStorage.setItem('refresh_token', refreshToken);
-        }
-        if (typeof window !== 'undefined') {
-          window.__authToken = accessToken;
-        }
-
-        // Clean up URL parameters
-        const newUrl = new URL(window.location.href);
-        newUrl.searchParams.delete('google_auth');
-        newUrl.searchParams.delete('access_token');
-        newUrl.searchParams.delete('refresh_token');
-        newUrl.searchParams.delete('user_id');
-        window.history.replaceState({}, '', newUrl.toString());
-
-        // Fetch user session
-        try {
-          const user = await fetchSession(accessToken);
-          if (user) {
-            console.log('Google OAuth login successful');
-            setIsLoading(false);
-            return;
-          }
-        } catch (error) {
-          console.error('Google OAuth session fetch failed:', error);
-        }
-      }
+      // Google OAuth is now handled server-side in the callback route
+      // No need to handle it here anymore
 
       // Regular session check
       const token = localStorage.getItem('access_token');
@@ -463,9 +435,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setIsLoggingIn(true);
         setLoginError(null);
         
-        // Redirect to Google OAuth
+        // Use manual OAuth flow with Supabase's OAuth endpoint
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const redirectUrl = `${window.location.origin}/api/auth/google`;
+        const redirectUrl = `${window.location.origin}/auth/callback`;
         
         const googleAuthUrl = `${supabaseUrl}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectUrl)}`;
         
@@ -473,6 +445,34 @@ export function AuthProvider({ children }: AuthProviderProps) {
       } catch (error: any) {
         console.error('Google login error:', error);
         setLoginError(new Error(error.message || 'Failed to initiate Google login'));
+        throw error;
+      } finally {
+        setIsLoggingIn(false);
+      }
+    },
+    completeGoogleRegistration: async (googleData: any) => {
+      try {
+        setIsLoggingIn(true);
+        setLoginError(null);
+        
+        // Store tokens
+        localStorage.setItem('access_token', googleData.access_token);
+        if (googleData.refresh_token) {
+          localStorage.setItem('refresh_token', googleData.refresh_token);
+        }
+        if (typeof window !== 'undefined') {
+          window.__authToken = googleData.access_token;
+        }
+
+        // Fetch user session to complete the login
+        const user = await fetchSession(googleData.access_token);
+        if (user) {
+          console.log('Google registration completed successfully');
+          setUser(user);
+        }
+      } catch (error: any) {
+        console.error('Google registration completion error:', error);
+        setLoginError(new Error(error.message || 'Failed to complete Google registration'));
         throw error;
       } finally {
         setIsLoggingIn(false);

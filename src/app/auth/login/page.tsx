@@ -37,11 +37,21 @@ export default function LoginPage({ searchParams }: { searchParams: Promise<Reco
     const message = Array.isArray(messageRaw) ? messageRaw[0] : messageRaw;
     const errorRaw = resolvedSearchParams.error;
     const error = Array.isArray(errorRaw) ? errorRaw[0] : errorRaw;
+    const googleAuthRaw = resolvedSearchParams.google_auth;
+    const googleAuth = Array.isArray(googleAuthRaw) ? googleAuthRaw[0] : googleAuthRaw;
     
     if (message === 'password-set-success') {
       setSuccess('Your password has been set successfully! You can now log in with your new password.');
     } else if (message === 'password-reset-success') {
       setSuccess('Your password has been reset successfully! You can now log in with your new password.');
+    }
+    
+    // Handle Google OAuth success
+    if (googleAuth === 'success') {
+      // The Google OAuth flow completed successfully
+      // The user should now be authenticated via Supabase
+      // We'll let the useAuth hook handle the session verification
+      setSuccess('Google authentication successful! Redirecting...');
     }
     
     // Handle Google OAuth errors
