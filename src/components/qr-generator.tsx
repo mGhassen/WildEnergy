@@ -18,10 +18,10 @@ export default function QRGenerator({ value, size = 200, className = "", generat
         ? `${window.location.origin}/checkin/qr/${value}`
         : value;
         
-      // Get computed styles for theme colors
-      const computedStyle = getComputedStyle(document.documentElement);
-      const foregroundColor = computedStyle.getPropertyValue('--foreground').trim() || '#000000';
-      const backgroundColor = computedStyle.getPropertyValue('--background').trim() || '#ffffff';
+      // Use reliable colors that work well for QR codes
+      // Black on white provides the best contrast and readability
+      const foregroundColor = '#000000';
+      const backgroundColor = '#ffffff';
         
       QRCode.toCanvas(canvasRef.current, qrValue, {
         width: size,

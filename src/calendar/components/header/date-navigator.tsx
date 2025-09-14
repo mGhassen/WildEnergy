@@ -32,7 +32,7 @@ export function DateNavigator({ view, events }: IProps) {
   return (
     <div className="space-y-0.5">
       <div className="flex items-center gap-2">
-        <span className={`text-lg font-semibold ${isToday ? 'text-primary' : 'text-foreground'}`}>
+        <span className="text-lg font-semibold text-foreground">
           {month} {year}
         </span>
         <Badge variant="outline" className="px-1.5">
@@ -45,7 +45,7 @@ export function DateNavigator({ view, events }: IProps) {
           <ChevronLeft />
         </Button>
 
-        <p className={`text-sm ${isToday ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
+        <p className="text-sm text-muted-foreground">
           {rangeText(view, selectedDate)}
         </p>
 

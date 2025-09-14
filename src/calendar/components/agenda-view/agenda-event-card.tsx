@@ -123,17 +123,22 @@ export function AgendaEventCard({ event, eventCurrentDay, eventTotalDays }: IPro
               <Text className="size-3 shrink-0" />
               <p className="text-xs text-foreground">{event.description}</p>
             </div>
+
+            {event.isRegistered && (
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                  You are registered to this course
+                </span>
+                <button
+                  onClick={handleQRClick}
+                  className="p-1 hover:bg-green-100 dark:hover:bg-green-900 rounded"
+                  title="Show QR Code"
+                >
+                  <QrCode className="w-4 h-4 text-green-600 dark:text-green-400" />
+                </button>
+              </div>
+            )}
           </div>
-          
-          {event.isRegistered && (
-            <button
-              onClick={handleQRClick}
-              className="shrink-0 p-2 hover:bg-green-100 dark:hover:bg-green-900 rounded"
-              title="Show QR Code"
-            >
-              <QrCode className="w-5 h-5 text-green-600 dark:text-green-400" />
-            </button>
-          )}
         </div>
       </EventWrapper>
 

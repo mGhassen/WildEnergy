@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Calendar, 
   QrCode, 
@@ -17,7 +18,12 @@ import {
   Activity,
   Home,
   CreditCard,
-  Settings
+  Settings,
+  History,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  Filter
 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
@@ -84,6 +90,19 @@ export default function MobileApp() {
   const [activeTab, setActiveTab] = useState("home");
   const [selectedCourse, setSelectedCourse] = useState<any | null>(null);
   const [showQRCode, setShowQRCode] = useState<string | null>(null);
+  const [historyFilter, setHistoryFilter] = useState("all");
+
+  // Listen for tab changes from sidebar
+  useEffect(() => {
+    const handleTabChange = (event: CustomEvent) => {
+      setActiveTab(event.detail);
+    };
+
+    window.addEventListener('mobileTabChange', handleTabChange as EventListener);
+    return () => {
+      window.removeEventListener('mobileTabChange', handleTabChange as EventListener);
+    };
+  }, []);
 
   // Queries
   const { data: courses = [], isLoading: coursesLoading } = useMemberCourses();
@@ -133,6 +152,56 @@ export default function MobileApp() {
   const getRegistrationQR = (courseId: number) => {
     const reg = registrations.find((reg: any) => reg.course?.id === courseId);
     return (reg as any)?.qrCode;
+  };
+
+  // History filtering logic
+  const getFilteredRegistrations = () => {
+    if (historyFilter === "all") return registrations;
+    
+    return registrations.filter((reg: any) => {
+      switch (historyFilter) {
+        case "attended":
+          return reg.status === "attended";
+        case "registered":
+          return reg.status === "registered";
+        case "cancelled":
+          return reg.status === "cancelled";
+        case "absent":
+          return reg.status === "absent";
+        default:
+          return true;
+      }
+    });
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'attended':
+        return <CheckCircle className="w-4 h-4 text-green-600" />;
+      case 'registered':
+        return <AlertCircle className="w-4 h-4 text-blue-600" />;
+      case 'cancelled':
+        return <XCircle className="w-4 h-4 text-red-600" />;
+      case 'absent':
+        return <AlertCircle className="w-4 h-4 text-orange-600" />;
+      default:
+        return <AlertCircle className="w-4 h-4 text-muted-foreground" />;
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'attended':
+        return <Badge variant="default" className="bg-green-100 text-green-800">Attended</Badge>;
+      case 'registered':
+        return <Badge variant="default" className="bg-blue-100 text-blue-800">Registered</Badge>;
+      case 'cancelled':
+        return <Badge variant="destructive">Cancelled</Badge>;
+      case 'absent':
+        return <Badge variant="secondary" className="bg-orange-100 text-orange-800">Absent</Badge>;
+      default:
+        return <Badge variant="secondary">{status}</Badge>;
+    }
   };
 
   const handleRegister = (courseId: number) => {
@@ -408,6 +477,142 @@ export default function MobileApp() {
     </div>
   );
 
+  const HistoryTab = () => {
+    const filteredRegistrations = getFilteredRegistrations();
+    
+    return (
+      <div className="space-y-4 p-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Class History</h2>
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-muted-foreground" />
+            <Select value={historyFilter} onValueChange={setHistoryFilter}>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="attended">Attended</SelectItem>
+                <SelectItem value="registered">Registered</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+                <SelectItem value="absent">Absent</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Quick Stats */}
+        <div className="grid grid-cols-2 gap-3">
+          <Card className="p-3">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="w-4 h-4 text-green-600" />
+              <div>
+                <p className="text-xs text-muted-foreground">Attended</p>
+                <p className="text-lg font-bold text-green-600">
+                  {registrations.filter(r => r.status === "attended").length}
+                </p>
+              </div>
+            </div>
+          </Card>
+          <Card className="p-3">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-blue-600" />
+              <div>
+                <p className="text-xs text-muted-foreground">Upcoming</p>
+                <p className="text-lg font-bold text-blue-600">
+                  {registrations.filter(r => r.status === "registered").length}
+                </p>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* History List */}
+        <div className="space-y-3">
+          {filteredRegistrations.length > 0 ? (
+            filteredRegistrations
+              .sort((a: any, b: any) => new Date(b.registrationDate || b.course?.course_date).getTime() - new Date(a.registrationDate || a.course?.course_date).getTime())
+              .map((registration: any) => (
+                <Card key={registration.id} className="overflow-hidden">
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-base truncate">
+                          {registration.course?.class?.name || "Unknown Class"}
+                        </h3>
+                        <p className="text-sm text-muted-foreground truncate">
+                          {registration.course?.trainer?.user?.first_name} {registration.course?.trainer?.user?.last_name}
+                        </p>
+                      </div>
+                      <div className="ml-2 flex-shrink-0">
+                        {getStatusBadge(registration.status)}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Calendar className="w-4 h-4" />
+                          <span>{formatDate(registration.course?.course_date || registration.registrationDate)}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Clock className="w-4 h-4" />
+                          <span>{formatTime(registration.course?.start_time)}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <User className="w-4 h-4" />
+                          <span className="truncate">{registration.course?.class?.category?.name}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          {getStatusIcon(registration.status)}
+                          <span className="text-xs">
+                            {registration.status === "attended" && `Attended: ${formatDateTime(registration.registrationDate)}`}
+                            {registration.status === "registered" && `Class: ${formatDate(registration.course?.course_date)}`}
+                            {registration.status === "cancelled" && `Cancelled: ${formatDate(registration.registrationDate)}`}
+                          </span>
+                        </div>
+                      </div>
+
+                      {registration.status === "registered" && registration.qrCode && (
+                        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg mt-3">
+                          <div className="flex items-center space-x-2">
+                            <QRGenerator value={registration.qrCode} size={30} />
+                            <div>
+                              <p className="text-xs font-medium">QR Code Available</p>
+                              <p className="text-xs text-muted-foreground">Show for check-in</p>
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setShowQRCode(registration.qrCode)}
+                            className="h-7"
+                          >
+                            <QrCode className="w-3 h-3 mr-1" />
+                            View
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+          ) : (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <History className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+                <p className="text-muted-foreground">No class history found</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {historyFilter !== "all" ? `No ${historyFilter} classes found` : "Start by registering for classes"}
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const ProfileTab = () => (
     <div className="space-y-4 p-4">
       <div className="text-center">
@@ -492,6 +697,9 @@ export default function MobileApp() {
           </TabsContent>
           <TabsContent value="subscriptions" className="m-0">
             <BookingsTab />
+          </TabsContent>
+          <TabsContent value="history" className="m-0">
+            <HistoryTab />
           </TabsContent>
           <TabsContent value="profile" className="m-0">
             <ProfileTab />

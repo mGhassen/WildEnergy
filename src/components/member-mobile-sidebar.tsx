@@ -21,7 +21,7 @@ const navigation = [
   },
   { 
     name: "Courses & Schedule", 
-    href: "/member/courses", 
+    href: "/member/courses?view=day", 
     icon: Calendar,
     description: "Browse courses and view your schedule"
   },

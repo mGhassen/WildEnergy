@@ -8,6 +8,7 @@ import { useCalendar } from "@/calendar/contexts/calendar-context";
 import { DraggableEvent } from "@/calendar/components/dnd/draggable-event";
 import { EventWrapper } from "@/calendar/components/event-wrapper";
 import QRGenerator from "@/components/qr-generator";
+import { Button } from "@/components/ui/button";
 
 import { cn } from "@/lib/utils";
 
@@ -105,13 +106,18 @@ export function EventBlock({ event, className }: IProps) {
               <p className="truncate font-semibold">{event.title}</p>
               
               {event.isRegistered && (
-                <button
-                  onClick={handleQRClick}
-                  className="shrink-0 p-1 hover:bg-green-100 dark:hover:bg-green-900 rounded"
-                  title="Show QR Code"
-                >
-                  <QrCode className="w-4 h-4 text-green-600 dark:text-green-400" />
-                </button>
+                <div className="flex items-center gap-1 shrink-0">
+                  <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                    Registered
+                  </span>
+                  <button
+                    onClick={handleQRClick}
+                    className="p-1 hover:bg-green-100 dark:hover:bg-green-900 rounded"
+                    title="Show QR Code"
+                  >
+                    <QrCode className="w-4 h-4 text-green-600 dark:text-green-400" />
+                  </button>
+                </div>
               )}
             </div>
 
@@ -126,8 +132,8 @@ export function EventBlock({ event, className }: IProps) {
 
       {/* QR Code Modal - Same as browse courses */}
       {selectedQR && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setSelectedQR(null)}>
-          <div className="bg-white dark:bg-gray-900 p-6 rounded-lg shadow-xl max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setSelectedQR(null)}>
+          <div className="bg-background border border-border p-6 rounded-lg shadow-xl max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-semibold mb-4 text-center text-foreground">Your QR Code</h3>
             <div className="mb-4">
               <div className="w-[300px] h-[300px] bg-muted rounded flex items-center justify-center">
@@ -142,6 +148,12 @@ export function EventBlock({ event, className }: IProps) {
               <p className="text-sm text-muted-foreground mb-2">QR Code Value:</p>
               <p className="text-xs font-mono bg-muted p-2 rounded break-all text-foreground">{selectedQR}</p>
             </div>
+            <Button
+              onClick={() => setSelectedQR(null)}
+              className="mt-4 w-full"
+            >
+              Close
+            </Button>
           </div>
         </div>
       )}

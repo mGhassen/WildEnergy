@@ -236,15 +236,15 @@ export function CourseDetailsDialog({ event, children }: IProps) {
       <Dialog>
         <DialogTrigger asChild>{children}</DialogTrigger>
 
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-[95vw] max-h-[90vh] sm:max-w-2xl sm:max-h-[80vh] overflow-y-auto">
           {!showQRCode ? (
             <>
               <DialogHeader>
-                <div className="flex items-center justify-between">
-                  <DialogTitle className="text-2xl font-bold text-foreground">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <DialogTitle className="text-xl sm:text-2xl font-bold text-foreground">
                     {courseData.class?.name || 'Unknown Class'}
                   </DialogTitle>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Badge className={statusInfo.color}>
                       <StatusIcon className="w-3 h-3 mr-1" />
                       {statusInfo.status}
@@ -252,7 +252,7 @@ export function CourseDetailsDialog({ event, children }: IProps) {
                     {courseData.class?.category && (
                       <Badge 
                         variant="outline" 
-                        className="text-sm border-0 px-3 py-1"
+                        className="text-xs sm:text-sm border-0 px-2 sm:px-3 py-1"
                         style={{ 
                           backgroundColor: courseData.class.category.color + '20',
                           color: courseData.class.category.color,
@@ -270,7 +270,7 @@ export function CourseDetailsDialog({ event, children }: IProps) {
             {/* Course Information */}
             <Card>
               <CardContent className="pt-6">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
                   <div className="text-center">
                     <Calendar className="w-6 h-6 mx-auto mb-2 text-muted-foreground" />
                     <p className="text-sm font-medium text-foreground">Date</p>
@@ -306,47 +306,47 @@ export function CourseDetailsDialog({ event, children }: IProps) {
                 </div>
 
                 {/* Trainer Information */}
-                <div className="flex items-center gap-4 p-4 bg-muted/30 rounded-lg">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
-                    <User className="w-6 h-6 text-primary" />
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-muted/30 rounded-lg">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center flex-shrink-0">
+                    <User className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
                   </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className="text-lg font-semibold text-foreground">
-                        {courseLoading ? <Skeleton className="h-6 w-40" /> : 
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2 mb-1">
+                      <div className="text-base sm:text-lg font-semibold text-foreground truncate">
+                        {courseLoading ? <Skeleton className="h-5 sm:h-6 w-32 sm:w-40" /> : 
                           `${courseData.trainer?.user?.first_name || 'Unknown'} ${courseData.trainer?.user?.last_name || 'Trainer'}`}
                       </div>
-                      <Badge variant="secondary" className="text-xs">
+                      <Badge variant="secondary" className="text-xs w-fit">
                         Instructor
                       </Badge>
                     </div>
                     
-                    <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                    <div className="flex flex-wrap gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
                       {courseData.trainer?.specialization && (
                         <span className="flex items-center gap-1">
                           <Star className="w-3 h-3" />
-                          {courseLoading ? <Skeleton className="h-4 w-24" /> : courseData.trainer.specialization}
+                          {courseLoading ? <Skeleton className="h-3 sm:h-4 w-20 sm:w-24" /> : courseData.trainer.specialization}
                         </span>
                       )}
 
                       {(courseData.trainer?.experience_years || 0) > 0 && (
                         <span className="flex items-center gap-1">
                           <Award className="w-3 h-3" />
-                          {courseLoading ? <Skeleton className="h-4 w-16" /> : `${courseData.trainer.experience_years} years`}
+                          {courseLoading ? <Skeleton className="h-3 sm:h-4 w-12 sm:w-16" /> : `${courseData.trainer.experience_years} years`}
                         </span>
                       )}
 
                       {courseData.trainer?.certification && (
                         <span className="flex items-center gap-1">
                           <Award className="w-3 h-3" />
-                          {courseLoading ? <Skeleton className="h-4 w-32" /> : courseData.trainer.certification}
+                          {courseLoading ? <Skeleton className="h-3 sm:h-4 w-24 sm:w-32" /> : courseData.trainer.certification}
                         </span>
                       )}
                     </div>
 
                     {courseData.trainer?.bio && (
-                      <div className="text-sm text-muted-foreground mt-2">
-                        {courseLoading ? <Skeleton className="h-4 w-full" /> : courseData.trainer.bio}
+                      <div className="text-xs sm:text-sm text-muted-foreground mt-2">
+                        {courseLoading ? <Skeleton className="h-3 sm:h-4 w-full" /> : courseData.trainer.bio}
                       </div>
                     )}
                   </div>
@@ -364,8 +364,8 @@ export function CourseDetailsDialog({ event, children }: IProps) {
                 {isOngoing && (
                   <div className="mt-4 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
                     <div className="flex items-start gap-2">
-                      <Activity className="w-4 h-4 text-green-600 dark:text-green-400 mt-0.5" />
-                      <div>
+                      <Activity className="w-4 h-4 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
+                      <div className="min-w-0">
                         <p className="text-sm font-medium text-green-900 dark:text-green-100">
                           Course in Progress
                         </p>
@@ -380,8 +380,8 @@ export function CourseDetailsDialog({ event, children }: IProps) {
                 {isCompleted && (
                   <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-950/20 rounded-lg border border-gray-200 dark:border-gray-800">
                     <div className="flex items-start gap-2">
-                      <CheckCircle className="w-4 h-4 text-gray-600 dark:text-gray-400 mt-0.5" />
-                      <div>
+                      <CheckCircle className="w-4 h-4 text-gray-600 dark:text-gray-400 mt-0.5 flex-shrink-0" />
+                      <div className="min-w-0">
                         <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                           Course Completed
                         </p>
@@ -394,24 +394,24 @@ export function CourseDetailsDialog({ event, children }: IProps) {
                 )}
 
                 {/* Registration Section */}
-                <div className="mt-6 pt-6 border-t">
+                <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t">
                   {isRegistered ? (
                     <>
-                      <div className="text-green-600 text-sm flex items-center justify-center w-full mb-4">
-                        <Check className="w-4 h-4 mr-1" />
-                        You're registered for this course
+                      <div className="text-green-600 text-sm flex items-center justify-center w-full mb-3 sm:mb-4">
+                        <Check className="w-4 h-4 mr-1 flex-shrink-0" />
+                        <span className="text-center">You're registered for this course</span>
                       </div>
                       {userRegistration?.notes && (
-                        <div className="w-full p-3 bg-muted/30 rounded-lg mb-4">
+                        <div className="w-full p-3 bg-muted/30 rounded-lg mb-3 sm:mb-4">
                           <p className="text-sm font-medium text-foreground mb-1">Registration Notes:</p>
-                          <p className="text-sm text-muted-foreground">{userRegistration.notes}</p>
+                          <p className="text-sm text-muted-foreground break-words">{userRegistration.notes}</p>
                         </div>
                       )}
-                      <div className="flex gap-2 w-full">
+                      <div className="flex flex-col sm:flex-row gap-2 w-full">
                         <Button
                           variant="outline"
                           size="sm"
-                          className="text-sm py-1.5 px-3"
+                          className="text-sm py-2 sm:py-1.5 px-3 order-2 sm:order-1"
                           onClick={handleCancel}
                           disabled={cancelMutation.isPending || !canCancelRegistration()}
                         >
@@ -422,7 +422,7 @@ export function CourseDetailsDialog({ event, children }: IProps) {
                           variant="default"
                           size="sm"
                           onClick={handleShowQRCode}
-                          className="flex-1 text-sm py-1.5 px-4 bg-primary hover:bg-primary/90 text-primary-foreground"
+                          className="flex-1 text-sm py-2 sm:py-1.5 px-4 bg-primary hover:bg-primary/90 text-primary-foreground order-1 sm:order-2"
                         >
                           <QrCode className="w-4 h-4 mr-2" />
                           Show QR Code
@@ -433,9 +433,9 @@ export function CourseDetailsDialog({ event, children }: IProps) {
                     <Button 
                       onClick={handleRegister} 
                       disabled={registrationMutation.isPending || isCompleted || !canRegisterForCourse()}
-                      className="w-full text-base py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+                      className="w-full text-sm sm:text-base py-2 sm:py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
                     >
-                      <UserCheck className="w-5 h-5 mr-2" />
+                      <UserCheck className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                       {registrationMutation.isPending ? 'Registering...' : 
                        !activeSubscriptions.length ? 'No Active Subscription' :
                        !canRegisterForCourse() ? 'No Sessions Left' :
@@ -461,29 +461,29 @@ export function CourseDetailsDialog({ event, children }: IProps) {
                     variant="ghost"
                     size="sm"
                     onClick={() => setShowQRCode(null)}
-                    className="h-8 w-8 p-0"
+                    className="h-8 w-8 p-0 flex-shrink-0"
                   >
                     <X className="w-4 h-4" />
                   </Button>
-                  <DialogTitle className="text-2xl font-bold text-foreground">
+                  <DialogTitle className="text-xl sm:text-2xl font-bold text-foreground">
                     Your QR Code
                   </DialogTitle>
                 </div>
               </DialogHeader>
 
-              <div className="flex flex-col items-center space-y-6 py-8">
-                <div className="p-4 bg-muted/30 rounded-lg border">
-                  <QRGenerator value={showQRCode} size={300} />
+              <div className="flex flex-col items-center space-y-4 sm:space-y-6 py-4 sm:py-8">
+                <div className="p-3 sm:p-4 bg-muted/30 rounded-lg border">
+                  <QRGenerator value={showQRCode} size={250} />
                 </div>
                 
-                <div className="text-center max-w-md">
+                <div className="text-center max-w-md w-full px-4">
                   <p className="text-sm text-muted-foreground mb-2">QR Code Value:</p>
                   <p className="text-xs font-mono bg-muted p-3 rounded break-all text-foreground">
                     {showQRCode}
                   </p>
                 </div>
 
-                <div className="text-center">
+                <div className="text-center px-4">
                   <p className="text-sm text-muted-foreground">
                     Show this QR code to the trainer for check-in
                   </p>

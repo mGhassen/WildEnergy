@@ -11,8 +11,8 @@ import { formatCurrency } from "@/lib/config";
 import { useState, useEffect } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useRegistrations } from "@/hooks/useRegistrations";
-import { useSchedules } from "@/hooks/useSchedules";
+import { useMemberRegistrations } from "@/hooks/useMemberRegistrations";
+import { useMemberCourses } from "@/hooks/useMemberCourses";
 import { useMemberSubscriptions } from "@/hooks/useSubscriptions";
 import { usePlans } from "@/hooks/usePlans";
 import { CardSkeleton, ListSkeleton } from "@/components/skeletons";
@@ -57,8 +57,8 @@ export default function MemberHome() {
   const [tab, setTab] = useState<'today' | 'upcoming'>('today');
   const [currentPlanIndex, setCurrentPlanIndex] = useState(0);
 
-  const { data: registrations, isLoading: registrationsLoading } = useRegistrations();
-  const { data: schedules } = useSchedules();
+  const { data: registrations, isLoading: registrationsLoading } = useMemberRegistrations();
+  const { data: courses, isLoading: coursesLoading } = useMemberCourses();
   const { data: subscriptions, isLoading: subscriptionsLoading } = useMemberSubscriptions();
   const { data: plans, isLoading: plansLoading } = usePlans();
 
@@ -68,9 +68,13 @@ export default function MemberHome() {
   const totalActive = activeSubs.length;
 
   const registrationsArr = Array.isArray(registrations) ? registrations : [];
-  const schedulesArr = Array.isArray(schedules) ? schedules : [];
+  const coursesArr = Array.isArray(courses) ? courses : [];
   const plansArr = Array.isArray(plans) ? plans : [];
   const currentPlan = plansArr[currentPlanIndex];
+
+  // Debug logging
+  console.log('Registrations data:', registrationsArr);
+  console.log('Courses data:', coursesArr);
 
   // Helper function to get total sessions from plan groups
   const getTotalSessions = (plan: any) => {
@@ -91,21 +95,31 @@ export default function MemberHome() {
     return () => clearInterval(interval);
   }, [plansArr.length]);
 
+  // Filter registrations for today and upcoming (next 7 days)
+  const today = new Date();
+  const todayString = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+  const nextWeek = new Date();
+  nextWeek.setDate(today.getDate() + 7); // 7 days from today
+  
   const upcomingRegistrations = registrationsArr.filter((reg: any) => {
-    const today = new Date();
-    const classDate = new Date();
-    classDate.setDate(today.getDate() + (reg.course?.schedule?.dayOfWeek - today.getDay() + 7) % 7);
-    return classDate >= today && reg.status === 'registered';
+    if (reg.status !== 'registered' || !reg.course?.course_date) return false;
+    const courseDate = new Date(reg.course.course_date);
+    return courseDate >= today && courseDate <= nextWeek;
   });
 
-  const todayDay = new Date().getDay();
-  const registrationsToday = registrationsArr.filter((reg: any) => 
-    reg.course?.schedule?.dayOfWeek === todayDay && reg.status === 'registered'
-  );
+  const registrationsToday = registrationsArr.filter((reg: any) => {
+    if (reg.status !== 'registered' || !reg.course?.course_date) return false;
+    const courseDate = new Date(reg.course.course_date);
+    return courseDate.toDateString() === today.toDateString();
+  });
 
   const nextClass = upcomingRegistrations[0];
 
-  if (registrationsLoading || subscriptionsLoading || plansLoading) {
+  // Debug filtered results
+  console.log('Today registrations:', registrationsToday);
+  console.log('Upcoming registrations:', upcomingRegistrations);
+
+  if (registrationsLoading || coursesLoading || subscriptionsLoading || plansLoading) {
     return (
       <div className={isMobile ? "max-w-full mx-auto p-2 space-y-4" : "max-w-6xl mx-auto p-6 space-y-8"}>
         <div className="space-y-6">
@@ -191,14 +205,14 @@ export default function MemberHome() {
                   className={`flex-1 sm:flex-none rounded-full px-4 py-2 flex items-center justify-center gap-2 transition-all text-sm ${tab === 'upcoming' ? 'shadow bg-primary text-primary-foreground' : 'bg-transparent text-muted-foreground hover:bg-muted'}`}
                 >
                   <Clock className="w-4 h-4" />
-                  <span className="hidden sm:inline">Upcoming</span>
-                  <span className="sm:hidden">Week</span>
+                  <span className="hidden sm:inline">Next 7 Days</span>
+                  <span className="sm:hidden">7 Days</span>
                 </Button>
               </div>
               <CardDescription className="text-center text-sm">
                 {tab === 'today'
                   ? 'Your booked classes for today'
-                  : "Classes you're registered for this week"}
+                  : "Classes you're registered for in the next 7 days"}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -218,11 +232,11 @@ export default function MemberHome() {
                             <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
                               <span className="flex items-center gap-1">
                                 <Clock className="w-3 h-3 flex-shrink-0" />
-                                <span className="truncate">{formatTime(reg.course?.schedule?.startTime)} - {formatTime(reg.course?.schedule?.endTime || reg.course?.schedule?.startTime)}</span>
+                                <span className="truncate">{formatTime(reg.course?.start_time)} - {formatTime(reg.course?.end_time || reg.course?.start_time)}</span>
                               </span>
                               <span className="flex items-center gap-1">
                                 <Users className="w-3 h-3 flex-shrink-0" />
-                                <span className="truncate">{reg.course?.trainer?.firstName} {reg.course?.trainer?.lastName}</span>
+                                <span className="truncate">{reg.course?.trainer?.user?.first_name} {reg.course?.trainer?.user?.last_name}</span>
                               </span>
                             </div>
                           </div>
@@ -267,15 +281,15 @@ export default function MemberHome() {
                             <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
                               <span className="flex items-center gap-1">
                                 <Calendar className="w-3 h-3 flex-shrink-0" />
-                                <span className="truncate">{registration.course?.courseDate ? formatDate(registration.course.courseDate) : getDayName(registration.course?.schedule?.dayOfWeek)}</span>
+                                <span className="truncate">{registration.course?.course_date ? formatDate(registration.course.course_date) : 'Date TBD'}</span>
                               </span>
                               <span className="flex items-center gap-1">
                                 <Clock className="w-3 h-3 flex-shrink-0" />
-                                <span className="truncate">{formatTime(registration.course?.schedule?.startTime)}</span>
+                                <span className="truncate">{formatTime(registration.course?.start_time)}</span>
                               </span>
                               <span className="flex items-center gap-1">
                                 <Users className="w-3 h-3 flex-shrink-0" />
-                                <span className="truncate">{registration.course?.trainer?.firstName} {registration.course?.trainer?.lastName}</span>
+                                <span className="truncate">{registration.course?.trainer?.user?.first_name} {registration.course?.trainer?.user?.last_name}</span>
                               </span>
                             </div>
                           </div>
@@ -295,7 +309,7 @@ export default function MemberHome() {
                 ) : (
                   <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
                     <Clock className="w-16 h-16 mb-4 opacity-50" />
-                    <h3 className="text-xl font-semibold mb-2">No upcoming classes booked</h3>
+                    <h3 className="text-xl font-semibold mb-2">No classes booked for the next 7 days</h3>
                     <p className="text-base mb-4">Book a class to see it here</p>
                     <Button variant="outline" asChild>
                       <a href="/member/classes">
@@ -468,28 +482,63 @@ export default function MemberHome() {
 
       {/* QR Code Modal */}
       <Dialog open={!!selectedQR} onOpenChange={() => setSelectedQR(null)}>
-        <DialogContent className="sm:max-w-md mx-4">
-          <DialogHeader>
-            <DialogTitle className="text-lg">Class QR Code</DialogTitle>
-            <DialogDescription className="text-sm">
+        <DialogContent className="max-w-[90vw] sm:max-w-md max-h-[85vh] overflow-y-auto">
+          <DialogHeader className="text-center pb-3 sm:pb-4">
+            <DialogTitle className="text-lg sm:text-xl font-bold text-foreground">Class QR Code</DialogTitle>
+            <DialogDescription className="text-sm sm:text-base">
               Show this code at the gym to check in
             </DialogDescription>
           </DialogHeader>
           {selectedQR && (
-            <div className="space-y-4">
-              <div className="text-center">
-                <h4 className="text-base sm:text-lg font-medium text-foreground mb-2">
+            <div className="space-y-4 sm:space-y-6">
+              {/* Class Information */}
+              <div className="text-center space-y-2 sm:space-y-3">
+                <div className="inline-flex items-center gap-2 px-3 py-2 bg-primary/10 rounded-full">
+                  <span className="text-primary font-semibold text-sm">
+                    {selectedQR.course?.class?.category?.name?.charAt(0).toUpperCase()}
+                  </span>
+                </div>
+                <h4 className="text-base sm:text-lg font-semibold text-foreground">
                   {selectedQR.course?.class?.name}
                 </h4>
-                <p className="text-sm text-muted-foreground mb-4">
-                  {selectedQR.course?.courseDate ? formatDate(selectedQR.course.courseDate) : getDayName(selectedQR.course?.schedule?.dayOfWeek)} • {formatTime(selectedQR.course?.schedule?.startTime)}
-                </p>
-                <div className="flex justify-center">
-                  <QRGenerator value={selectedQR.qrCode || ''} size={180} />
+                <div className="space-y-1 text-xs sm:text-sm text-muted-foreground">
+                  <p className="flex items-center justify-center gap-2">
+                    <Calendar className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                    {selectedQR.course?.course_date ? formatDate(selectedQR.course.course_date) : 'Date TBD'}
+                  </p>
+                  <p className="flex items-center justify-center gap-2">
+                    <Clock className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                    {formatTime(selectedQR.course?.start_time)} - {formatTime(selectedQR.course?.end_time || selectedQR.course?.start_time)}
+                  </p>
+                  <p className="flex items-center justify-center gap-2">
+                    <Users className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                    {selectedQR.course?.trainer?.user?.first_name} {selectedQR.course?.trainer?.user?.last_name}
+                  </p>
                 </div>
-                <p className="text-xs sm:text-sm text-muted-foreground mt-4 break-all">
-                  Code: {selectedQR.qrCode || 'N/A'}
+              </div>
+
+              {/* QR Code */}
+              <div className="flex flex-col items-center space-y-3 sm:space-y-4">
+                <div className="p-2 sm:p-3 bg-white rounded-xl shadow-lg border-2 border-border">
+                  <QRGenerator value={selectedQR.qr_code || ''} size={200} />
+                </div>
+                <div className="text-center space-y-2 w-full">
+                  <p className="text-xs sm:text-sm font-medium text-foreground">QR Code</p>
+                  <p className="text-xs text-muted-foreground font-mono bg-muted px-2 py-1 rounded break-all">
+                    {selectedQR.qr_code || 'N/A'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Instructions */}
+              <div className="text-center space-y-2">
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  Present this QR code to the instructor when you arrive for your class
                 </p>
+                <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                  <QrCode className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                  <span>Scan at the gym entrance</span>
+                </div>
               </div>
             </div>
           )}

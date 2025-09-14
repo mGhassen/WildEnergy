@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, Clock, User, Search, CheckCircle, XCircle, AlertCircle, QrCode } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Calendar, Clock, User, Search, CheckCircle, XCircle, AlertCircle, QrCode, Filter, Download, TrendingUp, BarChart3, Calendar as CalendarIcon, Copy } from "lucide-react";
 import { formatTime, getDayName, formatDateTime } from "@/lib/date";
 import QRGenerator from "@/components/qr-generator";
 import { formatDate } from "@/lib/date";
@@ -82,6 +84,11 @@ function mapRegistration(reg: unknown): Registration {
 export default function MemberHistory() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedQR, setSelectedQR] = useState<string | null>(null);
+  const [dateFilter, setDateFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [trainerFilter, setTrainerFilter] = useState("all");
+  const [showFilters, setShowFilters] = useState(false);
+  const [classTypeFilter, setClassTypeFilter] = useState("all");
 
   const { data: registrations = [], isLoading: registrationsLoading } = useRegistrations();
   const { data: checkins = [], isLoading: checkinsLoading } = useCheckins();
@@ -114,14 +121,122 @@ export default function MemberHistory() {
     return reg.status === 'absent';
   });
 
-  // Apply search filter to display data
-  const filteredRegistrations = allRegistrations.filter((registration: Registration) => {
-    if (!registration?.schedule?.class || !registration?.schedule?.trainer) return false;
-    const matchesSearch = registration.schedule.class.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         registration.schedule.trainer.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         registration.schedule.trainer.lastName?.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSearch;
-  });
+  // Get unique categories and trainers for filter options
+  const categories = useMemo(() => {
+    const cats = new Set<string>();
+    allRegistrations.forEach(reg => {
+      if (reg.schedule?.class?.category) {
+        cats.add(reg.schedule.class.category);
+      }
+    });
+    return Array.from(cats).sort();
+  }, [allRegistrations]);
+
+  const trainers = useMemo(() => {
+    const trainerSet = new Set<string>();
+    allRegistrations.forEach(reg => {
+      if (reg.schedule?.trainer?.firstName && reg.schedule?.trainer?.lastName) {
+        trainerSet.add(`${reg.schedule.trainer.firstName} ${reg.schedule.trainer.lastName}`);
+      }
+    });
+    return Array.from(trainerSet).sort();
+  }, [allRegistrations]);
+
+  // Enhanced filtering logic
+  const filteredRegistrations = useMemo(() => {
+    return allRegistrations.filter((registration: Registration) => {
+      if (!registration?.schedule?.class || !registration?.schedule?.trainer) return false;
+      
+      // Search filter
+      const matchesSearch = registration.schedule.class.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           registration.schedule.trainer.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           registration.schedule.trainer.lastName?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      // Category filter
+      const matchesCategory = categoryFilter === "all" || 
+                             registration.schedule.class.category === categoryFilter;
+      
+      // Trainer filter
+      const trainerName = `${registration.schedule.trainer.firstName} ${registration.schedule.trainer.lastName}`;
+      const matchesTrainer = trainerFilter === "all" || trainerName === trainerFilter;
+      
+      // Date filter
+      let matchesDate = true;
+      if (dateFilter !== "all") {
+        const classDate = new Date(registration.schedule.scheduleDate);
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+        
+        switch (dateFilter) {
+          case "today":
+            matchesDate = classDate.toDateString() === today.toDateString();
+            break;
+          case "week":
+            matchesDate = classDate >= weekAgo;
+            break;
+          case "month":
+            matchesDate = classDate >= monthAgo;
+            break;
+          case "past":
+            matchesDate = classDate < today;
+            break;
+          case "upcoming":
+            matchesDate = classDate >= today;
+            break;
+        }
+      }
+      
+      // Class type filter
+      let matchesClassType = true;
+      if (classTypeFilter !== "all") {
+        switch (classTypeFilter) {
+          case "attended":
+            matchesClassType = registration.status === 'attended' || attendedRegistrationIds.has(Number(registration.id));
+            break;
+          case "registered":
+            matchesClassType = registration.status === 'registered' && 
+                              !!registration.schedule && 
+                              !!registration.schedule.scheduleDate && 
+                              !!registration.schedule.startTime &&
+                              (() => {
+                                const classDateTime = new Date(registration.schedule.scheduleDate);
+                                const [hours, minutes] = registration.schedule.startTime.split(':');
+                                classDateTime.setHours(parseInt(hours), parseInt(minutes));
+                                return classDateTime > new Date();
+                              })();
+            break;
+          case "cancelled":
+            matchesClassType = registration.status === 'cancelled';
+            break;
+          case "absent":
+            matchesClassType = registration.status === 'absent';
+            break;
+        }
+      }
+      
+      return matchesSearch && matchesCategory && matchesTrainer && matchesDate && matchesClassType;
+    });
+  }, [allRegistrations, searchTerm, categoryFilter, trainerFilter, dateFilter, classTypeFilter, attendedRegistrationIds]);
+
+  // Calculate statistics
+  const statistics = useMemo(() => {
+    const totalClasses = allRegistrations.length;
+    const attendanceRate = totalClasses > 0 ? Math.round((attendedClasses.length / totalClasses) * 100) : 0;
+    const thisMonth = allRegistrations.filter(reg => {
+      const classDate = new Date(reg.schedule.scheduleDate);
+      const now = new Date();
+      return classDate.getMonth() === now.getMonth() && classDate.getFullYear() === now.getFullYear();
+    }).length;
+    
+    return {
+      totalClasses,
+      attendanceRate,
+      thisMonth,
+      favoriteCategory: categories.length > 0 ? categories[0] : "None"
+    };
+  }, [allRegistrations, attendedClasses.length, categories]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -159,51 +274,66 @@ export default function MemberHistory() {
     const isCancelled = classData.status === 'cancelled';
 
     return (
-      <Card key={`${classData.id}-${classData.status}`} className="overflow-hidden">
+      <Card key={`${classData.id}-${classData.status}`} className="overflow-hidden hover:shadow-md transition-shadow">
         <CardContent className="p-4">
           <div className="flex justify-between items-start mb-3">
-            <div>
-              <h3 className="text-base font-semibold leading-tight">{classData.schedule.class.name}</h3>
-              <p className="mt-0.5 text-xs text-muted-foreground">
+            <div className="flex-1 min-w-0">
+              <h3 className="text-base font-semibold leading-tight truncate">{classData.schedule.class.name}</h3>
+              <p className="mt-0.5 text-xs text-muted-foreground truncate">
                 {classData.schedule.trainer.firstName} {classData.schedule.trainer.lastName}
               </p>
             </div>
-            {getStatusBadge(classData.status)}
-          </div>
-          <div className="flex flex-row items-center gap-4 min-h-[100px]">
-          {/* Left: Info */}
-          <div className="flex-1 flex flex-col gap-1 text-xs">
-            <div className="flex flex-wrap gap-x-4 gap-y-1 mb-1">
-              <span className="flex items-center text-muted-foreground"><Calendar className="w-4 h-4 mr-1" />{getDayName(classData.schedule.dayOfWeek)}, {formatDate(classData.schedule.scheduleDate)}</span>
-              <span className="flex items-center text-muted-foreground"><Clock className="w-4 h-4 mr-1" />{formatTime(classData.schedule.startTime)}</span>
-              <span className="flex items-center text-muted-foreground"><User className="w-4 h-4 mr-1" />{classData.schedule.class.category}</span>
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {isAttended && (
-                <span>Attended: {formatDateTime(classData.registrationDate)}</span>
-              )}
-              {isRegistered && (
-                <span>Class Date: {formatDate(classData.schedule.scheduleDate)}</span>
-              )}
-              {isCancelled && (
-                <span>Cancelled: {formatDate(classData.registrationDate)}</span>
-              )}
+            <div className="ml-2 flex-shrink-0">
+              {getStatusBadge(classData.status)}
             </div>
           </div>
-          {/* Right: QR code */}
-          {showQR && isRegistered && classData.qrCode && (
-            <div className="flex flex-col items-center justify-center min-w-[110px]">
-              <span className="text-xs font-medium mb-1">QR Code</span>
-              <QRGenerator value={classData.qrCode} size={70} />
-              <button
-                onClick={() => setSelectedQR(classData.qrCode)}
-                className="mt-1 flex items-center text-xs text-blue-600 hover:text-blue-800"
-              >
-                <QrCode className="w-3 h-3 mr-1" />
-                View
-              </button>
+          
+          <div className="space-y-3">
+            {/* Class Details */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              <div className="flex items-center text-muted-foreground">
+                <Calendar className="w-4 h-4 mr-2 flex-shrink-0" />
+                <span className="truncate">{getDayName(classData.schedule.dayOfWeek)}, {formatDate(classData.schedule.scheduleDate)}</span>
+              </div>
+              <div className="flex items-center text-muted-foreground">
+                <Clock className="w-4 h-4 mr-2 flex-shrink-0" />
+                <span>{formatTime(classData.schedule.startTime)} - {formatTime(classData.schedule.endTime)}</span>
+              </div>
+              <div className="flex items-center text-muted-foreground">
+                <User className="w-4 h-4 mr-2 flex-shrink-0" />
+                <span className="truncate">{classData.schedule.class.category}</span>
+              </div>
+              <div className="flex items-center text-muted-foreground">
+                {getStatusIcon(classData.status)}
+                <span className="ml-2">
+                  {isAttended && `Attended: ${formatDateTime(classData.registrationDate)}`}
+                  {isRegistered && `Class Date: ${formatDate(classData.schedule.scheduleDate)}`}
+                  {isCancelled && `Cancelled: ${formatDate(classData.registrationDate)}`}
+                </span>
+              </div>
             </div>
-          )}
+            
+            {/* QR Code Section */}
+            {showQR && isRegistered && classData.qrCode && (
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <QRGenerator value={classData.qrCode} size={40} />
+                  <div>
+                    <p className="text-xs font-medium">QR Code Available</p>
+                    <p className="text-xs text-muted-foreground">Show for check-in</p>
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setSelectedQR(classData.qrCode)}
+                  className="h-8"
+                >
+                  <QrCode className="w-3 h-3 mr-1" />
+                  View
+                </Button>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -230,210 +360,267 @@ export default function MemberHistory() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Class History</h1>
-        <p className="text-muted-foreground mt-2">
-          View all your classes - attended, registered, and cancelled
-        </p>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Class History</h1>
+          <p className="text-muted-foreground mt-2">
+            View all your classes - attended, registered, and cancelled
+          </p>
+        </div>
+        
       </div>
 
-      {/* Search */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
+      {/* Search and Filters */}
+      <div className="space-y-4">
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
           <Input
-            placeholder="Search classes or trainers..."
+            placeholder="Search classes, trainers, or categories..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
           />
         </div>
+
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center gap-2"
+          >
+            <Filter className="w-4 h-4" />
+            Filters
+          </Button>
+        </div>
+        
+        {/* Advanced Filters */}
+        {showFilters && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 bg-muted/30 rounded-lg">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Date Range</label>
+              <Select value={dateFilter} onValueChange={setDateFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All time" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All time</SelectItem>
+                  <SelectItem value="today">Today</SelectItem>
+                  <SelectItem value="week">This week</SelectItem>
+                  <SelectItem value="month">This month</SelectItem>
+                  <SelectItem value="past">Past classes</SelectItem>
+                  <SelectItem value="upcoming">Upcoming classes</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium mb-2 block">Category</label>
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All categories" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All categories</SelectItem>
+                  {categories.map(category => (
+                    <SelectItem key={category} value={category}>{category}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium mb-2 block">Trainer</label>
+              <Select value={trainerFilter} onValueChange={setTrainerFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All trainers" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All trainers</SelectItem>
+                  {trainers.map(trainer => (
+                    <SelectItem key={trainer} value={trainer}>{trainer}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="flex items-end">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setDateFilter("all");
+                  setCategoryFilter("all");
+                  setTrainerFilter("all");
+                  setClassTypeFilter("all");
+                  setSearchTerm("");
+                }}
+                className="w-full"
+              >
+                Clear Filters
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
+      {/* Enhanced Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="hover:shadow-md transition-shadow">
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Classes Attended</CardTitle>
+            <CardTitle className="text-base flex items-center gap-2">
+              <CheckCircle className="w-4 h-4 text-green-600" />
+              Classes Attended
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-green-600">{attendedClasses.length}</div>
-            <p className="text-sm text-muted-foreground">Total completed classes</p>
+            <div className="text-2xl font-bold text-green-600">{attendedClasses.length}</div>
+            <p className="text-xs text-muted-foreground">Total completed classes</p>
+            <div className="mt-2 text-xs text-green-600 font-medium">
+              {statistics.attendanceRate}% attendance rate
+            </div>
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className="hover:shadow-md transition-shadow">
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Upcoming Classes</CardTitle>
+            <CardTitle className="text-base flex items-center gap-2">
+              <CalendarIcon className="w-4 h-4 text-blue-600" />
+              Upcoming Classes
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-blue-600">{registeredClasses.length}</div>
-            <p className="text-sm text-muted-foreground">Classes you&apos;re registered for</p>
+            <div className="text-2xl font-bold text-blue-600">{registeredClasses.length}</div>
+            <p className="text-xs text-muted-foreground">Classes you&apos;re registered for</p>
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className="hover:shadow-md transition-shadow">
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Cancelled Classes</CardTitle>
+            <CardTitle className="text-base flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-purple-600" />
+              This Month
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-red-600">{cancelledClasses.length}</div>
-            <p className="text-sm text-muted-foreground">Classes you&apos;ve cancelled</p>
+            <div className="text-2xl font-bold text-purple-600">{statistics.thisMonth}</div>
+            <p className="text-xs text-muted-foreground">Classes this month</p>
+            <div className="mt-2 text-xs text-muted-foreground">
+              Favorite: {statistics.favoriteCategory}
+            </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hover:shadow-md transition-shadow">
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Absent Classes</CardTitle>
+            <CardTitle className="text-base flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-orange-600" />
+              Total Classes
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-orange-600">{absentClasses.length}</div>
-            <p className="text-sm text-muted-foreground">Classes you missed</p>
+            <div className="text-2xl font-bold text-orange-600">{statistics.totalClasses}</div>
+            <p className="text-xs text-muted-foreground">All time classes</p>
+            <div className="mt-2 text-xs text-muted-foreground">
+              {cancelledClasses.length} cancelled, {absentClasses.length} absent
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Class History Tabs */}
-      <Tabs defaultValue="all" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="all">All Classes</TabsTrigger>
-          <TabsTrigger value="attended">Attended</TabsTrigger>
-          <TabsTrigger value="registered">Registered</TabsTrigger>
-          <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
-          <TabsTrigger value="absent">Absent</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="all" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Class Type Filter */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-4">
+          <label className="text-sm font-medium">Filter by class type:</label>
+          <Select value={classTypeFilter} onValueChange={setClassTypeFilter}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="All Classes" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Classes</SelectItem>
+              <SelectItem value="attended">Attended</SelectItem>
+              <SelectItem value="registered">Registered</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
+              <SelectItem value="absent">Absent</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Class History Content */}
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
             {filteredRegistrations
-              .sort((a: Registration, b: Registration) => new Date(b.registrationDate).getTime() - new Date(a.registrationDate).getTime())
+              .sort((a: Registration, b: Registration) => {
+                // Sort by registration date for most types, but by schedule date for registered classes
+                if (classTypeFilter === "registered") {
+                  return new Date(a.schedule.scheduleDate).getTime() - new Date(b.schedule.scheduleDate).getTime();
+                }
+                return new Date(b.registrationDate).getTime() - new Date(a.registrationDate).getTime();
+              })
               .map((classData: Registration) => renderClassCard(classData, classData.status === 'registered'))}
           </div>
           {filteredRegistrations.length === 0 && (
             <div className="text-center py-12">
-              <p className="text-muted-foreground">No class history found.</p>
+              {classTypeFilter === "attended" && <CheckCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />}
+              {classTypeFilter === "registered" && <CalendarIcon className="w-12 h-12 text-muted-foreground mx-auto mb-4" />}
+              {classTypeFilter === "cancelled" && <XCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />}
+              {classTypeFilter === "absent" && <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />}
+              {classTypeFilter === "all" && <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />}
+              <p className="text-muted-foreground">
+                {classTypeFilter === "all" && "No class history found."}
+                {classTypeFilter === "attended" && "No attended classes found."}
+                {classTypeFilter === "registered" && "No registered classes found."}
+                {classTypeFilter === "cancelled" && "No cancelled classes found."}
+                {classTypeFilter === "absent" && "No absent classes found."}
+              </p>
+              <p className="text-sm text-muted-foreground mt-2">Try adjusting your filters or search terms.</p>
             </div>
           )}
-        </TabsContent>
-
-        <TabsContent value="attended" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {attendedClasses
-              .filter((reg: Registration) => {
-                if (!reg?.schedule?.class || !reg?.schedule?.trainer) return false;
-                return reg.schedule.class.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                       reg.schedule.trainer.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                       reg.schedule.trainer.lastName?.toLowerCase().includes(searchTerm.toLowerCase());
-              })
-              .sort((a: Registration, b: Registration) => new Date(b.registrationDate).getTime() - new Date(a.registrationDate).getTime())
-              .map((classData: Registration) => renderClassCard(classData))}
-          </div>
-          {attendedClasses.filter((reg: Registration) => {
-            if (!reg?.schedule?.class || !reg?.schedule?.trainer) return false;
-            return reg.schedule.class.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                   reg.schedule.trainer.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                   reg.schedule.trainer.lastName?.toLowerCase().includes(searchTerm.toLowerCase());
-          }).length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground">No attended classes found.</p>
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="registered" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {registeredClasses
-              .filter((reg: Registration) => {
-                if (!reg?.schedule?.class || !reg?.schedule?.trainer) return false;
-                return reg.schedule.class.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                       reg.schedule.trainer.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                       reg.schedule.trainer.lastName?.toLowerCase().includes(searchTerm.toLowerCase());
-              })
-              .sort((a: Registration, b: Registration) => new Date(a.schedule.scheduleDate).getTime() - new Date(b.schedule.scheduleDate).getTime())
-              .map((classData) => renderClassCard(classData, true))}
-          </div>
-          {registeredClasses.filter((reg: Registration) => {
-            if (!reg?.schedule?.class || !reg?.schedule?.trainer) return false;
-            return reg.schedule.class.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                   reg.schedule.trainer.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                   reg.schedule.trainer.lastName?.toLowerCase().includes(searchTerm.toLowerCase());
-          }).length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground">No registered classes found.</p>
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="cancelled" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {cancelledClasses
-              .filter((reg: Registration) => {
-                if (!reg?.schedule?.class || !reg?.schedule?.trainer) return false;
-                return reg.schedule.class.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                       reg.schedule.trainer.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                       reg.schedule.trainer.lastName?.toLowerCase().includes(searchTerm.toLowerCase());
-              })
-              .sort((a: Registration, b: Registration) => new Date(b.registrationDate).getTime() - new Date(a.registrationDate).getTime())
-              .map((classData) => renderClassCard(classData))}
-          </div>
-          {cancelledClasses.filter((reg: Registration) => {
-            if (!reg?.schedule?.class || !reg?.schedule?.trainer) return false;
-            return reg.schedule.class.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                   reg.schedule.trainer.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                   reg.schedule.trainer.lastName?.toLowerCase().includes(searchTerm.toLowerCase());
-          }).length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground">No cancelled classes found.</p>
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="absent" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {absentClasses
-              .filter((reg: Registration) => {
-                if (!reg?.schedule?.class || !reg?.schedule?.trainer) return false;
-                return reg.schedule.class.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                       reg.schedule.trainer.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                       reg.schedule.trainer.lastName?.toLowerCase().includes(searchTerm.toLowerCase());
-              })
-              .sort((a: Registration, b: Registration) => new Date(b.registrationDate).getTime() - new Date(a.registrationDate).getTime())
-              .map((classData) => renderClassCard(classData))}
-          </div>
-          {absentClasses.filter((reg: Registration) => {
-            if (!reg?.schedule?.class || !reg?.schedule?.trainer) return false;
-            return reg.schedule.class.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                   reg.schedule.trainer.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                   reg.schedule.trainer.lastName?.toLowerCase().includes(searchTerm.toLowerCase());
-          }).length === 0 && (
-            <div className="text-center py-12">
-              <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">No absent classes found.</p>
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
+        </div>
+      </div>
 
       {/* QR Code Modal */}
       {selectedQR && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setSelectedQR(null)}>
-          <div className="bg-white p-6 rounded-lg shadow-xl max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold mb-4 text-center">Your QR Code</h3>
-            <div className="mb-4">
-              <QRGenerator value={selectedQR} size={300} />
+        <Dialog open={!!selectedQR} onOpenChange={() => setSelectedQR(null)}>
+          <DialogContent className="max-w-[90vw] sm:max-w-md max-h-[85vh] overflow-y-auto">
+            <DialogHeader className="text-center pb-3 sm:pb-4">
+              <DialogTitle className="text-lg sm:text-xl font-bold text-foreground">Your QR Code</DialogTitle>
+            </DialogHeader>
+            
+            <div className="flex flex-col items-center space-y-4 sm:space-y-6">
+              <div className="relative p-2 sm:p-3 bg-muted/30 rounded-lg">
+                <QRGenerator value={selectedQR} size={200} />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    navigator.clipboard.writeText(selectedQR);
+                    // You could add a toast notification here
+                  }}
+                  className="absolute top-2 right-2 h-8 w-8 p-0"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              <div className="w-full text-center space-y-2">
+                <p className="text-sm text-muted-foreground">QR Code Value:</p>
+                <div className="bg-muted p-3 rounded-lg">
+                  <p className="text-xs font-mono break-all text-foreground">{selectedQR}</p>
+                </div>
+              </div>
+              
+              <div className="w-full">
+                <Button
+                  onClick={() => setSelectedQR(null)}
+                  className="w-full"
+                >
+                  Close
+                </Button>
+              </div>
             </div>
-            <div className="text-center">
-              <p className="text-sm text-muted-foreground mb-2">QR Code Value:</p>
-              <p className="text-xs font-mono bg-muted p-2 rounded break-all">{selectedQR}</p>
-            </div>
-            <button
-              onClick={() => setSelectedQR(null)}
-              className="mt-4 w-full bg-primary text-white py-2 px-4 rounded hover:bg-primary/90"
-            >
-              Close
-            </button>
-          </div>
-        </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
