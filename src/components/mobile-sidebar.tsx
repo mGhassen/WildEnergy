@@ -239,63 +239,50 @@ export function MobileSidebar() {
           <Menu className="w-5 h-5" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-[280px] sm:w-[350px] p-0">
-        <SheetHeader className="p-6 border-b border-border">
-          <SheetTitle className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <Dumbbell className="w-4 h-4 text-primary-foreground" />
-            </div>
-            <div>
-              <span className="text-lg font-semibold">WildEnergy Admin</span>
-              <p className="text-sm text-muted-foreground">Management Portal</p>
-            </div>
-          </SheetTitle>
+      <SheetContent side="left" className="w-[280px] sm:w-[350px] p-0 flex flex-col h-full">
+        <SheetHeader className="sr-only">
+          <SheetTitle>Admin Navigation Menu</SheetTitle>
         </SheetHeader>
         
-        {/* User Profile Section */}
-        <div className="p-4 border-b border-border">
-          <div className="flex items-center space-x-3">
-            <Avatar className="w-12 h-12">
-              <AvatarImage src={userForDisplay.avatar} />
-              <AvatarFallback className="bg-primary text-primary-foreground">
-                {user ? getInitials(user.firstName || "A", user.lastName || "") : "A"}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1 min-w-0">
-              <p className="font-medium text-sm truncate">{userForDisplay.name}</p>
-              <p className="text-xs text-muted-foreground truncate">{userForDisplay.email}</p>
+        {/* Header Section */}
+        <div className="p-6 border-b border-border bg-gradient-to-r from-primary/5 to-primary/10">
+          {/* Logo and Title */}
+          <div className="flex items-center space-x-3 mb-4">
+            <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+              <Dumbbell className="w-5 h-5 text-primary-foreground" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold">WildEnergy Admin</h3>
+              <p className="text-sm text-muted-foreground">Management Portal</p>
             </div>
           </div>
-        </div>
 
-        {/* Portal Switching */}
-        {availablePortals.length > 0 && (
-          <div className="p-4 border-b border-border">
-            <div className="text-sm font-medium text-muted-foreground mb-3">Switch Portal</div>
+          {/* Portal Switching */}
+          {availablePortals.length > 0 && (
             <div className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Switch Portal</p>
               {availablePortals.map((portal) => {
                 const PortalIcon = getPortalIcon(portal)
                 return (
                   <Button
                     key={portal}
                     variant="outline"
-                    className="w-full justify-start h-12 px-4"
+                    className="w-full justify-start h-10 px-3 text-sm"
                     onClick={() => handlePortalSwitch(portal)}
                   >
-                    <PortalIcon className="w-5 h-5 mr-3" />
+                    <PortalIcon className="w-4 h-4 mr-2" />
                     <div className="flex-1 text-left">
                       <div className="font-medium">{getPortalName(portal)}</div>
-                      <div className="text-xs text-muted-foreground">Switch to {portal} view</div>
                     </div>
                   </Button>
                 )
               })}
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Main Navigation - Using exact same shadcn structure as web */}
-        <div className="flex-1 p-4">
+        <div className="flex-1 p-4 overflow-y-auto">
           <SidebarGroup>
             <SidebarGroupLabel>Platform</SidebarGroupLabel>
             <SidebarMenu>
@@ -384,19 +371,28 @@ export function MobileSidebar() {
           </SidebarGroup>
         </div>
 
-        {/* Footer Actions */}
-        <div className="p-4 border-t border-border">
-          <Button
-            variant="ghost"
-            className="w-full justify-start h-12 px-4 text-destructive hover:text-destructive"
-            onClick={handleLogout}
-          >
-            <LogOut className="w-5 h-5 mr-3" />
-            <div className="flex-1 text-left">
-              <div className="font-medium">Logout</div>
-              <div className="text-xs text-muted-foreground">Sign out of your account</div>
+        {/* Footer with User Profile and Logout - At the very bottom */}
+        <div className="p-4 border-t border-border bg-muted/30 mt-auto">
+          <div className="flex items-center space-x-3">
+            <Avatar className="w-8 h-8">
+              <AvatarImage src={userForDisplay.avatar} />
+              <AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">
+                {user ? getInitials(user.firstName || "A", user.lastName || "") : "A"}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-sm truncate">{userForDisplay.name}</p>
+              <p className="text-xs text-muted-foreground truncate">{userForDisplay.email}</p>
             </div>
-          </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={handleLogout}
+            >
+              <LogOut className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
       </SheetContent>
     </Sheet>
