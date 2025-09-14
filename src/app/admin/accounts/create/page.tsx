@@ -664,7 +664,11 @@ export default function CreateAccountPage() {
                                                                         min="0"
                                                                         placeholder="0"
                                                                         {...field}
-                                                                        onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                                                                        value={field.value || ""}
+                                                                        onChange={(e) => {
+                                                                            const value = e.target.value;
+                                                                            field.onChange(value === "" ? 0 : parseInt(value, 10) || 0);
+                                                                        }}
                                                                     />
                                                                 </FormControl>
                                                                 <FormDescription className="text-xs">

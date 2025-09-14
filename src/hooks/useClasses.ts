@@ -98,7 +98,7 @@ export function useCreateAdminClass() {
   return useMutation({
     mutationFn: (data: CreateAdminClassData) => adminApi.createAdminClass(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['adminClasses'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'classes'] });
       toast({
         title: 'Class created',
         description: 'The class has been successfully created.',
@@ -122,7 +122,7 @@ export function useUpdateAdminClass() {
     mutationFn: ({ classId, data }: { classId: number; data: UpdateAdminClassData }) => 
       adminApi.updateAdminClass(classId, data),
     onSuccess: (_, { classId }) => {
-      queryClient.invalidateQueries({ queryKey: ['adminClasses'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'classes'] });
       toast({
         title: 'Class updated',
         description: 'The class has been successfully updated.',
@@ -145,7 +145,7 @@ export function useDeleteAdminClass() {
   return useMutation({
     mutationFn: (classId: number) => adminApi.deleteAdminClass(classId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['adminClasses'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'classes'] });
       toast({
         title: 'Class deleted',
         description: 'The class has been successfully deleted.',

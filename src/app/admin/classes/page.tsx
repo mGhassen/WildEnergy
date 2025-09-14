@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -104,10 +104,17 @@ export default function AdminClasses() {
   });
 
   const createClassMutation = useCreateAdminClass();
-
   const updateClassMutation = useUpdateAdminClass();
-
   const deleteClassMutation = useDeleteAdminClass();
+
+  // Handle successful mutations
+  useEffect(() => {
+    if (createClassMutation.isSuccess || updateClassMutation.isSuccess) {
+      setIsModalOpen(false);
+      setEditingClass(null);
+      form.reset();
+    }
+  }, [createClassMutation.isSuccess, updateClassMutation.isSuccess, form]);
 
   const categoriesOptions = categories.map((cat: any) => ({
     value: cat.id,
@@ -331,7 +338,11 @@ export default function AdminClasses() {
                           <Input 
                             type="number" 
                             {...field} 
-                            onChange={(e) => field.onChange(parseInt(e.target.value))}
+                            value={field.value || ""}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              field.onChange(value === "" ? undefined : parseInt(value, 10));
+                            }}
                           />
                         </FormControl>
                         <FormMessage />
@@ -348,7 +359,11 @@ export default function AdminClasses() {
                           <Input 
                             type="number" 
                             {...field} 
-                            onChange={(e) => field.onChange(parseInt(e.target.value))}
+                            value={field.value || ""}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              field.onChange(value === "" ? undefined : parseInt(value, 10));
+                            }}
                           />
                         </FormControl>
                         <FormMessage />

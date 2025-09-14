@@ -983,8 +983,11 @@ export default function AdminSchedules() {
                               min="1" 
                               max="100" 
                               {...field} 
-                              onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
                               value={field.value || ""}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                field.onChange(value === "" ? 0 : parseInt(value, 10) || 0);
+                              }}
                             />
                             {classCapacity > 0 && (
                               <p className="text-xs text-muted-foreground">
