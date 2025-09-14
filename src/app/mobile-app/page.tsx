@@ -65,7 +65,7 @@ interface Course {
 interface Registration {
   id: number;
   registrationDate: string;
-  qrCode: string;
+  qr_code: string;
   status: string;
   course: Course;
 }
@@ -151,7 +151,7 @@ export default function MobileApp() {
 
   const getRegistrationQR = (courseId: number) => {
     const reg = registrations.find((reg: any) => reg.course?.id === courseId);
-    return (reg as any)?.qrCode;
+    return (reg as any)?.qr_code;
   };
 
   // History filtering logic
@@ -450,7 +450,7 @@ export default function MobileApp() {
               <Button 
                 variant="outline" 
                 className="w-full"
-                onClick={() => setShowQRCode((registration as any).qrCode)}
+                onClick={() => setShowQRCode((registration as any).qr_code)}
               >
                 <QrCode className="w-4 h-4 mr-2" />
                 Show QR Code for Check-in
@@ -573,10 +573,10 @@ export default function MobileApp() {
                         </div>
                       </div>
 
-                      {registration.status === "registered" && registration.qrCode && (
+                      {registration.status === "registered" && registration.qr_code && (
                         <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg mt-3">
                           <div className="flex items-center space-x-2">
-                            <QRGenerator value={registration.qrCode} size={30} />
+                            <QRGenerator value={registration.qr_code} size={30} />
                             <div>
                               <p className="text-xs font-medium">QR Code Available</p>
                               <p className="text-xs text-muted-foreground">Show for check-in</p>
@@ -585,7 +585,7 @@ export default function MobileApp() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => setShowQRCode(registration.qrCode)}
+                            onClick={() => setShowQRCode(registration.qr_code)}
                             className="h-7"
                           >
                             <QrCode className="w-3 h-3 mr-1" />

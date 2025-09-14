@@ -41,7 +41,7 @@ interface Schedule {
 interface Registration {
   id: number;
   registrationDate: string;
-  qrCode: string;
+  qr_code: string;
   schedule: Schedule;
   status: string;
 }
@@ -61,7 +61,7 @@ function mapRegistration(reg: unknown): Registration {
     id: r.id ?? 0,
     status: r.status ?? '',
     registrationDate: r.registrationDate || r.registration_date || '',
-    qrCode: r.qrCode || r.qr_code || '',
+    qr_code: r.qrCode || r.qr_code || '',
     schedule: r.course && {
       scheduleDate: r.course.course_date,
       startTime: r.course.start_time,
@@ -314,10 +314,10 @@ export default function MemberHistory() {
             </div>
             
             {/* QR Code Section */}
-            {showQR && isRegistered && classData.qrCode && (
+            {showQR && isRegistered && classData.qr_code && (
               <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                 <div className="flex items-center space-x-2">
-                  <QRGenerator value={classData.qrCode} size={40} />
+                  <QRGenerator value={classData.qr_code} size={40} />
                   <div>
                     <p className="text-xs font-medium">QR Code Available</p>
                     <p className="text-xs text-muted-foreground">Show for check-in</p>
@@ -326,7 +326,7 @@ export default function MemberHistory() {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => setSelectedQR(classData.qrCode)}
+                  onClick={() => setSelectedQR(classData.qr_code)}
                   className="h-8"
                 >
                   <QrCode className="w-3 h-3 mr-1" />
