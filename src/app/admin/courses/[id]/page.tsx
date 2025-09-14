@@ -526,13 +526,20 @@ export default function CourseDetailsPage() {
               <div>
                 <div className="flex justify-between text-sm mb-2">
                   <span>Capacity</span>
-                  <span>{courseData.current_participants}/{courseData.max_participants}</span>
+                  <span className={courseData.current_participants > courseData.max_participants ? 'text-red-600 font-medium' : ''}>
+                    {courseData.current_participants}/{courseData.max_participants}
+                    {courseData.current_participants > courseData.max_participants && ' (Over capacity)'}
+                  </span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div 
-                    className="bg-primary h-2 rounded-full transition-all duration-300"
+                    className={`h-2 rounded-full transition-all duration-300 ${
+                      courseData.current_participants > courseData.max_participants 
+                        ? 'bg-red-500' 
+                        : 'bg-primary'
+                    }`}
                     style={{ 
-                      width: `${(courseData.current_participants / courseData.max_participants) * 100}%` 
+                      width: `${Math.min((courseData.current_participants / courseData.max_participants) * 100, 100)}%` 
                     }}
                   />
                 </div>
@@ -571,6 +578,18 @@ export default function CourseDetailsPage() {
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Day of Week</label>
                   <p>{['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][courseData.schedule.day_of_week]}</p>
+                </div>
+                <div className="col-span-2">
+                  <label className="text-sm font-medium text-muted-foreground">Schedule ID</label>
+                  <p className="flex items-center gap-2">
+                    <Button
+                      variant="link"
+                      className="p-0 h-auto text-primary hover:text-primary/80"
+                      onClick={() => router.push(`/admin/schedules/${courseData.schedule.id}`)}
+                    >
+                      View Schedule #{courseData.schedule.id}
+                    </Button>
+                  </p>
                 </div>
               </div>
             </CardContent>
