@@ -65,6 +65,10 @@ export const adminApi = {
     return apiRequest('GET', '/api/admin/dashboard');
   },
 
+  async getDashboardTasks(): Promise<any> {
+    return apiRequest('GET', '/api/admin/dashboard/tasks');
+  },
+
   // Admin class management methods
   async createAdminClass(data: CreateAdminClassData): Promise<AdminClass> {
     return apiRequest('POST', '/api/admin/classes', data);
