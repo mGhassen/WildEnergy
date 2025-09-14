@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { authApi, RegisterData, LoginCredentials, AuthResponse } from '@/lib/api/auth';
 import { createSupabaseClient } from '@/lib/supabase';
 
@@ -70,11 +71,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [loginError, setLoginError] = useState<Error | null>(null);
   const [authError, setAuthError] = useState<string | null>(null); // NEW
   const router = useRouter();
+  const queryClient = useQueryClient();
 
-  // Debug user state changes
+  // Debug user state changes and clear cache when user changes
   useEffect(() => {
     console.log('User state changed:', user);
+    
+    // Clear cache when user becomes null (logout) to prevent data leakage
+    if (!user) {
+      clearQueryCache();
+    }
   }, [user]);
+
+  // Helper function to clear all query cache
+  const clearQueryCache = () => {
+    console.log('Clearing query cache...');
+    queryClient.clear();
+  };
 
   // Fetch user session
   const fetchSession = async (token: string) => {
@@ -280,7 +293,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       localStorage.removeItem('pending_approval_email');
       localStorage.removeItem('account_status_email');
 
-      // 3. Set user data from response
+      // 3. Clear query cache to prevent data leakage from previous user
+      clearQueryCache();
+      
+      // 4. Set user data from response
       if (!data.user) {
         const error = new Error('Failed to load user profile');
         setLoginError(error);
@@ -356,6 +372,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (typeof window !== 'undefined') {
         delete window.__authToken;
       }
+      
+      // Clear query cache to prevent data leakage between users
+      clearQueryCache();
       
       // Clear user state and errors immediately
       setUser(null);
@@ -465,6 +484,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
           window.__authToken = googleData.access_token;
         }
 
+        // Clear query cache to prevent data leakage from previous user
+        clearQueryCache();
+        
         // Fetch user session to complete the login
         const user = await fetchSession(googleData.access_token);
         if (user) {

@@ -30,6 +30,7 @@ import { queryClient } from "@/lib/queryClient";
 import { useMemberCourses } from "@/hooks/useMemberCourses";
 import { useMemberRegistrations } from "@/hooks/useMemberRegistrations";
 import { useMemberSubscription } from "@/hooks/useMemberSubscriptions";
+import { Course } from "@/lib/api/courses";
 import { registrationApi } from "@/lib/api/registrations";
 import { MobileAppSkeleton } from "@/components/skeletons";
 import { formatTime, formatDateTime } from "@/lib/date";
@@ -38,29 +39,6 @@ import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/date";
 import { MobileAppSidebar } from "@/components/mobile-app-sidebar";
 
-interface Course {
-  id: number;
-  courseDate: string;
-  startTime: string;
-  endTime: string;
-  isActive: boolean;
-  status: string;
-  currentParticipants: number;
-  maxParticipants: number;
-  class: {
-    id: number;
-    name: string;
-    category: {
-      name: string;
-    };
-  };
-  trainer: {
-    user: {
-      first_name: string;
-      last_name: string;
-    };
-  };
-}
 
 interface Registration {
   id: number;
@@ -135,13 +113,13 @@ export default function MobileApp() {
 
   // Get today's and upcoming courses
   const today = new Date();
-  const todayCourses = courses.filter((course: any) => {
-    const courseDate = new Date(course.course_date);
+  const todayCourses = courses.filter((course: Course) => {
+    const courseDate = new Date(course.course_date || course.courseDate || '');
     return courseDate.toDateString() === today.toDateString();
   });
 
-  const upcomingCourses = courses.filter((course: any) => {
-    const courseDate = new Date(course.course_date);
+  const upcomingCourses = courses.filter((course: Course) => {
+    const courseDate = new Date(course.course_date || course.courseDate || '');
     return courseDate > today;
   }).slice(0, 5);
 
@@ -205,6 +183,19 @@ export default function MobileApp() {
   };
 
   const handleRegister = (courseId: number) => {
+    // Find the course to check capacity
+    const course = courses?.find((c: Course) => c.id === courseId);
+    
+    // Check if course is full
+    if (course && course.max_participants > 0 && course.current_participants >= course.max_participants) {
+      toast({
+        title: "Course is full",
+        description: "This course has reached its maximum capacity.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     if (!subscription || (subscription as any).sessionsRemaining <= 0) {
       toast({
         title: "No sessions remaining",
@@ -274,12 +265,12 @@ export default function MobileApp() {
                      className="flex items-center justify-between p-3 bg-muted rounded-lg"
                      onClick={() => setSelectedCourse(course)}>
                   <div>
-                    <p className="font-medium">{course.class.name}</p>
+                    <p className="font-medium">{course.class?.name}</p>
                     <p className="text-sm text-muted-foreground">
-                      {formatTime(course.start_time)} - {formatTime(course.end_time)}
+                      {formatTime(course.start_time || course.startTime)} - {formatTime(course.end_time || course.endTime)}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      with {course.trainer.user.first_name} {course.trainer.user.last_name}
+                      with {course.trainer?.user?.first_name} {course.trainer?.user?.last_name}
                     </p>
                   </div>
                   {isRegistered(course.id) ? (
@@ -350,12 +341,12 @@ export default function MobileApp() {
             <CardContent className="p-4">
               <div className="flex justify-between items-start mb-3">
                 <div className="flex-1">
-                  <h3 className="font-semibold text-lg">{course.class.name}</h3>
+                  <h3 className="font-semibold text-lg">{course.class?.name}</h3>
                   <p className="text-sm text-muted-foreground mb-1">
-                    {course.trainer.user.first_name} {course.trainer.user.last_name}
+                    {course.trainer?.user?.first_name} {course.trainer?.user?.last_name}
                   </p>
                   <Badge variant="outline" className="text-xs">
-                    {course.class.category.name}
+                    {course.class?.category?.name}
                   </Badge>
                 </div>
                 {isRegistered(course.id) ? (
@@ -712,7 +703,7 @@ export default function MobileApp() {
         <Dialog open={!!selectedCourse} onOpenChange={() => setSelectedCourse(null)}>
           <DialogContent className="max-w-sm mx-4 max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>{selectedCourse.class.name}</DialogTitle>
+              <DialogTitle>{selectedCourse.class?.name}</DialogTitle>
             </DialogHeader>
             
             <div className="space-y-4">
@@ -721,19 +712,19 @@ export default function MobileApp() {
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Trainer</span>
-                    <span>{selectedCourse.trainer.user.first_name} {selectedCourse.trainer.user.last_name}</span>
+                    <span>{selectedCourse.trainer?.user?.first_name} {selectedCourse.trainer?.user?.last_name}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Date</span>
-                    <span>{formatDate(selectedCourse.course_date)}</span>
+                    <span>{formatDate(selectedCourse.course_date || selectedCourse.courseDate)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Time</span>
-                    <span>{formatTime(selectedCourse.start_time)} - {formatTime(selectedCourse.end_time)}</span>
+                    <span>{formatTime(selectedCourse.start_time || selectedCourse.startTime)} - {formatTime(selectedCourse.end_time || selectedCourse.endTime)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Category</span>
-                    <span>{selectedCourse.class.category.name}</span>
+                    <span>{selectedCourse.class?.category?.name}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Capacity</span>
@@ -754,9 +745,10 @@ export default function MobileApp() {
                 <Button 
                   className="w-full"
                   onClick={() => handleRegister(selectedCourse.id)}
-                  disabled={registerMutation.isPending}
+                  disabled={registerMutation.isPending || (selectedCourse.max_participants > 0 && selectedCourse.current_participants >= selectedCourse.max_participants)}
                 >
-                  Register for Class
+                  {selectedCourse.max_participants > 0 && selectedCourse.current_participants >= selectedCourse.max_participants ? "Course is Full" :
+                   registerMutation.isPending ? "Registering..." : "Register for Class"}
                 </Button>
               )}
             </div>

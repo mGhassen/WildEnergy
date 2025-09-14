@@ -301,6 +301,16 @@ function MemberCourses() {
       return;
     }
     
+    // Check if course is full
+    if (course && course.max_participants > 0 && course.current_participants >= course.max_participants) {
+      toast({
+        title: "Course is full",
+        description: "This course has reached its maximum capacity.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     // Check if already registered for this course
     if (registeredCourseIds.has(courseId)) {
       toast({
@@ -567,6 +577,19 @@ function MemberCourses() {
                               {course.class?.duration || 60} min
                             </span>
                           </div>
+                          
+                          {/* Participants */}
+                          <div className="flex items-center text-xs sm:text-sm text-muted-foreground">
+                            <Users className="w-3 h-3 sm:w-4 sm:h-4 mr-2 text-primary flex-shrink-0" />
+                            <span className="font-medium text-foreground">
+                              {course.max_participants > 0 ? `${course.current_participants}/${course.max_participants}` : 'Open'}
+                            </span>
+                            {course.max_participants > 0 && course.current_participants >= course.max_participants && (
+                              <span className="ml-1 text-red-600 dark:text-red-400 font-medium text-xs">
+                                (Full)
+                              </span>
+                            )}
+                          </div>
                         </div>
                         
                         {/* Action buttons always at the bottom */}
@@ -606,10 +629,11 @@ function MemberCourses() {
                           <Button
                             className="w-full text-xs sm:text-sm py-2"
                             onClick={() => handleRegister(course.id, course.scheduleId)}
-                            disabled={registerMutation.isPending || !canRegisterForCourse(course) || isCourseInPast(course)}
+                            disabled={registerMutation.isPending || !canRegisterForCourse(course) || isCourseInPast(course) || (course.max_participants > 0 && course.current_participants >= course.max_participants)}
                             variant={isCourseInPast(course) ? "secondary" : "default"}
                           >
                             {isCourseInPast(course) ? "Course Ended" :
+                             course.max_participants > 0 && course.current_participants >= course.max_participants ? "Course is Full" :
                              !activeSubscriptions.length ? "No Active Subscription" :
                              !canRegisterForCourse(course) ? "No Sessions Left" :
                              registerMutation.isPending ? "Registering..." : "Register for Course"}

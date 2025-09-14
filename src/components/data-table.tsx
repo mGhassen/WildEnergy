@@ -28,6 +28,7 @@ interface Column {
   sortable?: boolean;
   render?: (value: any, row: any) => React.ReactNode;
   width?: string;
+  flex?: number;
 }
 
 interface GroupOption {
@@ -363,7 +364,10 @@ export default function DataTable({
           <div
             key={column.key}
             className={`p-3 ${column.width ? '' : 'flex-1'}`}
-            style={{ width: column.width }}
+            style={{ 
+              width: column.width,
+              flex: column.flex ? `${column.flex}` : undefined
+            }}
           >
             {column.render ? column.render(row[column.key], row) : String(row[column.key] || "")}
           </div>
@@ -558,7 +562,10 @@ export default function DataTable({
                 className={`p-3 font-medium text-foreground ${
                   column.sortable ? "cursor-pointer hover:bg-muted/50" : ""
                 } ${column.width ? '' : 'flex-1'}`}
-                style={{ width: column.width }}
+                style={{ 
+                  width: column.width,
+                  flex: column.flex ? `${column.flex}` : undefined
+                }}
                 onClick={() => column.sortable && handleSort(column.key)}
               >
                 <div className="flex items-center gap-2">

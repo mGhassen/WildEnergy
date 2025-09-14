@@ -108,7 +108,9 @@ export async function GET(
       startTime: course.start_time,
       endTime: course.end_time,
       isActive: course.is_active,
-      scheduleId: course.schedule_id
+      scheduleId: course.schedule_id,
+      max_participants: course.max_participants,
+      current_participants: course.current_participants
     };
 
     return NextResponse.json(transformedCourse);
