@@ -21,7 +21,7 @@ import { useAuth } from "@/hooks/use-auth";
 export default function LoginPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const router = useRouter();
   const { toast } = useToast();
-  const { login, authError, loginError } = useAuth();
+  const { login, loginWithGoogle, authError, loginError } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -35,10 +35,45 @@ export default function LoginPage({ searchParams }: { searchParams: Promise<Reco
     // Check for success messages from searchParams
     const messageRaw = resolvedSearchParams.message;
     const message = Array.isArray(messageRaw) ? messageRaw[0] : messageRaw;
+    const errorRaw = resolvedSearchParams.error;
+    const error = Array.isArray(errorRaw) ? errorRaw[0] : errorRaw;
+    
     if (message === 'password-set-success') {
       setSuccess('Your password has been set successfully! You can now log in with your new password.');
     } else if (message === 'password-reset-success') {
       setSuccess('Your password has been reset successfully! You can now log in with your new password.');
+    }
+    
+    // Handle Google OAuth errors
+    if (error) {
+      switch (error) {
+        case 'oauth_error':
+          setError('Google authentication was cancelled or failed. Please try again.');
+          break;
+        case 'no_code':
+          setError('No authorization code received from Google. Please try again.');
+          break;
+        case 'exchange_failed':
+          setError('Failed to exchange authorization code. Please try again.');
+          break;
+        case 'no_session':
+          setError('No session created. Please try again.');
+          break;
+        case 'account_lookup_failed':
+          setError('Failed to look up your account. Please try again.');
+          break;
+        case 'account_creation_failed':
+          setError('Failed to create your account. Please try again.');
+          break;
+        case 'server_error':
+          setError('Server error occurred. Please try again.');
+          break;
+        case 'callback-failed':
+          setError('Authentication callback failed. Please try again.');
+          break;
+        default:
+          setError('An error occurred during authentication. Please try again.');
+      }
     }
   }, [resolvedSearchParams]);
 
@@ -73,11 +108,11 @@ export default function LoginPage({ searchParams }: { searchParams: Promise<Reco
   const handleGoogleLogin = async () => {
     setIsLoading(true);
     setError("");
+    setSuccess("");
+    
     try {
-      toast({
-        title: "Google Login",
-        description: "Google login is not yet available. Please use email and password.",
-      });
+      await loginWithGoogle();
+      // The actual redirect is handled by the loginWithGoogle function
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message || "Failed to sign in with Google");

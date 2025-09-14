@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createSupabaseClient } from '@/lib/supabase';
 
 export async function GET(request: NextRequest) {
   try {
@@ -6,8 +7,9 @@ export async function GET(request: NextRequest) {
     const accessToken = searchParams.get('access_token');
     const refreshToken = searchParams.get('refresh_token');
     const type = searchParams.get('type');
+    const userId = searchParams.get('user_id');
 
-    console.log('Auth callback received:', { type, hasAccessToken: !!accessToken });
+    console.log('Auth callback received:', { type, hasAccessToken: !!accessToken, userId });
 
     if (type === 'recovery' && accessToken && refreshToken) {
       // This is a password reset callback
@@ -21,6 +23,20 @@ export async function GET(request: NextRequest) {
       const redirectUrl = `/auth/accept-invitation?access_token=${accessToken}&refresh_token=${refreshToken}`;
       console.log('Redirecting to accept invitation page:', redirectUrl);
       return NextResponse.redirect(new URL(redirectUrl, request.url));
+    }
+
+    // Handle Google OAuth callback
+    if (accessToken && refreshToken && userId) {
+      console.log('Google OAuth callback - storing tokens and redirecting');
+      
+      // Store tokens in a way that the client can access them
+      const redirectUrl = new URL('/auth/login', request.url);
+      redirectUrl.searchParams.set('google_auth', 'success');
+      redirectUrl.searchParams.set('access_token', accessToken);
+      redirectUrl.searchParams.set('refresh_token', refreshToken);
+      redirectUrl.searchParams.set('user_id', userId);
+      
+      return NextResponse.redirect(redirectUrl);
     }
 
     // Default fallback to login page

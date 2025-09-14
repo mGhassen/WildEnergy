@@ -42,6 +42,8 @@ interface AuthState {
   acceptInvitation: (token: string, password: string) => Promise<void>;
   checkAccountStatus: (email: string) => Promise<any>;
   resendConfirmation: (email: string) => Promise<void>;
+  // Google OAuth
+  loginWithGoogle: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
@@ -148,6 +150,47 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Check for existing session on mount
   useEffect(() => {
     const checkAuth = async () => {
+      // Check for Google OAuth callback parameters first
+      const urlParams = new URLSearchParams(window.location.search);
+      const googleAuth = urlParams.get('google_auth');
+      const accessToken = urlParams.get('access_token');
+      const refreshToken = urlParams.get('refresh_token');
+      const userId = urlParams.get('user_id');
+
+      if (googleAuth === 'success' && accessToken && userId) {
+        console.log('Google OAuth callback detected');
+        
+        // Store tokens
+        localStorage.setItem('access_token', accessToken);
+        if (refreshToken) {
+          localStorage.setItem('refresh_token', refreshToken);
+        }
+        if (typeof window !== 'undefined') {
+          window.__authToken = accessToken;
+        }
+
+        // Clean up URL parameters
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.delete('google_auth');
+        newUrl.searchParams.delete('access_token');
+        newUrl.searchParams.delete('refresh_token');
+        newUrl.searchParams.delete('user_id');
+        window.history.replaceState({}, '', newUrl.toString());
+
+        // Fetch user session
+        try {
+          const user = await fetchSession(accessToken);
+          if (user) {
+            console.log('Google OAuth login successful');
+            setIsLoading(false);
+            return;
+          }
+        } catch (error) {
+          console.error('Google OAuth session fetch failed:', error);
+        }
+      }
+
+      // Regular session check
       const token = localStorage.getItem('access_token');
       if (!token) {
         setIsLoading(false);
@@ -413,6 +456,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
       } catch (error: any) {
         throw new Error(error.message || 'Failed to resend confirmation');
+      }
+    },
+    loginWithGoogle: async () => {
+      try {
+        setIsLoggingIn(true);
+        setLoginError(null);
+        
+        // Redirect to Google OAuth
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const redirectUrl = `${window.location.origin}/api/auth/google`;
+        
+        const googleAuthUrl = `${supabaseUrl}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectUrl)}`;
+        
+        window.location.href = googleAuthUrl;
+      } catch (error: any) {
+        console.error('Google login error:', error);
+        setLoginError(new Error(error.message || 'Failed to initiate Google login'));
+        throw error;
+      } finally {
+        setIsLoggingIn(false);
       }
     },
   };
