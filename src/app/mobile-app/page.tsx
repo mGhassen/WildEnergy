@@ -30,6 +30,7 @@ import { formatTime } from "@/lib/date";
 import QRGenerator from "@/components/qr-generator";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/date";
+import { MobileAppSidebar } from "@/components/mobile-app-sidebar";
 
 interface Course {
   id: number;
@@ -470,7 +471,10 @@ export default function MobileApp() {
       {/* Mobile Header */}
       <div className="sticky top-0 z-50 bg-primary text-white border-b px-4 py-3">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold">Wild Energy</h1>
+          <div className="flex items-center gap-3">
+            <MobileAppSidebar />
+            <h1 className="text-xl font-bold">Wild Energy</h1>
+          </div>
           <div className="text-sm opacity-90">
             {new Date().toLocaleDateString('en-GB')}
           </div>
@@ -478,56 +482,20 @@ export default function MobileApp() {
       </div>
 
       {/* Content */}
-      <div className="pb-20">
+      <div className="pb-4">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsContent value="home" className="m-0">
             <HomeTab />
           </TabsContent>
-          <TabsContent value="classes" className="m-0">
+          <TabsContent value="courses" className="m-0">
             <ClassesTab />
           </TabsContent>
-          <TabsContent value="bookings" className="m-0">
+          <TabsContent value="subscriptions" className="m-0">
             <BookingsTab />
           </TabsContent>
           <TabsContent value="profile" className="m-0">
             <ProfileTab />
           </TabsContent>
-        </Tabs>
-      </div>
-
-      {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-background border-t">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4 bg-transparent h-16">
-            <TabsTrigger 
-              value="home" 
-              className="flex-col gap-1 h-full data-[state=active]:bg-primary/10"
-            >
-              <Home className="w-5 h-5" />
-              <span className="text-xs">Home</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="classes" 
-              className="flex-col gap-1 h-full data-[state=active]:bg-primary/10"
-            >
-              <Calendar className="w-5 h-5" />
-              <span className="text-xs">Classes</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="bookings" 
-              className="flex-col gap-1 h-full data-[state=active]:bg-primary/10"
-            >
-              <Activity className="w-5 h-5" />
-              <span className="text-xs">Bookings</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="profile" 
-              className="flex-col gap-1 h-full data-[state=active]:bg-primary/10"
-            >
-              <User className="w-5 h-5" />
-              <span className="text-xs">Profile</span>
-            </TabsTrigger>
-          </TabsList>
         </Tabs>
       </div>
 

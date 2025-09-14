@@ -26,48 +26,72 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
 
-    // Get profile data through member relationship
-    const { data: profile, error } = await supabaseServer()
+    // First check if member exists and has a profile_id
+    console.log('Fetching profile for member ID:', memberId);
+    
+    const { data: member, error: memberError } = await supabaseServer()
       .from('members')
-      .select(`
-        account_id,
-        profile_id,
-        profiles!inner(
-          id,
-          first_name,
-          last_name,
-          phone,
-          profile_email,
-          date_of_birth,
-          address,
-          profession,
-          emergency_contact_name,
-          emergency_contact_phone,
-          profile_image_url,
-          created_at,
-          updated_at
-        )
-      `)
+      .select('id, account_id, profile_id')
       .eq('id', memberId)
       .single();
 
-    if (error) {
-      console.error('Error fetching profile:', error);
-      return NextResponse.json({ error: 'Failed to fetch profile' }, { status: 500 });
+    if (memberError) {
+      console.error('Error fetching member:', memberError);
+      console.error('Member ID:', memberId);
+      console.error('Error code:', memberError.code);
+      console.error('Error message:', memberError.message);
+      return NextResponse.json({ error: 'Member not found' }, { status: 404 });
+    }
+
+    if (!member) {
+      console.error('Member not found for ID:', memberId);
+      return NextResponse.json({ error: 'Member not found' }, { status: 404 });
+    }
+
+    if (!member.profile_id) {
+      console.error('Member has no profile_id:', memberId);
+      return NextResponse.json({ error: 'Member profile not linked' }, { status: 404 });
+    }
+
+    // Now get the profile data
+    const { data: profile, error: profileError } = await supabaseServer()
+      .from('profiles')
+      .select(`
+        id,
+        first_name,
+        last_name,
+        phone,
+        profile_email,
+        date_of_birth,
+        address,
+        profession,
+        emergency_contact_name,
+        emergency_contact_phone,
+        profile_image_url,
+        created_at,
+        updated_at
+      `)
+      .eq('id', member.profile_id)
+      .single();
+
+    if (profileError) {
+      console.error('Error fetching profile:', profileError);
+      console.error('Profile ID:', member.profile_id);
+      console.error('Error code:', profileError.code);
+      console.error('Error message:', profileError.message);
+      return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
     }
 
     if (!profile) {
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
     }
 
-    const profileData = Array.isArray(profile.profiles) ? profile.profiles[0] : profile.profiles;
-    
     return NextResponse.json({
-      profile_id: profileData.id,
-      account_id: profile.account_id,
-      ...profileData,
-      created_at: profileData?.created_at || new Date().toISOString(),
-      updated_at: profileData?.updated_at || new Date().toISOString()
+      profile_id: profile.id,
+      account_id: member.account_id,
+      ...profile,
+      created_at: profile?.created_at || new Date().toISOString(),
+      updated_at: profile?.updated_at || new Date().toISOString()
     });
   } catch (error) {
     console.error('Profile API error:', error);

@@ -6,13 +6,16 @@ export function MobileAppSkeleton() {
       {/* Mobile Header */}
       <div className="sticky top-0 z-50 bg-primary text-white border-b px-4 py-3">
         <div className="flex items-center justify-between">
-          <Skeleton className="h-6 w-24 bg-white/20" />
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-8 w-8 bg-white/20 rounded" />
+            <Skeleton className="h-6 w-24 bg-white/20" />
+          </div>
           <Skeleton className="h-4 w-20 bg-white/20" />
         </div>
       </div>
 
       {/* Content */}
-      <div className="pb-20 p-4 space-y-4">
+      <div className="pb-4 p-4 space-y-4">
         {/* Welcome Card */}
         <div className="rounded-lg border bg-card p-4">
           <div className="flex items-center gap-3">
@@ -56,18 +59,6 @@ export function MobileAppSkeleton() {
         <div className="grid grid-cols-2 gap-3">
           <Skeleton className="h-20 w-full rounded-lg" />
           <Skeleton className="h-20 w-full rounded-lg" />
-        </div>
-      </div>
-
-      {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-background border-t">
-        <div className="grid w-full grid-cols-4 h-16">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="flex flex-col items-center justify-center gap-1">
-              <Skeleton className="h-5 w-5" />
-              <Skeleton className="h-3 w-8" />
-            </div>
-          ))}
         </div>
       </div>
     </div>

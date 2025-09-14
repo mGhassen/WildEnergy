@@ -37,6 +37,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
+import { MobileSidebar } from "@/components/mobile-sidebar";
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -307,74 +308,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               </div>
 
               {/* Mobile menu button (right side on mobile only) */}
-              <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-                <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon" className="md:hidden ml-2">
-                    <Menu className="w-5 h-5" />
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="left" className="w-[280px] sm:w-[350px] p-0">
-                  <SheetHeader className="p-6 border-b border-border">
-                    <SheetTitle className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                        <Dumbbell className="w-4 h-4 text-primary-foreground" />
-                      </div>
-                      <div>
-                        <span className="text-lg font-semibold">WildEnergy Admin</span>
-                        <p className="text-sm text-muted-foreground">Management Portal</p>
-                      </div>
-                    </SheetTitle>
-                  </SheetHeader>
-                  
-                  <div className="flex-1 p-4 space-y-2">
-                    {navigation.map((item) => {
-                      const Icon = item.icon;
-                      const isItemActive = isActive(item.href);
-                      const hasActiveChild = hasActiveSubItem(item.items);
-                      const isGroupOpen = shouldGroupBeOpen(item);
-                      
-                      return (
-                        <Collapsible key={item.name} defaultOpen={isGroupOpen}>
-                          <div className="space-y-1">
-                            <CollapsibleTrigger asChild>
-                              <div
-                                className="flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer text-muted-foreground hover:text-foreground hover:bg-accent"
-                              >
-                                <Icon className="w-5 h-5" />
-                                <span className="flex-1">{item.name}</span>
-                                {item.items && item.items.length > 0 && (
-                                  <ChevronDown className="h-4 w-4 transition-transform duration-200 data-[state=open]:rotate-180" />
-                                )}
-                              </div>
-                            </CollapsibleTrigger>
-                            
-                            {item.items && item.items.length > 0 && (
-                              <CollapsibleContent className="space-y-1">
-                                {item.items.map((subItem) => {
-                                  const isSubItemActive = isActive(subItem.href);
-                                  return (
-                                    <Link key={subItem.name} href={subItem.href} onClick={handleNavigationClick}>
-                                      <div
-                                        className={`flex items-center space-x-3 px-3 py-2 ml-6 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-                                          isSubItemActive
-                                            ? "bg-primary text-primary-foreground font-semibold"
-                                            : "text-muted-foreground hover:text-foreground hover:bg-accent"
-                                        }`}
-                                      >
-                                        <span>{subItem.name}</span>
-                                      </div>
-                                    </Link>
-                                  );
-                                })}
-                              </CollapsibleContent>
-                            )}
-                          </div>
-                        </Collapsible>
-                      );
-                    })}
-                  </div>
-                </SheetContent>
-              </Sheet>
+              <MobileSidebar />
             </div>
           </header>
 

@@ -31,6 +31,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { MemberUserSkeleton } from "@/components/member-user-skeleton";
 import { Shield, GraduationCap } from "lucide-react";
+import { MemberMobileSidebar } from "@/components/member-mobile-sidebar";
 
 interface MemberLayoutProps {
   children: React.ReactNode;
@@ -332,144 +333,7 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
               </Button>
 
               {/* Mobile menu button */}
-              <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-                <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon" className="lg:hidden">
-                    <Menu className="w-5 h-5" />
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="left" className="w-[300px] sm:w-[400px]">
-                  <SheetHeader className="pb-6">
-                    <SheetTitle className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary/80 rounded-xl flex items-center justify-center">
-                        <Dumbbell className="w-5 h-5 text-primary-foreground" />
-                      </div>
-                      <div>
-                        <span className="text-lg font-bold">Wild Energy</span>
-                        <p className="text-xs text-muted-foreground">Pole & Dance</p>
-                      </div>
-                    </SheetTitle>
-                  </SheetHeader>
-                  
-                  {/* User Profile in Mobile Menu */}
-                  <div className="flex items-center space-x-3 p-4 bg-muted/50 rounded-lg mb-6">
-                    <Avatar className="w-12 h-12">
-                      <AvatarImage src="" />
-                      <AvatarFallback className="bg-primary text-primary-foreground">
-                        {user ? getInitials(user.firstName || "M", user.lastName || "") : "M"}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <p className="font-medium text-foreground">
-                        {user ? `${user.firstName} ${user.lastName}` : "Member"}
-                      </p>
-                      <div className="flex items-center space-x-2">
-                        <Badge variant="secondary" className="text-xs">Premium</Badge>
-                        <span className="text-xs text-muted-foreground">Active</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    {navigation.map((item) => {
-                      const Icon = item.icon;
-                      return (
-                        <Link key={item.name} href={item.href} onClick={handleNavigationClick}>
-                          <div
-                            className={`flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-                              isActive(item.href)
-                                ? "bg-primary text-primary-foreground"
-                                : "text-muted-foreground hover:text-foreground hover:bg-accent"
-                            }`}
-                          >
-                            <Icon className="w-4 h-4" />
-                            <div className="flex-1">
-                              <div>{item.name}</div>
-                              <div className="text-xs opacity-70">{item.description}</div>
-                            </div>
-                          </div>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                  
-                  {/* Portal Switching */}
-                  {availablePortals.length > 0 && (
-                    <div className="mt-6 space-y-2">
-                      <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                        Switch Portal
-                      </div>
-                      {availablePortals.map((portal) => {
-                        const Icon = getPortalIcon(portal);
-                        return (
-                          <div
-                            key={portal}
-                            onClick={() => {
-                              handlePortalSwitch(portal);
-                              setMobileMenuOpen(false);
-                            }}
-                            className="flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer"
-                          >
-                            <Icon className="w-4 h-4" />
-                            <div className="flex-1">
-                              <div>{getPortalName(portal)}</div>
-                              <div className="text-xs opacity-70">Access {portal} features</div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* User Menu Items */}
-                  <div className="mt-6 space-y-2">
-                    <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Account
-                    </div>
-                    <Link href="/member/profile" onClick={handleNavigationClick}>
-                      <div className="flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer">
-                        <User className="w-4 h-4" />
-                        <div className="flex-1">
-                          <div>My Profile</div>
-                          <div className="text-xs opacity-70">Edit your information</div>
-                        </div>
-                      </div>
-                    </Link>
-                    <Link href="/member/history" onClick={handleNavigationClick}>
-                      <div className="flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer">
-                        <History className="w-4 h-4" />
-                        <div className="flex-1">
-                          <div>Class History</div>
-                          <div className="text-xs opacity-70">View your past classes</div>
-                        </div>
-                      </div>
-                    </Link>
-                    <Link href="/plans" onClick={handleNavigationClick}>
-                      <div className="flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer">
-                        <CreditCard className="w-4 h-4" />
-                        <div className="flex-1">
-                          <div>Plans</div>
-                          <div className="text-xs opacity-70">View available plans</div>
-                        </div>
-                      </div>
-                    </Link>
-                  </div>
-                  
-                  <div className="absolute bottom-4 left-4 right-4 space-y-2">
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start text-red-600 hover:text-red-700"
-                      onClick={() => {
-                        handleLogout();
-                        setMobileMenuOpen(false);
-                      }}
-                    >
-                      <LogOut className="w-4 h-4 mr-3" />
-                      Logout
-                    </Button>
-                  </div>
-                </SheetContent>
-              </Sheet>
+              <MemberMobileSidebar />
 
               {/* Desktop user profile */}
               {isLoading ? (
