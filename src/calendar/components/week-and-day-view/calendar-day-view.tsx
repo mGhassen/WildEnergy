@@ -26,8 +26,8 @@ export function CalendarDayView({ singleDayEvents, multiDayEvents }: IProps) {
 
   const { hours, earliestEventHour, latestEventHour } = getVisibleHours(visibleHours, singleDayEvents);
 
-  // Fallback hours if none are generated
-  const displayHours = hours.length > 0 ? hours : Array.from({ length: 12 }, (_, i) => i + 7);
+  // Fallback hours if none are generated - show full day from 6am to 11pm
+  const displayHours = hours.length > 0 ? hours : Array.from({ length: 18 }, (_, i) => i + 6);
 
   const currentEvents = getCurrentEvents(singleDayEvents);
 
@@ -43,36 +43,35 @@ export function CalendarDayView({ singleDayEvents, multiDayEvents }: IProps) {
   const groupedEvents = groupEvents(dayEvents);
 
   return (
-    <div className="flex">
-      <div className="flex flex-1 flex-col">
+    <div className="flex h-full">
+      <div className="flex flex-1 flex-col min-h-0">
         <div>
           <DayViewMultiDayEventsRow selectedDate={selectedDate} multiDayEvents={multiDayEvents} />
 
           {/* Day header */}
-          <div className="relative z-20 flex border-b">
-            <div className="w-18"></div>
+          <div className="relative z-20 flex border-b bg-background">
+            <div className="w-18 flex-shrink-0"></div>
             <span className="flex-1 border-l py-2 text-center text-xs font-medium text-muted-foreground">
               {format(selectedDate, "EE")} <span className="font-semibold text-foreground">{format(selectedDate, "d")}</span>
             </span>
           </div>
         </div>
 
-        <ScrollArea className="h-[800px] max-h-[800px]" type="always">
+        <ScrollArea className="flex-1" type="always">
           <div className="flex">
             {/* Hours column */}
             <ResizableHourSidebar displayHours={displayHours} view="day" />
 
             {/* Day grid */}
-            <div className="relative flex-1 border-l">
-              <div className="relative">
+            <div className="relative flex-1 border-l bg-background">
+              <div className="relative" style={{ height: `${displayHours.length * hourHeight}px` }}>
                 {displayHours.map((hour, index) => {
                   const isDisabled = !isWorkingHour(selectedDate, hour, workingHours);
 
                   return (
-                    <div key={hour} className={cn("relative", isDisabled && "bg-calendar-disabled-hour")} style={{ height: `${hourHeight}px` }}>
-                      {index !== 0 && <div className="pointer-events-none absolute inset-x-0 top-0 border-b"></div>}
-
-                      <div className="pointer-events-none absolute inset-x-0 top-1/2 border-b border-dashed"></div>
+                    <div key={hour} className={cn("relative border-b border-border/50", isDisabled && "bg-muted/30")} style={{ height: `${hourHeight}px` }}>
+                      {/* Half-hour marker */}
+                      <div className="pointer-events-none absolute inset-x-0 top-1/2 border-b border-dashed border-border/30"></div>
                     </div>
                   );
                 })}
@@ -108,8 +107,8 @@ export function CalendarDayView({ singleDayEvents, multiDayEvents }: IProps) {
         </ScrollArea>
       </div>
 
-      <div className="hidden w-64 divide-y border-l md:block">
-        <div className="mx-auto w-fit">
+      <div className="hidden w-64 divide-y border-l bg-background md:block">
+        <div className="mx-auto w-fit p-4">
           <SingleCalendar mode="single" selected={selectedDate} onSelect={setSelectedDate} />
         </div>
 
