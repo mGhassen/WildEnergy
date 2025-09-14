@@ -27,10 +27,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
 
-    // Ensure it's not an admin trying to access member plans
-    if (userProfile.is_admin) {
-      return NextResponse.json({ error: 'Admin access not allowed for member plans' }, { status: 403 });
-    }
+    // Both members and admins can access member plans
 
     const { data: plans, error } = await supabaseServer()
       .from('plans')

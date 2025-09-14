@@ -15,15 +15,15 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
 
-    // Verify user is a member (not admin)
-    const { data: userData } = await supabaseServer()
+    // Verify user profile exists - both members and admins can access member APIs
+    const { data: userData, error: userDataError } = await supabaseServer()
       .from('user_profiles')
       .select('is_admin, accessible_portals')
-      .eq('account_id', user.id)
+      .eq('email', user.email)
       .single();
 
-    if (userData?.is_admin) {
-      return NextResponse.json({ error: 'Admin access not allowed' }, { status: 403 });
+    if (userDataError || !userData) {
+      return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
     }
 
     // Get today's date for filtering
