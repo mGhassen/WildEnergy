@@ -31,6 +31,12 @@ const navigation = [
     description: "View your reservations"
   },
   { 
+    name: "Class History", 
+    href: "/mobile-app", 
+    icon: History,
+    description: "View your class history"
+  },
+  { 
     name: "Profile", 
     href: "/mobile-app", 
     icon: User,
@@ -139,8 +145,24 @@ export function MobileAppSidebar() {
         <div className="space-y-2">
           {navigation.map((item) => {
             const Icon = item.icon;
+            const handleClick = () => {
+              if (item.name === "Home") {
+                // Trigger tab change via custom event
+                window.dispatchEvent(new CustomEvent('mobileTabChange', { detail: 'home' }));
+              } else if (item.name === "Classes") {
+                window.dispatchEvent(new CustomEvent('mobileTabChange', { detail: 'courses' }));
+              } else if (item.name === "My Bookings") {
+                window.dispatchEvent(new CustomEvent('mobileTabChange', { detail: 'subscriptions' }));
+              } else if (item.name === "Class History") {
+                window.dispatchEvent(new CustomEvent('mobileTabChange', { detail: 'history' }));
+              } else if (item.name === "Profile") {
+                window.dispatchEvent(new CustomEvent('mobileTabChange', { detail: 'profile' }));
+              }
+              setOpen(false);
+            };
+            
             return (
-              <Link key={item.name} href={item.href} onClick={handleNavigation}>
+              <div key={item.name} onClick={handleClick}>
                 <div className="flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors cursor-pointer text-muted-foreground hover:text-foreground hover:bg-accent">
                   <Icon className="w-4 h-4" />
                   <div className="flex-1">
@@ -148,7 +170,7 @@ export function MobileAppSidebar() {
                     <div className="text-xs opacity-70">{item.description}</div>
                   </div>
                 </div>
-              </Link>
+              </div>
             );
           })}
         </div>

@@ -689,18 +689,20 @@ function MemberCourses() {
       {/* QR Code Modal */}
       {selectedQR && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setSelectedQR(null)}>
-          <div className="bg-background border border-border p-4 sm:p-6 rounded-lg shadow-xl max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-base sm:text-lg font-semibold mb-4 text-center text-foreground">Your QR Code</h3>
+          <div className="bg-background border border-border p-4 sm:p-6 rounded-lg shadow-xl max-w-[90vw] sm:max-w-md w-full max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg sm:text-xl font-bold mb-4 text-center text-foreground">Your QR Code</h3>
             <div className="mb-4 flex justify-center">
-              <QRGenerator value={selectedQR} size={200} />
+              <div className="p-2 sm:p-3 bg-white rounded-xl shadow-lg border-2 border-border">
+                <QRGenerator value={selectedQR} size={200} />
+              </div>
             </div>
-            <div className="text-center">
-              <p className="text-xs sm:text-sm text-muted-foreground mb-2">QR Code Value:</p>
-              <p className="text-xs font-mono bg-muted p-2 rounded break-all text-foreground">{selectedQR}</p>
+            <div className="text-center space-y-2">
+              <p className="text-sm text-muted-foreground">QR Code Value:</p>
+              <p className="text-xs font-mono bg-muted p-3 rounded break-all text-foreground">{selectedQR}</p>
             </div>
             <Button
               onClick={() => setSelectedQR(null)}
-              className="mt-4 w-full text-sm"
+              className="mt-4 w-full"
             >
               Close
             </Button>

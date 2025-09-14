@@ -46,7 +46,7 @@ interface Course {
 
 function MemberAgenda() {
   const searchParams = useSearchParams();
-  const view = searchParams.get('view') || 'week';
+  const view = searchParams.get('view') || 'day';
   const { data: courses, isLoading: coursesLoading, error: coursesError } = useMemberCourses();
   const { data: subscription } = useMemberSubscriptions();
   const { data: registrations } = useMemberRegistrations();

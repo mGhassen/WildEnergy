@@ -201,7 +201,7 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
     },
     { 
       name: "Courses & Schedule", 
-      href: "/member/courses", 
+      href: "/member/agenda", 
       icon: Calendar,
       description: "Browse courses and view your schedule"
     },
@@ -217,8 +217,8 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
     if (href === "/member") {
       return pathname === "/member";
     }
-    if (href === "/member/courses") {
-      return pathname === "/member/courses" || pathname === "/member/classes" || pathname === "/member/agenda";
+    if (href === "/member/agenda") {
+      return pathname === "/member/agenda" || pathname.startsWith("/member/courses") || pathname === "/member/classes";
     }
     return pathname.startsWith(href);
   };
