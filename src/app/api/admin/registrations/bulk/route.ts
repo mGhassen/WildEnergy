@@ -54,13 +54,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Course not found or not available for registration' }, { status: 404 });
     }
 
-    // Check if course has enough capacity
+    // Note: Admin bulk registrations bypass capacity checks
+    // Admins can register members even when course is at capacity
     const currentRegistered = course.current_participants || 0;
     if (currentRegistered + memberIds.length > course.max_participants) {
-      return NextResponse.json({ 
-        error: 'Course capacity exceeded', 
-        details: `Course can only accommodate ${course.max_participants - currentRegistered} more members, but ${memberIds.length} were requested.`
-      }, { status: 400 });
+      console.log(`Admin bulk registration: Course capacity exceeded. Current: ${currentRegistered}, Max: ${course.max_participants}, trying to add: ${memberIds.length}. Proceeding with admin override.`);
     }
 
     // Get all members to validate they exist and are active

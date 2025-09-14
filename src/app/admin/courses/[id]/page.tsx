@@ -46,7 +46,8 @@ import {
   UserPlus,
   UserMinus,
   CheckSquare,
-  Square
+  Square,
+  QrCode
 } from 'lucide-react';
 import { formatTime, formatDate } from '@/lib/date';
 import { useToast } from '@/hooks/use-toast';
@@ -254,6 +255,20 @@ export default function CourseDetailsPage() {
 
   const handleDeselectAll = () => {
     setSelectedMembers([]);
+  };
+
+  // Handle QR button click - navigate to QR check-in page
+  const handleQRClick = (qrCode: string, event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent the row click from firing
+    if (qrCode) {
+      router.push(`/admin/checkins/qr/${encodeURIComponent(qrCode)}`);
+    } else {
+      toast({
+        title: 'Error',
+        description: 'No QR code found for this registration',
+        variant: 'destructive',
+      });
+    }
   };
 
   if (isLoading) {
@@ -704,6 +719,15 @@ export default function CourseDetailsPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => handleQRClick(registration.qr_code, e)}
+                        className="h-8 w-8 p-0"
+                        title="Open QR Check-in Page"
+                      >
+                        <QrCode className="w-4 h-4" />
+                      </Button>
                       <Badge 
                         variant="outline" 
                         className={`text-xs ${

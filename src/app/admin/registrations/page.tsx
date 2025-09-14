@@ -77,9 +77,6 @@ export default function AdminRegistrations() {
             width: "300px",
             render: (value: any) => (
                 <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <Eye className="w-4 h-4 text-primary" />
-                    </div>
                     <div className="min-w-0 flex-1">
                         <div className="font-medium text-blue-600 hover:text-blue-800 cursor-pointer truncate">
                             {value?.first_name} {value?.last_name}
