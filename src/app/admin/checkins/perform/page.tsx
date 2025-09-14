@@ -19,9 +19,16 @@ interface CheckinInfo {
     phone?: string;
     status?: string;
     activeSubscription?: {
+      id: string;
       planName: string;
+      planDescription?: string;
+      planPrice?: number;
+      planSessionCount: number;
       status: string;
       sessionsRemaining: number;
+      startDate: string;
+      endDate: string;
+      groupSessions: any[];
     };
   };
   course: {
@@ -40,11 +47,15 @@ interface CheckinInfo {
     };
     trainer: {
       id: number;
-      users: {
-        id: string;
-        first_name: string;
-        last_name: string;
-      };
+      first_name: string;
+      last_name: string;
+      phone?: string;
+      specialization?: string;
+      experience_years?: number;
+      bio?: string;
+      certification?: string;
+      hourly_rate?: number;
+      status?: string;
     };
   };
   registration: {
@@ -54,9 +65,11 @@ interface CheckinInfo {
   };
   registeredCount: number;
   checkedInCount: number;
+  totalMembers: number;
   alreadyCheckedIn: boolean;
-  registeredMembers?: { id: string; first_name: string; last_name: string; email: string }[];
+  registeredMembers?: { id: string; first_name: string; last_name: string; email: string; status?: string }[];
   attendantMembers?: { id: string; first_name: string; last_name: string; email: string }[];
+  members?: { id: string; first_name: string; last_name: string; email: string; status?: 'registered' | 'attended' | 'absent' | 'checked_in' }[];
 }
 
 export default function CheckinPerformPage() {
@@ -257,7 +270,7 @@ export default function CheckinPerformPage() {
                 <div className="space-y-2 text-sm text-green-700">
                   <p><strong>Course:</strong> {checkinInfo.course?.class?.name || 'Unknown'}</p>
                   <p><strong>Class:</strong> {checkinInfo.course?.class?.name || 'Unknown'}</p>
-                  <p><strong>Trainer:</strong> {checkinInfo.course?.trainer?.users ? `${checkinInfo.course.trainer.users.first_name} ${checkinInfo.course.trainer.users.last_name}` : 'Unknown'}</p>
+                  <p><strong>Trainer:</strong> {checkinInfo.course?.trainer ? `${checkinInfo.course.trainer.first_name} ${checkinInfo.course.trainer.last_name}` : 'Unknown'}</p>
                   <p><strong>Date:</strong> {checkinInfo.course?.course_date ? new Date(checkinInfo.course.course_date).toLocaleDateString() : 'Unknown'}</p>
                   <p><strong>Time:</strong> {checkinInfo.course?.start_time && checkinInfo.course?.end_time ? `${checkinInfo.course.start_time} - ${checkinInfo.course.end_time}` : 'Unknown'}</p>
                 </div>

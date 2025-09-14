@@ -20,9 +20,16 @@ export interface CheckinInfo {
     phone?: string;
     status?: string;
     activeSubscription?: {
+      id: string;
       planName: string;
+      planDescription?: string;
+      planPrice?: number;
+      planSessionCount: number;
       status: string;
       sessionsRemaining: number;
+      startDate: string;
+      endDate: string;
+      groupSessions: any[];
     };
   };
   course: {
@@ -41,11 +48,15 @@ export interface CheckinInfo {
     };
     trainer: {
       id: number;
-      users: {
-        id: string;
-        first_name: string;
-        last_name: string;
-      };
+      first_name: string;
+      last_name: string;
+      phone?: string;
+      specialization?: string;
+      experience_years?: number;
+      bio?: string;
+      certification?: string;
+      hourly_rate?: number;
+      status?: string;
     };
   };
   registration: {

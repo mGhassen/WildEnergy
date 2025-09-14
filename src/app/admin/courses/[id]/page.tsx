@@ -675,9 +675,9 @@ export default function CourseDetailsPage() {
                       console.log('Registration data:', registration);
                       console.log('Member data:', registration.member);
                       console.log('Member ID:', registration.member?.id);
-                      console.log('Registration member_id:', registration.member_id);
+                      console.log('Registration member_id:', registration.member?.id);
                       
-                      const memberId = registration.member?.id || registration.member_id;
+                      const memberId = registration.member?.id;
                       console.log('Final member ID:', memberId);
                       
                       if (memberId) {
