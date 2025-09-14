@@ -401,7 +401,7 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link href="/plans">
+                      <Link href="/member/plans">
                         <CreditCard className="w-4 h-4 mr-3" />
                         Plans
                       </Link>
@@ -434,28 +434,6 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
         </div>
       </header>
 
-      {/* Mobile Navigation Bar */}
-      <nav className="hidden bg-card/80 backdrop-blur-sm shadow-sm border-b border-border">
-        <div className="flex justify-around px-2 py-2">
-          {navigation.slice(0, 4).map((item) => {
-            const Icon = item.icon;
-            return (
-              <Link key={item.name} href={item.href}>
-                <div
-                  className={`flex flex-col items-center space-y-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-                    isActive(item.href)
-                      ? "text-primary bg-primary/10"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span className="text-center">{item.name}</span>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-      </nav>
 
       {/* Main content */}
       <main className="max-w-7xl mx-auto py-4 sm:py-6 px-2 sm:px-4 lg:px-8">
