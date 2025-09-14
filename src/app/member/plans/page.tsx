@@ -5,7 +5,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Star, Calendar, Users, CheckCircle, Grid3X3, List } from "lucide-react";
 import { formatCurrency } from "@/lib/config";
-import MemberLayout from "@/components/layout/member-layout";
 import { useMemberPlans } from "@/hooks/useMemberPlans";
 import { CardSkeleton } from "@/components/skeletons";
 import { useState } from "react";
@@ -32,8 +31,7 @@ export default function PlansPage() {
   };
 
   return (
-    <MemberLayout>
-      <div className="max-w-5xl mx-auto py-12 px-4">
+    <div className="max-w-5xl mx-auto py-12 px-4">
         <h1 className="text-4xl font-bold text-center mb-2">Our Membership Plans</h1>
         <p className="text-lg text-muted-foreground text-center mb-6">
           Choose the plan that fits your goals. Flexible options, great value, and all the features you need to succeed!
@@ -254,6 +252,5 @@ export default function PlansPage() {
           </ul>
         </div>
       </div>
-    </MemberLayout>
   );
 } 

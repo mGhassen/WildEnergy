@@ -385,7 +385,7 @@ export default function MemberHome() {
                   )}
 
                   <Button variant="outline" className="w-full" asChild>
-                    <a href="/plans">
+                    <a href="/member/plans">
                       View All Plans
                       <ArrowRight className="w-4 h-4 ml-2" />
                     </a>
@@ -395,7 +395,7 @@ export default function MemberHome() {
                 <div className="text-center py-4">
                   <p className="text-sm text-muted-foreground mb-3">No plans available</p>
                   <Button size="sm" variant="outline" asChild>
-                    <a href="/plans">Check Plans</a>
+                    <a href="/member/plans">Check Plans</a>
                   </Button>
                 </div>
               )}
