@@ -91,7 +91,7 @@ export default function CheckinQRPage() {
   const checkOutMutation = useCheckOutRegistration();
   
   // Status filter state (excluding canceled members)
-  const [statusFilters, setStatusFilters] = useState<Set<string>>(new Set(['registered', 'attended', 'absent', 'checked_in']));
+  const [statusFilters, setStatusFilters] = useState<Set<string>>(new Set(['registered', 'attended', 'absent', 'cancelled']));
   const [showFilters, setShowFilters] = useState(false);
   
   // Collapsible sections state
@@ -153,7 +153,7 @@ export default function CheckinQRPage() {
 
   // Function to select all statuses
   const selectAllStatuses = () => {
-    setStatusFilters(new Set(['registered', 'attended', 'absent', 'checked_in']));
+    setStatusFilters(new Set(['registered', 'attended', 'absent', 'cancelled']));
   };
 
   // Function to clear all statuses
@@ -645,7 +645,7 @@ export default function CheckinQRPage() {
                         { key: 'registered', label: 'Registered', color: 'bg-gray-100 text-gray-800' },
                         { key: 'attended', label: 'Attended', color: 'bg-blue-100 text-blue-800' },
                         { key: 'absent', label: 'Absent', color: 'bg-red-100 text-red-800' },
-                        { key: 'checked_in', label: 'Checked In', color: 'bg-green-100 text-green-800' }
+                        { key: 'cancelled', label: 'Cancelled', color: 'bg-gray-100 text-gray-600' }
                       ].map(({ key, label, color }) => (
                         <div key={key} className="flex items-center space-x-2">
                           <Checkbox
@@ -675,17 +675,17 @@ export default function CheckinQRPage() {
                           <span className="text-xs text-gray-500 ml-2">({member.email})</span>
                         </div>
                         <span className={`px-2 py-1 rounded text-xs ${
-                          member.status === 'checked_in'
-                            ? 'bg-green-100 text-green-800'
-                            : member.status === 'attended'
+                          member.status === 'attended'
                             ? 'bg-blue-100 text-blue-800'
                             : member.status === 'absent'
                             ? 'bg-red-100 text-red-800'
+                            : member.status === 'cancelled'
+                            ? 'bg-gray-100 text-gray-600'
                             : 'bg-gray-100 text-gray-800'
                         }`}>
-                          {member.status === 'checked_in' ? 'Checked In' : 
-                           member.status === 'attended' ? 'Attended' :
+                          {member.status === 'attended' ? 'Attended' :
                            member.status === 'absent' ? 'Absent' :
+                           member.status === 'cancelled' ? 'Cancelled' :
                            member.status === 'registered' ? 'Registered' :
                            member.status}
                         </span>

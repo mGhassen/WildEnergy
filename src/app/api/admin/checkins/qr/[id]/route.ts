@@ -270,9 +270,9 @@ export async function GET(
     const unifiedMembers = (allCourseMembers || []).map((r: any) => {
       let displayStatus = r.status;
       
-      // If member has checked in, show as 'checked_in' regardless of registration status
+      // If member has checked in, show as 'attended' (not 'checked_in')
       if (checkedInIds.has(r.id)) {
-        displayStatus = 'checked_in';
+        displayStatus = 'attended';
       }
       
       return {
