@@ -195,13 +195,13 @@ export default function AdminDashboard() {
               </div>
             </CardHeader>
             <CardContent>
-              {tasks?.pendingAccounts.count > 0 ? (
+              {(tasks?.pendingAccounts?.count ?? 0) > 0 ? (
                 <div className="space-y-3">
                   <div className="text-sm text-muted-foreground">
-                    {tasks.pendingAccounts.count} account{tasks.pendingAccounts.count !== 1 ? 's' : ''} waiting for approval
+                    {tasks?.pendingAccounts?.count ?? 0} account{(tasks?.pendingAccounts?.count ?? 0) !== 1 ? 's' : ''} waiting for approval
                   </div>
                   <div className="space-y-2 max-h-32 overflow-y-auto">
-                    {tasks.pendingAccounts.accounts.slice(0, 3).map((account: any) => (
+                    {(tasks?.pendingAccounts?.accounts ?? []).slice(0, 3).map((account: any) => (
                       <div key={account.account_id} className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 rounded-lg border">
                         <div className="flex items-center space-x-2">
                           <div className="w-8 h-8 bg-orange-100 dark:bg-orange-900 rounded-full flex items-center justify-center">
@@ -219,9 +219,9 @@ export default function AdminDashboard() {
                         </Badge>
                       </div>
                     ))}
-                    {tasks.pendingAccounts.count > 3 && (
+                    {(tasks?.pendingAccounts?.count ?? 0) > 3 && (
                       <div className="text-xs text-muted-foreground text-center">
-                        +{tasks.pendingAccounts.count - 3} more accounts
+                        +{(tasks?.pendingAccounts?.count ?? 0) - 3} more accounts
                       </div>
                     )}
                   </div>
@@ -263,13 +263,13 @@ export default function AdminDashboard() {
               </div>
             </CardHeader>
             <CardContent>
-              {tasks?.coursesNeedingCheck.count > 0 ? (
+              {(tasks?.coursesNeedingCheck?.count ?? 0) > 0 ? (
                 <div className="space-y-3">
                   <div className="text-sm text-muted-foreground">
-                    {tasks.coursesNeedingCheck.count} course{tasks.coursesNeedingCheck.count !== 1 ? 's' : ''} starting soon
+                    {tasks?.coursesNeedingCheck?.count ?? 0} course{(tasks?.coursesNeedingCheck?.count ?? 0) !== 1 ? 's' : ''} starting soon
                   </div>
                   <div className="space-y-2 max-h-32 overflow-y-auto">
-                    {tasks.coursesNeedingCheck.courses.slice(0, 3).map((course: any) => (
+                    {(tasks?.coursesNeedingCheck?.courses ?? []).slice(0, 3).map((course: any) => (
                       <div key={course.id} className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 rounded-lg border">
                         <div className="flex items-center space-x-2">
                           <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
@@ -292,9 +292,9 @@ export default function AdminDashboard() {
                         </div>
                       </div>
                     ))}
-                    {tasks.coursesNeedingCheck.count > 3 && (
+                    {(tasks?.coursesNeedingCheck?.count ?? 0) > 3 && (
                       <div className="text-xs text-muted-foreground text-center">
-                        +{tasks.coursesNeedingCheck.count - 3} more courses
+                        +{(tasks?.coursesNeedingCheck?.count ?? 0) - 3} more courses
                       </div>
                     )}
                   </div>
