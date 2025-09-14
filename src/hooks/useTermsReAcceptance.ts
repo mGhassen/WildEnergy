@@ -30,8 +30,10 @@ export function useTermsReAcceptance({ user, onboardingStatus, currentTerms }: T
       currentTermsData: currentTerms
     });
     
-    // Only require re-acceptance if the member has accepted terms but the version differs
-    // This will trigger re-acceptance when admin changes the active terms
-    return memberAcceptedVersionId !== currentActiveTermsId;
+    // Only require re-acceptance if:
+    // 1. Member has previously accepted terms (has a terms_version_id)
+    // 2. AND the version they accepted is different from current active terms
+    // This prevents re-acceptance for new members who haven't accepted any terms yet
+    return memberAcceptedVersionId && memberAcceptedVersionId !== currentActiveTermsId;
   }, [user?.member_id, onboardingStatus?.data?.terms_version_id, currentTerms?.id]);
 }

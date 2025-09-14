@@ -88,7 +88,11 @@ export async function PUT(
       updateData.physical_profile = body.physical_profile;
     }
     if (body.discovery_source !== undefined) {
-      updateData.discovery_source = body.discovery_source;
+      // Convert empty strings to null for consistency
+      updateData.discovery_source = body.discovery_source && body.discovery_source.trim() !== '' ? body.discovery_source : null;
+    }
+    if (body.discovery_completed !== undefined) {
+      updateData.discovery_completed = body.discovery_completed;
     }
     if (body.terms_accepted !== undefined) {
       updateData.terms_accepted = body.terms_accepted;

@@ -71,6 +71,7 @@ export async function GET(request: NextRequest) {
     // The personal_info_completed flag in the member_onboarding table is the source of truth
     const hasPersonalInfo = onboardingData.personal_info_completed || false;
     const hasPhysicalProfile = onboardingData.physical_profile_completed || false;
+    const hasDiscoveryCompleted = onboardingData.discovery_completed || false;
 
     return NextResponse.json({ 
       success: true, 
@@ -80,6 +81,7 @@ export async function GET(request: NextRequest) {
         hasPersonalInfo,
         personalInfoCompleted: onboardingData.personal_info_completed || false,
         physicalProfileCompleted: hasPhysicalProfile,
+        discoveryCompleted: hasDiscoveryCompleted,
         physicalProfile: onboardingData.physical_profile || null,
         discoverySource: onboardingData.discovery_source || null,
         termsAcceptedAt: onboardingData.terms_accepted_at || null,

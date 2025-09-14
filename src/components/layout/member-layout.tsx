@@ -112,9 +112,9 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
     }
 
     if (onboardingStatus?.success && onboardingStatus.data) {
-      const { onboardingCompleted, hasPersonalInfo, physicalProfileCompleted, termsAccepted, discoverySource } = onboardingStatus.data;
+      const { onboardingCompleted, hasPersonalInfo, physicalProfileCompleted, discoveryCompleted, termsAccepted, discoverySource } = onboardingStatus.data;
       
-      console.log("Onboarding details:", { onboardingCompleted, hasPersonalInfo, physicalProfileCompleted, termsAccepted });
+      console.log("Onboarding details:", { onboardingCompleted, hasPersonalInfo, physicalProfileCompleted, discoveryCompleted, termsAccepted });
       
       // First priority: Complete onboarding if not done
       if (!onboardingCompleted) {
@@ -124,7 +124,7 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
         } else if (!physicalProfileCompleted) {
           console.log("Redirecting to physical profile");
           router.push("/member/onboarding/physical-profile");
-        } else if (!discoverySource || discoverySource.trim() === '' || discoverySource === 'undefined') {
+        } else if (!discoveryCompleted) {
           console.log("Redirecting to discovery");
           router.push("/member/onboarding/discovery");
         } else if (!termsAccepted) {
