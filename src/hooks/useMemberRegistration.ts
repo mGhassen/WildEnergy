@@ -53,10 +53,33 @@ export function useMemberCourseRegistration() {
       return response;
     },
     onMutate: async (courseId: number) => {
-      // Cancel any outgoing refetches to avoid race conditions
+      // Optimistically update the registrations
       await queryClient.cancelQueries({ queryKey: ["/api/registrations"] });
+      
+      const previousRegistrations = queryClient.getQueryData(["/api/registrations"]);
+      
+      // Optimistically add the new registration
+      queryClient.setQueryData(["/api/registrations"], (old: any[]) => {
+        const newRegistration = {
+          id: Date.now(), // temporary ID
+          course_id: courseId,
+          user_id: "temp",
+          status: "registered",
+          registration_date: new Date().toISOString(),
+          qr_code: "temp",
+          notes: null
+        };
+        return old ? [...old, newRegistration] : [newRegistration];
+      });
+      
+      return { previousRegistrations };
     },
     onError: (error: unknown, courseId: number, context: unknown) => {
+      // Rollback on error
+      if (context && typeof context === 'object' && 'previousRegistrations' in context) {
+        queryClient.setQueryData(["/api/registrations"], context.previousRegistrations);
+      }
+      
       console.log('Registration error:', error);
       console.log('Error type:', typeof error);
       console.log('Error keys:', error && typeof error === 'object' ? Object.keys(error) : 'not an object');
