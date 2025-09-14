@@ -120,6 +120,8 @@ export const checkinApi = {
   },
 
   async checkInRegistration(registrationId: string): Promise<CheckinResponse> {
+    console.log('Check-in API call - Registration ID:', registrationId);
+    console.log('Check-in API call - URL:', `/api/admin/registrations/${registrationId}/check-in`);
     return apiRequest('POST', `/api/admin/registrations/${registrationId}/check-in`);
   },
 

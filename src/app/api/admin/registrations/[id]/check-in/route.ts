@@ -17,9 +17,14 @@ export async function POST(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: registrationId } = await context.params;
+    console.log('Check-in API - Registration ID received:', registrationId);
+    console.log('Check-in API - URL:', req.url);
+    
     const authHeader = req.headers.get('authorization');
     const token = authHeader?.split(' ')[1];
     if (!token) {
+      console.log('Check-in API - No token provided');
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
     
@@ -33,7 +38,6 @@ export async function POST(
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const { id: registrationId } = await context.params;
     const registrationIdNum = parseInt(registrationId);
     if (!registrationId || isNaN(registrationIdNum)) {
       return NextResponse.json({ error: 'Invalid registration ID' }, { status: 400 });
