@@ -48,13 +48,28 @@ export async function POST(
       .from('class_registrations')
       .select(`
         *,
-        member:users(id, first_name, last_name, email),
-        course:courses(
+        members (
+          id,
+          status,
+          account_id,
+          profiles (
+            first_name,
+            last_name,
+            phone
+          ),
+          accounts (
+            email
+          )
+        ),
+        courses (
           id,
           course_date,
           start_time,
           end_time,
-          class:classes(name)
+          class_id,
+          classes (
+            name
+          )
         )
       `)
       .eq('id', registrationIdNum)
@@ -103,7 +118,7 @@ export async function POST(
       .from('checkins')
       .insert({
         registration_id: registrationId,
-        user_id: registration.member_id,
+        member_id: registration.member_id,
         checkin_time: new Date().toISOString(),
         session_consumed: true,
         notes: 'Checked in by admin'
@@ -122,23 +137,23 @@ export async function POST(
       checkin: {
         id: checkin.id,
         registrationId: checkin.registration_id,
-        userId: checkin.user_id,
+        memberId: checkin.member_id,
         checkinTime: checkin.checkin_time,
         sessionConsumed: checkin.session_consumed,
         notes: checkin.notes
       },
       member: {
-        id: registration.member.id,
-        firstName: registration.member.first_name,
-        lastName: registration.member.last_name,
-        email: registration.member.email
+        id: registration.members?.id,
+        firstName: registration.members?.profiles?.first_name,
+        lastName: registration.members?.profiles?.last_name,
+        email: registration.members?.accounts?.email
       },
       course: {
-        id: registration.course.id,
-        courseDate: registration.course.course_date,
-        startTime: registration.course.start_time,
-        endTime: registration.course.end_time,
-        className: registration.course.class.name
+        id: registration.courses?.id,
+        courseDate: registration.courses?.course_date,
+        startTime: registration.courses?.start_time,
+        endTime: registration.courses?.end_time,
+        className: registration.courses?.classes?.name
       }
     });
 

@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle, XCircle, Loader2, ArrowLeft, User, Calendar, Clock, Users, AlertTriangle, Filter, ChevronDown, ChevronRight } from "lucide-react";
+import { CheckCircle, XCircle, Loader2, ArrowLeft, User, Calendar, Clock, Users, AlertTriangle, Filter, ChevronDown, ChevronRight, AlertCircle } from "lucide-react";
 import { useCheckinInfo, useCheckInRegistration, useCheckOutRegistration } from "@/hooks/useCheckins";
 import { useToast } from "@/hooks/use-toast";
 import { formatDateTime } from "@/lib/date";
@@ -460,7 +460,7 @@ export default function CheckinQRPage() {
                             {checkinInfo.course?.class?.difficulty || '-'}
                           </Badge>
                         </div>
-                        <p><strong>Capacity:</strong> {checkinInfo.registeredCount || 0} / {checkinInfo.course?.class?.maxCapacity || '-'}</p>
+                        <p><strong>Capacity:</strong> {checkinInfo.checkedInCount || 0} / {checkinInfo.course?.class?.maxCapacity || '-'}</p>
                         <p><strong>Registered:</strong> {checkinInfo.registeredCount || 0}</p>
                         <p><strong>Total Members:</strong> {checkinInfo.totalMembers || 0}</p>
                       </div>
@@ -544,7 +544,7 @@ export default function CheckinQRPage() {
                   <div className="text-center p-3 bg-white rounded-lg border">
                     <p className="text-xs text-gray-600 mb-1">Class Capacity</p>
                     <p className="text-2xl font-bold text-blue-600">
-                      {checkinInfo.registeredCount || 0}/{checkinInfo.course?.class?.maxCapacity || '-'}
+                      {checkinInfo.checkedInCount || 0}/{checkinInfo.course?.class?.maxCapacity || '-'}
                     </p>
                   </div>
                   <div className="text-center p-3 bg-white rounded-lg border">
@@ -577,8 +577,8 @@ export default function CheckinQRPage() {
                   </div>
                   <div className="flex items-center justify-between p-2 bg-white rounded border">
                     <span className="font-medium">Class Not Full:</span>
-                    <Badge variant={(checkinInfo.registeredCount || 0) < (checkinInfo.course?.class?.maxCapacity || 0) ? 'default' : 'destructive'}>
-                      {(checkinInfo.registeredCount || 0) < (checkinInfo.course?.class?.maxCapacity || 0) ? 'Yes' : 'No'}
+                    <Badge variant={(checkinInfo.checkedInCount || 0) < (checkinInfo.course?.class?.maxCapacity || 0) ? 'default' : 'destructive'}>
+                      {(checkinInfo.checkedInCount || 0) < (checkinInfo.course?.class?.maxCapacity || 0) ? 'Yes' : 'No'}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between p-2 bg-white rounded border">
