@@ -138,10 +138,10 @@ export default function DiscoveryOnboarding() {
       return;
     }
 
-    // Discovery source is optional - use selected option or undefined
-    const discoverySource = selectedOption ? (formData.discoverySource === "other" 
+    // Discovery source is required - use selected option
+    const discoverySource = formData.discoverySource === "other" 
       ? formData.customSource 
-      : formData.discoverySource) : undefined;
+      : formData.discoverySource;
 
     // Update onboarding with discovery source
     updateOnboardingMutation.mutate({ 

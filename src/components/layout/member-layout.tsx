@@ -124,7 +124,7 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
         } else if (!physicalProfileCompleted) {
           console.log("Redirecting to physical profile");
           router.push("/member/onboarding/physical-profile");
-        } else if (!discoverySource) {
+        } else if (!discoverySource || discoverySource.trim() === '' || discoverySource === 'undefined') {
           console.log("Redirecting to discovery");
           router.push("/member/onboarding/discovery");
         } else if (!termsAccepted) {

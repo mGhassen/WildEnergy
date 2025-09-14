@@ -4,13 +4,14 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Users, UserCheck, TrendingUp, Calendar, Clock, ChevronLeft, ChevronRight } from "lucide-react";
+import { Users, UserCheck, TrendingUp, Calendar, Clock, ChevronLeft, ChevronRight, AlertCircle, CheckCircle2, ArrowRight } from "lucide-react";
 import { formatDateTime, formatTime, formatDate } from "@/lib/date";
 import { useState } from "react";
 import { useAdminDashboardStats } from "@/hooks/useAdmin";
 import { useCheckins } from "@/hooks/useCheckins";
 import { useSchedules } from "@/hooks/useSchedules";
 import { useRegistrations } from "@/hooks/useRegistrations";
+import { useAdminDashboardTasks } from "@/hooks/useAdminDashboardTasks";
 import { Sidebar } from "@/components/ui/sidebar";
 import { DashboardSkeleton } from "@/components/skeletons";
 
@@ -64,6 +65,7 @@ export default function AdminDashboard() {
   
   // Always provide queryFn for useQuery
   const { data: stats, isLoading: statsLoading } = useAdminDashboardStats();
+  const { data: tasks, isLoading: tasksLoading } = useAdminDashboardTasks();
   const { data: recentCheckins = [] } = useCheckins();
 
   // Map checkins to ensure member data has camelCase fields
@@ -92,7 +94,7 @@ export default function AdminDashboard() {
     );
   };
 
-  if (statsLoading || schedulesLoading) {
+  if (statsLoading || schedulesLoading || tasksLoading) {
     return <DashboardSkeleton />;
   }
 
@@ -171,6 +173,151 @@ export default function AdminDashboard() {
             );
           })}
         </div>
+
+        {/* Task Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Accounts Pending Approval */}
+          <Card className="border-orange-200 bg-orange-50/50 dark:bg-orange-950/20 dark:border-orange-800">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900 rounded-lg flex items-center justify-center">
+                    <AlertCircle className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg">Accounts to Approve</CardTitle>
+                    <CardDescription>Pending account approvals</CardDescription>
+                  </div>
+                </div>
+                <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-900 dark:text-orange-200 dark:border-orange-700">
+                  {tasks?.pendingAccounts.count || 0}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {tasks?.pendingAccounts.count > 0 ? (
+                <div className="space-y-3">
+                  <div className="text-sm text-muted-foreground">
+                    {tasks.pendingAccounts.count} account{tasks.pendingAccounts.count !== 1 ? 's' : ''} waiting for approval
+                  </div>
+                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                    {tasks.pendingAccounts.accounts.slice(0, 3).map((account: any) => (
+                      <div key={account.account_id} className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 rounded-lg border">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-8 h-8 bg-orange-100 dark:bg-orange-900 rounded-full flex items-center justify-center">
+                            <span className="text-xs font-medium text-orange-600 dark:text-orange-400">
+                              {account.first_name?.[0]}{account.last_name?.[0]}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">{account.first_name} {account.last_name}</p>
+                            <p className="text-xs text-muted-foreground">{account.email}</p>
+                          </div>
+                        </div>
+                        <Badge variant="outline" className="text-xs">
+                          {formatDate(account.created_at)}
+                        </Badge>
+                      </div>
+                    ))}
+                    {tasks.pendingAccounts.count > 3 && (
+                      <div className="text-xs text-muted-foreground text-center">
+                        +{tasks.pendingAccounts.count - 3} more accounts
+                      </div>
+                    )}
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full border-orange-300 text-orange-700 hover:bg-orange-100 dark:border-orange-700 dark:text-orange-300 dark:hover:bg-orange-900"
+                    onClick={() => window.location.href = '/admin/accounts'}
+                  >
+                    View All Accounts
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="text-center py-4">
+                  <CheckCircle2 className="w-8 h-8 text-green-500 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">No pending approvals</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Courses to Start Checking */}
+          <Card className="border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-800">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+                    <Clock className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg">Courses Starting Soon</CardTitle>
+                    <CardDescription>Courses ready for check-in</CardDescription>
+                  </div>
+                </div>
+                <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900 dark:text-blue-200 dark:border-blue-700">
+                  {tasks?.coursesNeedingCheck.count || 0}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {tasks?.coursesNeedingCheck.count > 0 ? (
+                <div className="space-y-3">
+                  <div className="text-sm text-muted-foreground">
+                    {tasks.coursesNeedingCheck.count} course{tasks.coursesNeedingCheck.count !== 1 ? 's' : ''} starting soon
+                  </div>
+                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                    {tasks.coursesNeedingCheck.courses.slice(0, 3).map((course: any) => (
+                      <div key={course.id} className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 rounded-lg border">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
+                            <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
+                              {course.class.category.name.charAt(0)}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">{course.class.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {course.trainer.member.first_name} {course.trainer.member.last_name}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs font-medium">{formatTime(course.start_time)}</p>
+                          <Badge variant="outline" className="text-xs">
+                            {course.current_participants}/{course.max_participants}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                    {tasks.coursesNeedingCheck.count > 3 && (
+                      <div className="text-xs text-muted-foreground text-center">
+                        +{tasks.coursesNeedingCheck.count - 3} more courses
+                      </div>
+                    )}
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full border-blue-300 text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900"
+                    onClick={() => window.location.href = '/admin/courses'}
+                  >
+                    View All Courses
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="text-center py-4">
+                  <CheckCircle2 className="w-8 h-8 text-green-500 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">No courses starting soon</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Recent Activity */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Recent Check-ins */}
