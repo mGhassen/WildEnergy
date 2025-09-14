@@ -62,7 +62,7 @@ function mapScheduleToApi(data: any, classes: any[] = []) {
   
   return {
     class_id: data.classId,
-    trainer_id: data.trainerId, // Keep as string (UUID)
+    trainer_id: data.trainerId && data.trainerId.trim() !== "" ? data.trainerId : null, // Convert empty string to null
     day_of_week: data.dayOfWeek,
     start_time: data.startTime,
     end_time: data.endTime,
@@ -112,11 +112,11 @@ export default function AdminSchedules() {
   const scheduleColumns = [
     {
       key: 'class.name',
-      label: 'Class',
+      label: 'Class Information',
       sortable: true,
-      width: '200px',
+      flex: 3, // More space for class information
       render: (value: any, row: any) => (
-        <div className="space-y-1">
+        <div className="space-y-2">
           <div className="flex items-center gap-2">
             <div className={`w-2 h-2 rounded-full ${row.is_active ? 'bg-green-500' : 'bg-red-500'}`} />
             <span className="text-xs text-muted-foreground font-mono">
@@ -126,6 +126,11 @@ export default function AdminSchedules() {
           <div className="font-medium text-sm text-foreground truncate" title={row.class?.name || 'Unknown Class'}>
             {row.class?.name || 'Unknown Class'}
           </div>
+          {row.class?.category?.name && (
+            <div className="text-xs text-muted-foreground">
+              {row.class.category.name}
+            </div>
+          )}
         </div>
       )
     },
@@ -133,18 +138,25 @@ export default function AdminSchedules() {
       key: 'trainer',
       label: 'Trainer',
       sortable: true,
-      width: '100px',
+      flex: 1.5,
       render: (value: any, row: any) => (
-        <div className="font-medium text-sm text-foreground truncate" title={`${row.trainer?.firstName} ${row.trainer?.lastName}`}>
-          {row.trainer?.firstName} {row.trainer?.lastName}
+        <div className="space-y-1">
+          <div className="font-medium text-sm text-foreground truncate" title={`${row.trainer?.firstName} ${row.trainer?.lastName}`}>
+            {row.trainer?.firstName} {row.trainer?.lastName}
+          </div>
+          {row.trainer?.firstName && (
+            <div className="text-xs text-muted-foreground">
+              Trainer
+            </div>
+          )}
         </div>
       )
     },
     {
       key: 'schedule',
-      label: 'Schedule & Repetition',
+      label: 'Schedule Details',
       sortable: true,
-      width: '180px',
+      flex: 2,
       render: (value: any, row: any) => {
         const repetitionType = row.repetitionType || 'weekly';
         
@@ -175,34 +187,55 @@ export default function AdminSchedules() {
     },
     {
       key: 'capacity',
-      label: 'Capacity & Attendance',
+      label: 'Capacity & Stats',
       sortable: true,
-      width: '120px',
+      flex: 1.5,
       render: (value: any, row: any) => {
         const attendedMembers = getScheduleCheckins(row.id);
         const maxCapacity = row.class?.max_capacity || 0;
-        const repetitionCount = row.repetitionType === 'weekly' ? 4 : row.repetitionType === 'daily' ? 30 : 1;
-        const adjustedCapacity = maxCapacity * repetitionCount;
-        const attendanceRate = adjustedCapacity > 0 
-          ? Math.round((attendedMembers.length / adjustedCapacity) * 100)
-          : 0;
+        const coursesCount = coursesCountBySchedule[row.id] || 0;
         
         return (
           <div className="space-y-1">
             <div className="text-sm font-medium text-foreground">
-              {maxCapacity} people
+              {maxCapacity} max
             </div>
             <div className="text-xs text-muted-foreground">
-              {attendanceRate}% attendance
+              {coursesCount} courses
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {attendedMembers.length} attended
             </div>
           </div>
         );
       }
     },
     {
+      key: 'status',
+      label: 'Status',
+      sortable: true,
+      flex: 1,
+      render: (value: any, row: any) => (
+        <div className="space-y-1">
+          <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+            row.is_active 
+              ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
+              : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+          }`}>
+            {row.is_active ? 'Active' : 'Inactive'}
+          </div>
+          {row.is_edited && (
+            <div className="text-xs text-muted-foreground">
+              Edited
+            </div>
+          )}
+        </div>
+      )
+    },
+    {
       key: 'actions',
       label: 'Actions',
-      width: '80px',
+      flex: 0.8, // Less space for actions
       render: (value: any, row: any) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

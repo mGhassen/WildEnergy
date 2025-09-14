@@ -85,7 +85,7 @@ export const insertClassSchema = z.object({
 
 export const insertScheduleSchema = z.object({
   classId: z.number().min(1, 'Class is required'),
-  trainerId: z.string().min(1, 'Trainer is required'), // Changed to string for UUID
+  trainerId: z.string().optional(), // Make trainer optional since it can be NULL in DB
   dayOfWeek: z.number().min(0).max(6).optional(),
   startTime: z.string().min(1, 'Start time is required'),
   endTime: z.string().min(1, 'End time is required'),

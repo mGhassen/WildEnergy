@@ -103,6 +103,9 @@ export function CourseDetailsDialog({ event, children }: IProps) {
     status: 'scheduled'
   };
 
+  // Check if course is full
+  const isCourseFull = courseData.max_participants > 0 && courseData.current_participants >= courseData.max_participants;
+
   // Check if user is already registered for this course
   const isRegistered = registrations?.some(reg => reg.course_id === event.id && reg.status === 'registered');
   const userRegistration = registrations?.find(reg => reg.course_id === event.id && reg.status === 'registered');
@@ -302,6 +305,11 @@ export function CourseDetailsDialog({ event, children }: IProps) {
                       {courseLoading ? <Skeleton className="h-4 w-20 mx-auto" /> : 
                         courseData.max_participants > 0 ? `${courseData.current_participants}/${courseData.max_participants}` : 'Open'}
                     </div>
+                    {isCourseFull && (
+                      <div className="text-xs text-red-600 dark:text-red-400 font-medium mt-1">
+                        Course Full
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -432,11 +440,12 @@ export function CourseDetailsDialog({ event, children }: IProps) {
                   ) : (
                     <Button 
                       onClick={handleRegister} 
-                      disabled={registrationMutation.isPending || isCompleted || !canRegisterForCourse()}
-                      className="w-full text-sm sm:text-base py-2 sm:py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+                      disabled={registrationMutation.isPending || isCompleted || !canRegisterForCourse() || isCourseFull}
+                      className="w-full text-sm sm:text-base py-2 sm:py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold disabled:bg-muted disabled:text-muted-foreground"
                     >
                       <UserCheck className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                       {registrationMutation.isPending ? 'Registering...' : 
+                       isCourseFull ? 'Course is Full' :
                        !activeSubscriptions.length ? 'No Active Subscription' :
                        !canRegisterForCourse() ? 'No Sessions Left' :
                        'Register for Course'}

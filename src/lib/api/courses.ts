@@ -59,6 +59,12 @@ export interface Course {
       current: number;
     };
   };
+  // Additional fields for member courses
+  courseDate?: string;
+  startTime?: string;
+  endTime?: string;
+  isActive?: boolean;
+  scheduleId?: number;
 }
 
 export const courseApi = {

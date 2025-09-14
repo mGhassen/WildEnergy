@@ -73,7 +73,7 @@ interface ScheduleFormData {
 function mapScheduleToApi(data: any) {
   return {
     class_id: Number(data.classId),
-    trainer_id: String(data.trainerId),
+    trainer_id: data.trainerId && data.trainerId.trim() !== "" ? data.trainerId : null, // Convert empty string to null
     day_of_week: data.dayOfWeek,
     start_time: data.startTime,
     end_time: data.endTime,
