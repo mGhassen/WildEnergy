@@ -138,15 +138,23 @@ export default function DiscoveryOnboarding() {
       return;
     }
 
-    // Discovery source is required - use selected option
+    // Discovery source is optional - only save if something is selected
     const discoverySource = formData.discoverySource === "other" 
       ? formData.customSource 
       : formData.discoverySource;
 
-    // Update onboarding with discovery source
+    // Only save discovery source if something is selected, otherwise don't change the data
+    const discoveryData = discoverySource && discoverySource.trim() !== '' ? {
+      discovery_source: discoverySource
+    } : {};
+
+    // Update onboarding with discovery completion (always mark as completed)
     updateOnboardingMutation.mutate({ 
       memberId, 
-      data: { discovery_source: discoverySource } 
+      data: { 
+        discovery_completed: true,
+        ...discoveryData
+      } 
     }, {
       onSuccess: () => {
         router.push("/member/onboarding/terms");
