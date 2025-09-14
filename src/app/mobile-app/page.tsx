@@ -728,7 +728,10 @@ export default function MobileApp() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Capacity</span>
-                    <span>{selectedCourse.current_participants}/{selectedCourse.max_participants} people</span>
+                    <span>
+                      {selectedCourse.max_participants > 0 && selectedCourse.current_participants >= selectedCourse.max_participants ? 'Course Full' :
+                       `${selectedCourse.current_participants}/${selectedCourse.max_participants} people`}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -742,14 +745,21 @@ export default function MobileApp() {
                   Show QR Code
                 </Button>
               ) : (
-                <Button 
-                  className="w-full"
-                  onClick={() => handleRegister(selectedCourse.id)}
-                  disabled={registerMutation.isPending || (selectedCourse.max_participants > 0 && selectedCourse.current_participants >= selectedCourse.max_participants)}
-                >
-                  {selectedCourse.max_participants > 0 && selectedCourse.current_participants >= selectedCourse.max_participants ? "Course is Full" :
-                   registerMutation.isPending ? "Registering..." : "Register for Class"}
-                </Button>
+                <div>
+                  <Button 
+                    className="w-full"
+                    onClick={() => handleRegister(selectedCourse.id)}
+                    disabled={registerMutation.isPending || (selectedCourse.max_participants > 0 && selectedCourse.current_participants >= selectedCourse.max_participants)}
+                  >
+                    {selectedCourse.max_participants > 0 && selectedCourse.current_participants >= selectedCourse.max_participants ? "Course is Full" :
+                     registerMutation.isPending ? "Registering..." : "Register for Class"}
+                  </Button>
+                  {selectedCourse.max_participants > 0 && selectedCourse.current_participants >= selectedCourse.max_participants && (
+                    <div className="text-xs text-muted-foreground text-center mt-2">
+                      Contact trainer for a place
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </DialogContent>

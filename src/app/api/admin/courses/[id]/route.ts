@@ -242,7 +242,10 @@ export async function GET(
       },
       registrations: (registrations || []).map(reg => ({
         ...reg,
-        member: memberDetails[reg.member_id] || {
+        member: memberDetails[reg.member_id] ? {
+          ...memberDetails[reg.member_id],
+          id: memberDetails[reg.member_id].member_id
+        } : {
           id: reg.member_id,
           first_name: 'Unknown',
           last_name: 'Member',
@@ -252,7 +255,10 @@ export async function GET(
       })),
       checkins: (checkins || []).map(checkin => ({
         ...checkin,
-        member: memberDetails[checkin.member_id] || {
+        member: memberDetails[checkin.member_id] ? {
+          ...memberDetails[checkin.member_id],
+          id: memberDetails[checkin.member_id].member_id
+        } : {
           id: checkin.member_id,
           first_name: 'Unknown',
           last_name: 'Member',
@@ -325,12 +331,11 @@ export async function POST(
       return NextResponse.json({ error: 'Course not found' }, { status: 404 });
     }
 
-    // Check if there's enough capacity
+    // Note: Admin registrations bypass capacity checks
+    // Admins can register members even when course is at capacity
     const availableSpots = course.max_participants - course.current_participants;
     if (memberIds.length > availableSpots) {
-      return NextResponse.json({ 
-        error: `Not enough capacity. Available spots: ${availableSpots}, trying to add: ${memberIds.length}` 
-      }, { status: 400 });
+      console.log(`Admin registration: Course capacity exceeded. Available spots: ${availableSpots}, trying to add: ${memberIds.length}. Proceeding with admin override.`);
     }
 
     // Check which members are already registered
