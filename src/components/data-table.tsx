@@ -362,7 +362,7 @@ export default function DataTable({
         {columns.map((column) => (
           <div
             key={column.key}
-            className="p-3 flex-1"
+            className={`p-3 ${column.width ? '' : 'flex-1'}`}
             style={{ width: column.width }}
           >
             {column.render ? column.render(row[column.key], row) : String(row[column.key] || "")}
@@ -555,9 +555,9 @@ export default function DataTable({
             {columns.map((column) => (
               <div
                 key={column.key}
-                className={`p-3 flex-1 font-medium text-foreground ${
+                className={`p-3 font-medium text-foreground ${
                   column.sortable ? "cursor-pointer hover:bg-muted/50" : ""
-                }`}
+                } ${column.width ? '' : 'flex-1'}`}
                 style={{ width: column.width }}
                 onClick={() => column.sortable && handleSort(column.key)}
               >

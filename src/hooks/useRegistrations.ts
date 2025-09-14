@@ -274,3 +274,51 @@ export function useForceRegistration() {
     },
   });
 }
+
+export function useApproveRegistration() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (registrationId: number) => registrationApi.approveRegistration(registrationId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['registrations'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/registrations'] });
+      toast({
+        title: 'Registration approved',
+        description: 'The registration has been successfully approved.',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to approve registration',
+        description: error.message || 'Please try again',
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
+export function useDisapproveRegistration() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (registrationId: number) => registrationApi.disapproveRegistration(registrationId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['registrations'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/registrations'] });
+      toast({
+        title: 'Registration disapproved',
+        description: 'The registration has been successfully disapproved.',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to disapprove registration',
+        description: error.message || 'Please try again',
+        variant: 'destructive',
+      });
+    },
+  });
+}
