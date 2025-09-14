@@ -4,7 +4,8 @@ import { parseISO, areIntervalsOverlapping, format } from "date-fns";
 import { useCalendar } from "@/calendar/contexts/calendar-context";
 
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { SingleCalendar } from "@/components/ui/single-calendar";
+import { Calendar as ShadcnCalendar } from "@/components/ui/calendar";
+import { Button } from "@/components/ui/button";
 
 import { EventBlock } from "@/calendar/components/week-and-day-view/event-block";
 import { CalendarTimeline } from "@/calendar/components/week-and-day-view/calendar-time-line";
@@ -107,59 +108,62 @@ export function CalendarDayView({ singleDayEvents, multiDayEvents }: IProps) {
         </ScrollArea>
       </div>
 
-      <div className="hidden w-64 divide-y border-l bg-background md:block">
-        <div className="mx-auto w-fit p-4">
-          <SingleCalendar mode="single" selected={selectedDate} onSelect={setSelectedDate} />
+      <div className="hidden w-72 border-l bg-background md:block">
+        <div className="py-3 pl-1">
+          <ShadcnCalendar
+            mode="single"
+            selected={selectedDate}
+            onSelect={setSelectedDate}
+            captionLayout="dropdown"
+            fromYear={2020}
+            toYear={2030}
+            className="bg-transparent p-0"
+            classNames={{
+              day: "h-10 w-10 text-xs",
+              day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground",
+              day_today: "bg-accent text-accent-foreground",
+            }}
+            required
+          />
         </div>
 
-        <div className="flex-1 space-y-3">
-          {currentEvents.length > 0 ? (
-            <div className="flex items-start gap-2 px-4 pt-4">
-              <span className="relative mt-[5px] flex size-2.5">
-                <span className="absolute inline-flex size-full animate-ping rounded-full bg-green-400 opacity-75"></span>
-                <span className="relative inline-flex size-2.5 rounded-full bg-green-600"></span>
-              </span>
+        <div className="border-t px-4 py-3">
+          <div className="text-sm font-medium mb-3">
+            {selectedDate?.toLocaleDateString("en-US", {
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+            })}
+          </div>
 
-              <p className="text-sm font-semibold text-foreground">Happening now</p>
-            </div>
-          ) : (
-            <p className="p-4 text-center text-sm italic text-muted-foreground">No appointments or consultations at the moment</p>
-          )}
-
-          {currentEvents.length > 0 && (
-            <ScrollArea className="h-[422px] px-4" type="always">
-              <div className="space-y-6 pb-4">
-                {currentEvents.map(event => {
-                  const user = users.find(user => user.id === event.user.id);
-
-                  return (
-                    <div key={event.id} className="space-y-1.5">
-                      <p className="line-clamp-2 text-sm font-semibold">{event.title}</p>
-
-                      {user && (
-                        <div className="flex items-center gap-1.5 text-muted-foreground">
-                          <User className="size-3.5" />
-                          <span className="text-sm">{user.name}</span>
-                        </div>
-                      )}
-
-                      <div className="flex items-center gap-1.5 text-muted-foreground">
-                        <Calendar className="size-3.5" />
-                        <span className="text-sm">{format(new Date(), "MMM d, yyyy")}</span>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 text-muted-foreground">
-                        <Clock className="size-3.5" />
-                        <span className="text-sm">
-                          {format(parseISO(event.startDate), "h:mm a")} - {format(parseISO(event.endDate), "h:mm a")}
-                        </span>
-                      </div>
+          <div className="flex w-full flex-col gap-2">
+            {dayEvents.length > 0 ? (
+              dayEvents.map((event) => {
+                const user = users.find(user => user.id === event.user.id);
+                
+                return (
+                  <div
+                    key={event.id}
+                    className="bg-muted after:bg-primary/70 relative rounded-md p-2 pl-6 text-sm after:absolute after:inset-y-2 after:left-2 after:w-1 after:rounded-full"
+                  >
+                    <div className="font-medium">{event.title}</div>
+                    <div className="text-muted-foreground text-xs">
+                      {format(parseISO(event.startDate), "h:mm a")} - {format(parseISO(event.endDate), "h:mm a")}
                     </div>
-                  );
-                })}
-              </div>
-            </ScrollArea>
-          )}
+                    {user && (
+                      <div className="text-muted-foreground text-xs mt-1">
+                        {user.name}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            ) : (
+              <p className="text-center text-sm italic text-muted-foreground py-4">
+                No events scheduled for this day
+              </p>
+            )}
+          </div>
         </div>
       </div>
     </div>
