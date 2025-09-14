@@ -341,10 +341,10 @@ export async function GET(
     const checkinInfo = {
       member: {
         id: memberData.id,
-        first_name: memberData.profiles?.first_name,
-        last_name: memberData.profiles?.last_name,
-        email: memberData.profiles?.profile_email,
-        phone: memberData.profiles?.phone,
+        first_name: memberData.profiles?.[0]?.first_name,
+        last_name: memberData.profiles?.[0]?.last_name,
+        email: memberData.profiles?.[0]?.profile_email,
+        phone: memberData.profiles?.[0]?.phone,
         status: memberData.status,
         activeSubscription: activeSubscription ? {
           id: activeSubscription.id,
