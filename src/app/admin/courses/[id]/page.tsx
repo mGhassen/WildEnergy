@@ -668,7 +668,25 @@ export default function CourseDetailsPage() {
                 );
                 
                 return (
-                  <div key={registration.id} className="flex items-center justify-between p-4 border rounded-lg">
+                  <div 
+                    key={registration.id} 
+                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                    onClick={() => {
+                      console.log('Registration data:', registration);
+                      console.log('Member data:', registration.member);
+                      console.log('Member ID:', registration.member?.id);
+                      console.log('Registration member_id:', registration.member_id);
+                      
+                      const memberId = registration.member?.id || registration.member_id;
+                      console.log('Final member ID:', memberId);
+                      
+                      if (memberId) {
+                        router.push(`/admin/members/${memberId}`);
+                      } else {
+                        console.error('No member ID found for registration:', registration.id);
+                      }
+                    }}
+                  >
                     <div className="flex items-center gap-3">
                       <Avatar>
                         <AvatarFallback>
@@ -686,21 +704,23 @@ export default function CourseDetailsPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge variant={hasCheckedIn ? "default" : "secondary"}>
-                        {hasCheckedIn ? (
-                          <>
-                            <UserCheck className="w-3 h-3 mr-1" />
-                            Checked In
-                          </>
-                        ) : (
-                          <>
-                            <UserX className="w-3 h-3 mr-1" />
-                            Not Checked In
-                          </>
-                        )}
-                      </Badge>
-                      <Badge variant="outline" className="text-xs">
-                        {registration.status}
+                      <Badge 
+                        variant="outline" 
+                        className={`text-xs ${
+                          registration.status === 'attended'
+                            ? 'bg-blue-100 text-blue-800 border-blue-200'
+                            : registration.status === 'absent'
+                            ? 'bg-red-100 text-red-800 border-red-200'
+                            : registration.status === 'cancelled'
+                            ? 'bg-gray-100 text-gray-600 border-gray-200'
+                            : 'bg-gray-100 text-gray-800 border-gray-200'
+                        }`}
+                      >
+                        {registration.status === 'attended' ? 'Attended' :
+                         registration.status === 'absent' ? 'Absent' :
+                         registration.status === 'cancelled' ? 'Cancelled' :
+                         registration.status === 'registered' ? 'Registered' :
+                         registration.status}
                       </Badge>
                     </div>
                   </div>
