@@ -847,14 +847,6 @@ export default function MemberProfile() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label className="text-xs sm:text-sm font-medium text-muted-foreground">Member Since</Label>
-                <p className="text-sm font-medium">
-                  {profile?.created_at ? formatDisplayDate(profile.created_at) : 'N/A'}
-                </p>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mt-4">
-              <div className="space-y-2">
                 <Label className="text-xs sm:text-sm font-medium text-muted-foreground">Last Updated</Label>
                 <p className="text-sm font-medium">
                   {profile?.updated_at ? formatDisplayDate(profile.updated_at) : 'N/A'}
