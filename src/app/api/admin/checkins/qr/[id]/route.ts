@@ -84,19 +84,6 @@ export async function GET(
         member_id,
         course_id,
         qr_code,
-        members (
-          id,
-          status,
-          account_id,
-          profiles (
-            first_name,
-            last_name,
-            phone
-          ),
-          accounts (
-            email
-          )
-        ),
         courses (
           id,
           course_date,
@@ -140,6 +127,32 @@ export async function GET(
     }
 
     console.log('Check-in QR API - Registration found:', registration.id);
+
+    // Fetch member data separately
+    const { data: memberData, error: memberError } = await supabaseServer()
+      .from('user_profiles')
+      .select(`
+        member_id,
+        first_name,
+        last_name,
+        email,
+        phone,
+        status
+      `)
+      .eq('member_id', registration.member_id)
+      .single();
+
+    if (memberError) {
+      console.log('Check-in QR API - Member query error:', memberError);
+    }
+
+    if (!memberData) {
+      console.log('Check-in QR API - No member found for member_id:', registration.member_id);
+      return NextResponse.json({ 
+        success: false, 
+        message: 'Member not found' 
+      }, { status: 404 });
+    }
 
     // --- FIX: Handle both array and object for registration.courses ---
     const courseObj = Array.isArray(registration.courses) ? registration.courses[0] : registration.courses;
@@ -325,12 +338,12 @@ export async function GET(
 
     const checkinInfo = {
       member: {
-        id: registration.members?.id,
-        first_name: registration.members?.profiles?.first_name,
-        last_name: registration.members?.profiles?.last_name,
-        email: registration.members?.accounts?.email,
-        phone: registration.members?.profiles?.phone,
-        status: registration.members?.status,
+        id: memberData.member_id,
+        first_name: memberData.first_name,
+        last_name: memberData.last_name,
+        email: memberData.email,
+        phone: memberData.phone,
+        status: memberData.status,
         activeSubscription: activeSubscription ? {
           id: activeSubscription.id,
           planName: (activeSubscription.plans as any)?.name,
@@ -372,9 +385,9 @@ export async function GET(
         },
         trainer: {
           id: trainerInfo?.id,
-          first_name: trainerInfo?.profiles?.first_name,
-          last_name: trainerInfo?.profiles?.last_name,
-          phone: trainerInfo?.profiles?.phone,
+          first_name: trainerInfo?.profiles?.[0]?.first_name,
+          last_name: trainerInfo?.profiles?.[0]?.last_name,
+          phone: trainerInfo?.profiles?.[0]?.phone,
           specialization: trainerInfo?.specialization,
           experience_years: trainerInfo?.experience_years,
           bio: trainerInfo?.bio,
@@ -399,11 +412,11 @@ export async function GET(
         ? attendantMembers.flatMap(c =>
             Array.isArray(c.class_registrations)
               ? c.class_registrations.map(reg => ({
-                  id: reg.members?.id,
-                  first_name: reg.members?.profiles?.first_name,
-                  last_name: reg.members?.profiles?.last_name,
-                  email: reg.members?.accounts?.email,
-                  phone: reg.members?.profiles?.phone
+                  id: reg.members?.[0]?.id,
+                  first_name: reg.members?.[0]?.profiles?.[0]?.first_name,
+                  last_name: reg.members?.[0]?.profiles?.[0]?.last_name,
+                  email: reg.members?.[0]?.accounts?.[0]?.email,
+                  phone: reg.members?.[0]?.profiles?.[0]?.phone
                 }))
               : []
           )

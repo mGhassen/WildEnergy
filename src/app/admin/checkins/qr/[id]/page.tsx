@@ -21,9 +21,16 @@ interface CheckinInfo {
     phone?: string;
     status?: string;
     activeSubscription?: {
+      id: string;
       planName: string;
+      planDescription?: string;
+      planPrice?: number;
+      planSessionCount: number;
       status: string;
       sessionsRemaining: number;
+      startDate: string;
+      endDate: string;
+      groupSessions: any[];
     };
   };
   course: {
@@ -42,11 +49,15 @@ interface CheckinInfo {
     };
     trainer: {
       id: number;
-      users: {
-        id: string;
-        first_name: string;
-        last_name: string;
-      };
+      first_name: string;
+      last_name: string;
+      phone?: string;
+      specialization?: string;
+      experience_years?: number;
+      bio?: string;
+      certification?: string;
+      hourly_rate?: number;
+      status?: string;
     };
   };
   registration: {
@@ -752,7 +763,7 @@ export default function CheckinQRPage() {
                     ⚠️ Cannot check in: No active subscription
                   </div>
                 )}
-                {(checkinInfo.member?.activeSubscription?.sessionsRemaining || 0) <= 0 && checkinInfo?.member?.activeSubscription && (
+                {(checkinInfo?.member?.activeSubscription?.sessionsRemaining || 0) <= 0 && checkinInfo?.member?.activeSubscription && (
                   <div className="text-center text-sm text-red-600 bg-red-50 p-2 rounded border">
                     ⚠️ Cannot check in: No sessions remaining
                   </div>
