@@ -7,6 +7,7 @@ export interface OnboardingStatus {
   account_id: string;
   personal_info_completed: boolean;
   discovery_source?: string;
+  discovery_completed: boolean;
   terms_accepted: boolean;
   terms_accepted_at?: string;
   terms_version_id?: string;
@@ -24,6 +25,7 @@ export interface OnboardingStatusResponse {
     hasPersonalInfo: boolean;
     personalInfoCompleted: boolean;
     physicalProfileCompleted: boolean;
+    discoveryCompleted: boolean;
     physicalProfile?: {
       gender: string;
       weight: number;
@@ -53,6 +55,7 @@ export interface UpdateOnboardingData {
     goal: string;
   };
   discovery_source?: string;
+  discovery_completed?: boolean;
   terms_accepted?: boolean;
   terms_accepted_at?: string;
   onboarding_completed?: boolean;
