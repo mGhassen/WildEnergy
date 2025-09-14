@@ -127,23 +127,6 @@ export default function PersonalInfoOnboarding() {
       return false;
     }
     
-    if (!formData.profession.trim()) {
-      toast({
-        title: "Erreur",
-        description: "La profession est requise",
-        variant: "destructive",
-      });
-      return false;
-    }
-    
-    if (!formData.address.trim()) {
-      toast({
-        title: "Erreur",
-        description: "L'adresse est requise",
-        variant: "destructive",
-      });
-      return false;
-    }
     
     if (!formData.phone.trim()) {
       toast({
@@ -171,7 +154,7 @@ export default function PersonalInfoOnboarding() {
     
     // Simple validation
     if (!formData.firstName.trim() || !formData.lastName.trim() || !formData.dateOfBirth || 
-        !formData.profession.trim() || !formData.address.trim() || !formData.phone.trim()) {
+        !formData.phone.trim()) {
       toast({
         title: "Erreur",
         description: "Veuillez remplir tous les champs obligatoires",
@@ -378,14 +361,13 @@ export default function PersonalInfoOnboarding() {
               <div className="space-y-2">
                 <Label htmlFor="profession" className="flex items-center gap-2">
                   <Briefcase className="w-4 h-4" />
-                  Profession *
+                  Profession
                 </Label>
                 <Input
                   id="profession"
                   value={formData.profession}
                   onChange={(e) => handleInputChange("profession", e.target.value)}
                   placeholder="Votre profession"
-                  required
                 />
               </div>
             </div>
@@ -393,7 +375,7 @@ export default function PersonalInfoOnboarding() {
             <div className="space-y-2">
               <Label htmlFor="address" className="flex items-center gap-2">
                 <MapPin className="w-4 h-4" />
-                Adresse *
+                Adresse
               </Label>
               <Textarea
                 id="address"
@@ -401,7 +383,6 @@ export default function PersonalInfoOnboarding() {
                 onChange={(e) => handleInputChange("address", e.target.value)}
                 placeholder="Votre adresse complète"
                 rows={3}
-                required
               />
             </div>
             

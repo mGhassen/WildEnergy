@@ -30,10 +30,10 @@ export async function POST(request: NextRequest) {
     const { firstName, lastName, age, profession, address, phone, profileEmail } = body;
 
     // Validate required fields
-    if (!firstName || !lastName || !age || !profession || !address || !phone || !profileEmail) {
+    if (!firstName || !lastName || !age || !phone || !profileEmail) {
       return NextResponse.json({ 
         success: false, 
-        error: "Tous les champs sont requis" 
+        error: "Tous les champs obligatoires doivent être remplis" 
       }, { status: 400 });
     }
 
@@ -53,10 +53,16 @@ export async function POST(request: NextRequest) {
       last_name: lastName,
       phone: phone,
       profile_email: profileEmail,
-      profession: profession,
-      address: address,
       updated_at: new Date().toISOString(),
     };
+
+    // Add optional fields only if they are provided
+    if (profession) {
+      updateData.profession = profession;
+    }
+    if (address) {
+      updateData.address = address;
+    }
 
     // Calculate date of birth from age
     const currentYear = new Date().getFullYear();

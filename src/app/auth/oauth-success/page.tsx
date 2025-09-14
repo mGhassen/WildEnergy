@@ -29,7 +29,7 @@ export default function OAuthSuccessPage() {
           throw new Error(`Session error: ${sessionError.message}`);
         }
 
-        if (!sessionData.session || !sessionData.user) {
+        if (!sessionData.session || !sessionData.session.user) {
           console.log('No session found, trying alternative methods...');
           
           // Try to get the session from the URL hash (Supabase sometimes puts it there)
@@ -62,7 +62,7 @@ export default function OAuthSuccessPage() {
           throw new Error('No session found after OAuth flow. Please try signing in again.');
         }
 
-        console.log('OAuth session found:', sessionData.user.email);
+        console.log('OAuth session found:', sessionData.session.user.email);
         await processUserSession(sessionData.session);
       } catch (error: any) {
         console.error('OAuth success error:', error);
@@ -122,10 +122,11 @@ export default function OAuthSuccessPage() {
                     
                     // Redirect based on account status
                     if (account.status === 'pending') {
-                      router.push('/auth/account-status');
+                      router.push('/auth/waiting-approval');
                     } else if (account.is_admin) {
                       router.push('/admin');
                     } else {
+                      // Existing users go to member portal (onboarding check will happen there)
                       router.push('/member');
                     }
                   }, 1000);
@@ -168,7 +169,7 @@ export default function OAuthSuccessPage() {
             email: session.user.email,
             profile_id: newProfile.id,
             is_admin: false,
-            status: 'pending',
+            status: 'pending', // New accounts need admin approval
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           };
@@ -234,7 +235,7 @@ export default function OAuthSuccessPage() {
             
             // Redirect based on account status
             if (newAccount.status === 'pending') {
-              router.push('/auth/account-status');
+              router.push('/auth/waiting-approval');
             } else if (newAccount.is_admin) {
               router.push('/admin');
             } else {
