@@ -68,6 +68,8 @@ interface Course {
   end_time?: string;
   isActive: boolean;
   scheduleId: number;
+  max_participants: number;
+  current_participants: number;
 }
 
 interface Subscription {
