@@ -72,6 +72,9 @@ export async function GET(req: NextRequest) {
       }, { status: 403 });
     }
 
+    // Determine authentication provider
+    const provider = user.app_metadata?.provider || 'email';
+    
     // Return user info
     const userResponse = {
       id: userData.account_id,
@@ -92,6 +95,7 @@ export async function GET(req: NextRequest) {
       accessiblePortals: userData.accessible_portals,
       member_id: userData.member_id,
       trainer_id: userData.trainer_id,
+      provider: provider,
     };
 
     console.log('Session API returning user:', userResponse.id);

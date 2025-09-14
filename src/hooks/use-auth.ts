@@ -24,6 +24,7 @@ export interface User {
   accessiblePortals?: string[];
   member_id?: string;
   trainer_id?: string;
+  provider?: string; // Authentication provider (e.g., 'google', 'email')
 }
 
 interface AuthState {
