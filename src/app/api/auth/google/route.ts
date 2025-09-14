@@ -51,36 +51,30 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // If account doesn't exist, create it
+    // If account doesn't exist, redirect to registration with pre-filled data
     if (!account) {
-      const { data: newAccount, error: createError } = await supabase
-        .from('accounts')
-        .insert({
-          email: data.user.email,
-          first_name: data.user.user_metadata?.first_name || data.user.user_metadata?.full_name?.split(' ')[0] || '',
-          last_name: data.user.user_metadata?.last_name || data.user.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
-          is_admin: false,
-          status: 'active',
-          user_type: 'member',
-          accessible_portals: ['member'],
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .select()
-        .single();
+      console.log('New Google user - redirecting to registration with pre-filled data');
+      
+      // Store Google user data temporarily for registration
+      const googleUserData = {
+        email: data.user.email,
+        first_name: data.user.user_metadata?.first_name || data.user.user_metadata?.full_name?.split(' ')[0] || '',
+        last_name: data.user.user_metadata?.last_name || data.user.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
+        avatar_url: data.user.user_metadata?.avatar_url || data.user.user_metadata?.picture || '',
+        google_id: data.user.id
+      };
 
-      if (createError) {
-        console.error('Account creation error:', createError);
-        return NextResponse.redirect(
-          `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/login?error=account_creation_failed`
-        );
-      }
-
-      // Create a redirect URL with the new account data
-      const redirectUrl = new URL('/auth/callback', process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000');
+      // Store the data in a temporary way (you could use a database table or session storage)
+      // For now, we'll pass it via URL parameters
+      const redirectUrl = new URL('/auth/register', process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000');
+      redirectUrl.searchParams.set('google_auth', 'true');
+      if (googleUserData.email) redirectUrl.searchParams.set('email', googleUserData.email);
+      if (googleUserData.first_name) redirectUrl.searchParams.set('first_name', googleUserData.first_name);
+      if (googleUserData.last_name) redirectUrl.searchParams.set('last_name', googleUserData.last_name);
+      if (googleUserData.avatar_url) redirectUrl.searchParams.set('avatar_url', googleUserData.avatar_url);
+      if (googleUserData.google_id) redirectUrl.searchParams.set('google_id', googleUserData.google_id);
       redirectUrl.searchParams.set('access_token', data.session.access_token);
       redirectUrl.searchParams.set('refresh_token', data.session.refresh_token || '');
-      redirectUrl.searchParams.set('user_id', newAccount.id);
       
       return NextResponse.redirect(redirectUrl.toString());
     }
