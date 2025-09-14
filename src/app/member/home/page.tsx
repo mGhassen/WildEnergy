@@ -127,45 +127,45 @@ export default function MemberHome() {
   }
 
   return (
-    <div className={isMobile ? "max-w-full mx-auto p-2 space-y-4" : "max-w-6xl mx-auto p-6 space-y-8"}>
+    <div className="max-w-7xl mx-auto px-4 py-4 space-y-6">
       {/* Welcome Header */}
-      <div className={isMobile ? "text-center space-y-2 mb-4" : "text-center space-y-4 mb-8"}>
+      <div className="text-center space-y-3 mb-6">
         <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-primary/10 to-primary/5 rounded-full">
           <Sparkles className="w-4 h-4 text-primary" />
-          <span className="text-xs sm:text-sm font-medium text-primary">Welcome back!</span>
+          <span className="text-sm font-medium text-primary">Welcome back!</span>
         </div>
-        <h1 className={isMobile ? "text-2xl font-bold text-foreground" : "text-4xl font-bold text-foreground"}>
+        <h1 className="text-3xl sm:text-4xl font-bold text-foreground">
           Hello, {user?.firstName || 'there'}! 👋
         </h1>
-        <p className={isMobile ? "text-base text-muted-foreground max-w-xs mx-auto" : "text-lg text-muted-foreground max-w-2xl mx-auto"}>
+        <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
           Ready for your next workout? Here's what's happening today and this week.
         </p>
       </div>
 
-      <div className={isMobile ? "grid grid-cols-1 gap-4" : "grid grid-cols-1 lg:grid-cols-3 gap-8"}>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content */}
-        <div className={isMobile ? "space-y-4" : "lg:col-span-2 space-y-6"}>
+        <div className="lg:col-span-2 space-y-6">
           {/* Insights Section */}
-          <div className={isMobile ? "grid grid-cols-1 gap-3 w-full mb-4" : "grid grid-cols-1 md:grid-cols-2 gap-6 w-full mb-10"}>
-            <Card>
-              <CardContent className={isMobile ? "p-3 flex items-center gap-3 h-full" : "p-6 flex items-center gap-4 h-full"}>
-                <div className={isMobile ? "w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center" : "w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center"}>
-                  <Users className={isMobile ? "w-4 h-4 text-primary" : "w-6 h-6 text-primary"} />
+          <div className="grid grid-cols-2 gap-4 w-full">
+            <Card className="hover:shadow-md transition-shadow">
+              <CardContent className="p-4 flex items-center gap-3 h-full">
+                <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                  <Users className="w-5 h-5 text-primary" />
                 </div>
-                <div>
-                  <p className={isMobile ? "text-xs text-muted-foreground" : "text-sm text-muted-foreground"}>Active Subscriptions</p>
-                  <p className={isMobile ? "text-lg font-bold text-foreground" : "text-2xl font-bold text-foreground"}>{totalActive}</p>
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground truncate">Active Subscriptions</p>
+                  <p className="text-xl font-bold text-foreground">{totalActive}</p>
                 </div>
               </CardContent>
             </Card>
-            <Card>
-              <CardContent className={isMobile ? "p-3 flex items-center gap-3 h-full" : "p-6 flex items-center gap-4 h-full"}>
-                <div className={isMobile ? "w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center" : "w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center"}>
-                  <Badge className={isMobile ? "w-4 h-4 text-primary" : "w-6 h-6 text-primary"} />
+            <Card className="hover:shadow-md transition-shadow">
+              <CardContent className="p-4 flex items-center gap-3 h-full">
+                <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                  <Badge className="w-5 h-5 text-primary" />
                 </div>
-                <div>
-                  <p className={isMobile ? "text-xs text-muted-foreground" : "text-sm text-muted-foreground"}>Sessions Remaining</p>
-                  <p className={isMobile ? "text-lg font-bold text-foreground" : "text-2xl font-bold text-foreground"}>{totalSessionsRemaining}</p>
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground truncate">Sessions Remaining</p>
+                  <p className="text-xl font-bold text-foreground">{totalSessionsRemaining}</p>
                 </div>
               </CardContent>
             </Card>
@@ -173,27 +173,29 @@ export default function MemberHome() {
 
           {/* Combined Card with Enhanced Tabs */}
           <Card>
-            <CardHeader>
-              <h2 className="text-2xl font-bold mb-2 text-foreground">My Classes This Week</h2>
-              <div className="flex items-center gap-2 bg-muted/50 rounded-full p-1 w-fit mx-auto mb-2 shadow-sm">
+            <CardHeader className="pb-4">
+              <h2 className="text-xl sm:text-2xl font-bold mb-3 text-foreground">My Classes This Week</h2>
+              <div className="flex items-center gap-1 bg-muted/50 rounded-full p-1 w-full sm:w-fit mx-auto mb-3 shadow-sm">
                 <Button
                   variant={tab === 'today' ? 'default' : 'ghost'}
                   onClick={() => setTab('today')}
-                  className={`rounded-full px-5 py-2 flex items-center gap-2 transition-all ${tab === 'today' ? 'shadow bg-primary text-primary-foreground' : 'bg-transparent text-muted-foreground hover:bg-muted'}`}
+                  className={`flex-1 sm:flex-none rounded-full px-4 py-2 flex items-center justify-center gap-2 transition-all text-sm ${tab === 'today' ? 'shadow bg-primary text-primary-foreground' : 'bg-transparent text-muted-foreground hover:bg-muted'}`}
                 >
-                  <Calendar className="w-4 h-4 mr-1" />
-                  Today
+                  <Calendar className="w-4 h-4" />
+                  <span className="hidden sm:inline">Today</span>
+                  <span className="sm:hidden">Today</span>
                 </Button>
                 <Button
                   variant={tab === 'upcoming' ? 'default' : 'ghost'}
                   onClick={() => setTab('upcoming')}
-                  className={`rounded-full px-5 py-2 flex items-center gap-2 transition-all ${tab === 'upcoming' ? 'shadow bg-primary text-primary-foreground' : 'bg-transparent text-muted-foreground hover:bg-muted'}`}
+                  className={`flex-1 sm:flex-none rounded-full px-4 py-2 flex items-center justify-center gap-2 transition-all text-sm ${tab === 'upcoming' ? 'shadow bg-primary text-primary-foreground' : 'bg-transparent text-muted-foreground hover:bg-muted'}`}
                 >
-                  <Clock className="w-4 h-4 mr-1" />
-                  Upcoming
+                  <Clock className="w-4 h-4" />
+                  <span className="hidden sm:inline">Upcoming</span>
+                  <span className="sm:hidden">Week</span>
                 </Button>
               </div>
-              <CardDescription className="text-center text-base mt-2">
+              <CardDescription className="text-center text-sm">
                 {tab === 'today'
                   ? 'Your booked classes for today'
                   : "Classes you're registered for this week"}
@@ -202,25 +204,25 @@ export default function MemberHome() {
             <CardContent>
               {tab === 'today' ? (
                 registrationsToday.length > 0 ? (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {registrationsToday.map((reg: any) => (
-                      <div key={reg.id} className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                            <span className="text-primary font-semibold text-sm">
+                      <div key={reg.id} className="flex items-center justify-between p-3 sm:p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <span className="text-primary font-semibold text-xs sm:text-sm">
                               {reg.course?.class?.category?.name?.charAt(0).toUpperCase()}
                             </span>
                           </div>
-                          <div>
-                            <h4 className="font-medium text-foreground">{reg.course?.class?.name}</h4>
-                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                          <div className="min-w-0 flex-1">
+                            <h4 className="font-medium text-foreground text-sm sm:text-base truncate">{reg.course?.class?.name}</h4>
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
                               <span className="flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
-                                {formatTime(reg.course?.schedule?.startTime)} - {formatTime(reg.course?.schedule?.endTime || reg.course?.schedule?.startTime)}
+                                <Clock className="w-3 h-3 flex-shrink-0" />
+                                <span className="truncate">{formatTime(reg.course?.schedule?.startTime)} - {formatTime(reg.course?.schedule?.endTime || reg.course?.schedule?.startTime)}</span>
                               </span>
                               <span className="flex items-center gap-1">
-                                <Users className="w-3 h-3" />
-                                {reg.course?.trainer?.firstName} {reg.course?.trainer?.lastName}
+                                <Users className="w-3 h-3 flex-shrink-0" />
+                                <span className="truncate">{reg.course?.trainer?.firstName} {reg.course?.trainer?.lastName}</span>
                               </span>
                             </div>
                           </div>
@@ -229,9 +231,10 @@ export default function MemberHome() {
                           variant="outline"
                           size="sm"
                           onClick={() => setSelectedQR(reg)}
+                          className="flex-shrink-0 ml-2"
                         >
-                          <QrCode className="w-4 h-4 mr-1" />
-                          QR
+                          <QrCode className="w-4 h-4" />
+                          <span className="hidden sm:inline ml-1">QR</span>
                         </Button>
                       </div>
                     ))}
@@ -250,29 +253,29 @@ export default function MemberHome() {
                 )
               ) : (
                 upcomingRegistrations.length > 0 ? (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {upcomingRegistrations.map((registration: any) => (
-                      <div key={registration.id} className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center">
-                            <span className="text-white text-xs font-medium">
+                      <div key={registration.id} className="flex items-center justify-between p-3 sm:p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary rounded-lg flex items-center justify-center flex-shrink-0">
+                            <span className="text-white text-xs sm:text-sm font-medium">
                               {registration.course?.class?.category?.name?.charAt(0).toUpperCase()}
                             </span>
                           </div>
-                          <div>
-                            <h4 className="font-medium text-foreground">{registration.course?.class?.name}</h4>
-                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                          <div className="min-w-0 flex-1">
+                            <h4 className="font-medium text-foreground text-sm sm:text-base truncate">{registration.course?.class?.name}</h4>
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
                               <span className="flex items-center gap-1">
-                                <Calendar className="w-3 h-3" />
-                                {registration.course?.courseDate ? formatDate(registration.course.courseDate) : getDayName(registration.course?.schedule?.dayOfWeek)}
+                                <Calendar className="w-3 h-3 flex-shrink-0" />
+                                <span className="truncate">{registration.course?.courseDate ? formatDate(registration.course.courseDate) : getDayName(registration.course?.schedule?.dayOfWeek)}</span>
                               </span>
                               <span className="flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
-                                {formatTime(registration.course?.schedule?.startTime)}
+                                <Clock className="w-3 h-3 flex-shrink-0" />
+                                <span className="truncate">{formatTime(registration.course?.schedule?.startTime)}</span>
                               </span>
                               <span className="flex items-center gap-1">
-                                <Users className="w-3 h-3" />
-                                {registration.course?.trainer?.firstName} {registration.course?.trainer?.lastName}
+                                <Users className="w-3 h-3 flex-shrink-0" />
+                                <span className="truncate">{registration.course?.trainer?.firstName} {registration.course?.trainer?.lastName}</span>
                               </span>
                             </div>
                           </div>
@@ -281,9 +284,10 @@ export default function MemberHome() {
                           variant="outline"
                           size="sm"
                           onClick={() => setSelectedQR(registration)}
+                          className="flex-shrink-0 ml-2"
                         >
-                          <QrCode className="w-4 h-4 mr-1" />
-                          QR
+                          <QrCode className="w-4 h-4" />
+                          <span className="hidden sm:inline ml-1">QR</span>
                         </Button>
                       </div>
                     ))}
@@ -306,7 +310,7 @@ export default function MemberHome() {
         </div>
 
         {/* Sidebar */}
-        <div className="space-y-6">
+        <div className="space-y-4 lg:space-y-6">
           {/* Available Plans */}
           <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10">
             <CardHeader className="pb-3">
@@ -314,7 +318,7 @@ export default function MemberHome() {
                 <Crown className="w-5 h-5 text-primary" />
                 <CardTitle className="text-lg">Available Plans</CardTitle>
               </div>
-              <CardDescription>Discover our Pole Dance plans</CardDescription>
+              <CardDescription className="text-sm">Discover our Pole Dance plans</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {plansLoading ? (
@@ -327,41 +331,43 @@ export default function MemberHome() {
                   <div className="relative">
                     <div 
                       key={currentPlanIndex}
-                      className="p-4 bg-card rounded-lg border border-border hover:border-primary/30 transition-all duration-700 ease-out animate-fadeIn"
+                      className="p-3 sm:p-4 bg-card rounded-lg border border-border hover:border-primary/30 transition-all duration-700 ease-out animate-fadeIn"
                       style={{
                         animation: 'fadeIn 0.7s ease-out'
                       }}
                     >
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <h4 className="font-semibold text-foreground">{currentPlan.name}</h4>
-                            {currentPlan.is_popular && (
-                              <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-700">
-                                <Star className="w-3 h-3 mr-1" />
-                                Popular
-                              </Badge>
-                            )}
-                            {currentPlan.is_premium && (
-                              <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700">
-                                <Crown className="w-3 h-3 mr-1" />
-                                Premium
-                              </Badge>
-                            )}
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-2">
+                              <h4 className="font-semibold text-foreground text-sm sm:text-base truncate">{currentPlan.name}</h4>
+                              {currentPlan.is_popular && (
+                                <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-700 flex-shrink-0">
+                                  <Star className="w-3 h-3 mr-1" />
+                                  Popular
+                                </Badge>
+                              )}
+                              {currentPlan.is_premium && (
+                                <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700 flex-shrink-0">
+                                  <Crown className="w-3 h-3 mr-1" />
+                                  Premium
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">{currentPlan.description}</p>
                           </div>
-                          <p className="text-sm text-muted-foreground mb-3">{currentPlan.description}</p>
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                              <span className="flex items-center gap-1">
-                                <Zap className="w-4 h-4" />
-                                {getTotalSessions(currentPlan)} sessions
-                              </span>
-                              <span>{currentPlan.duration_days} days</span>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-lg font-bold text-foreground">{formatCurrency(currentPlan.price)}</p>
-                              <p className="text-xs text-muted-foreground">per month</p>
-                            </div>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div className="flex items-center gap-3 text-xs sm:text-sm text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Zap className="w-3 h-3 sm:w-4 sm:h-4" />
+                              {getTotalSessions(currentPlan)} sessions
+                            </span>
+                            <span>{currentPlan.duration_days} days</span>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-lg sm:text-xl font-bold text-foreground">{formatCurrency(currentPlan.price)}</p>
+                            <p className="text-xs text-muted-foreground">per month</p>
                           </div>
                         </div>
                       </div>
@@ -402,26 +408,26 @@ export default function MemberHome() {
             </CardContent>
           </Card>
 
-          {/* Quick Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
-              <CardDescription>Get started quickly</CardDescription>
+          {/* Quick Actions - Hidden on mobile */}
+          <Card className="hidden lg:block">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">Quick Actions</CardTitle>
+              <CardDescription className="text-sm">Get started quickly</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <Button variant="outline" className="w-full justify-start h-12" asChild>
+            <CardContent className="space-y-2">
+              <Button variant="outline" className="w-full justify-start h-12 text-sm" asChild>
                 <a href="/member/classes">
                   <Calendar className="w-4 h-4 mr-3" />
                   Browse Classes
                 </a>
               </Button>
-              <Button variant="outline" className="w-full justify-start h-12" asChild>
+              <Button variant="outline" className="w-full justify-start h-12 text-sm" asChild>
                 <a href="/member/history">
                   <Clock className="w-4 h-4 mr-3" />
                   Class History
                 </a>
               </Button>
-              <Button variant="outline" className="w-full justify-start h-12" asChild>
+              <Button variant="outline" className="w-full justify-start h-12 text-sm" asChild>
                 <a href="/member/subscriptions">
                   <MapPin className="w-4 h-4 mr-3" />
                   My Subscriptions
@@ -432,20 +438,20 @@ export default function MemberHome() {
 
           {/* Gym Info */}
           <Card>
-            <CardHeader>
-              <CardTitle>Gym Information</CardTitle>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">Gym Information</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-3">
               <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
                   <MapPin className="w-5 h-5 text-primary" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="font-medium text-sm">Wild Energy Gym</p>
                   <p className="text-xs text-muted-foreground">Tunis, Tunisia</p>
                 </div>
               </div>
-              <div className="space-y-2 text-sm">
+              <div className="space-y-2 text-xs sm:text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Open Today:</span>
                   <span className="font-medium">6:00 AM - 10:00 PM</span>
@@ -462,24 +468,26 @@ export default function MemberHome() {
 
       {/* QR Code Modal */}
       <Dialog open={!!selectedQR} onOpenChange={() => setSelectedQR(null)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md mx-4">
           <DialogHeader>
-            <DialogTitle>Class QR Code</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-lg">Class QR Code</DialogTitle>
+            <DialogDescription className="text-sm">
               Show this code at the gym to check in
             </DialogDescription>
           </DialogHeader>
           {selectedQR && (
-            <div className="space-y-6">
+            <div className="space-y-4">
               <div className="text-center">
-                <h4 className="text-lg font-medium text-foreground mb-2">
+                <h4 className="text-base sm:text-lg font-medium text-foreground mb-2">
                   {selectedQR.course?.class?.name}
                 </h4>
-                <p className="text-muted-foreground mb-4">
+                <p className="text-sm text-muted-foreground mb-4">
                   {selectedQR.course?.courseDate ? formatDate(selectedQR.course.courseDate) : getDayName(selectedQR.course?.schedule?.dayOfWeek)} • {formatTime(selectedQR.course?.schedule?.startTime)}
                 </p>
-                <QRGenerator value={selectedQR.qrCode || ''} size={200} />
-                <p className="text-sm text-muted-foreground mt-4">
+                <div className="flex justify-center">
+                  <QRGenerator value={selectedQR.qrCode || ''} size={180} />
+                </div>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-4 break-all">
                   Code: {selectedQR.qrCode || 'N/A'}
                 </p>
               </div>

@@ -1,6 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useState, useMemo, Suspense } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,17 +10,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useCancelRegistration, useForceRegistration } from "@/hooks/useRegistrations";
 import { useMemberCourses, useMemberSubscriptions, useMemberCategories } from "@/hooks/useMember";
 import { useMemberCourseRegistration } from "@/hooks/useMemberRegistration";
+import { useMemberRegistrations } from "@/hooks/useMemberRegistrations";
 import { useAuth } from "@/hooks/use-auth";
 import { apiFetch } from "@/lib/api";
+import { Registration } from "@/lib/api/registrations";
 import { CardSkeleton, ListSkeleton } from "@/components/skeletons";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Clock, Users, Calendar, Star, Check, AlertTriangle, QrCode } from "lucide-react";
+import { Search, Clock, Users, Calendar, Star, Check, AlertTriangle, QrCode, List, CalendarRange } from "lucide-react";
 import { formatTime, getDayName } from "@/lib/date";
 import { formatDate } from "@/lib/date";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ConfirmationDialog } from "@/components/confirmation-dialog";
 import QRGenerator from "@/components/qr-generator";
+import { CalendarProvider } from "@/calendar/contexts/calendar-context";
+import { ClientContainer } from "@/calendar/components/client-container";
+import { MobileClientContainer } from "@/components/mobile-client-container";
+import { convertCoursesToMemberEvents, createMemberUsers } from "@/calendar/utils/course-converter";
+import Link from "next/link";
 
 // Types for member classes page
 interface Category {
@@ -73,17 +81,10 @@ interface Subscription {
   }>;
 }
 
-interface Registration {
-  id: number;
-  course_id: number;
-  user_id: string;
-  status: string;
-  registration_date: string;
-  qr_code: string;
-  notes?: string;
-}
 
-export default function MemberClasses() {
+function MemberClassesContent() {
+  const searchParams = useSearchParams();
+  const view = searchParams.get('view') || 'day';
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [dayFilter, setDayFilter] = useState("");
@@ -113,6 +114,7 @@ export default function MemberClasses() {
   const { data: courses, isLoading } = useMemberCourses();
   const { data: categories, isLoading: categoriesLoading } = useMemberCategories();
   const { data: subscriptionsRaw } = useMemberSubscriptions();
+  const { data: registrations = [] } = useMemberRegistrations();
   
   const subscriptions = Array.isArray(subscriptionsRaw) ? subscriptionsRaw : [];
   const activeSubscriptions = subscriptions.filter((sub: Subscription) => sub.status === 'active');
@@ -121,10 +123,14 @@ export default function MemberClasses() {
     return sum + groupSessions.reduce((groupSum: number, group: any) => groupSum + (group.sessions_remaining || 0), 0);
   }, 0);
 
-  const { data: registrations = [] } = useQuery({
-    queryKey: ["/api/registrations"],
-    queryFn: () => apiFetch("/api/registrations"),
-  });
+  // Convert courses to events for calendar
+  const events = useMemo(() => {
+    const convertedEvents = convertCoursesToMemberEvents(courses || [], registrations || []);
+    return convertedEvents;
+  }, [courses, registrations]);
+
+  // Create a single user for the member
+  const users = useMemo(() => createMemberUsers(), []);
 
   const registerMutation = useMemberCourseRegistration();
   
@@ -146,8 +152,8 @@ export default function MemberClasses() {
   const registrationsArray = Array.isArray(registrations) ? registrations : [];
   const registeredCourseIds = new Set(
     registrationsArray
-      .filter((reg: Registration) => reg.status === 'registered')
-      .map((reg: Registration) => reg.course_id)
+      .filter((reg: Registration) => reg.status === 'registered' && reg.course_id)
+      .map((reg: Registration) => reg.course_id!)
   );
 
   // Helper function to get registration for a course
@@ -333,11 +339,27 @@ export default function MemberClasses() {
   };
 
   return (
-    <div className="space-y-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground mb-2">Browse Courses</h1>
-        <p className="text-muted-foreground">Find and book Pole Dance courses that fit your schedule</p>
+    <div className="max-w-7xl mx-auto px-4 py-4 space-y-6">
+      {/* Mobile Calendar - Hidden on desktop */}
+      <div className="block md:hidden">
+        <div className="text-center space-y-2 mb-6">
+          <h1 className="text-2xl font-bold text-foreground">My Class Schedule</h1>
+          <p className="text-sm text-muted-foreground">View and manage your class registrations</p>
+        </div>
+        
+        <CalendarProvider users={users} events={events} registrations={registrations || []}>
+          <div className="mx-auto flex max-w-screen-2xl flex-col gap-4">
+            <MobileClientContainer view={view as any} />
+          </div>
+        </CalendarProvider>
       </div>
+
+      {/* Desktop Layout - Hidden on mobile */}
+      <div className="hidden md:block">
+        <div className="text-center space-y-2">
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Browse Courses</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Find and book Pole Dance courses that fit your schedule</p>
+        </div>
 
       {/* Current Plan Summary */}
       {/* {activeSubscriptions.length > 0 && (
@@ -361,8 +383,9 @@ export default function MemberClasses() {
 
       {/* Filters */}
       <Card>
-        <CardContent className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <CardContent className="p-4 sm:p-6">
+          <div className="space-y-4">
+            {/* Search */}
             <div className="relative">
               <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
               <Input
@@ -372,39 +395,51 @@ export default function MemberClasses() {
                 className="pl-10"
               />
             </div>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Categories" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                {categoriesLoading ? (
-                  <SelectItem disabled value="loading">Loading...</SelectItem>
-                ) : (
-                  Array.isArray(categories) && categories.map((cat: Category) => (
-                    <SelectItem key={cat.id} value={cat.name}>{cat.name.charAt(0).toUpperCase() + cat.name.slice(1)}</SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
-            <Select value={dayFilter} onValueChange={setDayFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Days" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Days</SelectItem>
-                {dayNames.map((day, idx) => (
-                  <SelectItem key={day} value={String(idx)}>{day}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <div className="flex items-center space-x-2">
+            
+            {/* Filters Row */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Categories" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {categoriesLoading ? (
+                    <SelectItem disabled value="loading">Loading...</SelectItem>
+                  ) : (
+                    Array.isArray(categories) && categories.map((cat: Category) => (
+                      <SelectItem key={cat.id} value={cat.name}>{cat.name.charAt(0).toUpperCase() + cat.name.slice(1)}</SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+              
+              <Select value={dayFilter} onValueChange={setDayFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Days" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Days</SelectItem>
+                  {dayNames.map((day, idx) => (
+                    <SelectItem key={day} value={String(idx)}>{day}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {/* Results and Reset */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <span className="text-sm text-muted-foreground">
                 {filteredCourses.length} courses available
               </span>
-            </div>
-            <div className="flex items-center">
-              <Button variant="ghost" size="sm" onClick={() => { setSearchTerm(""); setCategoryFilter(""); setDayFilter(""); }}>Reset Filters</Button>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => { setSearchTerm(""); setCategoryFilter(""); setDayFilter(""); }}
+                className="w-full sm:w-auto"
+              >
+                Reset Filters
+              </Button>
             </div>
           </div>
         </CardContent>
@@ -412,7 +447,7 @@ export default function MemberClasses() {
 
       {/* Courses Grid */}
       <TooltipProvider>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         {isLoading ? (
           Array.from({ length: 6 }).map((_, i) => (
             <CardSkeleton key={i} showImage={false} lines={4} />
@@ -423,10 +458,10 @@ export default function MemberClasses() {
             return (
               <Card key={course.id} className="flex flex-col h-full">
                 <CardContent className="p-4">
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-start justify-between mb-3 gap-2">
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <h3 className="text-base font-semibold leading-tight cursor-pointer underline underline-offset-2">
+                        <h3 className="text-sm sm:text-base font-semibold leading-tight cursor-pointer underline underline-offset-2 truncate">
                           {course.class?.name}
                         </h3>
                       </TooltipTrigger>
@@ -439,9 +474,9 @@ export default function MemberClasses() {
                         <div className="text-xs text-muted-foreground mb-1">Difficulty: {course.class?.difficulty || '-'}</div>
                       </TooltipContent>
                     </Tooltip>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-shrink-0">
                       <Badge 
-                        className="text-white border-0"
+                        className="text-white border-0 text-xs"
                         style={{ 
                           backgroundColor: course.class?.category?.color || '#6b7280'
                         }}
@@ -450,44 +485,44 @@ export default function MemberClasses() {
                       </Badge>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="line-clamp-2 text-sm text-muted-foreground flex-1">
+                  <div className="flex items-start justify-between mb-3 gap-2">
+                    <p className="line-clamp-2 text-xs sm:text-sm text-muted-foreground flex-1">
                       {course.class?.description || "Join this exciting Pole Dance class and challenge yourself!"}
                     </p>
-                    <div className="ml-2">
+                    <div className="flex-shrink-0">
                       {renderDifficultyStars(course.class?.difficulty || "beginner")}
                     </div>
                   </div>
                   
                   {/* Course Details Grid */}
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                     {/* Trainer */}
-                    <div className="flex items-center text-sm text-muted-foreground">
-                      <Users className="w-4 h-4 mr-2 text-primary" />
-                      <span className="font-medium text-foreground">
+                    <div className="flex items-center text-xs sm:text-sm text-muted-foreground">
+                      <Users className="w-3 h-3 sm:w-4 sm:h-4 mr-2 text-primary flex-shrink-0" />
+                      <span className="font-medium text-foreground truncate">
                         {course.trainer?.user?.first_name} {course.trainer?.user?.last_name}
                       </span>
                     </div>
                     
                     {/* Date */}
-                    <div className="flex items-center text-sm text-muted-foreground">
-                      <Calendar className="w-4 h-4 mr-2 text-primary" />
+                    <div className="flex items-center text-xs sm:text-sm text-muted-foreground">
+                      <Calendar className="w-3 h-3 sm:w-4 sm:h-4 mr-2 text-primary flex-shrink-0" />
                       <span className="font-medium text-foreground">
                         {formatDate(course.courseDate)}
                       </span>
                     </div>
                     
                     {/* Time */}
-                    <div className="flex items-center text-sm text-muted-foreground">
-                      <Clock className="w-4 h-4 mr-2 text-primary" />
+                    <div className="flex items-center text-xs sm:text-sm text-muted-foreground">
+                      <Clock className="w-3 h-3 sm:w-4 sm:h-4 mr-2 text-primary flex-shrink-0" />
                       <span className="font-medium text-foreground">
                         {formatTime(course.startTime)} - {formatTime(course.endTime)}
                       </span>
                     </div>
                     
                     {/* Duration */}
-                    <div className="flex items-center text-sm text-muted-foreground">
-                      <Clock className="w-4 h-4 mr-2 text-primary" />
+                    <div className="flex items-center text-xs sm:text-sm text-muted-foreground">
+                      <Clock className="w-3 h-3 sm:w-4 sm:h-4 mr-2 text-primary flex-shrink-0" />
                       <span className="font-medium text-foreground">
                         {course.class?.duration || 60} min
                       </span>
@@ -498,19 +533,19 @@ export default function MemberClasses() {
                   <div className="mt-auto pt-4">
                   {isRegistered ? (
                     <>
-                      <div className="text-green-600 text-sm mb-2 flex items-center">
-                        <Check className="w-4 h-4 mr-1" />
-                        You&apos;re registered for this course
+                      <div className="text-green-600 text-xs sm:text-sm mb-2 flex items-center">
+                        <Check className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
+                        <span className="truncate">You&apos;re registered for this course</span>
                       </div>
                       <div className="flex gap-2">
                         <Button
                           variant="outline"
-                          className="flex-1 text-base py-2"
+                          className="flex-1 text-xs sm:text-sm py-2"
                           onClick={() => handleCancel(course)}
                           disabled={cancelMutation.isPending}
                         >
                           {cancelMutation.isPending ? "Cancelling..." : 
-                           isWithin24Hours(course) ? "Cancel (Forfeit Session)" : "Cancel Registration"}
+                           isWithin24Hours(course) ? "Cancel (Forfeit)" : "Cancel Registration"}
                         </Button>
                         <Button
                           variant="outline"
@@ -529,7 +564,7 @@ export default function MemberClasses() {
                     </>
                   ) : (
                     <Button
-                      className="w-full text-base py-2"
+                      className="w-full text-xs sm:text-sm py-2"
                       onClick={() => handleRegister(course.id, course.scheduleId)}
                       disabled={registerMutation.isPending || !canRegisterForCourse(course) || isCourseInPast(course)}
                       variant={isCourseInPast(course) ? "secondary" : "default"}
@@ -556,6 +591,7 @@ export default function MemberClasses() {
         )}
       </div>
       </TooltipProvider>
+      </div>
 
       {/* Overlap Confirmation Dialog */}
       <Dialog open={overlapDialog.isOpen} onOpenChange={(open) => setOverlapDialog(prev => ({ ...prev, isOpen: open }))}>
@@ -642,5 +678,13 @@ export default function MemberClasses() {
         isPending={cancelMutation.isPending}
       />
     </div>
+  );
+}
+
+export default function MemberClasses() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <MemberClassesContent />
+    </Suspense>
   );
 }

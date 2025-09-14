@@ -85,6 +85,7 @@ export function useUpdateMemberOnboarding() {
       apiRequest('PUT', `/api/member/onboarding/${memberId}`, data),
     onSuccess: (_, { memberId }) => {
       queryClient.invalidateQueries({ queryKey: ['member-onboarding', memberId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/member/onboarding/status'] });
       queryClient.invalidateQueries({ queryKey: ['member'] });
       toast({
         title: 'Onboarding updated',
