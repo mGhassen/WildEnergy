@@ -130,16 +130,18 @@ export async function GET(
 
     // Fetch member data separately
     const { data: memberData, error: memberError } = await supabaseServer()
-      .from('user_profiles')
+      .from('members')
       .select(`
-        member_id,
-        first_name,
-        last_name,
-        email,
-        phone,
-        status
+        id,
+        status,
+        profiles!inner (
+          first_name,
+          last_name,
+          profile_email,
+          phone
+        )
       `)
-      .eq('member_id', registration.member_id)
+      .eq('id', registration.member_id)
       .single();
 
     if (memberError) {
@@ -338,11 +340,11 @@ export async function GET(
 
     const checkinInfo = {
       member: {
-        id: memberData.member_id,
-        first_name: memberData.first_name,
-        last_name: memberData.last_name,
-        email: memberData.email,
-        phone: memberData.phone,
+        id: memberData.id,
+        first_name: memberData.profiles?.first_name,
+        last_name: memberData.profiles?.last_name,
+        email: memberData.profiles?.profile_email,
+        phone: memberData.profiles?.phone,
         status: memberData.status,
         activeSubscription: activeSubscription ? {
           id: activeSubscription.id,
