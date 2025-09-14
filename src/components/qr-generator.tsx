@@ -15,7 +15,7 @@ export default function QRGenerator({ value, size = 200, className = "", generat
     if (canvasRef.current && value) {
       // Generate URL for check-in if generateUrl is true
       const qrValue = generateUrl 
-        ? `${window.location.origin}/checkin/qr/${value}`
+        ? `${window.location.origin}/admin/checkins/qr/${value}`
         : value;
         
       // Use reliable colors that work well for QR codes
