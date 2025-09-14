@@ -28,6 +28,7 @@ import { ConfirmationDialog } from "@/components/confirmation-dialog";
 import QRGenerator from "@/components/qr-generator";
 import { CalendarProvider } from '@/calendar/contexts/calendar-context';
 import { ClientContainer } from '@/calendar/components/client-container';
+import { MobileClientContainer } from "@/components/mobile-client-container";
 import { convertCoursesToMemberEvents, createMemberUsers } from '@/calendar/utils/course-converter';
 
 // Types for member classes page
@@ -385,37 +386,46 @@ function MemberCourses() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="max-w-7xl mx-auto px-4 py-4 space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Courses & Schedule</h1>
-          <p className="text-muted-foreground mt-1">Browse courses and manage your class schedule</p>
-        </div>
+      <div className="text-center space-y-2">
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Courses & Schedule</h1>
+        <p className="text-sm sm:text-base text-muted-foreground">Browse courses and manage your class schedule</p>
       </div>
 
-      {/* Tabs */}
-      <Tabs defaultValue="calendar" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="calendar">Calendar View</TabsTrigger>
-          <TabsTrigger value="browse">Browse Courses</TabsTrigger>
-        </TabsList>
-        
-        {/* Calendar View Tab */}
-        <TabsContent value="calendar" className="space-y-6">
-          <CalendarProvider users={users} events={events} registrations={registrations || []}>
-            <div className="mx-auto flex max-w-screen-2xl flex-col gap-4">
-              <ClientContainer view={view as any} />
-            </div>
-          </CalendarProvider>
-        </TabsContent>
+      {/* Mobile Calendar - Hidden on desktop */}
+      <div className="block md:hidden">
+        <CalendarProvider users={users} events={events} registrations={registrations || []}>
+          <div className="mx-auto flex max-w-screen-2xl flex-col gap-4">
+            <MobileClientContainer view={view as any} />
+          </div>
+        </CalendarProvider>
+      </div>
+
+      {/* Desktop Tabs - Hidden on mobile */}
+      <div className="hidden md:block">
+        <Tabs defaultValue="calendar" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="calendar" className="text-sm">Calendar</TabsTrigger>
+            <TabsTrigger value="browse" className="text-sm">Browse</TabsTrigger>
+          </TabsList>
+          
+          {/* Calendar View Tab */}
+          <TabsContent value="calendar" className="space-y-6">
+            <CalendarProvider users={users} events={events} registrations={registrations || []}>
+              <div className="mx-auto flex max-w-screen-2xl flex-col gap-4">
+                <ClientContainer view={view as any} />
+              </div>
+            </CalendarProvider>
+          </TabsContent>
         
         {/* Browse Courses Tab */}
         <TabsContent value="browse" className="space-y-6">
           {/* Filters */}
           <Card>
-            <CardContent className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <CardContent className="p-4 sm:p-6">
+              <div className="space-y-4">
+                {/* Search */}
                 <div className="relative">
                   <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
                   <Input
@@ -425,39 +435,51 @@ function MemberCourses() {
                     className="pl-10"
                   />
                 </div>
-                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Categories" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Categories</SelectItem>
-                    {categoriesLoading ? (
-                      <SelectItem disabled value="loading">Loading...</SelectItem>
-                    ) : (
-                      Array.isArray(categories) && categories.map((cat: Category) => (
-                        <SelectItem key={cat.id} value={cat.name}>{cat.name.charAt(0).toUpperCase() + cat.name.slice(1)}</SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-                <Select value={dayFilter} onValueChange={setDayFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Days" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Days</SelectItem>
-                    {dayNames.map((day, idx) => (
-                      <SelectItem key={day} value={String(idx)}>{day}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <div className="flex items-center space-x-2">
+                
+                {/* Filters Row */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="All Categories" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Categories</SelectItem>
+                      {categoriesLoading ? (
+                        <SelectItem disabled value="loading">Loading...</SelectItem>
+                      ) : (
+                        Array.isArray(categories) && categories.map((cat: Category) => (
+                          <SelectItem key={cat.id} value={cat.name}>{cat.name.charAt(0).toUpperCase() + cat.name.slice(1)}</SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  
+                  <Select value={dayFilter} onValueChange={setDayFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="All Days" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Days</SelectItem>
+                      {dayNames.map((day, idx) => (
+                        <SelectItem key={day} value={String(idx)}>{day}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {/* Results and Reset */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <span className="text-sm text-muted-foreground">
                     {filteredCourses.length} courses available
                   </span>
-                </div>
-                <div className="flex items-center">
-                  <Button variant="ghost" size="sm" onClick={() => { setSearchTerm(""); setCategoryFilter(""); setDayFilter(""); }}>Reset Filters</Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => { setSearchTerm(""); setCategoryFilter(""); setDayFilter(""); }}
+                    className="w-full sm:w-auto"
+                  >
+                    Reset Filters
+                  </Button>
                 </div>
               </div>
             </CardContent>
@@ -465,7 +487,7 @@ function MemberCourses() {
 
           {/* Courses Grid */}
           <TooltipProvider>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {coursesLoading ? (
                 Array.from({ length: 6 }).map((_, i) => (
                   <CardSkeleton key={i} showImage={false} lines={4} />
@@ -476,10 +498,10 @@ function MemberCourses() {
                   return (
                     <Card key={course.id} className="flex flex-col h-full">
                       <CardContent className="p-4">
-                        <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-start justify-between mb-3 gap-2">
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <h3 className="text-base font-semibold leading-tight cursor-pointer underline underline-offset-2">
+                              <h3 className="text-sm sm:text-base font-semibold leading-tight cursor-pointer underline underline-offset-2 truncate">
                                 {course.class?.name}
                               </h3>
                             </TooltipTrigger>
@@ -492,9 +514,9 @@ function MemberCourses() {
                               <div className="text-xs text-muted-foreground mb-1">Difficulty: {course.class?.difficulty || '-'}</div>
                             </TooltipContent>
                           </Tooltip>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-shrink-0">
                             <Badge 
-                              className="text-white border-0"
+                              className="text-white border-0 text-xs"
                               style={{ 
                                 backgroundColor: course.class?.category?.color || '#6b7280'
                               }}
@@ -503,44 +525,44 @@ function MemberCourses() {
                             </Badge>
                           </div>
                         </div>
-                        <div className="flex items-center justify-between mb-3">
-                          <p className="line-clamp-2 text-sm text-muted-foreground flex-1">
+                        <div className="flex items-start justify-between mb-3 gap-2">
+                          <p className="line-clamp-2 text-xs sm:text-sm text-muted-foreground flex-1">
                             {course.class?.description || "Join this exciting Pole Dance class and challenge yourself!"}
                           </p>
-                          <div className="ml-2">
+                          <div className="flex-shrink-0">
                             {renderDifficultyStars(course.class?.difficulty || "beginner")}
                           </div>
                         </div>
                         
                         {/* Course Details Grid */}
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                           {/* Trainer */}
-                          <div className="flex items-center text-sm text-muted-foreground">
-                            <Users className="w-4 h-4 mr-2 text-primary" />
-                            <span className="font-medium text-foreground">
+                          <div className="flex items-center text-xs sm:text-sm text-muted-foreground">
+                            <Users className="w-3 h-3 sm:w-4 sm:h-4 mr-2 text-primary flex-shrink-0" />
+                            <span className="font-medium text-foreground truncate">
                               {course.trainer?.user?.first_name} {course.trainer?.user?.last_name}
                             </span>
                           </div>
                           
                           {/* Date */}
-                          <div className="flex items-center text-sm text-muted-foreground">
-                            <Calendar className="w-4 h-4 mr-2 text-primary" />
+                          <div className="flex items-center text-xs sm:text-sm text-muted-foreground">
+                            <Calendar className="w-3 h-3 sm:w-4 sm:h-4 mr-2 text-primary flex-shrink-0" />
                             <span className="font-medium text-foreground">
                               {formatDate(course.course_date || course.courseDate)}
                             </span>
                           </div>
                           
                           {/* Time */}
-                          <div className="flex items-center text-sm text-muted-foreground">
-                            <Clock className="w-4 h-4 mr-2 text-primary" />
+                          <div className="flex items-center text-xs sm:text-sm text-muted-foreground">
+                            <Clock className="w-3 h-3 sm:w-4 sm:h-4 mr-2 text-primary flex-shrink-0" />
                             <span className="font-medium text-foreground">
                               {formatTime(course.start_time || course.startTime)} - {formatTime(course.end_time || course.endTime)}
                             </span>
                           </div>
                           
                           {/* Duration */}
-                          <div className="flex items-center text-sm text-muted-foreground">
-                            <Clock className="w-4 h-4 mr-2 text-primary" />
+                          <div className="flex items-center text-xs sm:text-sm text-muted-foreground">
+                            <Clock className="w-3 h-3 sm:w-4 sm:h-4 mr-2 text-primary flex-shrink-0" />
                             <span className="font-medium text-foreground">
                               {course.class?.duration || 60} min
                             </span>
@@ -551,19 +573,19 @@ function MemberCourses() {
                         <div className="mt-auto pt-4">
                         {isRegistered ? (
                           <>
-                            <div className="text-green-600 text-sm mb-2 flex items-center">
-                              <Check className="w-4 h-4 mr-1" />
-                              You&apos;re registered for this course
+                            <div className="text-green-600 text-xs sm:text-sm mb-2 flex items-center">
+                              <Check className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
+                              <span className="truncate">You&apos;re registered for this course</span>
                             </div>
                             <div className="flex gap-2">
                               <Button
                                 variant="outline"
-                                className="flex-1 text-base py-2"
+                                className="flex-1 text-xs sm:text-sm py-2"
                                 onClick={() => handleCancel(course)}
                                 disabled={cancelMutation.isPending}
                               >
                                 {cancelMutation.isPending ? "Cancelling..." : 
-                                 isWithin24Hours(course) ? "Cancel (Forfeit Session)" : "Cancel Registration"}
+                                 isWithin24Hours(course) ? "Cancel (Forfeit)" : "Cancel Registration"}
                               </Button>
                               <Button
                                 variant="outline"
@@ -582,7 +604,7 @@ function MemberCourses() {
                           </>
                         ) : (
                           <Button
-                            className="w-full text-base py-2"
+                            className="w-full text-xs sm:text-sm py-2"
                             onClick={() => handleRegister(course.id, course.scheduleId)}
                             disabled={registerMutation.isPending || !canRegisterForCourse(course) || isCourseInPast(course)}
                             variant={isCourseInPast(course) ? "secondary" : "default"}
@@ -610,7 +632,8 @@ function MemberCourses() {
             </div>
           </TooltipProvider>
         </TabsContent>
-      </Tabs>
+        </Tabs>
+      </div>
 
       {/* Overlap Confirmation Dialog */}
       <Dialog open={overlapDialog.isOpen} onOpenChange={(open) => setOverlapDialog(prev => ({ ...prev, isOpen: open }))}>
@@ -665,19 +688,19 @@ function MemberCourses() {
 
       {/* QR Code Modal */}
       {selectedQR && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setSelectedQR(null)}>
-          <div className="bg-background border border-border p-6 rounded-lg shadow-xl max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold mb-4 text-center text-foreground">Your QR Code</h3>
-            <div className="mb-4">
-              <QRGenerator value={selectedQR} size={300} />
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setSelectedQR(null)}>
+          <div className="bg-background border border-border p-4 sm:p-6 rounded-lg shadow-xl max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base sm:text-lg font-semibold mb-4 text-center text-foreground">Your QR Code</h3>
+            <div className="mb-4 flex justify-center">
+              <QRGenerator value={selectedQR} size={200} />
             </div>
             <div className="text-center">
-              <p className="text-sm text-muted-foreground mb-2">QR Code Value:</p>
+              <p className="text-xs sm:text-sm text-muted-foreground mb-2">QR Code Value:</p>
               <p className="text-xs font-mono bg-muted p-2 rounded break-all text-foreground">{selectedQR}</p>
             </div>
             <Button
               onClick={() => setSelectedQR(null)}
-              className="mt-4 w-full"
+              className="mt-4 w-full text-sm"
             >
               Close
             </Button>

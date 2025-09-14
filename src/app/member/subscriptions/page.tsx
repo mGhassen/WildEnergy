@@ -156,29 +156,31 @@ export default function MemberSubscriptions() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto py-8 px-4 space-y-8">
+    <div className="max-w-7xl mx-auto py-4 px-4 space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2 md:mb-0">My Subscriptions</h1>
-          <p className="text-muted-foreground">View all your subscriptions and payment history</p>
-        </div>
+      <div className="text-center space-y-2 mb-6">
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">My Subscriptions</h1>
+        <p className="text-sm sm:text-base text-muted-foreground">View all your subscriptions and payment history</p>
       </div>
 
       {/* Main Tabs */}
-      <div className="flex justify-center mb-8">
-        <div className="flex gap-2 bg-muted/50 rounded-full p-1 shadow-sm">
+      <div className="flex justify-center mb-6">
+        <div className="flex gap-1 bg-muted/50 rounded-full p-1 shadow-sm w-full max-w-sm">
           <button
-            className={`rounded-full px-5 py-2 flex items-center gap-2 transition-all text-base font-semibold ${mainTab === 'active' ? 'shadow bg-primary text-primary-foreground' : 'bg-transparent text-muted-foreground hover:bg-muted'}`}
+            className={`flex-1 rounded-full px-4 py-2 flex items-center justify-center gap-2 transition-all text-sm font-semibold ${mainTab === 'active' ? 'shadow bg-primary text-primary-foreground' : 'bg-transparent text-muted-foreground hover:bg-muted'}`}
             onClick={() => setMainTab('active')}
           >
-            <CheckCircle className="w-4 h-4 mr-1" /> Active
+            <CheckCircle className="w-4 h-4" />
+            <span className="hidden sm:inline">Active</span>
+            <span className="sm:hidden">Active</span>
           </button>
           <button
-            className={`rounded-full px-5 py-2 flex items-center gap-2 transition-all text-base font-semibold ${mainTab === 'history' ? 'shadow bg-primary text-primary-foreground' : 'bg-transparent text-muted-foreground hover:bg-muted'}`}
+            className={`flex-1 rounded-full px-4 py-2 flex items-center justify-center gap-2 transition-all text-sm font-semibold ${mainTab === 'history' ? 'shadow bg-primary text-primary-foreground' : 'bg-transparent text-muted-foreground hover:bg-muted'}`}
             onClick={() => setMainTab('history')}
           >
-            <Clock className="w-4 h-4 mr-1" /> History
+            <Clock className="w-4 h-4" />
+            <span className="hidden sm:inline">History</span>
+            <span className="sm:hidden">History</span>
           </button>
         </div>
       </div>
@@ -189,24 +191,24 @@ export default function MemberSubscriptions() {
           {/* Sessions Used Summary Card */}
           {activeSubscriptions.length > 0 && (
             <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
+              <CardContent className="p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 rounded-lg">
-                      <Calendar className="w-6 h-6 text-blue-600" />
+                    <div className="p-2 bg-blue-100 rounded-lg flex-shrink-0">
+                      <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
                     </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-blue-900">Total Sessions Used</h3>
-                      <p className="text-sm text-blue-700">Across all your active subscriptions</p>
+                    <div className="min-w-0">
+                      <h3 className="text-base sm:text-lg font-semibold text-blue-900">Total Sessions Used</h3>
+                      <p className="text-xs sm:text-sm text-blue-700">Across all your active subscriptions</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-3xl font-bold text-blue-900">
+                  <div className="text-center sm:text-right">
+                    <div className="text-2xl sm:text-3xl font-bold text-blue-900">
                       {allRegistrations.filter(reg => 
                         reg.status === 'registered' || reg.status === 'attended'
                       ).length}
                     </div>
-                    <p className="text-sm text-blue-700">sessions</p>
+                    <p className="text-xs sm:text-sm text-blue-700">sessions</p>
                   </div>
                 </div>
               </CardContent>
@@ -273,17 +275,17 @@ export default function MemberSubscriptions() {
                     className="cursor-pointer hover:shadow-lg transition-all duration-200 border-l-4 border-l-primary/20 hover:border-l-primary"
                     onClick={() => navigateToSubscriptionDetails(sub)}
                   >
-                    <CardContent className="p-6">
+                    <CardContent className="p-4 sm:p-6">
                       <div className="space-y-4">
                         {/* Header with plan name and status */}
-                        <div className="flex items-start justify-between">
-                          <div className="space-y-1">
-                            <h3 className="text-xl font-bold text-foreground">{sub.plan?.name || 'Unknown Plan'}</h3>
-                            <p className="text-sm text-muted-foreground">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="space-y-1 min-w-0 flex-1">
+                            <h3 className="text-lg sm:text-xl font-bold text-foreground truncate">{sub.plan?.name || 'Unknown Plan'}</h3>
+                            <p className="text-xs sm:text-sm text-muted-foreground">
                               {formatDate(sub.start_date)} - {formatDate(sub.end_date)}
                             </p>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-shrink-0">
                             {getStatusBadge(sub.status)}
                             <Eye className="w-4 h-4 text-muted-foreground" />
                           </div>
@@ -291,7 +293,7 @@ export default function MemberSubscriptions() {
 
                         {/* Payment Progress Bar */}
                         <div className="space-y-2">
-                          <div className="flex justify-between text-sm">
+                          <div className="flex justify-between text-xs sm:text-sm">
                             <span className="font-medium">Payment Progress</span>
                             <span className="text-muted-foreground">
                               {formatCurrency(totalPaid)} / {formatCurrency(planPrice)}
@@ -312,21 +314,21 @@ export default function MemberSubscriptions() {
                         </div>
 
                         {/* Stats Grid */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-2 gap-3">
                           <div className="text-center p-3 bg-muted/50 rounded-lg">
-                            <div className="text-2xl font-bold text-green-600">{formatCurrency(totalPaid)}</div>
+                            <div className="text-lg sm:text-2xl font-bold text-green-600">{formatCurrency(totalPaid)}</div>
                             <div className="text-xs text-muted-foreground">Payé</div>
                           </div>
                           <div className="text-center p-3 bg-muted/50 rounded-lg">
-                            <div className="text-2xl font-bold text-orange-600">{formatCurrency(remainingAmount)}</div>
+                            <div className="text-lg sm:text-2xl font-bold text-orange-600">{formatCurrency(remainingAmount)}</div>
                             <div className="text-xs text-muted-foreground">Restant</div>
                           </div>
                           <div className="text-center p-3 bg-muted/50 rounded-lg">
-                            <div className="text-2xl font-bold text-blue-600">{subscriptionPayments.length}</div>
+                            <div className="text-lg sm:text-2xl font-bold text-blue-600">{subscriptionPayments.length}</div>
                             <div className="text-xs text-muted-foreground">Paiements</div>
                           </div>
                           <div className="text-center p-3 bg-muted/50 rounded-lg">
-                            <div className="text-2xl font-bold text-purple-600">{Math.round(progressPercentage)}%</div>
+                            <div className="text-lg sm:text-2xl font-bold text-purple-600">{Math.round(progressPercentage)}%</div>
                             <div className="text-xs text-muted-foreground">Complet</div>
                           </div>
                         </div>
@@ -335,7 +337,8 @@ export default function MemberSubscriptions() {
                         <div className="flex items-center justify-center pt-2">
                           <span className="text-xs text-muted-foreground flex items-center gap-1">
                             <Eye className="w-3 h-3" />
-                            Click to view full details and manage payments
+                            <span className="hidden sm:inline">Click to view full details and manage payments</span>
+                            <span className="sm:hidden">Tap for details</span>
                           </span>
                         </div>
                       </div>
@@ -346,8 +349,8 @@ export default function MemberSubscriptions() {
           </div>
 
           {/* All Payments Table */}
-          <div className="mt-10">
-            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+          <div className="mt-8">
+            <h2 className="text-lg sm:text-xl font-semibold mb-4 flex items-center gap-2">
               <CreditCard className="w-5 h-5 text-primary" /> All Payments
             </h2>
             {allPayments.length === 0 ? (
@@ -356,36 +359,65 @@ export default function MemberSubscriptions() {
                 <div>No payments found.</div>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-sm border rounded-lg overflow-hidden">
-                  <thead className="bg-muted">
-                    <tr>
-                      <th className="px-4 py-2 text-left">Date</th>
-                      <th className="px-4 py-2 text-left">Amount</th>
-                      <th className="px-4 py-2 text-left">Status</th>
-                      <th className="px-4 py-2 text-left">Subscription</th>
-                      <th className="px-4 py-2 text-left">Method</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {allPayments.map(payment => {
-                      const sub = subscriptions.find(s => s.id === payment.subscription_id);
-                      return (
-                        <tr key={payment.id} className="border-b">
-                          <td className="px-4 py-2">{formatDate(payment.payment_date)}</td>
-                          <td className="px-4 py-2">{formatCurrency(payment.amount)}</td>
-                          <td className="px-4 py-2">
+              <div className="space-y-3">
+                {/* Mobile Card View */}
+                <div className="block sm:hidden space-y-3">
+                  {allPayments.map(payment => {
+                    const sub = subscriptions.find(s => s.id === payment.subscription_id);
+                    return (
+                      <Card key={payment.id} className="p-4">
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className="font-medium text-sm">{sub?.plan?.name || 'N/A'}</p>
+                              <p className="text-xs text-muted-foreground">{formatDate(payment.payment_date)}</p>
+                            </div>
                             <Badge variant={payment.payment_status === 'paid' ? 'default' : 'secondary'}>
                               {payment.payment_status === 'paid' ? 'Paid' : payment.payment_status}
                             </Badge>
-                          </td>
-                          <td className="px-4 py-2">{sub?.plan?.name || 'N/A'}</td>
-                          <td className="px-4 py-2">{payment.payment_type}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-lg font-bold">{formatCurrency(payment.amount)}</span>
+                            <span className="text-xs text-muted-foreground">{payment.payment_type}</span>
+                          </div>
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+                
+                {/* Desktop Table View */}
+                <div className="hidden sm:block overflow-x-auto">
+                  <table className="min-w-full text-sm border rounded-lg overflow-hidden">
+                    <thead className="bg-muted">
+                      <tr>
+                        <th className="px-4 py-2 text-left">Date</th>
+                        <th className="px-4 py-2 text-left">Amount</th>
+                        <th className="px-4 py-2 text-left">Status</th>
+                        <th className="px-4 py-2 text-left">Subscription</th>
+                        <th className="px-4 py-2 text-left">Method</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {allPayments.map(payment => {
+                        const sub = subscriptions.find(s => s.id === payment.subscription_id);
+                        return (
+                          <tr key={payment.id} className="border-b">
+                            <td className="px-4 py-2">{formatDate(payment.payment_date)}</td>
+                            <td className="px-4 py-2">{formatCurrency(payment.amount)}</td>
+                            <td className="px-4 py-2">
+                              <Badge variant={payment.payment_status === 'paid' ? 'default' : 'secondary'}>
+                                {payment.payment_status === 'paid' ? 'Paid' : payment.payment_status}
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-2">{sub?.plan?.name || 'N/A'}</td>
+                            <td className="px-4 py-2">{payment.payment_type}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>

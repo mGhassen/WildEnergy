@@ -255,39 +255,40 @@ export default function MemberProfile() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
-      <div className="max-w-6xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 py-4">
         {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
+        <div className="flex items-center gap-4 mb-6">
           <Button variant="ghost" size="sm" asChild>
-            <Link href="/member" className="flex items-center gap-2 text-muted-foreground hover:text-foreground">
+            <Link href="/member" className="flex items-center gap-2 text-muted-foreground hover:text-foreground text-sm">
               <ArrowLeft className="w-4 h-4" />
-              Back to Dashboard
+              <span className="hidden sm:inline">Back to Dashboard</span>
+              <span className="sm:hidden">Back</span>
             </Link>
           </Button>
         </div>
 
         {/* Profile Overview Card - Redesigned */}
-        <Card className="border-0 shadow-lg mb-8 bg-gradient-to-r from-primary/5 to-primary/10">
-          <CardContent className="p-8">
-            <div className="flex items-center gap-6">
+        <Card className="border-0 shadow-lg mb-6 bg-gradient-to-r from-primary/5 to-primary/10">
+          <CardContent className="p-4 sm:p-6 lg:p-8">
+            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6">
               <div className="relative">
-                <Avatar className="w-20 h-20 ring-4 ring-primary/20">
+                <Avatar className="w-16 h-16 sm:w-20 sm:h-20 ring-4 ring-primary/20">
                   <AvatarImage src={profile?.profile_image_url || ""} />
-                  <AvatarFallback className="text-2xl font-bold bg-primary text-primary-foreground">
+                  <AvatarFallback className="text-xl sm:text-2xl font-bold bg-primary text-primary-foreground">
                     {getInitials(profile?.first_name, profile?.last_name)}
                   </AvatarFallback>
                 </Avatar>
-                <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full border-2 border-background flex items-center justify-center">
-                  <CheckCircle className="w-3 h-3 text-white" />
+                <div className="absolute -bottom-1 -right-1 w-5 h-5 sm:w-6 sm:h-6 bg-green-500 rounded-full border-2 border-background flex items-center justify-center">
+                  <CheckCircle className="w-2 h-2 sm:w-3 sm:h-3 text-white" />
                 </div>
               </div>
-              <div className="flex-1">
-                <h1 className="text-3xl font-bold text-foreground mb-1">
+              <div className="flex-1 text-center sm:text-left">
+                <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-1">
                   {profileData.first_name} {profileData.last_name}
                 </h1>
-                <p className="text-lg text-muted-foreground mb-3">{user?.email}</p>
-                <div className="flex items-center gap-4">
-                  <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                <p className="text-sm sm:text-base lg:text-lg text-muted-foreground mb-3 break-all">{user?.email}</p>
+                <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
+                  <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-xs">
                     <CheckCircle className="w-3 h-3 mr-1" />
                     Active Member
                   </Badge>
@@ -296,7 +297,7 @@ export default function MemberProfile() {
                       {profile.profession}
                     </Badge>
                   )}
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-xs sm:text-sm text-muted-foreground">
                     Member since {profile?.created_at ? formatDisplayDate(profile.created_at) : 'N/A'}
                   </span>
                 </div>
@@ -306,22 +307,21 @@ export default function MemberProfile() {
         </Card>
 
         {/* Physical Profile - Dashboard Style */}
-        {onboardingStatus?.data?.physicalProfile && (
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-2">
-                <Activity className="w-5 h-5 text-primary" />
-                <h2 className="text-xl font-semibold">Physical Profile</h2>
-              </div>
-              <Button
-                onClick={() => setIsEditingPhysical(!isEditingPhysical)}
-                size="sm"
-                variant="outline"
-                className="p-2"
-              >
-                <Edit3 className="w-4 h-4" />
-              </Button>
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-4 sm:mb-6">
+            <div className="flex items-center gap-2">
+              <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+              <h2 className="text-lg sm:text-xl font-semibold">Physical Profile</h2>
             </div>
+            <Button
+              onClick={() => setIsEditingPhysical(!isEditingPhysical)}
+              size="sm"
+              variant="outline"
+              className="p-2"
+            >
+              <Edit3 className="w-4 h-4" />
+            </Button>
+          </div>
 
             {isEditingPhysical ? (
               // Edit Mode - Show Form
@@ -424,77 +424,137 @@ export default function MemberProfile() {
                 </CardContent>
               </Card>
             ) : (
-              // Display Mode - Show Dashboard Boxes
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-4 text-white">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs opacity-90 mb-1">Weight</p>
-                      <p className="text-lg font-bold">
-                        {onboardingStatus.data.physicalProfile.weight ? `${onboardingStatus.data.physicalProfile.weight} kg` : '—'}
-                      </p>
-                    </div>
-                    <Weight className="w-6 h-6 opacity-80" />
-                  </div>
-                </div>
-
-                <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-4 text-white">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs opacity-90 mb-1">Height</p>
-                      <p className="text-lg font-bold">
-                        {onboardingStatus.data.physicalProfile.height ? `${onboardingStatus.data.physicalProfile.height} cm` : '—'}
-                      </p>
-                    </div>
-                    <Ruler className="w-6 h-6 opacity-80" />
-                  </div>
-                </div>
-
-                <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-4 text-white">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs opacity-90 mb-1">Activity</p>
-                      <p className="text-sm font-bold capitalize">
-                        {onboardingStatus.data.physicalProfile.activity_level ? 
-                          onboardingStatus.data.physicalProfile.activity_level.replace('_', ' ') : 
-                          '—'
-                        }
-                      </p>
-                    </div>
-                    <Activity className="w-6 h-6 opacity-80" />
-                  </div>
-                </div>
-
-                {/* BMI (if available) */}
-                {onboardingStatus.data.physicalProfile.weight && onboardingStatus.data.physicalProfile.height && (
-                  <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-4 text-white">
+              // Display Mode - Show Dashboard Boxes or Empty State
+              <>
+                {onboardingStatus?.data?.physicalProfile ? (
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                  <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-3 sm:p-4 text-white">
                     <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs opacity-90 mb-1">BMI</p>
-                        <p className="text-lg font-bold">
-                          {((onboardingStatus.data.physicalProfile.weight / Math.pow(onboardingStatus.data.physicalProfile.height / 100, 2))).toFixed(1)}
+                      <div className="min-w-0">
+                        <p className="text-xs opacity-90 mb-1">Weight</p>
+                        <p className="text-sm sm:text-lg font-bold truncate">
+                          {onboardingStatus.data.physicalProfile.weight ? `${onboardingStatus.data.physicalProfile.weight} kg` : '—'}
                         </p>
-                        <p className="text-xs opacity-80">kg/m²</p>
                       </div>
-                      <TrendingUp className="w-6 h-6 opacity-80" />
+                      <Weight className="w-4 h-4 sm:w-6 sm:h-6 opacity-80 flex-shrink-0" />
                     </div>
                   </div>
+
+                  <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-3 sm:p-4 text-white">
+                    <div className="flex items-center justify-between">
+                      <div className="min-w-0">
+                        <p className="text-xs opacity-90 mb-1">Height</p>
+                        <p className="text-sm sm:text-lg font-bold truncate">
+                          {onboardingStatus.data.physicalProfile.height ? `${onboardingStatus.data.physicalProfile.height} cm` : '—'}
+                        </p>
+                      </div>
+                      <Ruler className="w-4 h-4 sm:w-6 sm:h-6 opacity-80 flex-shrink-0" />
+                    </div>
+                  </div>
+
+                  <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-3 sm:p-4 text-white">
+                    <div className="flex items-center justify-between">
+                      <div className="min-w-0">
+                        <p className="text-xs opacity-90 mb-1">Activity</p>
+                        <p className="text-xs sm:text-sm font-bold capitalize truncate">
+                          {onboardingStatus.data.physicalProfile.activity_level ? 
+                            onboardingStatus.data.physicalProfile.activity_level.replace('_', ' ') : 
+                            '—'
+                          }
+                        </p>
+                      </div>
+                      <Activity className="w-4 h-4 sm:w-6 sm:h-6 opacity-80 flex-shrink-0" />
+                    </div>
+                  </div>
+
+                  {/* BMI (if available) */}
+                  {onboardingStatus.data.physicalProfile.weight && onboardingStatus.data.physicalProfile.height && (
+                    <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-3 sm:p-4 text-white">
+                      <div className="flex items-center justify-between">
+                        <div className="min-w-0">
+                          <p className="text-xs opacity-90 mb-1">BMI</p>
+                          <p className="text-sm sm:text-lg font-bold">
+                            {((onboardingStatus.data.physicalProfile.weight / Math.pow(onboardingStatus.data.physicalProfile.height / 100, 2))).toFixed(1)}
+                          </p>
+                          <p className="text-xs opacity-80">kg/m²</p>
+                        </div>
+                        <TrendingUp className="w-4 h-4 sm:w-6 sm:h-6 opacity-80 flex-shrink-0" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                // Empty State - Show placeholder boxes with add button
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                    <div className="bg-muted/50 rounded-xl p-3 sm:p-4 border-2 border-dashed border-muted-foreground/30">
+                      <div className="flex items-center justify-between">
+                        <div className="min-w-0">
+                          <p className="text-xs text-muted-foreground mb-1">Weight</p>
+                          <p className="text-sm sm:text-lg font-bold text-muted-foreground">—</p>
+                        </div>
+                        <Weight className="w-4 h-4 sm:w-6 sm:h-6 text-muted-foreground/50 flex-shrink-0" />
+                      </div>
+                    </div>
+
+                    <div className="bg-muted/50 rounded-xl p-3 sm:p-4 border-2 border-dashed border-muted-foreground/30">
+                      <div className="flex items-center justify-between">
+                        <div className="min-w-0">
+                          <p className="text-xs text-muted-foreground mb-1">Height</p>
+                          <p className="text-sm sm:text-lg font-bold text-muted-foreground">—</p>
+                        </div>
+                        <Ruler className="w-4 h-4 sm:w-6 sm:h-6 text-muted-foreground/50 flex-shrink-0" />
+                      </div>
+                    </div>
+
+                    <div className="bg-muted/50 rounded-xl p-3 sm:p-4 border-2 border-dashed border-muted-foreground/30">
+                      <div className="flex items-center justify-between">
+                        <div className="min-w-0">
+                          <p className="text-xs text-muted-foreground mb-1">Activity</p>
+                          <p className="text-xs sm:text-sm font-bold text-muted-foreground">—</p>
+                        </div>
+                        <Activity className="w-4 h-4 sm:w-6 sm:h-6 text-muted-foreground/50 flex-shrink-0" />
+                      </div>
+                    </div>
+
+                    <div className="bg-muted/50 rounded-xl p-3 sm:p-4 border-2 border-dashed border-muted-foreground/30">
+                      <div className="flex items-center justify-between">
+                        <div className="min-w-0">
+                          <p className="text-xs text-muted-foreground mb-1">BMI</p>
+                          <p className="text-sm sm:text-lg font-bold text-muted-foreground">—</p>
+                          <p className="text-xs text-muted-foreground/70">kg/m²</p>
+                        </div>
+                        <TrendingUp className="w-4 h-4 sm:w-6 sm:h-6 text-muted-foreground/50 flex-shrink-0" />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="text-center py-4">
+                    <p className="text-sm text-muted-foreground mb-3">No physical profile data available</p>
+                    <Button
+                      onClick={() => setIsEditingPhysical(true)}
+                      className="bg-primary hover:bg-primary/90"
+                    >
+                      <Activity className="w-4 h-4 mr-2" />
+                      Add Physical Profile
+                    </Button>
+                  </div>
+                </div>
                 )}
-              </div>
+              </>
             )}
-          </div>
-        )}
+        </div>
 
         {/* Personal Information */}
         <Card className="border-0 shadow-lg">
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="flex items-center gap-2 text-xl">
-                    <User className="w-5 h-5 text-primary" />
+                  <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+                    <User className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
                     Personal Information
                   </CardTitle>
-                  <CardDescription>Your basic profile details</CardDescription>
+                  <CardDescription className="text-sm">Your basic profile details</CardDescription>
                 </div>
                 <Button
                   onClick={() => setIsEditing(!isEditing)}
@@ -506,123 +566,132 @@ export default function MemberProfile() {
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-4 sm:space-y-6">
               {isEditing ? (
                 // Edit Mode - Show Form Inputs
                 <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="firstName">First Name</Label>
+                      <Label htmlFor="firstName" className="text-sm">First Name</Label>
                       <Input
                         id="firstName"
                         value={profileData.first_name || ""}
                         onChange={(e) => setProfileData({ ...profileData, first_name: e.target.value })}
                         placeholder="Enter your first name"
+                        className="text-sm"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="lastName">Last Name</Label>
+                      <Label htmlFor="lastName" className="text-sm">Last Name</Label>
                       <Input
                         id="lastName"
                         value={profileData.last_name || ""}
                         onChange={(e) => setProfileData({ ...profileData, last_name: e.target.value })}
                         placeholder="Enter your last name"
+                        className="text-sm"
                       />
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="email">Account Email</Label>
+                      <Label htmlFor="email" className="text-sm">Account Email</Label>
                       <Input
                         id="email"
                         value={user?.email || ""}
                         disabled
-                        className="bg-muted cursor-not-allowed"
+                        className="bg-muted cursor-not-allowed text-sm"
                       />
                       <p className="text-xs text-muted-foreground">Account email cannot be changed</p>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="profile_email">Contact Email</Label>
+                      <Label htmlFor="profile_email" className="text-sm">Contact Email</Label>
                       <Input
                         id="profile_email"
                         type="email"
                         value={profileData.profile_email || ""}
                         onChange={(e) => setProfileData({ ...profileData, profile_email: e.target.value })}
                         placeholder="Enter your contact email"
+                        className="text-sm"
                       />
                       <p className="text-xs text-muted-foreground">This is your contact email (separate from account email)</p>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="phone">Phone</Label>
+                      <Label htmlFor="phone" className="text-sm">Phone</Label>
                       <Input
                         id="phone"
                         value={profileData.phone || ""}
                         onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
                         placeholder="Enter your phone number"
+                        className="text-sm"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="birthDate">Birth Date</Label>
+                      <Label htmlFor="birthDate" className="text-sm">Birth Date</Label>
                       <Input
                         id="birthDate"
                         type="date"
                         value={profileData.date_of_birth || ""}
                         onChange={(e) => setProfileData({ ...profileData, date_of_birth: e.target.value })}
+                        className="text-sm"
                       />
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="profession">Profession</Label>
+                    <Label htmlFor="profession" className="text-sm">Profession</Label>
                     <Input
                       id="profession"
                       value={profileData.profession || ""}
                       onChange={(e) => setProfileData({ ...profileData, profession: e.target.value })}
                       placeholder="Enter your profession"
+                      className="text-sm"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="address">Address</Label>
+                    <Label htmlFor="address" className="text-sm">Address</Label>
                     <Textarea
                       id="address"
                       value={profileData.address || ""}
                       onChange={(e) => setProfileData({ ...profileData, address: e.target.value })}
                       placeholder="Enter your address"
                       rows={3}
+                      className="text-sm"
                     />
                   </div>
 
                   <div className="space-y-4">
-                    <h4 className="text-lg font-semibold text-foreground">Emergency Contact</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <h4 className="text-base sm:text-lg font-semibold text-foreground">Emergency Contact</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="emergency_contact_name">Emergency Contact Name</Label>
+                        <Label htmlFor="emergency_contact_name" className="text-sm">Emergency Contact Name</Label>
                         <Input
                           id="emergency_contact_name"
                           value={profileData.emergency_contact_name || ""}
                           onChange={(e) => setProfileData({ ...profileData, emergency_contact_name: e.target.value })}
                           placeholder="Enter emergency contact name"
+                          className="text-sm"
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="emergency_contact_phone">Emergency Contact Phone</Label>
+                        <Label htmlFor="emergency_contact_phone" className="text-sm">Emergency Contact Phone</Label>
                         <Input
                           id="emergency_contact_phone"
                           value={profileData.emergency_contact_phone || ""}
                           onChange={(e) => setProfileData({ ...profileData, emergency_contact_phone: e.target.value })}
                           placeholder="Enter emergency contact phone"
+                          className="text-sm"
                         />
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex gap-3 pt-4">
-                    <Button onClick={handleSave} disabled={updateProfileMutation.isPending}>
+                  <div className="flex flex-col sm:flex-row gap-3 pt-4">
+                    <Button onClick={handleSave} disabled={updateProfileMutation.isPending} className="w-full sm:w-auto">
                       {updateProfileMutation.isPending ? (
                         <>
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -635,7 +704,7 @@ export default function MemberProfile() {
                         </>
                       )}
                     </Button>
-                    <Button variant="outline" onClick={handleCancel}>
+                    <Button variant="outline" onClick={handleCancel} className="w-full sm:w-auto">
                       <X className="w-4 h-4 mr-2" />
                       Cancel
                     </Button>
@@ -644,76 +713,76 @@ export default function MemberProfile() {
               ) : (
                 // Display Mode - Show Profile Data
                 <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-3">
-                      <Label className="text-sm font-medium text-muted-foreground">First Name</Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                    <div className="space-y-2 sm:space-y-3">
+                      <Label className="text-xs sm:text-sm font-medium text-muted-foreground">First Name</Label>
                       <div className="p-3 bg-muted/50 rounded-lg border">
                         <p className="text-sm font-medium">{profile?.first_name || 'Not provided'}</p>
                       </div>
                     </div>
-                    <div className="space-y-3">
-                      <Label className="text-sm font-medium text-muted-foreground">Last Name</Label>
+                    <div className="space-y-2 sm:space-y-3">
+                      <Label className="text-xs sm:text-sm font-medium text-muted-foreground">Last Name</Label>
                       <div className="p-3 bg-muted/50 rounded-lg border">
                         <p className="text-sm font-medium">{profile?.last_name || 'Not provided'}</p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-3">
-                      <Label className="text-sm font-medium text-muted-foreground">Account Email</Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                    <div className="space-y-2 sm:space-y-3">
+                      <Label className="text-xs sm:text-sm font-medium text-muted-foreground">Account Email</Label>
                       <div className="p-3 bg-muted/50 rounded-lg border">
-                        <p className="text-sm font-medium">{user?.email || 'Not provided'}</p>
+                        <p className="text-sm font-medium break-all">{user?.email || 'Not provided'}</p>
                       </div>
                     </div>
-                    <div className="space-y-3">
-                      <Label className="text-sm font-medium text-muted-foreground">Contact Email</Label>
+                    <div className="space-y-2 sm:space-y-3">
+                      <Label className="text-xs sm:text-sm font-medium text-muted-foreground">Contact Email</Label>
                       <div className="p-3 bg-muted/50 rounded-lg border">
-                        <p className="text-sm font-medium">{profile?.profile_email || 'Not provided'}</p>
+                        <p className="text-sm font-medium break-all">{profile?.profile_email || 'Not provided'}</p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-3">
-                      <Label className="text-sm font-medium text-muted-foreground">Phone</Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                    <div className="space-y-2 sm:space-y-3">
+                      <Label className="text-xs sm:text-sm font-medium text-muted-foreground">Phone</Label>
                       <div className="p-3 bg-muted/50 rounded-lg border">
                         <p className="text-sm font-medium">{profile?.phone || 'Not provided'}</p>
                       </div>
                     </div>
-                    <div className="space-y-3">
-                      <Label className="text-sm font-medium text-muted-foreground">Birth Date</Label>
+                    <div className="space-y-2 sm:space-y-3">
+                      <Label className="text-xs sm:text-sm font-medium text-muted-foreground">Birth Date</Label>
                       <div className="p-3 bg-muted/50 rounded-lg border">
                         <p className="text-sm font-medium">{profile?.date_of_birth ? formatDisplayDate(profile.date_of_birth) : 'Not provided'}</p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="space-y-3">
-                    <Label className="text-sm font-medium text-muted-foreground">Profession</Label>
+                  <div className="space-y-2 sm:space-y-3">
+                    <Label className="text-xs sm:text-sm font-medium text-muted-foreground">Profession</Label>
                     <div className="p-3 bg-muted/50 rounded-lg border">
                       <p className="text-sm font-medium">{profile?.profession || 'Not provided'}</p>
                     </div>
                   </div>
 
-                  <div className="space-y-3">
-                    <Label className="text-sm font-medium text-muted-foreground">Address</Label>
+                  <div className="space-y-2 sm:space-y-3">
+                    <Label className="text-xs sm:text-sm font-medium text-muted-foreground">Address</Label>
                     <div className="p-3 bg-muted/50 rounded-lg border min-h-[60px]">
                       <p className="text-sm font-medium">{profile?.address || 'Not provided'}</p>
                     </div>
                   </div>
 
                   <div className="space-y-4">
-                    <h4 className="text-lg font-semibold text-foreground">Emergency Contact</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-3">
-                        <Label className="text-sm font-medium text-muted-foreground">Emergency Contact Name</Label>
+                    <h4 className="text-base sm:text-lg font-semibold text-foreground">Emergency Contact</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                      <div className="space-y-2 sm:space-y-3">
+                        <Label className="text-xs sm:text-sm font-medium text-muted-foreground">Emergency Contact Name</Label>
                         <div className="p-3 bg-muted/50 rounded-lg border">
                           <p className="text-sm font-medium">{profile?.emergency_contact_name || 'Not provided'}</p>
                         </div>
                       </div>
-                      <div className="space-y-3">
-                        <Label className="text-sm font-medium text-muted-foreground">Emergency Contact Phone</Label>
+                      <div className="space-y-2 sm:space-y-3">
+                        <Label className="text-xs sm:text-sm font-medium text-muted-foreground">Emergency Contact Phone</Label>
                         <div className="p-3 bg-muted/50 rounded-lg border">
                           <p className="text-sm font-medium">{profile?.emergency_contact_phone || 'Not provided'}</p>
                         </div>
@@ -726,31 +795,31 @@ export default function MemberProfile() {
           </Card>
 
         {/* Account Information */}
-        <Card className="border-0 shadow-lg mt-8">
+        <Card className="border-0 shadow-lg mt-6">
           <CardHeader className="pb-4">
-            <CardTitle className="flex items-center gap-2 text-xl">
-              <Shield className="w-5 h-5 text-primary" />
+            <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+              <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
               Account Information
             </CardTitle>
-            <CardDescription>Your account details and settings</CardDescription>
+            <CardDescription className="text-sm">Your account details and settings</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-muted-foreground">Account Status</Label>
+                <Label className="text-xs sm:text-sm font-medium text-muted-foreground">Account Status</Label>
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                   <span className="text-sm font-medium">Active</span>
                 </div>
               </div>
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-muted-foreground">Member Since</Label>
+                <Label className="text-xs sm:text-sm font-medium text-muted-foreground">Member Since</Label>
                 <p className="text-sm font-medium">
                   {profile?.created_at ? formatDisplayDate(profile.created_at) : 'N/A'}
                 </p>
               </div>
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-muted-foreground">Last Updated</Label>
+                <Label className="text-xs sm:text-sm font-medium text-muted-foreground">Last Updated</Label>
                 <p className="text-sm font-medium">
                   {profile?.updated_at ? formatDisplayDate(profile.updated_at) : 'N/A'}
                 </p>
@@ -760,52 +829,52 @@ export default function MemberProfile() {
         </Card>
 
         {/* Legal Documents */}
-        <Card className="border-0 shadow-lg mt-8">
+        <Card className="border-0 shadow-lg mt-6">
           <CardHeader className="pb-4">
-            <CardTitle className="flex items-center gap-2 text-xl">
-              <FileText className="w-5 h-5 text-primary" />
+            <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+              <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
               Legal Documents
             </CardTitle>
-            <CardDescription>Access your terms, conditions, and gym regulations</CardDescription>
+            <CardDescription className="text-sm">Access your terms, conditions, and gym regulations</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Terms & Conditions */}
               <Link href="/member/terms" className="group">
-                <div className="p-6 border border-border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer group-hover:shadow-md">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center group-hover:bg-blue-200 dark:group-hover:bg-blue-900/30 transition-colors">
-                      <FileText className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                <div className="p-4 sm:p-6 border border-border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer group-hover:shadow-md">
+                  <div className="flex items-center gap-3 sm:gap-4">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center group-hover:bg-blue-200 dark:group-hover:bg-blue-900/30 transition-colors flex-shrink-0">
+                      <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 dark:text-blue-400" />
                     </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors text-sm sm:text-base">
                         Terms & Conditions
                       </h3>
-                      <p className="text-sm text-muted-foreground mt-1">
+                      <p className="text-xs sm:text-sm text-muted-foreground mt-1">
                         View your signed terms and conditions
                       </p>
                     </div>
-                    <ExternalLink className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                    <ExternalLink className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
                   </div>
                 </div>
               </Link>
 
               {/* Interior Regulation */}
               <Link href="/member/interior-regulation" className="group">
-                <div className="p-6 border border-border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer group-hover:shadow-md">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-green-100 dark:bg-green-900/20 rounded-lg flex items-center justify-center group-hover:bg-green-200 dark:group-hover:bg-green-900/30 transition-colors">
-                      <ScrollText className="w-6 h-6 text-green-600 dark:text-green-400" />
+                <div className="p-4 sm:p-6 border border-border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer group-hover:shadow-md">
+                  <div className="flex items-center gap-3 sm:gap-4">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-100 dark:bg-green-900/20 rounded-lg flex items-center justify-center group-hover:bg-green-200 dark:group-hover:bg-green-900/30 transition-colors flex-shrink-0">
+                      <ScrollText className="w-5 h-5 sm:w-6 sm:h-6 text-green-600 dark:text-green-400" />
                     </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors text-sm sm:text-base">
                         Interior Regulation
                       </h3>
-                      <p className="text-sm text-muted-foreground mt-1">
+                      <p className="text-xs sm:text-sm text-muted-foreground mt-1">
                         Gym rules, policies, and guidelines
                       </p>
                     </div>
-                    <ExternalLink className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                    <ExternalLink className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
                   </div>
                 </div>
               </Link>
