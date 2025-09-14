@@ -32,7 +32,7 @@ import { useMemberRegistrations } from "@/hooks/useMemberRegistrations";
 import { useMemberSubscription } from "@/hooks/useMemberSubscriptions";
 import { registrationApi } from "@/lib/api/registrations";
 import { MobileAppSkeleton } from "@/components/skeletons";
-import { formatTime } from "@/lib/date";
+import { formatTime, formatDateTime } from "@/lib/date";
 import QRGenerator from "@/components/qr-generator";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/date";
