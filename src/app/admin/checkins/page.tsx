@@ -242,7 +242,7 @@ export default function AdminCheckins() {
                               onClick={() => {
                                 const qrCode = checkin.registration?.qr_code || checkin.registration?.qrCode || '';
                                 if (qrCode && typeof window !== 'undefined') {
-                                  window.open(`/checkin/qr/${qrCode}`, '_blank');
+                                  window.open(`/admin/checkins/qr/${qrCode}`, '_blank');
                                 } else {
                                   toast({
                                     title: "Error",
@@ -309,7 +309,7 @@ export default function AdminCheckins() {
                     Scan this QR code to test the check-in process
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    URL: {fullTestQRUrl || `/checkin/qr/${testQRCode}`}
+                    URL: {fullTestQRUrl || `/admin/checkins/qr/${testQRCode}`}
                   </p>
                 </div>
               </div>

@@ -116,7 +116,7 @@ export const checkinApi = {
 
   // QR code functions
   async getCheckinInfo(qrCode: string): Promise<CheckinResponse> {
-    return apiRequest('GET', `/checkin/qr/${qrCode}`);
+    return apiRequest('GET', `/api/admin/checkins/qr/${qrCode}`);
   },
 
   async checkInRegistration(registrationId: string): Promise<CheckinResponse> {
