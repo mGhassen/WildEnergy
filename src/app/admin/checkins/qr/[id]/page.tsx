@@ -374,7 +374,7 @@ export default function CheckinQRPage() {
                     </div>
                 
                     {/* Subscription Information */}
-                    {checkinInfo.member?.activeSubscription && (
+                  {checkinInfo.member?.activeSubscription && (
                       <div className="mt-4 p-3 bg-green-100 border border-green-300 rounded-lg">
                         <h4 className="font-semibold text-green-800 mb-2 flex items-center">
                           <CheckCircle className="w-4 h-4 mr-1" />
@@ -417,8 +417,8 @@ export default function CheckinQRPage() {
                         </h4>
                         <p className="text-yellow-700 text-sm">This member does not have an active subscription.</p>
                       </div>
-                    )}
-                  </div>
+                  )}
+                </div>
                 )}
               </div>
 
@@ -429,11 +429,11 @@ export default function CheckinQRPage() {
                   className={`w-full p-4 text-left flex items-center justify-between hover:${isLateCheckin() ? 'bg-orange-100' : 'bg-green-100'} transition-colors`}
                 >
                   <h3 className={`font-medium flex items-center ${isLateCheckin() ? 'text-orange-800' : 'text-green-800'}`}>
-                    <Calendar className="w-4 h-4 mr-2" />
-                    Course Information
-                    {isLateCheckin() && (
+                  <Calendar className="w-4 h-4 mr-2" />
+                  Course Information
+                  {isLateCheckin() && (
                       <Badge variant="destructive" className="ml-2">
-                        ⚠️ Late Check-in
+                      ⚠️ Late Check-in
                       </Badge>
                     )}
                   </h3>
@@ -448,10 +448,10 @@ export default function CheckinQRPage() {
                   <div className="px-4 pb-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                       <div className={`${isLateCheckin() ? 'text-orange-700' : 'text-green-700'}`}>
-                        <p><strong>Class:</strong> {checkinInfo.course?.class?.name || 'Unknown'}</p>
-                        <p><strong>Date:</strong> {formatDateTime(checkinInfo.course?.course_date)}</p>
-                        <p><strong>Time:</strong> {checkinInfo.course?.start_time && checkinInfo.course?.end_time ? `${checkinInfo.course.start_time} - ${checkinInfo.course.end_time}` : 'Unknown'}</p>
-                        <p><strong>Category:</strong> {checkinInfo.course?.class?.category || '-'}</p>
+                  <p><strong>Class:</strong> {checkinInfo.course?.class?.name || 'Unknown'}</p>
+                  <p><strong>Date:</strong> {formatDateTime(checkinInfo.course?.course_date)}</p>
+                  <p><strong>Time:</strong> {checkinInfo.course?.start_time && checkinInfo.course?.end_time ? `${checkinInfo.course.start_time} - ${checkinInfo.course.end_time}` : 'Unknown'}</p>
+                  <p><strong>Category:</strong> {checkinInfo.course?.class?.category || '-'}</p>
                       </div>
                       <div className={`${isLateCheckin() ? 'text-orange-700' : 'text-green-700'}`}>
                         <div className="flex items-center gap-2">
@@ -460,7 +460,7 @@ export default function CheckinQRPage() {
                             {checkinInfo.course?.class?.difficulty || '-'}
                           </Badge>
                         </div>
-                        <p><strong>Capacity:</strong> {checkinInfo.checkedInCount || 0} / {checkinInfo.course?.class?.maxCapacity || '-'}</p>
+                        <p><strong>Capacity:</strong> {checkinInfo.registeredCount || 0} / {checkinInfo.course?.class?.maxCapacity || '-'}</p>
                         <p><strong>Registered:</strong> {checkinInfo.registeredCount || 0}</p>
                         <p><strong>Total Members:</strong> {checkinInfo.totalMembers || 0}</p>
                       </div>
@@ -544,7 +544,7 @@ export default function CheckinQRPage() {
                   <div className="text-center p-3 bg-white rounded-lg border">
                     <p className="text-xs text-gray-600 mb-1">Class Capacity</p>
                     <p className="text-2xl font-bold text-blue-600">
-                      {checkinInfo.checkedInCount || 0}/{checkinInfo.course?.class?.maxCapacity || '-'}
+                      {checkinInfo.registeredCount || 0}/{checkinInfo.course?.class?.maxCapacity || '-'}
                     </p>
                   </div>
                   <div className="text-center p-3 bg-white rounded-lg border">
@@ -577,8 +577,8 @@ export default function CheckinQRPage() {
                   </div>
                   <div className="flex items-center justify-between p-2 bg-white rounded border">
                     <span className="font-medium">Class Not Full:</span>
-                    <Badge variant={(checkinInfo.checkedInCount || 0) < (checkinInfo.course?.class?.maxCapacity || 0) ? 'default' : 'destructive'}>
-                      {(checkinInfo.checkedInCount || 0) < (checkinInfo.course?.class?.maxCapacity || 0) ? 'Yes' : 'No'}
+                    <Badge variant={(checkinInfo.registeredCount || 0) < (checkinInfo.course?.class?.maxCapacity || 0) ? 'default' : 'destructive'}>
+                      {(checkinInfo.registeredCount || 0) < (checkinInfo.course?.class?.maxCapacity || 0) ? 'Yes' : 'No'}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between p-2 bg-white rounded border">
