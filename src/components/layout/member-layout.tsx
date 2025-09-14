@@ -112,25 +112,14 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
     }
 
     if (onboardingStatus?.success && onboardingStatus.data) {
-      const { onboardingCompleted, hasPersonalInfo, physicalProfileCompleted, discoveryCompleted, termsAccepted, discoverySource } = onboardingStatus.data;
+      const { onboardingCompleted } = onboardingStatus.data;
       
-      console.log("Onboarding details:", { onboardingCompleted, hasPersonalInfo, physicalProfileCompleted, discoveryCompleted, termsAccepted });
+      console.log("Onboarding status:", { onboardingCompleted });
       
       // First priority: Complete onboarding if not done
       if (!onboardingCompleted) {
-        if (!hasPersonalInfo) {
-          console.log("Redirecting to personal info");
-          router.push("/member/onboarding/personal-info");
-        } else if (!physicalProfileCompleted) {
-          console.log("Redirecting to physical profile");
-          router.push("/member/onboarding/physical-profile");
-        } else if (!discoveryCompleted) {
-          console.log("Redirecting to discovery");
-          router.push("/member/onboarding/discovery");
-        } else if (!termsAccepted) {
-          console.log("Redirecting to terms");
-          router.push("/member/onboarding/terms");
-        }
+        console.log("Onboarding not completed, redirecting to onboarding");
+        router.push("/member/onboarding/personal-info");
         return; // Exit early to prevent re-acceptance check
       }
 
@@ -147,10 +136,6 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
     termsLoading,
     onboardingStatus?.success, 
     onboardingStatus?.data?.onboardingCompleted, 
-    onboardingStatus?.data?.hasPersonalInfo, 
-    onboardingStatus?.data?.physicalProfileCompleted, 
-    onboardingStatus?.data?.termsAccepted, 
-    onboardingStatus?.data?.discoverySource, 
     needsTermsReAcceptance,
     pathname, 
     router
