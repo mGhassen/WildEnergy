@@ -30,16 +30,16 @@ interface ICalendarContext {
 const CalendarContext = createContext({} as ICalendarContext);
 
 const WORKING_HOURS = {
-  0: { from: 0, to: 0 },
-  1: { from: 8, to: 17 },
-  2: { from: 8, to: 17 },
-  3: { from: 8, to: 17 },
-  4: { from: 8, to: 17 },
-  5: { from: 8, to: 17 },
-  6: { from: 8, to: 12 },
+  0: { from: 6, to: 24 },
+  1: { from: 6, to: 24 },
+  2: { from: 6, to: 24 },
+  3: { from: 6, to: 24 },
+  4: { from: 6, to: 24 },
+  5: { from: 6, to: 24 },
+  6: { from: 6, to: 24 },
 };
 
-const VISIBLE_HOURS = { from: 0, to: 24 };
+const VISIBLE_HOURS = { from: 6, to: 24 };
 const DEFAULT_HOUR_HEIGHT = 48;
 
 export function CalendarProvider({ 

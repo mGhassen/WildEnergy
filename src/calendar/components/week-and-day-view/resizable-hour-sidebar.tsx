@@ -96,7 +96,7 @@ export function ResizableHourSidebar({ displayHours, view }: IProps) {
         <div key={hour} className="relative" style={{ height: `${hourHeight}px` }}>
           <div className="absolute -top-3 right-2 flex h-6 items-center">
             <span className="text-xs text-muted-foreground">
-              {format(new Date().setHours(hour, 0, 0, 0), "hh a")}
+              {format(new Date().setHours(hour, 0, 0, 0), "HH:mm")}
             </span>
           </div>
         </div>

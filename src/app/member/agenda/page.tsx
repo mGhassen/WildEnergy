@@ -99,7 +99,7 @@ function MemberAgenda() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="container mx-auto p-6 space-y-6 h-full">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -110,7 +110,7 @@ function MemberAgenda() {
 
       {/* Big Calendar */}
       <CalendarProvider users={users} events={events} registrations={registrations || []}>
-        <div className="mx-auto flex max-w-screen-2xl flex-col gap-4">
+        <div className="mx-auto flex max-w-screen-2xl flex-col gap-4 h-[calc(100vh-200px)] min-h-[1200px]">
           <ClientContainer view={view as any} />
         </div>
       </CalendarProvider>
