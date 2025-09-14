@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { getInitials } from "@/lib/auth"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 
 const navigation = [
   { 
@@ -25,6 +26,12 @@ const navigation = [
     description: "Browse courses and view your schedule"
   },
   { 
+    name: "Plans", 
+    href: "/member/plans", 
+    icon: CreditCard,
+    description: "View available plans"
+  },
+  { 
     name: "My Subscriptions", 
     href: "/member/subscriptions", 
     icon: CreditCard,
@@ -36,6 +43,7 @@ export function MemberMobileSidebar() {
   const [open, setOpen] = React.useState(false)
   const { user, logout } = useAuth()
   const router = useRouter()
+  const pathname = usePathname()
 
   const handleLogout = () => {
     logout()
@@ -81,8 +89,23 @@ export function MemberMobileSidebar() {
     }
   }
 
-  const handleNavigation = () => {
-    setOpen(false)
+  // Function to check if a menu item is active
+  const isItemActive = (href: string) => {
+    if (href === "/member") {
+      return pathname === "/member"
+    }
+    return pathname.startsWith(href)
+  }
+
+  // Create user object for display
+  const userForDisplay = user ? {
+    name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email?.split('@')[0] || 'User',
+    email: user.email || '',
+    avatar: "/avatars/user.jpg",
+  } : {
+    name: "Guest",
+    email: "",
+    avatar: "/avatars/guest.jpg",
   }
 
   return (
@@ -92,123 +115,120 @@ export function MemberMobileSidebar() {
           <Menu className="w-5 h-5" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-[300px] sm:w-[400px]">
-        <SheetHeader className="pb-6">
-          <SheetTitle className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary/80 rounded-xl flex items-center justify-center">
+      <SheetContent side="left" className="w-[300px] sm:w-[400px] p-0 flex flex-col h-full">
+        <SheetHeader className="sr-only">
+          <SheetTitle>Member Navigation Menu</SheetTitle>
+        </SheetHeader>
+        
+        {/* Header Section */}
+        <div className="p-6 border-b border-border bg-gradient-to-r from-primary/5 to-primary/10">
+          {/* Logo and Title */}
+          <div className="flex items-center space-x-3 mb-4">
+            <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
               <Dumbbell className="w-5 h-5 text-primary-foreground" />
             </div>
             <div>
-              <span className="text-lg font-bold">Wild Energy</span>
-              <p className="text-xs text-muted-foreground">Pole & Dance</p>
-            </div>
-          </SheetTitle>
-        </SheetHeader>
-        
-        {/* User Profile in Mobile Menu */}
-        <div className="flex items-center space-x-3 p-4 bg-muted/50 rounded-lg mb-6">
-          <Avatar className="w-12 h-12">
-            <AvatarImage src="" />
-            <AvatarFallback className="bg-primary text-primary-foreground">
-              {user ? getInitials(user.firstName || "M", user.lastName || "") : "M"}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1">
-            <p className="font-medium text-foreground">
-              {user ? `${user.firstName} ${user.lastName}` : "Member"}
-            </p>
-            <div className="flex items-center space-x-2">
-              <Badge variant="secondary" className="text-xs">Premium</Badge>
-              <span className="text-xs text-muted-foreground">Active</span>
+              <h3 className="text-lg font-bold">Wild Energy</h3>
+              <p className="text-sm text-muted-foreground">Pole & Dance</p>
             </div>
           </div>
+
+          {/* Portal Switching */}
+          {availablePortals.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Switch Portal</p>
+              {availablePortals.map((portal) => {
+                const PortalIcon = getPortalIcon(portal)
+                return (
+                  <Button
+                    key={portal}
+                    variant="outline"
+                    className="w-full justify-start h-10 px-3 text-sm"
+                    onClick={() => handlePortalSwitch(portal)}
+                  >
+                    <PortalIcon className="w-4 h-4 mr-2" />
+                    <div className="flex-1 text-left">
+                      <div className="font-medium">{getPortalName(portal)}</div>
+                    </div>
+                  </Button>
+                )
+              })}
+            </div>
+          )}
         </div>
 
-        {/* Main Navigation - Same structure as web */}
-        <div className="space-y-2">
-          {navigation.map((item) => {
-            const Icon = item.icon;
-            return (
-              <Link key={item.name} href={item.href} onClick={handleNavigation}>
-                <div className="flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors cursor-pointer text-muted-foreground hover:text-foreground hover:bg-accent">
-                  <Icon className="w-4 h-4" />
-                  <div className="flex-1">
-                    <div>{item.name}</div>
-                    <div className="text-xs opacity-70">{item.description}</div>
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-        
-        {/* Portal Switching */}
-        {availablePortals.length > 0 && (
-          <div className="mt-6 space-y-2">
-            <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Switch Portal
-            </div>
-            {availablePortals.map((portal) => {
-              const Icon = getPortalIcon(portal);
+        {/* Main Navigation */}
+        <div className="flex-1 p-4 overflow-y-auto">
+          <div className="space-y-2">
+            {navigation.map((item) => {
+              const Icon = item.icon
+              const isActive = isItemActive(item.href)
+              
               return (
-                <div
-                  key={portal}
-                  onClick={() => {
-                    handlePortalSwitch(portal);
-                    setOpen(false);
-                  }}
-                  className="flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer"
-                >
-                  <Icon className="w-4 h-4" />
-                  <div className="flex-1">
-                    <div>{getPortalName(portal)}</div>
-                    <div className="text-xs opacity-70">Access {portal} features</div>
+                <Link key={item.name} href={item.href} onClick={() => setOpen(false)}>
+                  <div className={`flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                    isActive 
+                      ? "bg-primary text-primary-foreground" 
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                  }`}>
+                    <Icon className="w-4 h-4" />
+                    <div className="flex-1">
+                      <div>{item.name}</div>
+                      <div className="text-xs opacity-70">{item.description}</div>
+                    </div>
                   </div>
-                </div>
-              );
+                </Link>
+              )
             })}
           </div>
-        )}
 
-        {/* User Menu Items */}
-        <div className="mt-6 space-y-2">
-          <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            Account
+          {/* Account Section */}
+          <div className="mt-6 space-y-2">
+            <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Account
+            </div>
+            <Link href="/member/profile" onClick={() => setOpen(false)}>
+              <div className="flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer">
+                <User className="w-4 h-4" />
+                <div className="flex-1">
+                  <div>My Profile</div>
+                  <div className="text-xs opacity-70">Edit your information</div>
+                </div>
+              </div>
+            </Link>
+            <Link href="/member/history" onClick={() => setOpen(false)}>
+              <div className="flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer">
+                <History className="w-4 h-4" />
+                <div className="flex-1">
+                  <div>My History</div>
+                  <div className="text-xs opacity-70">View your activity</div>
+                </div>
+              </div>
+            </Link>
           </div>
-          <Link href="/member/profile" onClick={handleNavigation}>
-            <div className="flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer">
-              <User className="w-4 h-4" />
-              <div className="flex-1">
-                <div>My Profile</div>
-                <div className="text-xs opacity-70">Edit your information</div>
-              </div>
-            </div>
-          </Link>
-          <Link href="/member/history" onClick={handleNavigation}>
-            <div className="flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer">
-              <History className="w-4 h-4" />
-              <div className="flex-1">
-                <div>My History</div>
-                <div className="text-xs opacity-70">View your activity</div>
-              </div>
-            </div>
-          </Link>
         </div>
 
-        {/* Logout */}
-        <div className="mt-6 space-y-2">
-          <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            Actions
-          </div>
-          <div
-            onClick={handleLogout}
-            className="flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
-          >
-            <LogOut className="w-4 h-4" />
-            <div className="flex-1">
-              <div>Logout</div>
-              <div className="text-xs opacity-70">Sign out of your account</div>
+        {/* Footer with User Profile and Logout - At the very bottom */}
+        <div className="p-4 border-t border-border bg-muted/30 mt-auto">
+          <div className="flex items-center space-x-3">
+            <Avatar className="w-8 h-8">
+              <AvatarImage src={userForDisplay.avatar} />
+              <AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">
+                {user ? getInitials(user.firstName || "M", user.lastName || "") : "M"}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-sm truncate">{userForDisplay.name}</p>
+              <p className="text-xs text-muted-foreground truncate">{userForDisplay.email}</p>
             </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={handleLogout}
+            >
+              <LogOut className="w-4 h-4" />
+            </Button>
           </div>
         </div>
       </SheetContent>
