@@ -54,7 +54,6 @@ export default function MemberHome() {
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const [selectedQR, setSelectedQR] = useState<any>(null);
-  const [tab, setTab] = useState<'today' | 'upcoming'>('today');
   const [currentPlanIndex, setCurrentPlanIndex] = useState(0);
 
   const { data: registrations, isLoading: registrationsLoading } = useMemberRegistrations();
@@ -95,22 +94,29 @@ export default function MemberHome() {
     return () => clearInterval(interval);
   }, [plansArr.length]);
 
-  // Filter registrations for today and upcoming (next 7 days)
+  // Filter and organize all registrations
   const today = new Date();
   const todayString = today.toISOString().split('T')[0]; // YYYY-MM-DD format
-  const nextWeek = new Date();
-  nextWeek.setDate(today.getDate() + 7); // 7 days from today
   
-  const upcomingRegistrations = registrationsArr.filter((reg: any) => {
-    if (reg.status !== 'registered' || !reg.course?.course_date) return false;
-    const courseDate = new Date(reg.course.course_date);
-    return courseDate >= today && courseDate <= nextWeek;
+  // Get all active registrations
+  const allRegistrations = registrationsArr.filter((reg: any) => {
+    return reg.status === 'registered' && reg.course?.course_date;
   });
 
-  const registrationsToday = registrationsArr.filter((reg: any) => {
-    if (reg.status !== 'registered' || !reg.course?.course_date) return false;
+  // Separate today's registrations and upcoming ones
+  const registrationsToday = allRegistrations.filter((reg: any) => {
     const courseDate = new Date(reg.course.course_date);
     return courseDate.toDateString() === today.toDateString();
+  });
+
+  const upcomingRegistrations = allRegistrations.filter((reg: any) => {
+    const courseDate = new Date(reg.course.course_date);
+    return courseDate > today;
+  });
+
+  // Sort upcoming registrations by date
+  upcomingRegistrations.sort((a: any, b: any) => {
+    return new Date(a.course.course_date).getTime() - new Date(b.course.course_date).getTime();
   });
 
   const nextClass = upcomingRegistrations[0];
@@ -141,343 +147,382 @@ export default function MemberHome() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-4 space-y-6">
-      {/* Welcome Header */}
-      <div className="text-center space-y-3 mb-6">
-        <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-primary/10 to-primary/5 rounded-full">
-          <Sparkles className="w-4 h-4 text-primary" />
-          <span className="text-sm font-medium text-primary">Welcome back!</span>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+      <div className="max-w-7xl mx-auto px-4 py-6 space-y-8">
+        {/* Hero Section */}
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-primary via-primary/90 to-primary/80 p-8 text-white">
+          <div className="absolute inset-0 bg-black/10"></div>
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur-sm rounded-full mb-4">
+                  <Sparkles className="w-4 h-4" />
+                  <span className="text-sm font-medium">Welcome back!</span>
+                </div>
+                <h1 className="text-4xl sm:text-5xl font-bold mb-2">
+                  Hello, {user?.firstName || 'there'}! 👋
+                </h1>
+                <p className="text-lg sm:text-xl text-white/90 max-w-2xl">
+                  Ready to dance? Here's your fitness journey overview.
+                </p>
+              </div>
+              <div className="hidden lg:block">
+                <div className="w-32 h-32 bg-white/10 rounded-full flex items-center justify-center">
+                  <Users className="w-16 h-16 text-white/80" />
+                </div>
+              </div>
+            </div>
+            
+            {/* Quick Stats */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 text-center">
+                <div className="text-2xl font-bold">{totalActive}</div>
+                <div className="text-sm text-white/80">Active Plans</div>
+              </div>
+              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 text-center">
+                <div className="text-2xl font-bold">{totalSessionsRemaining}</div>
+                <div className="text-sm text-white/80">Sessions Left</div>
+              </div>
+              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 text-center">
+                <div className="text-2xl font-bold">{registrationsToday.length}</div>
+                <div className="text-sm text-white/80">Today's Classes</div>
+              </div>
+              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 text-center">
+                <div className="text-2xl font-bold">{upcomingRegistrations.length}</div>
+                <div className="text-sm text-white/80">Upcoming</div>
+              </div>
+            </div>
+          </div>
         </div>
-        <h1 className="text-3xl sm:text-4xl font-bold text-foreground">
-          Hello, {user?.firstName || 'there'}! 👋
-        </h1>
-        <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
-          Ready for your next workout? Here's what's happening today and this week.
-        </p>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Content */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Insights Section */}
-          <div className="grid grid-cols-2 gap-4 w-full">
-            <Card className="hover:shadow-md transition-shadow">
-              <CardContent className="p-4 flex items-center gap-3 h-full">
-                <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                  <Users className="w-5 h-5 text-primary" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Main Content */}
+          <div className="lg:col-span-2 space-y-8">
+
+            {/* Today's Classes - Hero Section */}
+            {registrationsToday.length > 0 && (
+              <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-orange-500 via-red-500 to-pink-500 p-8 text-white shadow-2xl">
+                <div className="absolute inset-0 bg-black/20"></div>
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur-sm rounded-full mb-4">
+                        <Clock className="w-4 h-4" />
+                        <span className="text-sm font-medium">Today's Schedule</span>
+                      </div>
+                      <h2 className="text-3xl font-bold mb-2">Your Classes Today</h2>
+                      <p className="text-white/90">Don't miss your scheduled sessions!</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-4xl font-bold">{registrationsToday.length}</div>
+                      <div className="text-sm text-white/80">Classes</div>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    {registrationsToday.map((reg: any) => (
+                      <div key={reg.id} className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 hover:bg-white/20 transition-all duration-300">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center">
+                              <span className="text-white font-bold text-xl">
+                                {reg.course?.class?.category?.name?.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                            <div>
+                              <h3 className="text-xl font-bold mb-2">{reg.course?.class?.name}</h3>
+                              <div className="flex items-center gap-6 text-white/90">
+                                <span className="flex items-center gap-2">
+                                  <Clock className="w-4 h-4" />
+                                  {formatTime(reg.course?.start_time)} - {formatTime(reg.course?.end_time || reg.course?.start_time)}
+                                </span>
+                                <span className="flex items-center gap-2">
+                                  <Users className="w-4 h-4" />
+                                  {reg.course?.trainer?.user?.first_name} {reg.course?.trainer?.user?.last_name}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <Button
+                            size="lg"
+                            onClick={() => setSelectedQR(reg)}
+                            className="bg-white text-orange-600 hover:bg-white/90 font-semibold px-6 py-3 rounded-xl"
+                          >
+                            <QrCode className="w-5 h-5 mr-2" />
+                            Show QR
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground truncate">Active Subscriptions</p>
-                  <p className="text-xl font-bold text-foreground">{totalActive}</p>
+              </div>
+            )}
+
+            {/* Upcoming Classes */}
+            {upcomingRegistrations.length > 0 && (
+              <Card className="border-0 shadow-xl rounded-3xl overflow-hidden">
+                <div className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 p-6">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center">
+                      <Calendar className="w-6 h-6 text-primary" />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-bold text-foreground">Upcoming Classes</h2>
+                      <p className="text-muted-foreground">Your scheduled sessions ahead</p>
+                    </div>
+                    <div className="ml-auto">
+                      <Badge variant="secondary" className="bg-primary/10 text-primary px-4 py-2 text-sm font-semibold">
+                        {upcomingRegistrations.length} classes
+                      </Badge>
+                    </div>
+                  </div>
                 </div>
+                <CardContent className="p-6">
+                  <div className="space-y-4">
+                    {upcomingRegistrations.map((registration: any) => (
+                      <div key={registration.id} className="group flex items-center justify-between p-4 border border-border rounded-2xl hover:shadow-lg hover:border-primary/30 transition-all duration-300 bg-gradient-to-r from-white to-slate-50 dark:from-slate-800 dark:to-slate-700">
+                        <div className="flex items-center gap-4">
+                          <div className="w-14 h-14 bg-gradient-to-br from-primary/10 to-primary/20 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                            <span className="text-primary font-bold text-lg">
+                              {registration.course?.class?.category?.name?.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-foreground text-lg mb-2">{registration.course?.class?.name}</h3>
+                            <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                              <span className="flex items-center gap-2">
+                                <Calendar className="w-4 h-4" />
+                                {registration.course?.course_date ? formatDate(registration.course.course_date) : 'Date TBD'}
+                              </span>
+                              <span className="flex items-center gap-2">
+                                <Clock className="w-4 h-4" />
+                                {formatTime(registration.course?.start_time)}
+                              </span>
+                              <span className="flex items-center gap-2">
+                                <Users className="w-4 h-4" />
+                                {registration.course?.trainer?.user?.first_name} {registration.course?.trainer?.user?.last_name}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="lg"
+                          onClick={() => setSelectedQR(registration)}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl px-6 py-3"
+                        >
+                          <QrCode className="w-4 h-4 mr-2" />
+                          QR Code
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* No Classes State */}
+            {allRegistrations.length === 0 && (
+              <Card className="border-0 shadow-xl rounded-3xl overflow-hidden">
+                <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 p-12 text-center">
+                  <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <Calendar className="w-12 h-12 text-primary" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-foreground mb-4">No classes booked yet</h3>
+                  <p className="text-muted-foreground text-lg mb-8 max-w-md mx-auto">
+                    Start your fitness journey by booking your first class. We have amazing sessions waiting for you!
+                  </p>
+                  <Button size="lg" className="bg-primary hover:bg-primary/90 text-white px-8 py-4 rounded-2xl font-semibold" asChild>
+                    <a href="/member/classes">
+                      <Calendar className="w-5 h-5 mr-2" />
+                      Browse All Classes
+                    </a>
+                  </Button>
+                </div>
+              </Card>
+            )}
+        </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Available Plans */}
+            <Card className="border-0 shadow-xl rounded-3xl overflow-hidden">
+              <div className="bg-gradient-to-br from-purple-500 via-pink-500 to-red-500 p-6 text-white">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
+                    <Crown className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold">Premium Plans</h3>
+                    <p className="text-white/90 text-sm">Unlock your potential</p>
+                  </div>
+                </div>
+              </div>
+              <CardContent className="p-6">
+                {plansLoading ? (
+                  <div className="animate-pulse space-y-4">
+                    <div className="h-32 bg-muted rounded-2xl"></div>
+                    <div className="h-4 bg-muted rounded w-3/4"></div>
+                    <div className="h-4 bg-muted rounded w-1/2"></div>
+                  </div>
+                ) : plansArr.length > 0 ? (
+                  <div className="space-y-6">
+                    {/* Featured Plan */}
+                    <div className="relative">
+                      <div 
+                        key={currentPlanIndex}
+                        className="p-6 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-2xl border-2 border-primary/20 hover:border-primary/40 transition-all duration-500"
+                      >
+                        <div className="space-y-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-3">
+                                <h4 className="font-bold text-foreground text-lg">{currentPlan.name}</h4>
+                                {currentPlan.is_popular && (
+                                  <Badge className="bg-orange-500 text-white px-3 py-1 text-xs font-semibold">
+                                    <Star className="w-3 h-3 mr-1" />
+                                    Popular
+                                  </Badge>
+                                )}
+                                {currentPlan.is_premium && (
+                                  <Badge className="bg-purple-500 text-white px-3 py-1 text-xs font-semibold">
+                                    <Crown className="w-3 h-3 mr-1" />
+                                    Premium
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-muted-foreground text-sm leading-relaxed">{currentPlan.description}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Zap className="w-4 h-4" />
+                                {getTotalSessions(currentPlan)} sessions
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {currentPlan.duration_days} days duration
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-2xl font-bold text-foreground">{formatCurrency(currentPlan.price)}</p>
+                              <p className="text-xs text-muted-foreground">per month</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Plan Indicators */}
+                    {plansArr.length > 1 && (
+                      <div className="flex items-center justify-center gap-2">
+                        {plansArr.map((_, index) => (
+                          <div
+                            key={index}
+                            className={`transition-all duration-500 ${
+                              index === currentPlanIndex
+                                ? 'w-3 h-3 bg-primary rounded-full'
+                                : 'w-2 h-2 bg-muted rounded-full'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    )}
+
+                    <Button className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-white font-semibold py-3 rounded-2xl" asChild>
+                      <a href="/member/plans">
+                        View All Plans
+                        <ArrowRight className="w-4 h-4 ml-2" />
+                      </a>
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Crown className="w-8 h-8 text-muted-foreground" />
+                    </div>
+                    <p className="text-muted-foreground mb-4">No plans available</p>
+                    <Button size="sm" variant="outline" asChild>
+                      <a href="/member/plans">Check Plans</a>
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
-            <Card className="hover:shadow-md transition-shadow">
-              <CardContent className="p-4 flex items-center gap-3 h-full">
-                <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                  <Badge className="w-5 h-5 text-primary" />
+
+            {/* Quick Actions */}
+            <Card className="border-0 shadow-xl rounded-3xl overflow-hidden">
+              <div className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 p-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center">
+                    <Zap className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-foreground">Quick Actions</h3>
+                    <p className="text-muted-foreground text-sm">Get started quickly</p>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground truncate">Sessions Remaining</p>
-                  <p className="text-xl font-bold text-foreground">{totalSessionsRemaining}</p>
+              </div>
+              <CardContent className="p-6 space-y-3">
+                <Button variant="outline" className="w-full justify-start h-14 text-sm rounded-2xl hover:bg-primary/5 hover:border-primary/30 transition-all duration-300" asChild>
+                  <a href="/member/classes">
+                    <Calendar className="w-5 h-5 mr-3" />
+                    Browse Classes
+                  </a>
+                </Button>
+                <Button variant="outline" className="w-full justify-start h-14 text-sm rounded-2xl hover:bg-primary/5 hover:border-primary/30 transition-all duration-300" asChild>
+                  <a href="/member/history">
+                    <Clock className="w-5 h-5 mr-3" />
+                    Class History
+                  </a>
+                </Button>
+                <Button variant="outline" className="w-full justify-start h-14 text-sm rounded-2xl hover:bg-primary/5 hover:border-primary/30 transition-all duration-300" asChild>
+                  <a href="/member/subscriptions">
+                    <MapPin className="w-5 h-5 mr-3" />
+                    My Subscriptions
+                  </a>
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Gym Info */}
+            <Card className="border-0 shadow-xl rounded-3xl overflow-hidden">
+              <div className="bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 p-6 text-white">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
+                    <MapPin className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold">Wild Energy Gym</h3>
+                    <p className="text-white/90 text-sm">Tunis, Tunisia</p>
+                  </div>
+                </div>
+              </div>
+              <CardContent className="p-6">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-2xl">
+                    <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
+                      <Clock className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-foreground">Open Today</p>
+                      <p className="text-sm text-muted-foreground">6:00 AM - 10:00 PM</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-2xl">
+                    <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
+                      <Users className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-foreground">Contact</p>
+                      <p className="text-sm text-muted-foreground">+216 XX XXX XXX</p>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           </div>
-
-          {/* Combined Card with Enhanced Tabs */}
-          <Card>
-            <CardHeader className="pb-4">
-              <h2 className="text-xl sm:text-2xl font-bold mb-3 text-foreground">My Classes This Week</h2>
-              <div className="flex items-center gap-1 bg-muted/50 rounded-full p-1 w-full sm:w-fit mx-auto mb-3 shadow-sm">
-                <Button
-                  variant={tab === 'today' ? 'default' : 'ghost'}
-                  onClick={() => setTab('today')}
-                  className={`flex-1 sm:flex-none rounded-full px-4 py-2 flex items-center justify-center gap-2 transition-all text-sm ${tab === 'today' ? 'shadow bg-primary text-primary-foreground' : 'bg-transparent text-muted-foreground hover:bg-muted'}`}
-                >
-                  <Calendar className="w-4 h-4" />
-                  <span className="hidden sm:inline">Today</span>
-                  <span className="sm:hidden">Today</span>
-                </Button>
-                <Button
-                  variant={tab === 'upcoming' ? 'default' : 'ghost'}
-                  onClick={() => setTab('upcoming')}
-                  className={`flex-1 sm:flex-none rounded-full px-4 py-2 flex items-center justify-center gap-2 transition-all text-sm ${tab === 'upcoming' ? 'shadow bg-primary text-primary-foreground' : 'bg-transparent text-muted-foreground hover:bg-muted'}`}
-                >
-                  <Clock className="w-4 h-4" />
-                  <span className="hidden sm:inline">Next 7 Days</span>
-                  <span className="sm:hidden">7 Days</span>
-                </Button>
-              </div>
-              <CardDescription className="text-center text-sm">
-                {tab === 'today'
-                  ? 'Your booked classes for today'
-                  : "Classes you're registered for in the next 7 days"}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {tab === 'today' ? (
-                registrationsToday.length > 0 ? (
-                  <div className="space-y-3">
-                    {registrationsToday.map((reg: any) => (
-                      <div key={reg.id} className="flex items-center justify-between p-3 sm:p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors">
-                        <div className="flex items-center gap-3 min-w-0 flex-1">
-                          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <span className="text-primary font-semibold text-xs sm:text-sm">
-                              {reg.course?.class?.category?.name?.charAt(0).toUpperCase()}
-                            </span>
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <h4 className="font-medium text-foreground text-sm sm:text-base truncate">{reg.course?.class?.name}</h4>
-                            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
-                              <span className="flex items-center gap-1">
-                                <Clock className="w-3 h-3 flex-shrink-0" />
-                                <span className="truncate">{formatTime(reg.course?.start_time)} - {formatTime(reg.course?.end_time || reg.course?.start_time)}</span>
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Users className="w-3 h-3 flex-shrink-0" />
-                                <span className="truncate">{reg.course?.trainer?.user?.first_name} {reg.course?.trainer?.user?.last_name}</span>
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setSelectedQR(reg)}
-                          className="flex-shrink-0 ml-2"
-                        >
-                          <QrCode className="w-4 h-4" />
-                          <span className="hidden sm:inline ml-1">QR</span>
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                    <Calendar className="w-16 h-16 mb-4 opacity-50" />
-                    <h3 className="text-xl font-semibold mb-2">No classes booked for today</h3>
-                    <p className="text-base mb-4">Book a class to see it here</p>
-                    <Button variant="outline" asChild>
-                      <a href="/member/classes">
-                        Browse All Classes
-                      </a>
-                    </Button>
-                  </div>
-                )
-              ) : (
-                upcomingRegistrations.length > 0 ? (
-                  <div className="space-y-3">
-                    {upcomingRegistrations.map((registration: any) => (
-                      <div key={registration.id} className="flex items-center justify-between p-3 sm:p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors">
-                        <div className="flex items-center gap-3 min-w-0 flex-1">
-                          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary rounded-lg flex items-center justify-center flex-shrink-0">
-                            <span className="text-white text-xs sm:text-sm font-medium">
-                              {registration.course?.class?.category?.name?.charAt(0).toUpperCase()}
-                            </span>
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <h4 className="font-medium text-foreground text-sm sm:text-base truncate">{registration.course?.class?.name}</h4>
-                            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
-                              <span className="flex items-center gap-1">
-                                <Calendar className="w-3 h-3 flex-shrink-0" />
-                                <span className="truncate">{registration.course?.course_date ? formatDate(registration.course.course_date) : 'Date TBD'}</span>
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Clock className="w-3 h-3 flex-shrink-0" />
-                                <span className="truncate">{formatTime(registration.course?.start_time)}</span>
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Users className="w-3 h-3 flex-shrink-0" />
-                                <span className="truncate">{registration.course?.trainer?.user?.first_name} {registration.course?.trainer?.user?.last_name}</span>
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setSelectedQR(registration)}
-                          className="flex-shrink-0 ml-2"
-                        >
-                          <QrCode className="w-4 h-4" />
-                          <span className="hidden sm:inline ml-1">QR</span>
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                    <Clock className="w-16 h-16 mb-4 opacity-50" />
-                    <h3 className="text-xl font-semibold mb-2">No classes booked for the next 7 days</h3>
-                    <p className="text-base mb-4">Book a class to see it here</p>
-                    <Button variant="outline" asChild>
-                      <a href="/member/classes">
-                        Browse All Classes
-                      </a>
-                    </Button>
-                  </div>
-                )
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Sidebar */}
-        <div className="space-y-4 lg:space-y-6">
-          {/* Available Plans */}
-          <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10">
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-2">
-                <Crown className="w-5 h-5 text-primary" />
-                <CardTitle className="text-lg">Available Plans</CardTitle>
-              </div>
-              <CardDescription className="text-sm">Discover our Pole Dance plans</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {plansLoading ? (
-                <div className="animate-pulse">
-                  <div className="h-32 bg-muted rounded-lg"></div>
-                </div>
-              ) : plansArr.length > 0 ? (
-                <div className="space-y-4">
-                  {/* Plan Card with Gentle Fade Animation */}
-                  <div className="relative">
-                    <div 
-                      key={currentPlanIndex}
-                      className="p-3 sm:p-4 bg-card rounded-lg border border-border hover:border-primary/30 transition-all duration-700 ease-out animate-fadeIn"
-                      style={{
-                        animation: 'fadeIn 0.7s ease-out'
-                      }}
-                    >
-                      <div className="space-y-3">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-2">
-                              <h4 className="font-semibold text-foreground text-sm sm:text-base truncate">{currentPlan.name}</h4>
-                              {currentPlan.is_popular && (
-                                <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-700 flex-shrink-0">
-                                  <Star className="w-3 h-3 mr-1" />
-                                  Popular
-                                </Badge>
-                              )}
-                              {currentPlan.is_premium && (
-                                <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700 flex-shrink-0">
-                                  <Crown className="w-3 h-3 mr-1" />
-                                  Premium
-                                </Badge>
-                              )}
-                            </div>
-                            <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">{currentPlan.description}</p>
-                          </div>
-                        </div>
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                          <div className="flex items-center gap-3 text-xs sm:text-sm text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <Zap className="w-3 h-3 sm:w-4 sm:h-4" />
-                              {getTotalSessions(currentPlan)} sessions
-                            </span>
-                            <span>{currentPlan.duration_days} days</span>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-lg sm:text-xl font-bold text-foreground">{formatCurrency(currentPlan.price)}</p>
-                            <p className="text-xs text-muted-foreground">per month</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Gentle Dot Indicators */}
-                  {plansArr.length > 1 && (
-                    <div className="flex items-center justify-center gap-2">
-                      {plansArr.map((_, index) => (
-                        <div
-                          key={index}
-                          className={`transition-all duration-700 ease-out ${
-                            index === currentPlanIndex
-                              ? 'w-3 h-3 bg-primary rounded-full'
-                              : 'w-2 h-2 bg-muted rounded-full'
-                          }`}
-                        />
-                      ))}
-                    </div>
-                  )}
-
-                  <Button variant="outline" className="w-full" asChild>
-                    <a href="/member/plans">
-                      View All Plans
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </a>
-                  </Button>
-                </div>
-              ) : (
-                <div className="text-center py-4">
-                  <p className="text-sm text-muted-foreground mb-3">No plans available</p>
-                  <Button size="sm" variant="outline" asChild>
-                    <a href="/member/plans">Check Plans</a>
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Quick Actions - Hidden on mobile */}
-          <Card className="hidden lg:block">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Quick Actions</CardTitle>
-              <CardDescription className="text-sm">Get started quickly</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Button variant="outline" className="w-full justify-start h-12 text-sm" asChild>
-                <a href="/member/classes">
-                  <Calendar className="w-4 h-4 mr-3" />
-                  Browse Classes
-                </a>
-              </Button>
-              <Button variant="outline" className="w-full justify-start h-12 text-sm" asChild>
-                <a href="/member/history">
-                  <Clock className="w-4 h-4 mr-3" />
-                  Class History
-                </a>
-              </Button>
-              <Button variant="outline" className="w-full justify-start h-12 text-sm" asChild>
-                <a href="/member/subscriptions">
-                  <MapPin className="w-4 h-4 mr-3" />
-                  My Subscriptions
-                </a>
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Gym Info */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Gym Information</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <MapPin className="w-5 h-5 text-primary" />
-                </div>
-                <div className="min-w-0">
-                  <p className="font-medium text-sm">Wild Energy Gym</p>
-                  <p className="text-xs text-muted-foreground">Tunis, Tunisia</p>
-                </div>
-              </div>
-              <div className="space-y-2 text-xs sm:text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Open Today:</span>
-                  <span className="font-medium">6:00 AM - 10:00 PM</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Phone:</span>
-                  <span className="font-medium">+216 XX XXX XXX</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
       </div>
 
       {/* QR Code Modal */}
@@ -562,6 +607,7 @@ export default function MemberHome() {
           animation: fadeIn 0.7s ease-out;
         }
       `}</style>
+      </div>
     </div>
   );
 } 

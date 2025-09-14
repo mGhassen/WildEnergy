@@ -58,8 +58,20 @@ export async function GET(
 
   try {
     const resolvedParams = await params;
-    const qrCode = resolvedParams.id;
+    let qrCode = resolvedParams.id;
+    
+    // URL decode the QR code in case it was encoded
+    try {
+      qrCode = decodeURIComponent(qrCode);
+    } catch (e) {
+      console.log('Check-in QR API - URL decode failed, using original:', e);
+    }
+    
     console.log('Check-in QR API - Looking for QR code:', qrCode);
+    console.log('Check-in QR API - QR code type:', typeof qrCode);
+    console.log('Check-in QR API - QR code length:', qrCode?.length);
+    console.log('Check-in QR API - QR code trimmed:', qrCode?.trim());
+    console.log('Check-in QR API - QR code JSON:', JSON.stringify(qrCode));
 
     // Find the registration by QR code
     console.log('Check-in QR API - Querying class_registrations table...');
@@ -72,13 +84,18 @@ export async function GET(
         member_id,
         course_id,
         qr_code,
-        users (
+        members (
           id,
-          first_name,
-          last_name,
-          email,
-          phone,
-          status
+          status,
+          account_id,
+          profiles (
+            first_name,
+            last_name,
+            phone
+          ),
+          accounts (
+            email
+          )
         ),
         courses (
           id,
@@ -109,6 +126,11 @@ export async function GET(
         console.log('Check-in QR API - Error fetching all QR codes:', qrError);
       } else {
         console.log('Check-in QR API - Available QR codes in database:', allQrCodes?.map(r => ({ qr_code: r.qr_code, id: r.id, member_id: r.member_id })));
+        console.log('Check-in QR API - Searching for exact match...');
+        allQrCodes?.forEach(r => {
+          console.log(`Check-in QR API - DB QR: "${r.qr_code}" (type: ${typeof r.qr_code}, length: ${r.qr_code?.length})`);
+          console.log(`Check-in QR API - Match check: "${r.qr_code}" === "${qrCode}" = ${r.qr_code === qrCode}`);
+        });
       }
       
       return NextResponse.json(
@@ -136,24 +158,56 @@ export async function GET(
       .from('trainers')
       .select(`
         id,
-        users (
-          id,
+        specialization,
+        experience_years,
+        bio,
+        certification,
+        hourly_rate,
+        status,
+        profiles (
           first_name,
-          last_name
+          last_name,
+          phone
         )
       `)
       .eq('id', courseObj?.trainer_id)
       .single();
 
-    // Get member's active subscription info
-    const { data: activeSubscription } = await supabaseServer()
+    // Get member's active subscription info with group sessions
+    console.log('Check-in QR API - Looking for subscription for member_id:', registration.member_id);
+    const { data: activeSubscription, error: subError } = await supabaseServer()
       .from('subscriptions')
-      .select('id, plan_id, status, plans(name)')
+      .select(`
+        id, 
+        plan_id, 
+        status, 
+        start_date,
+        end_date,
+        plans (
+          name,
+          description,
+          price
+        ),
+        subscription_group_sessions (
+          group_id,
+          sessions_remaining,
+          total_sessions,
+          groups (
+            name
+          )
+        )
+      `)
       .eq('member_id', registration.member_id)
       .eq('status', 'active')
       .order('end_date', { ascending: false })
       .limit(1)
       .single();
+
+    if (subError) {
+      console.log('Check-in QR API - Subscription query error:', subError);
+    } else {
+      console.log('Check-in QR API - Subscription found:', activeSubscription);
+    }
 
     // Get registered and checked-in counts for this course (excluding cancelled)
     const { data: courseRegistrations } = await supabaseServer()
@@ -180,11 +234,18 @@ export async function GET(
       .from('class_registrations')
       .select(`
         id,
-        users (
+        members (
           id,
-          first_name,
-          last_name,
-          email
+          status,
+          account_id,
+          profiles (
+            first_name,
+            last_name,
+            phone
+          ),
+          accounts (
+            email
+          )
         ),
         status
       `)
@@ -215,7 +276,11 @@ export async function GET(
       }
       
       return {
-        ...(r.users || {}),
+        id: r.members?.id,
+        first_name: r.members?.profiles?.first_name,
+        last_name: r.members?.profiles?.last_name,
+        email: r.members?.accounts?.email,
+        phone: r.members?.profiles?.phone,
         status: displayStatus
       };
     });
@@ -231,11 +296,18 @@ export async function GET(
       .from('checkins')
       .select(`
         class_registrations!inner (
-          users (
+          members (
             id,
-            first_name,
-            last_name,
-            email
+            status,
+            account_id,
+            profiles (
+              first_name,
+              last_name,
+              phone
+            ),
+            accounts (
+              email
+            )
           )
         )
       `)
@@ -253,12 +325,31 @@ export async function GET(
 
     const checkinInfo = {
       member: {
-        ...registration.users,
-        status: (registration.users as any)?.status,
+        id: registration.members?.id,
+        first_name: registration.members?.profiles?.first_name,
+        last_name: registration.members?.profiles?.last_name,
+        email: registration.members?.accounts?.email,
+        phone: registration.members?.profiles?.phone,
+        status: registration.members?.status,
         activeSubscription: activeSubscription ? {
           id: activeSubscription.id,
           planName: (activeSubscription.plans as any)?.name,
-          status: activeSubscription.status
+          planDescription: (activeSubscription.plans as any)?.description,
+          planPrice: (activeSubscription.plans as any)?.price,
+          planSessionCount: (() => {
+            // Calculate total sessions from all group sessions
+            const groupSessions = (activeSubscription as any)?.subscription_group_sessions || [];
+            return groupSessions.reduce((total: number, group: any) => total + (group.total_sessions || 0), 0);
+          })(),
+          status: activeSubscription.status,
+          sessionsRemaining: (() => {
+            // Calculate total remaining sessions from all group sessions
+            const groupSessions = (activeSubscription as any)?.subscription_group_sessions || [];
+            return groupSessions.reduce((total: number, group: any) => total + (group.sessions_remaining || 0), 0);
+          })(),
+          startDate: activeSubscription.start_date,
+          endDate: activeSubscription.end_date,
+          groupSessions: (activeSubscription as any)?.subscription_group_sessions || []
         } : null
       },
       course: {
@@ -279,7 +370,18 @@ export async function GET(
           })(),
           maxCapacity: classInfo?.max_capacity ?? null,
         },
-        trainer: trainerInfo,
+        trainer: {
+          id: trainerInfo?.id,
+          first_name: trainerInfo?.profiles?.first_name,
+          last_name: trainerInfo?.profiles?.last_name,
+          phone: trainerInfo?.profiles?.phone,
+          specialization: trainerInfo?.specialization,
+          experience_years: trainerInfo?.experience_years,
+          bio: trainerInfo?.bio,
+          certification: trainerInfo?.certification,
+          hourly_rate: trainerInfo?.hourly_rate,
+          status: trainerInfo?.status
+        },
         maxCapacity,
       },
       registration: {
@@ -296,7 +398,13 @@ export async function GET(
       attendantMembers: Array.isArray(attendantMembers)
         ? attendantMembers.flatMap(c =>
             Array.isArray(c.class_registrations)
-              ? c.class_registrations.map(reg => reg.users || {})
+              ? c.class_registrations.map(reg => ({
+                  id: reg.members?.id,
+                  first_name: reg.members?.profiles?.first_name,
+                  last_name: reg.members?.profiles?.last_name,
+                  email: reg.members?.accounts?.email,
+                  phone: reg.members?.profiles?.phone
+                }))
               : []
           )
         : []
