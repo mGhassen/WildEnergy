@@ -9,7 +9,20 @@ async function getUserFromToken(token: string) {
     .select('*')
     .eq('email', user.email)
     .single();
-  return userProfile;
+  
+  if (!userProfile) return null;
+  
+  // Get the profile_id from the accounts table
+  const { data: account } = await supabaseServer()
+    .from('accounts')
+    .select('profile_id')
+    .eq('id', userProfile.account_id)
+    .single();
+  
+  return {
+    ...userProfile,
+    profile_id: account?.profile_id
+  };
 }
 
 export async function GET(request: NextRequest) {
@@ -47,7 +60,7 @@ export async function GET(request: NextRequest) {
     const { data: profileData, error: profileError } = await supabase
       .from("profiles")
       .select("phone, profession, address")
-      .eq("id", user.account_id)
+      .eq("id", user.profile_id)
       .single();
 
     if (profileError) {
