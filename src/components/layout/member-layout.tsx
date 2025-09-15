@@ -113,11 +113,13 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
       return;
     }
 
+    // Only proceed if we have valid onboarding status data
     if (onboardingStatus?.success && onboardingStatus.data) {
-      const { onboardingCompleted } = onboardingStatus.data;
+      const { onboardingCompleted, termsAccepted } = onboardingStatus.data;
       
       console.log("Onboarding status check:", { 
         onboardingCompleted, 
+        termsAccepted,
         pathname,
         needsTermsReAcceptance,
         fullStatus: onboardingStatus.data
@@ -134,12 +136,19 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
       }
 
       // Second priority: Check for terms re-acceptance ONLY after onboarding is complete
-      if (onboardingCompleted && needsTermsReAcceptance) {
+      // Only redirect if terms are not accepted AND we need re-acceptance
+      if (onboardingCompleted && !termsAccepted && needsTermsReAcceptance) {
         console.log("Terms re-acceptance needed, redirecting...");
         // Add a small delay to prevent rapid redirects
         setTimeout(() => {
           router.push("/member/terms/re-accept");
         }, 100);
+        return;
+      }
+
+      // If onboarding is completed and terms are accepted, no redirect needed
+      if (onboardingCompleted && termsAccepted) {
+        console.log("Onboarding completed and terms accepted - no redirect needed");
         return;
       }
     }
@@ -151,6 +160,7 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
     termsLoading,
     onboardingStatus?.success, 
     onboardingStatus?.data?.onboardingCompleted, 
+    onboardingStatus?.data?.termsAccepted,
     needsTermsReAcceptance,
     pathname, 
     router

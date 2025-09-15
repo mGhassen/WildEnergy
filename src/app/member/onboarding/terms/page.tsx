@@ -14,15 +14,20 @@ import { FileText, CheckCircle, AlertCircle, LogOut, Sun, Moon } from "lucide-re
 import { useTheme } from "@/components/theme-provider";
 import { useMemberOnboarding, useAcceptTerms } from "@/hooks/useMemberOnboarding";
 import { FormSkeleton } from "@/components/skeletons";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function TermsOnboarding() {
   const { user, logout, isLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const { theme, toggleTheme } = useTheme();
+  const queryClient = useQueryClient();
   
   // Get member ID from user
   const memberId = user?.member_id;
+  
+  // State for terms acceptance loading
+  const [acceptingTerms, setAcceptingTerms] = useState(false);
   
   // Fetch onboarding data
   const { data: onboarding, isLoading: onboardingLoading } = useMemberOnboarding(memberId || '');
@@ -179,6 +184,30 @@ export default function TermsOnboarding() {
     );
   }
 
+  // Show completion loading state after terms acceptance
+  if (acceptingTerms) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center p-4">
+        <div className="w-full max-w-2xl text-center">
+          <div className="mb-8">
+            <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <CheckCircle className="w-8 h-8 text-primary animate-pulse" />
+            </div>
+            <h1 className="text-2xl font-bold text-foreground mb-2">
+              Finalisation de votre inscription...
+            </h1>
+            <p className="text-muted-foreground">
+              Veuillez patienter pendant que nous finalisons votre inscription.
+            </p>
+          </div>
+          <div className="w-full bg-muted rounded-full h-2">
+            <div className="bg-primary h-2 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const handleAcceptTerms = async () => {
     if (!termsAccepted) {
       toast({
@@ -199,7 +228,7 @@ export default function TermsOnboarding() {
     }
 
     acceptTermsMutation.mutate({ memberId }, {
-      onSuccess: () => {
+      onSuccess: async () => {
         // Clear all onboarding data from localStorage
         localStorage.removeItem('onboarding-personal-info');
         localStorage.removeItem('onboarding-terms-accepted');
@@ -209,12 +238,22 @@ export default function TermsOnboarding() {
           description: "Votre inscription est maintenant complète. Bienvenue chez Wild Energy !",
         });
         
-        // Add a longer delay to ensure cache is updated and database is propagated before redirect
+        // Show loading state and wait for cache to be properly updated
+        setAcceptingTerms(true);
+        
+        // Force refetch all related queries to ensure fresh data
+        await queryClient.refetchQueries({ queryKey: ['/api/member/onboarding/status'] });
+        await queryClient.refetchQueries({ queryKey: ['member'] });
+        await queryClient.refetchQueries({ queryKey: ['terms-re-acceptance'] });
+        
+        // Wait a bit more to ensure all data is fresh before redirect
         setTimeout(() => {
+          setAcceptingTerms(false);
           router.replace("/member");
-        }, 1500);
+        }, 2000);
       },
       onError: (error: any) => {
+        setAcceptingTerms(false);
         toast({
           title: "Erreur",
           description: error.message || "Une erreur est survenue",
