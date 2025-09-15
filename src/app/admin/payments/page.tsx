@@ -207,7 +207,7 @@ export default function AdminPayments() {
 
   const getPaymentStatusColor = (status: string) => {
     switch (status) {
-      case 'completed':
+      case 'paid':
         return 'bg-green-500';
       case 'pending':
         return 'bg-yellow-500';
@@ -224,7 +224,7 @@ export default function AdminPayments() {
 
   const getPaymentStatusText = (status: string) => {
     switch (status) {
-      case 'completed':
+      case 'paid':
         return '✅ Paid';
       case 'pending':
         return '⏳ Pending';
@@ -274,6 +274,8 @@ export default function AdminPayments() {
     if (!editingPayment) return;
     
     const updateData = {
+      subscription_id: editingPayment.subscription_id,
+      member_id: editingPayment.member_id,
       amount: parseFloat(editFormData.amount),
       payment_type: editFormData.payment_type,
       payment_status: editFormData.payment_status,
@@ -285,12 +287,22 @@ export default function AdminPayments() {
     updatePaymentMutation.mutate({
       paymentId: editingPayment.id,
       data: updateData
+    }, {
+      onSuccess: () => {
+        setIsEditModalOpen(false);
+        setEditingPayment(null);
+      }
     });
   };
 
   const handleDeleteConfirm = () => {
     if (!paymentToDelete) return;
-    deletePaymentMutation.mutate(paymentToDelete.id);
+    deletePaymentMutation.mutate(paymentToDelete.id, {
+      onSuccess: () => {
+        setIsDeleteModalOpen(false);
+        setPaymentToDelete(null);
+      }
+    });
   };
 
   if (isLoading) {
@@ -483,7 +495,7 @@ export default function AdminPayments() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All statuses</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="failed">Failed</SelectItem>
                   <SelectItem value="refunded">Refunded</SelectItem>
@@ -700,6 +712,7 @@ export default function AdminPayments() {
                   <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="paid">Paid</SelectItem>
                   <SelectItem value="failed">Failed</SelectItem>
+                  <SelectItem value="refunded">Refunded</SelectItem>
                   <SelectItem value="cancelled">Cancelled</SelectItem>
                 </SelectContent>
               </Select>

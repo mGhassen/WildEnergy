@@ -34,12 +34,15 @@ export interface CreatePaymentData {
 }
 
 export interface UpdatePaymentData {
+  subscription_id?: number;
   member_id?: string;
   amount?: number;
   payment_type?: string;
   payment_reference?: string;
+  transaction_id?: string;
   payment_status?: string;
   payment_date?: string;
+  notes?: string;
 }
 
 export const paymentApi = {
