@@ -63,7 +63,10 @@ export default function MemberHome() {
 
   // Calculate insights
   const activeSubs = Array.isArray(subscriptions) ? subscriptions.filter((s: any) => s.status === "active") : [];
-  const totalSessionsRemaining = activeSubs.reduce((sum: number, s: any) => sum + (s.sessions_remaining || 0), 0);
+  const totalSessionsRemaining = activeSubs.reduce((sum: number, s: any) => {
+    const groupSessions = s.subscription_group_sessions || [];
+    return sum + groupSessions.reduce((groupSum: number, group: any) => groupSum + (group.sessions_remaining || 0), 0);
+  }, 0);
   const totalActive = activeSubs.length;
 
   const registrationsArr = Array.isArray(registrations) ? registrations : [];

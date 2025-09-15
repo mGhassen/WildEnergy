@@ -296,13 +296,12 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    // Get user's active subscription for backward compatibility
+    // Get user's active subscription
     const { data: activeSubscription, error: subscriptionError } = await supabaseServer()
       .from('subscriptions')
-      .select('id, sessions_remaining')
+      .select('id')
       .eq('member_id', userProfile.member_id)
       .eq('status', 'active')
-      .gt('sessions_remaining', 0)
       .order('end_date', { ascending: false })
       .limit(1)
       .single();
@@ -313,7 +312,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (!activeSubscription) {
-      return NextResponse.json({ error: 'No active subscription with sessions remaining' }, { status: 400 });
+      return NextResponse.json({ error: 'No active subscription found' }, { status: 400 });
     }
 
     // Use the stored procedure to handle registration with session deduction
