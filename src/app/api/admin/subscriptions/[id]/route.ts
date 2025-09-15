@@ -107,9 +107,14 @@ export async function PUT(request: NextRequest) {
         *,
         members:member_id (
           id,
-          first_name,
-          last_name,
-          email
+          account_id,
+          profiles:profile_id (
+            first_name,
+            last_name
+          ),
+          accounts:account_id (
+            email
+          )
         ),
         plans:plan_id (
           id,
@@ -144,9 +149,9 @@ export async function PUT(request: NextRequest) {
       updated_at: updatedSubscription.updated_at,
       member: memberData ? {
         id: memberData.id,
-        firstName: memberData.first_name,
-        lastName: memberData.last_name,
-        email: memberData.email,
+        firstName: memberData.profiles?.first_name || '',
+        lastName: memberData.profiles?.last_name || '',
+        email: memberData.accounts?.email || '',
       } : null,
       plan: planData ? {
         id: planData.id,
