@@ -39,7 +39,7 @@ interface AuthState {
   refreshSession: () => Promise<void>;
   authError: string | null;
   // Additional auth operations
-  register: (data: RegisterData) => Promise<void>;
+  register: (data: RegisterData) => Promise<AuthResponse>;
   forgotPassword: (email: string) => Promise<void>;
   resetPassword: (token: string, password: string) => Promise<void>;
   acceptInvitation: (token: string, password: string) => Promise<void>;
@@ -402,7 +402,31 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // Additional auth operations
     register: async (data: RegisterData) => {
       try {
-        await authApi.register(data);
+        const response = await authApi.register(data);
+        
+        // If registration was successful and includes session data, set the user
+        if (response.success && response.session && response.user) {
+          // Create a mock session object for the auth state
+          const mockSession = {
+            access_token: response.session.access_token,
+            refresh_token: response.session.refresh_token,
+            user: response.user
+          };
+          
+          // Set the user in the auth state
+          setUser(response.user);
+          
+          // Store session in localStorage for persistence
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('access_token', response.session.access_token);
+            if (response.session.refresh_token) {
+              localStorage.setItem('refresh_token', response.session.refresh_token);
+            }
+            localStorage.setItem('auth_session', JSON.stringify(mockSession));
+          }
+        }
+        
+        return response;
       } catch (error: any) {
         throw new Error(error.message || 'Registration failed');
       }

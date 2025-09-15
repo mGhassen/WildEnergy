@@ -24,6 +24,8 @@ export interface AuthResponse {
   redirectTo?: string;
   status?: string;
   authStatus?: string;
+  message?: string;
+  userId?: string;
 }
 
 export interface SessionData {
