@@ -97,7 +97,7 @@ export default function MobileApp() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/registrations'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/member/registrations'] });
       queryClient.invalidateQueries({ queryKey: ['/api/member/subscription'] });
       toast({
         title: "Registered successfully",

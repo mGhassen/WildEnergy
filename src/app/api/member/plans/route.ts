@@ -9,7 +9,7 @@ async function getUserFromToken(token: string) {
   const { data: userProfile } = await supabaseServer()
     .from('user_profiles')
     .select('account_id, is_admin')
-    .eq('account_id', authData.user.id)
+    .eq('email', authData.user.email)
     .single();
   return userProfile;
 }

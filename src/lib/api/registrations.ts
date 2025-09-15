@@ -102,11 +102,11 @@ export const registrationApi = {
   },
 
   async registerForClass(classId: number, data: { subscription_id?: number }): Promise<Registration> {
-    return apiRequest('POST', `/api/registrations/register/${classId}`, data);
+    return apiRequest('POST', `/api/member/registrations`, { courseId: classId });
   },
 
   async cancelRegistration(registrationId: number): Promise<void> {
-    return apiRequest('POST', `/api/registrations/${registrationId}/cancel`);
+    return apiRequest('POST', `/api/member/registrations/${registrationId}/cancel`);
   },
 
   async forceRegistration(courseId: number): Promise<Registration> {
@@ -114,7 +114,7 @@ export const registrationApi = {
   },
 
   async getMemberRegistrations(): Promise<Registration[]> {
-    return apiRequest('GET', '/api/registrations');
+    return apiRequest('GET', '/api/member/registrations');
   },
 
   // Admin-specific operations

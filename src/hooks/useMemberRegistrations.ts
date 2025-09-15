@@ -4,7 +4,7 @@ import { registrationApi, Registration } from '@/lib/api/registrations';
 // Member Registrations Hook
 export const useMemberRegistrations = () => {
   return useQuery<Registration[]>({
-    queryKey: ['/api/registrations'],
+    queryKey: ['/api/member/registrations'],
     queryFn: registrationApi.getMemberRegistrations,
   });
 };
