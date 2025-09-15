@@ -207,10 +207,54 @@ export async function GET(
     
     console.log('Individual Is edited:', isEdited);
 
+    // Fetch trainer details for both original and current trainers if they differ
+    let originalTrainerDetails = null;
+    let currentTrainerDetails = null;
+    
+    if (schedule && course.trainer_id !== schedule.trainer_id) {
+      // Fetch original trainer details
+      if (schedule.trainer_id) {
+        const { data: originalTrainer } = await supabaseServer()
+          .from('trainers')
+          .select(`
+            id,
+            account_id,
+            specialization,
+            experience_years,
+            bio,
+            certification,
+            status
+          `)
+          .eq('id', schedule.trainer_id)
+          .single();
+        
+        if (originalTrainer?.account_id) {
+          const { data: originalTrainerUser } = await supabaseServer()
+            .from('user_profiles')
+            .select('first_name, last_name, email, phone')
+            .eq('account_id', originalTrainer.account_id)
+            .single();
+          
+          if (originalTrainerUser) {
+            originalTrainerDetails = {
+              ...originalTrainer,
+              first_name: originalTrainerUser.first_name,
+              last_name: originalTrainerUser.last_name,
+              email: originalTrainerUser.email,
+              phone: originalTrainerUser.phone
+            };
+          }
+        }
+      }
+      
+      // Current trainer details are already fetched above
+      currentTrainerDetails = trainerDetails;
+    }
+
     const differences = schedule ? {
       trainer: course.trainer_id !== schedule.trainer_id ? {
-        original: schedule.trainer_id,
-        current: course.trainer_id
+        original: originalTrainerDetails,
+        current: currentTrainerDetails
       } : null,
       startTime: course.start_time !== schedule.start_time ? {
         original: schedule.start_time,
