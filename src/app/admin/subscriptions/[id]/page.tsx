@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDate } from "@/lib/date";
 import { formatCurrency } from "@/lib/config";
 import { getInitials } from "@/lib/auth";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -174,40 +174,48 @@ export default function AdminSubscriptionDetails() {
   const manualRefundMutation = useManualRefundSessions();
   const consumeSessionMutation = useConsumeSession();
 
-  // Map members from snake_case to camelCase for UI
-  const mappedMembers = Array.isArray(members)
-    ? members.map((m: any) => ({
-        ...m,
-        firstName: m.firstName || m.first_name || '',
-        lastName: m.lastName || m.last_name || '',
-        email: m.email,
-        status: m.member_status,
-        member_status: m.member_status,
-        credit: m.credit || 0,
-      }))
-    : [];
+  // Map members from snake_case to camelCase for UI - memoize to prevent infinite re-renders
+  const mappedMembers = useMemo(() => {
+    return Array.isArray(members)
+      ? members.map((m: any) => ({
+          ...m,
+          firstName: m.firstName || m.first_name || '',
+          lastName: m.lastName || m.last_name || '',
+          email: m.email,
+          status: m.member_status,
+          member_status: m.member_status,
+          credit: m.credit || 0,
+        }))
+      : [];
+  }, [members]);
 
-  // Map snake_case fields to camelCase for UI
-  const mappedPlans = Array.isArray(plans)
-    ? plans.map((plan: any) => ({
-        ...plan,
-        sessionsIncluded: plan.plan_groups?.reduce((sum: number, group: any) => sum + (group.session_count || 0), 0) ?? 0,
-        duration: plan.duration_days ?? plan.duration ?? 0,
-        isActive: plan.is_active ?? plan.isActive ?? true,
-      }))
-    : [];
+  // Map snake_case fields to camelCase for UI - memoize to prevent infinite re-renders
+  const mappedPlans = useMemo(() => {
+    return Array.isArray(plans)
+      ? plans.map((plan: any) => ({
+          ...plan,
+          sessionsIncluded: plan.plan_groups?.reduce((sum: number, group: any) => sum + (group.session_count || 0), 0) ?? 0,
+          duration: plan.duration_days ?? plan.duration ?? 0,
+          isActive: plan.is_active ?? plan.isActive ?? true,
+        }))
+      : [];
+  }, [plans]);
 
-  // Map subscriptions with member and plan data
-  const mappedSubscriptions = Array.isArray(subscriptions) && Array.isArray(mappedMembers) && Array.isArray(plans)
-    ? subscriptions.map((sub: any) => ({
-        ...sub,
-        member: mappedMembers.find((m: any) => m.id === sub.member_id) || null,
-        plan: plans.find((p: any) => p.id === sub.plan_id) || null,
-      }))
-    : [];
+  // Map subscriptions with member and plan data - memoize to prevent infinite re-renders
+  const mappedSubscriptions = useMemo(() => {
+    return Array.isArray(subscriptions) && Array.isArray(mappedMembers) && Array.isArray(plans)
+      ? subscriptions.map((sub: any) => ({
+          ...sub,
+          member: mappedMembers.find((m: any) => m.id === sub.member_id) || null,
+          plan: plans.find((p: any) => p.id === sub.plan_id) || null,
+        }))
+      : [];
+  }, [subscriptions, mappedMembers, plans]);
 
-  // Find the current subscription
-  const subscription = mappedSubscriptions.find((sub: Subscription) => sub.id === parseInt(subscriptionId));
+  // Find the current subscription - memoize to prevent infinite re-renders
+  const subscription = useMemo(() => {
+    return mappedSubscriptions.find((sub: Subscription) => sub.id === parseInt(subscriptionId));
+  }, [mappedSubscriptions, subscriptionId]);
 
   // Get payments for this subscription
   const getPaymentsForSubscription = (subscriptionId: number) => {
@@ -370,7 +378,7 @@ export default function AdminSubscriptionDetails() {
         notes: subscription.notes || '',
       });
     }
-  }, [subscription, subscriptionForm]);
+  }, [subscription]); // Remove subscriptionForm from dependencies to prevent infinite loop
 
   // Utility functions
   const formatPrice = (price: string | number) => {
