@@ -63,6 +63,8 @@ export interface CheckinInfo {
     id: string;
     status: string;
     registeredAt: string;
+    isGuestRegistration?: boolean;
+    notes?: string;
   };
   registeredCount: number;
   checkedInCount: number;
