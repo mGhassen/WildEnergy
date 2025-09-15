@@ -94,10 +94,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const { subscriptionId, sessionsToRefund = 1 } = await req.json();
+    const { subscriptionId, sessionsToRefund = 1, groupId } = await req.json();
     
     if (!subscriptionId) {
       return NextResponse.json({ error: 'Subscription ID is required' }, { status: 400 });
+    }
+
+    if (sessionsToRefund <= 0) {
+      return NextResponse.json({ error: 'Sessions to refund must be greater than 0' }, { status: 400 });
+    }
+
+    if (sessionsToRefund > 100) {
+      return NextResponse.json({ error: 'Cannot refund more than 100 sessions at once' }, { status: 400 });
     }
 
     // Get the subscription
@@ -111,8 +119,91 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Subscription not found' }, { status: 404 });
     }
 
-    // Refund sessions using the new group session system
-    // This is a simplified implementation - in practice, you'd need to specify which group to refund
+    // Get group sessions for this subscription
+    let query = supabaseServer()
+      .from('subscription_group_sessions')
+      .select('*')
+      .eq('subscription_id', subscriptionId);
+
+    // If groupId is specified, filter by that group
+    if (groupId) {
+      query = query.eq('group_id', groupId);
+    }
+
+    const { data: groupSessions, error: groupSessionsError } = await query;
+
+    if (groupSessionsError) {
+      console.error('Error fetching group sessions:', groupSessionsError);
+      return NextResponse.json({ error: 'Failed to fetch subscription group sessions' }, { status: 500 });
+    }
+
+    if (!groupSessions || groupSessions.length === 0) {
+      const errorMsg = groupId 
+        ? `No group sessions found for group ${groupId} in this subscription`
+        : 'No group sessions found for this subscription';
+      return NextResponse.json({ error: errorMsg }, { status: 404 });
+    }
+
+    // Refund sessions to the specified group(s)
+    let sessionsRefunded = 0;
+    
+    if (groupId) {
+      // Refund to specific group
+      const groupSession = groupSessions[0];
+      const sessionsToRefundThisGroup = Math.min(
+        sessionsToRefund,
+        groupSession.total_sessions - groupSession.sessions_remaining
+      );
+      
+      if (sessionsToRefundThisGroup > 0) {
+        const { error: updateError } = await supabaseServer()
+          .from('subscription_group_sessions')
+          .update({ 
+            sessions_remaining: groupSession.sessions_remaining + sessionsToRefundThisGroup,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', groupSession.id);
+
+        if (updateError) {
+          console.error('Error updating group session:', updateError);
+          return NextResponse.json({ error: 'Failed to update group session' }, { status: 500 });
+        }
+        
+        sessionsRefunded = sessionsToRefundThisGroup;
+      }
+    } else {
+      // Refund to all groups (distribute evenly)
+      const sessionsToRefundPerGroup = Math.ceil(sessionsToRefund / groupSessions.length);
+      
+      for (const groupSession of groupSessions) {
+        if (sessionsRefunded >= sessionsToRefund) break;
+        
+        const sessionsToRefundThisGroup = Math.min(
+          sessionsToRefundPerGroup,
+          sessionsToRefund - sessionsRefunded,
+          groupSession.total_sessions - groupSession.sessions_remaining
+        );
+        
+        if (sessionsToRefundThisGroup > 0) {
+          const { error: updateError } = await supabaseServer()
+            .from('subscription_group_sessions')
+            .update({ 
+              sessions_remaining: groupSession.sessions_remaining + sessionsToRefundThisGroup,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', groupSession.id);
+
+          if (updateError) {
+            console.error('Error updating group session:', updateError);
+            return NextResponse.json({ error: 'Failed to update group session' }, { status: 500 });
+          }
+          
+          sessionsRefunded += sessionsToRefundThisGroup;
+        }
+      }
+    }
+
+    // Update subscription timestamp
     const { data: updatedSubscription, error: updateError } = await supabaseServer()
       .from('subscriptions')
       .update({ 
@@ -127,13 +218,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to update subscription' }, { status: 500 });
     }
 
-    console.log(`Manually refunded ${sessionsToRefund} session(s) to subscription ${subscriptionId}`);
+    if (sessionsRefunded === 0) {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'No sessions could be refunded. All group sessions may already be at maximum capacity.',
+        sessionsRefunded: 0
+      }, { status: 400 });
+    }
+
+    console.log(`Manually refunded ${sessionsRefunded} session(s) to subscription ${subscriptionId}`);
     
     return NextResponse.json({ 
       success: true, 
       subscription: updatedSubscription,
-      sessionsRefunded: sessionsToRefund,
-      message: 'Sessions refunded successfully (group session system)'
+      sessionsRefunded: sessionsRefunded,
+      message: `Successfully refunded ${sessionsRefunded} session(s) to subscription group sessions`
     });
 
   } catch (error) {

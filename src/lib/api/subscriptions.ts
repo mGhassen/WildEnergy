@@ -78,8 +78,8 @@ export const subscriptionApi = {
     return apiRequest('GET', '/api/member/subscription');
   },
 
-  async manualRefundSessions(subscriptionId: number, sessionsToRefund: number): Promise<any> {
-    return apiRequest('POST', '/api/member/subscriptions', { subscriptionId, sessionsToRefund });
+  async manualRefundSessions(subscriptionId: number, sessionsToRefund: number, groupId?: number): Promise<any> {
+    return apiRequest('POST', '/api/member/subscriptions', { subscriptionId, sessionsToRefund, groupId });
   },
 
   async consumeSession(subscriptionId: number, groupId: number): Promise<any> {
