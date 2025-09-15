@@ -484,7 +484,7 @@ export async function POST(
           // Use the stored procedure to handle registration with session deduction
           const { data: result, error: procedureError } = await supabaseServer()
             .rpc('create_registration_with_updates', {
-              p_member_id: memberId,
+              p_user_id: memberId,
               p_course_id: courseId,
               p_current_participants: course.current_participants + registrationResults.length,
               p_subscription_id: activeSubscription.id,

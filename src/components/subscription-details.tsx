@@ -9,12 +9,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCreatePayment } from "@/hooks/usePayments";
 import { formatDate } from "@/lib/date";
 import { formatCurrency, CURRENCY_SYMBOL } from "@/lib/config";
-import { CreditCard, Info, Calendar, Users, Plus, DollarSign } from "lucide-react";
+import { CreditCard, Info, Calendar, Users, Plus, DollarSign, AlertTriangle } from "lucide-react";
 
 interface Plan {
   id: number;
@@ -130,6 +131,11 @@ export function SubscriptionDetails({
   
   // Calculate remaining amount
   const remainingAmount = Math.max(0, planPrice - totalPaid);
+  
+  // Determine payment status
+  const isFullyPaid = remainingAmount === 0;
+  const hasPartialPayment = totalPaid > 0 && !isFullyPaid;
+  const hasNoPayment = totalPaid === 0;
 
   // Payment creation mutation
   const createPaymentMutation = useCreatePayment();
@@ -227,11 +233,31 @@ export function SubscriptionDetails({
                 <p className="text-2xl font-bold text-foreground">{formatPrice(plan.price ?? 0)}</p>
                 <p className="text-xs text-muted-foreground mt-1">{plan.name}</p>
               </div>
-              <div className="text-center p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800/30">
+              <div className={`text-center p-4 rounded-lg border ${
+                hasNoPayment
+                  ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800/30'
+                  : hasPartialPayment
+                    ? 'bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-800/30'
+                    : 'bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800/30'
+              }`}>
                 <p className="text-sm text-muted-foreground mb-1">Payment Status</p>
-                <p className="text-lg font-bold text-foreground">{formatPrice(totalPaid)}</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {remainingAmount > 0 ? `${formatPrice(remainingAmount)} remaining` : 'Fully paid'}
+                <p className={`text-lg font-bold ${
+                  hasNoPayment
+                    ? 'text-red-600 dark:text-red-400'
+                    : hasPartialPayment
+                      ? 'text-yellow-600 dark:text-yellow-400'
+                      : 'text-foreground'
+                }`}>
+                  {formatPrice(totalPaid)}
+                </p>
+                <p className={`text-xs mt-1 ${
+                  hasNoPayment
+                    ? 'text-red-600 dark:text-red-400'
+                    : hasPartialPayment
+                      ? 'text-yellow-600 dark:text-yellow-400'
+                      : 'text-muted-foreground'
+                }`}>
+                  {isFullyPaid ? 'Fully paid' : `${formatPrice(remainingAmount)} remaining`}
                 </p>
               </div>
               <div className="text-center p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800/30">
@@ -242,6 +268,34 @@ export function SubscriptionDetails({
                 <p className="text-xs text-muted-foreground mt-1">Until {formatDate(subscription.end_date)}</p>
               </div>
             </div>
+
+            {/* Payment Alert */}
+            {!isFullyPaid && (
+              <Alert className={`${
+                hasNoPayment
+                  ? 'border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800/30'
+                  : 'border-yellow-200 bg-yellow-50 dark:bg-yellow-950/20 dark:border-yellow-800/30'
+              }`}>
+                <AlertTriangle className={`h-4 w-4 ${
+                  hasNoPayment
+                    ? 'text-red-600 dark:text-red-400'
+                    : 'text-yellow-600 dark:text-yellow-400'
+                }`} />
+                <AlertDescription className={`${
+                  hasNoPayment
+                    ? 'text-red-800 dark:text-red-200'
+                    : 'text-yellow-800 dark:text-yellow-200'
+                }`}>
+                  <strong>
+                    {hasNoPayment ? 'Payment Required:' : 'Complete Payment:'}
+                  </strong> You have a remaining balance of {formatPrice(remainingAmount)}. 
+                  {hasNoPayment 
+                    ? ' Please make your payment to activate your subscription.'
+                    : ' Please complete your payment to maintain full access to your subscription.'
+                  }
+                </AlertDescription>
+              </Alert>
+            )}
 
             {/* Subscription & Plan Information */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
