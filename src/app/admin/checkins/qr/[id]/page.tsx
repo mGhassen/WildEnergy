@@ -64,6 +64,8 @@ interface CheckinInfo {
     id: string;
     status: string;
     registeredAt: string;
+    isGuestRegistration?: boolean;
+    notes?: string;
   };
   registeredCount: number;
   checkedInCount: number;
@@ -428,7 +430,26 @@ export default function CheckinQRPage() {
                         </h4>
                         <p className="text-yellow-700 text-sm">This member does not have an active subscription.</p>
                       </div>
-                  )}
+                    )}
+
+                    {/* Guest Registration Information */}
+                    {checkinInfo.registration?.isGuestRegistration && (
+                      <div className="mt-4 p-3 bg-purple-100 border border-purple-300 rounded-lg">
+                        <h4 className="font-semibold text-purple-800 mb-2 flex items-center">
+                          <Users className="w-4 h-4 mr-1" />
+                          Guest Registration
+                        </h4>
+                        <p className="text-purple-700 text-sm">
+                          This member was registered as a <strong>guest</strong> by an admin. 
+                          This check-in will be counted as a guest check-in and will not consume any subscription sessions.
+                        </p>
+                        {checkinInfo.registration.notes && (
+                          <p className="text-purple-600 text-xs mt-1 italic">
+                            Note: {checkinInfo.registration.notes}
+                          </p>
+                        )}
+                      </div>
+                    )}
                 </div>
                 )}
               </div>
@@ -741,8 +762,8 @@ export default function CheckinQRPage() {
               <div className="space-y-2">
               <Button 
                 onClick={checkIn} 
-                  disabled={checkInMutation.isPending || !checkinInfo?.member?.activeSubscription || (checkinInfo.member?.activeSubscription?.sessionsRemaining || 0) <= 0}
-                  className="w-full h-12 text-lg font-semibold"
+                  disabled={checkInMutation.isPending || (!checkinInfo?.member?.activeSubscription && !checkinInfo?.registration?.isGuestRegistration) || ((checkinInfo.member?.activeSubscription?.sessionsRemaining || 0) <= 0 && !checkinInfo?.registration?.isGuestRegistration)}
+                  className={`w-full h-12 text-lg font-semibold ${checkinInfo?.registration?.isGuestRegistration ? 'bg-purple-600 hover:bg-purple-700' : ''}`}
                   size="lg"
               >
                 {checkInMutation.isPending ? (
@@ -753,18 +774,25 @@ export default function CheckinQRPage() {
                 ) : (
                   <>
                       <CheckCircle className="w-5 h-5 mr-2" />
-                      ✅ Approve Check-in
+                      {checkinInfo?.registration?.isGuestRegistration ? '🎉 Approve Guest Check-in' : '✅ Approve Check-in'}
                   </>
                 )}
               </Button>
                 
-                {/* Warning messages */}
-                {!checkinInfo?.member?.activeSubscription && (
+                {/* Guest check-in message */}
+                {checkinInfo?.registration?.isGuestRegistration && (
+                  <div className="text-center text-sm text-purple-700 bg-purple-50 p-2 rounded border">
+                    🎉 Guest Check-in: This check-in will not consume any subscription sessions
+                  </div>
+                )}
+                
+                {/* Warning messages for regular registrations */}
+                {!checkinInfo?.member?.activeSubscription && !checkinInfo?.registration?.isGuestRegistration && (
                   <div className="text-center text-sm text-red-600 bg-red-50 p-2 rounded border">
                     ⚠️ Cannot check in: No active subscription
                   </div>
                 )}
-                {(checkinInfo?.member?.activeSubscription?.sessionsRemaining || 0) <= 0 && checkinInfo?.member?.activeSubscription && (
+                {(checkinInfo?.member?.activeSubscription?.sessionsRemaining || 0) <= 0 && checkinInfo?.member?.activeSubscription && !checkinInfo?.registration?.isGuestRegistration && (
                   <div className="text-center text-sm text-red-600 bg-red-50 p-2 rounded border">
                     ⚠️ Cannot check in: No sessions remaining
                   </div>

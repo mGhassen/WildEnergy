@@ -431,6 +431,17 @@ export async function POST(
             continue;
           }
 
+          // Increment guest count for the member
+          const { error: guestCountError } = await supabaseServer()
+            .rpc('increment_member_guest_count', {
+              p_member_id: memberId
+            });
+
+          if (guestCountError) {
+            console.error('Failed to increment guest count for member:', memberId, guestCountError);
+            // Don't fail the registration, just log the error
+          }
+
           // Update course participant count for guest registration
           const { error: updateError } = await supabaseServer()
             .from('courses')
