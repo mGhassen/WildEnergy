@@ -15,7 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertPlanSchema, insertPlanGroupSchema } from "@/shared/zod-schemas";
-import { Plus, Search, Edit, Trash2, Clock, X, Star, Users, Calendar, DollarSign, Zap, Grid3X3, Table } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Clock, X, Star, Users, Calendar, DollarSign, Zap, Grid3X3, Table, ChevronDown, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 import { formatCurrency } from "@/lib/config";
@@ -48,6 +48,7 @@ export default function AdminPlans() {
   const [deletingPlan, setDeletingPlan] = useState<any>(null);
   const [linkedSubscriptions, setLinkedSubscriptions] = useState<any[]>([]);
   const [viewType, setViewType] = useState<'cards' | 'table'>('cards');
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -75,6 +76,26 @@ export default function AdminPlans() {
   const updatePlanMutation = useUpdatePlan();
   const deletePlanMutation = useDeletePlan();
   const checkDeletionMutation = useCheckPlanDeletion();
+
+  // Helper function to get categories from a group (admin structure)
+  const getGroupCategories = (group: any) => {
+    if (!group.groups?.category_groups) return [];
+    return group.groups.category_groups.map((cg: any) => cg.categories);
+  };
+
+  // Toggle group expansion
+  const toggleGroup = (planId: number, groupIndex: number) => {
+    const groupKey = `${planId}-${groupIndex}`;
+    setExpandedGroups(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(groupKey)) {
+        newSet.delete(groupKey);
+      } else {
+        newSet.add(groupKey);
+      }
+      return newSet;
+    });
+  };
 
 
   const filteredPlans = Array.isArray(plans) ? plans.filter((plan: any) =>
@@ -783,26 +804,61 @@ export default function AdminPlans() {
                   {/* Plan Groups Details - Collapsible */}
                   {plan.plan_groups && plan.plan_groups.length > 0 && (
                     <div className="mt-3 pt-3 border-t border-border/50">
-                      <div className="flex flex-wrap gap-2">
-                        {plan.plan_groups.map((group: any, index: number) => (
-                          <div key={index} className="flex items-center gap-2 px-2 py-1 bg-muted/30 rounded-md text-xs">
-                            <div 
-                              className="w-2 h-2 rounded-full border border-white/20" 
-                              style={{ backgroundColor: group.groups?.color || '#6B7280' }}
-                            />
-                            <span className="font-medium text-foreground">
-                              {group.groups?.name || 'Unknown Group'}
-                            </span>
-                            <span className="text-muted-foreground">
-                              ({group.session_count}s)
-                            </span>
-                            {group.is_free && (
-                              <Badge variant="outline" className="text-xs bg-green-100 text-green-700 border-green-200 px-1 py-0">
-                                FREE
-                              </Badge>
-                            )}
-                          </div>
-                        ))}
+                      <div className="space-y-2">
+                        {plan.plan_groups.map((group: any, index: number) => {
+                          const categories = getGroupCategories(group);
+                          const groupKey = `${plan.id}-${index}`;
+                          const isExpanded = expandedGroups.has(groupKey);
+                          
+                          return (
+                            <div key={index} className="space-y-1">
+                              <div 
+                                className="flex items-center gap-2 px-2 py-1 bg-muted/30 rounded-md text-xs cursor-pointer hover:bg-muted/50 transition-colors"
+                                onClick={() => toggleGroup(plan.id, index)}
+                              >
+                                <div 
+                                  className="w-2 h-2 rounded-full border border-white/20" 
+                                  style={{ backgroundColor: group.groups?.color || '#6B7280' }}
+                                />
+                                <span className="font-medium text-foreground">
+                                  {group.groups?.name || 'Unknown Group'}
+                                </span>
+                                <span className="text-muted-foreground">
+                                  ({group.session_count}s)
+                                </span>
+                                {group.is_free && (
+                                  <Badge variant="outline" className="text-xs bg-green-100 text-green-700 border-green-200 px-1 py-0">
+                                    FREE
+                                  </Badge>
+                                )}
+                                {categories.length > 0 && (
+                                  <div className="flex items-center ml-auto">
+                                    {isExpanded ? (
+                                      <ChevronDown className="w-3 h-3 text-muted-foreground" />
+                                    ) : (
+                                      <ChevronRight className="w-3 h-3 text-muted-foreground" />
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                              {categories.length > 0 && isExpanded && (
+                                <div className="ml-4 text-xs text-muted-foreground animate-in slide-in-from-top-1 duration-200">
+                                  <div className="space-y-1">
+                                    {categories.map((cat: any, catIndex: number) => (
+                                      <div key={catIndex} className="flex items-center gap-2">
+                                        <div 
+                                          className="w-1.5 h-1.5 rounded-full flex-shrink-0" 
+                                          style={{ backgroundColor: cat.color || '#6B7280' }}
+                                        />
+                                        <span>{cat.name}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}

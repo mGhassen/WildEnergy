@@ -208,6 +208,28 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
 
     checkAuth();
+
+    // Listen for authentication state changes (e.g., from OAuth success)
+    const handleAuthStateChange = () => {
+      console.log('Auth state change event received, refreshing session...');
+      checkAuth();
+    };
+
+    // Also listen for page visibility changes to catch OAuth redirects
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('Page became visible, checking auth state...');
+        checkAuth();
+      }
+    };
+
+    window.addEventListener('auth-state-changed', handleAuthStateChange);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('auth-state-changed', handleAuthStateChange);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []); // Remove router dependency to prevent re-running on navigation
 
   // Handle redirection when user changes (only on initial load)

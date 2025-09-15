@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
     
-    // Fetch linked members using new system with subscriptions
+    // Fetch linked members using new system with subscriptions and group sessions
     const { data: linkedMembers, error: linkedError } = await supabaseServer()
       .from('user_profiles')
       .select(`
@@ -36,7 +36,17 @@ export async function GET(req: NextRequest) {
           status,
           notes,
           created_at,
-          updated_at
+          updated_at,
+          subscription_group_sessions:subscription_group_sessions(
+            id,
+            group_id,
+            sessions_remaining,
+            total_sessions,
+            groups:groups(
+              id,
+              name
+            )
+          )
         )
       `)
       .not('member_id', 'is', null) // Only users with member records
@@ -79,23 +89,36 @@ export async function GET(req: NextRequest) {
     })) || [];
 
     // Format linked members
-    const linkedMembersFormatted = (linkedMembers || []).map((m: any) => ({ 
-      id: m.member_id,
-      account_id: m.account_id,
-      first_name: m.first_name,
-      last_name: m.last_name,
-      email: m.email,
-      phone: m.phone,
-      is_member: true,
-      credit: m.credit ?? 0,
-      member_notes: m.member_notes,
-      member_status: m.member_status,
-      account_status: m.account_status, // Include account status
-      user_type: m.user_type,
-      accessible_portals: m.accessible_portals,
-      subscriptions: m.subscriptions || [],
-      groupSessions: m.subscriptions?.[0]?.subscription_group_sessions || []
-    }));
+    const linkedMembersFormatted = (linkedMembers || []).map((m: any) => {
+      // Flatten group sessions from all subscriptions
+      const allGroupSessions = (m.subscriptions || []).flatMap((sub: any) => 
+        (sub.subscription_group_sessions || []).map((sgs: any) => ({
+          group_id: sgs.group_id,
+          group_name: sgs.groups?.name || 'Unknown Group',
+          sessions_remaining: sgs.sessions_remaining,
+          total_sessions: sgs.total_sessions,
+          subscription_id: sub.id
+        }))
+      );
+
+      return { 
+        id: m.member_id,
+        account_id: m.account_id,
+        first_name: m.first_name,
+        last_name: m.last_name,
+        email: m.email,
+        phone: m.phone,
+        is_member: true,
+        credit: m.credit ?? 0,
+        member_notes: m.member_notes,
+        member_status: m.member_status,
+        account_status: m.account_status, // Include account status
+        user_type: m.user_type,
+        accessible_portals: m.accessible_portals,
+        subscriptions: m.subscriptions || [],
+        groupSessions: allGroupSessions
+      };
+    });
 
     // Format unlinked members
     const unlinkedMembersFormatted = unlinkedMembersWithProfiles.map((m: any) => ({ 

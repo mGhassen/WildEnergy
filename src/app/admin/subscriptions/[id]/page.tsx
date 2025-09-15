@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDate } from "@/lib/date";
 import { formatCurrency } from "@/lib/config";
 import { getInitials } from "@/lib/auth";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -23,7 +23,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useCreatePayment, useUpdatePayment, useDeletePayment } from "@/hooks/usePayments";
-import { useUpdateSubscription, useDeleteSubscription, useManualRefundSessions } from "@/hooks/useSubscriptions";
+import { useUpdateSubscription, useDeleteSubscription, useManualRefundSessions, useConsumeSession } from "@/hooks/useSubscriptions";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 import { ConfirmationDialog } from "@/components/confirmation-dialog";
@@ -105,6 +105,18 @@ const paymentFormSchema = z.object({
 
 type PaymentFormData = z.infer<typeof paymentFormSchema>;
 
+// Subscription form schema
+const subscriptionFormSchema = z.object({
+  member_id: z.number().min(1, "Member is required"),
+  plan_id: z.number().min(1, "Plan is required"),
+  start_date: z.string().min(1, "Start date is required"),
+  end_date: z.string().min(1, "End date is required"),
+  status: z.enum(["active", "inactive", "expired", "cancelled"]),
+  notes: z.string().optional(),
+});
+
+type SubscriptionFormData = z.infer<typeof subscriptionFormSchema>;
+
 export default function AdminSubscriptionDetails() {
   const params = useParams();
   const router = useRouter();
@@ -117,6 +129,8 @@ export default function AdminSubscriptionDetails() {
   const [paymentToDelete, setPaymentToDelete] = useState<Payment | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [subscriptionToDelete, setSubscriptionToDelete] = useState<number | null>(null);
+  const [isConsumeSessionModalOpen, setIsConsumeSessionModalOpen] = useState(false);
+  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   
   const { toast } = useToast();
 
@@ -125,6 +139,40 @@ export default function AdminSubscriptionDetails() {
   const { data: members = [], isLoading: loadingMembers } = useMembers();
   const { data: plans = [], isLoading: loadingPlans } = usePlans();
   const { data: payments = [], isLoading: loadingPayments } = usePayments();
+
+  // Forms
+  const paymentForm = useForm<PaymentFormData>({
+    resolver: zodResolver(paymentFormSchema),
+    defaultValues: {
+      subscription_id: parseInt(subscriptionId),
+      amount: 0,
+      payment_type: 'cash',
+      status: 'paid',
+      payment_date: new Date().toISOString().split('T')[0],
+      payment_reference: '',
+    },
+  });
+
+  const subscriptionForm = useForm<SubscriptionFormData>({
+    resolver: zodResolver(subscriptionFormSchema),
+    defaultValues: {
+      member_id: 0,
+      plan_id: 0,
+      start_date: '',
+      end_date: '',
+      status: 'active',
+      notes: '',
+    },
+  });
+
+  // Mutations
+  const createPaymentMutation = useCreatePayment();
+  const updatePaymentMutation = useUpdatePayment();
+  const deletePaymentMutation = useDeletePayment();
+  const updateSubscriptionMutation = useUpdateSubscription();
+  const deleteSubscriptionMutation = useDeleteSubscription();
+  const manualRefundMutation = useManualRefundSessions();
+  const consumeSessionMutation = useConsumeSession();
 
   // Map members from snake_case to camelCase for UI
   const mappedMembers = Array.isArray(members)
@@ -174,26 +222,6 @@ export default function AdminSubscriptionDetails() {
   const remainingAmount = Math.max(0, planPrice - totalPaid);
   const isFullyPaid = remainingAmount === 0;
 
-  // Forms
-  const paymentForm = useForm<PaymentFormData>({
-    resolver: zodResolver(paymentFormSchema),
-    defaultValues: {
-      subscription_id: parseInt(subscriptionId),
-      amount: 0,
-      payment_type: "cash",
-      status: "paid",
-      payment_date: new Date().toISOString().split('T')[0],
-      payment_reference: "",
-    },
-  });
-
-  // Mutations
-  const createPaymentMutation = useCreatePayment();
-  const updatePaymentMutation = useUpdatePayment();
-  const deletePaymentMutation = useDeletePayment();
-  const updateSubscriptionMutation = useUpdateSubscription();
-  const deleteSubscriptionMutation = useDeleteSubscription();
-  const manualRefundMutation = useManualRefundSessions();
 
   // Event handlers
   const openPaymentModal = (override?: { amount?: number; payment_type?: PaymentFormData['payment_type'] }) => {
@@ -285,6 +313,65 @@ export default function AdminSubscriptionDetails() {
     }
   };
 
+  const handleSubscriptionSubmit = (data: SubscriptionFormData) => {
+    if (!subscription?.id) return;
+    
+    updateSubscriptionMutation.mutate({
+      subscriptionId: subscription.id,
+      data: {
+        member_id: data.member_id,
+        plan_id: data.plan_id,
+        start_date: data.start_date,
+        end_date: data.end_date,
+        status: data.status,
+        notes: data.notes,
+      }
+    }, {
+      onSuccess: () => {
+        setIsEditModalOpen(false);
+        toast({
+          title: "Success",
+          description: "Subscription updated successfully",
+        });
+      },
+      onError: (error: any) => {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to update subscription",
+          variant: "destructive",
+        });
+      }
+    });
+  };
+
+  const handleConsumeSession = () => {
+    if (!subscription?.id || !selectedGroupId) return;
+    
+    consumeSessionMutation.mutate({
+      subscriptionId: subscription.id,
+      groupId: selectedGroupId
+    }, {
+      onSuccess: () => {
+        setIsConsumeSessionModalOpen(false);
+        setSelectedGroupId(null);
+      }
+    });
+  };
+
+  // Initialize subscription form when subscription data is available
+  useEffect(() => {
+    if (subscription) {
+      subscriptionForm.reset({
+        member_id: subscription.member_id || 0,
+        plan_id: subscription.plan_id || 0,
+        start_date: subscription.start_date ? subscription.start_date.split('T')[0] : '',
+        end_date: subscription.end_date ? subscription.end_date.split('T')[0] : '',
+        status: subscription.status || 'active',
+        notes: subscription.notes || '',
+      });
+    }
+  }, [subscription, subscriptionForm]);
+
   // Utility functions
   const formatPrice = (price: string | number) => {
     return formatCurrency(Number(price));
@@ -367,6 +454,13 @@ export default function AdminSubscriptionDetails() {
           >
             <RefreshCw className="w-4 h-4 mr-2" />
             {manualRefundMutation.isPending ? 'Refunding...' : 'Refund 1 Session'}
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => setIsConsumeSessionModalOpen(true)}
+          >
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Consume 1 Session
           </Button>
           {!isFullyPaid && (
             <Button onClick={() => openPaymentModal()}>
@@ -641,6 +735,238 @@ export default function AdminSubscriptionDetails() {
               {deletePaymentMutation.isPending ? "Deleting..." : "Delete"}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Subscription Edit Modal */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Subscription</DialogTitle>
+            <DialogDescription>
+              Update subscription details
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...subscriptionForm}>
+            <form onSubmit={subscriptionForm.handleSubmit(handleSubscriptionSubmit)} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Controller
+                  name="member_id"
+                  control={subscriptionForm.control}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Member</FormLabel>
+                      <Select
+                        value={field.value?.toString()}
+                        onValueChange={val => {
+                          field.onChange(parseInt(val));
+                          field.onBlur();
+                        }}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select member" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {mappedMembers.map((member) => (
+                            <SelectItem key={member.id} value={member.id.toString()}>
+                              {member.firstName} {member.lastName} ({member.email})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <Controller
+                  name="plan_id"
+                  control={subscriptionForm.control}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Plan</FormLabel>
+                      <Select
+                        value={field.value?.toString()}
+                        onValueChange={val => {
+                          field.onChange(parseInt(val));
+                          field.onBlur();
+                        }}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select plan" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {mappedPlans.map((plan) => (
+                            <SelectItem key={plan.id} value={plan.id.toString()}>
+                              {plan.name} - {formatPrice(plan.price)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <Controller
+                  name="start_date"
+                  control={subscriptionForm.control}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Start Date</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <Controller
+                  name="end_date"
+                  control={subscriptionForm.control}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>End Date</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <Controller
+                  name="status"
+                  control={subscriptionForm.control}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Status</FormLabel>
+                      <Select
+                        value={field.value}
+                        onValueChange={val => {
+                          field.onChange(val);
+                          field.onBlur();
+                        }}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="inactive">Inactive</SelectItem>
+                          <SelectItem value="expired">Expired</SelectItem>
+                          <SelectItem value="cancelled">Cancelled</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <Controller
+                  name="notes"
+                  control={subscriptionForm.control}
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-2">
+                      <FormLabel>Notes (Optional)</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Add notes..." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={updateSubscriptionMutation.isPending}>
+                  {updateSubscriptionMutation.isPending ? "Updating..." : "Update Subscription"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Consume Session Modal */}
+      <Dialog open={isConsumeSessionModalOpen} onOpenChange={setIsConsumeSessionModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Consume Session</DialogTitle>
+            <DialogDescription>
+              Select which group to consume a session from
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {subscription?.subscription_group_sessions?.length > 0 ? (
+              <div className="space-y-2">
+                {subscription.subscription_group_sessions.map((groupSession: any) => (
+                  <div 
+                    key={groupSession.group_id}
+                    className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                      selectedGroupId === groupSession.group_id 
+                        ? 'border-primary bg-primary/5' 
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                    onClick={() => setSelectedGroupId(groupSession.group_id)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-medium">{groupSession.group?.name}</h4>
+                        <p className="text-sm text-muted-foreground">
+                          {groupSession.sessions_remaining} sessions remaining
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-4 h-4 rounded-full border-2 flex items-center justify-center"
+                          style={{ 
+                            backgroundColor: selectedGroupId === groupSession.group_id ? 'var(--primary)' : 'transparent',
+                            borderColor: groupSession.group?.color || 'var(--border)'
+                          }}
+                        >
+                          {selectedGroupId === groupSession.group_id && (
+                            <div className="w-2 h-2 rounded-full bg-white" />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-center py-4">
+                No group sessions available for this subscription
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setIsConsumeSessionModalOpen(false);
+                setSelectedGroupId(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleConsumeSession}
+              disabled={!selectedGroupId || consumeSessionMutation.isPending}
+            >
+              {consumeSessionMutation.isPending ? 'Consuming...' : 'Consume Session'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

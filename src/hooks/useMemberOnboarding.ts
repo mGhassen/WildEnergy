@@ -119,6 +119,10 @@ export function useAcceptTerms() {
       queryClient.invalidateQueries({ queryKey: ['member'] });
       queryClient.invalidateQueries({ queryKey: ['terms-re-acceptance'] });
       queryClient.invalidateQueries({ queryKey: ['/api/terms'] });
+      
+      // Force refetch the onboarding status immediately
+      queryClient.refetchQueries({ queryKey: ['/api/member/onboarding/status'] });
+      
       toast({
         title: 'Terms accepted',
         description: 'You have successfully accepted the terms and conditions.',

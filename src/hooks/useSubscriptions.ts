@@ -113,6 +113,31 @@ export function useManualRefundSessions() {
   });
 }
 
+export function useConsumeSession() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: ({ subscriptionId, groupId }: { subscriptionId: number; groupId: number }) => 
+      subscriptionApi.consumeSession(subscriptionId, groupId),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
+      queryClient.invalidateQueries({ queryKey: ['subscription'] });
+      toast({
+        title: 'Session consumed',
+        description: data.message || 'Session consumed successfully',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to consume session',
+        description: error.message || 'Please try again',
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
 export function useMemberSubscriptions() {
   return useQuery<Subscription[], Error>({
     queryKey: ['/api/member/subscriptions'],
