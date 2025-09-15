@@ -39,12 +39,12 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { member_id, planId, startDate, endDate, notes, status } = body;
+    const { member_id, plan_id, start_date, end_date, notes, status } = body;
 
     // Validate required fields
-    if (!member_id || !planId || !startDate || !endDate) {
+    if (!member_id || !plan_id || !start_date || !end_date) {
       return NextResponse.json({ 
-        error: 'Missing required fields: member_id, planId, startDate, endDate' 
+        error: 'Missing required fields: member_id, plan_id, start_date, end_date' 
       }, { status: 400 });
     }
 
@@ -63,7 +63,7 @@ export async function PUT(request: NextRequest) {
     const { data: plan, error: planError } = await supabaseServer()
       .from('plans')
       .select('*')
-      .eq('id', planId)
+      .eq('id', plan_id)
       .single();
 
     if (planError || !plan) {
@@ -84,9 +84,9 @@ export async function PUT(request: NextRequest) {
     // Update subscription
     const updateData: any = {
       member_id: member_id,
-      plan_id: parseInt(planId),
-      start_date: startDate,
-      end_date: endDate,
+      plan_id: parseInt(plan_id),
+      start_date: start_date,
+      end_date: end_date,
       // sessions_remaining removed - now handled by subscription_group_sessions
       updated_at: new Date().toISOString(),
     };

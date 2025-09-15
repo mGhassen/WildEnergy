@@ -111,11 +111,11 @@ export const courseApi = {
   },
 
   async registerForCourse(courseId: number): Promise<Registration> {
-    return apiRequest('POST', `/api/registrations/register/${courseId}`);
+    return apiRequest('POST', `/api/member/registrations`, { courseId });
   },
 
   async getMemberCourseRegistrations(): Promise<Registration[]> {
-    return apiRequest('GET', '/api/registrations');
+    return apiRequest('GET', '/api/member/registrations');
   },
 
   async getMemberCourseSubscription(): Promise<Subscription> {

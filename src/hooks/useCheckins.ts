@@ -142,7 +142,7 @@ export function useCheckInRegistration() {
       // Invalidate checkin info to refetch updated data
       queryClient.invalidateQueries({ queryKey: ['checkin-info'] });
       queryClient.invalidateQueries({ queryKey: ['/api/checkins'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/registrations'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/member/registrations'] });
       
       toast({
         title: 'Check-in Successful',
@@ -169,7 +169,7 @@ export function useCheckOutRegistration() {
       // Invalidate checkin info to refetch updated data
       queryClient.invalidateQueries({ queryKey: ['checkin-info'] });
       queryClient.invalidateQueries({ queryKey: ['/api/checkins'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/registrations'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/member/registrations'] });
       
       toast({
         title: 'Check-out Successful',

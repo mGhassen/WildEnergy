@@ -54,12 +54,12 @@ export function useMemberCourseRegistration() {
     },
     onMutate: async (courseId: number) => {
       // Optimistically update the registrations
-      await queryClient.cancelQueries({ queryKey: ["/api/registrations"] });
+      await queryClient.cancelQueries({ queryKey: ["/api/member/registrations"] });
       
-      const previousRegistrations = queryClient.getQueryData(["/api/registrations"]);
+      const previousRegistrations = queryClient.getQueryData(["/api/member/registrations"]);
       
       // Optimistically add the new registration
-      queryClient.setQueryData(["/api/registrations"], (old: any[]) => {
+      queryClient.setQueryData(["/api/member/registrations"], (old: any[]) => {
         const newRegistration = {
           id: Date.now(), // temporary ID
           course_id: courseId,
@@ -77,7 +77,7 @@ export function useMemberCourseRegistration() {
     onError: (error: unknown, courseId: number, context: unknown) => {
       // Rollback on error
       if (context && typeof context === 'object' && 'previousRegistrations' in context) {
-        queryClient.setQueryData(["/api/registrations"], context.previousRegistrations);
+        queryClient.setQueryData(["/api/member/registrations"], context.previousRegistrations);
       }
       
       console.log('Registration error:', error);
@@ -122,7 +122,7 @@ export function useMemberCourseRegistration() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/registrations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/member/registrations"] });
       queryClient.invalidateQueries({ queryKey: ["/api/member/courses"] });
       queryClient.invalidateQueries({ queryKey: ["/api/member/subscriptions"] });
       toast({

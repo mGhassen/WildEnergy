@@ -48,7 +48,7 @@ export function useBulkRegisterMembers() {
   return useMutation({
     mutationFn: (data: BulkRegistrationData) => registrationApi.bulkRegisterMembers(data),
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/registrations'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/member/registrations'] });
       queryClient.invalidateQueries({ queryKey: ['/api/courses'] });
       
       const summary = data.summary;
@@ -90,7 +90,7 @@ export function useCheckInRegistration() {
     mutationFn: (registrationId: number) => registrationApi.checkInRegistration(registrationId.toString()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/checkins'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/registrations'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/member/registrations'] });
       toast({
         title: 'Check-in successful',
         description: 'Member has been successfully checked in.',
@@ -114,7 +114,7 @@ export function useCheckOutRegistration() {
     mutationFn: (registrationId: number) => registrationApi.checkOutRegistration(registrationId.toString()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/checkins'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/registrations'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/member/registrations'] });
       toast({
         title: 'Check-out successful',
         description: 'Member has been successfully checked out.',
@@ -138,7 +138,7 @@ export function useAdminCancelRegistration() {
     mutationFn: ({ registrationId, refundSession }: { registrationId: number; refundSession?: boolean }) => 
       registrationApi.adminCancelRegistration(registrationId, refundSession),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/registrations'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/member/registrations'] });
       queryClient.invalidateQueries({ queryKey: ['/api/courses'] });
       toast({
         title: 'Registration cancelled',
@@ -283,7 +283,7 @@ export function useApproveRegistration() {
     mutationFn: (registrationId: number) => registrationApi.approveRegistration(registrationId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['registrations'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/registrations'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/member/registrations'] });
       toast({
         title: 'Registration approved',
         description: 'The registration has been successfully approved.',
@@ -307,7 +307,7 @@ export function useDisapproveRegistration() {
     mutationFn: (registrationId: number) => registrationApi.disapproveRegistration(registrationId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['registrations'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/registrations'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/member/registrations'] });
       toast({
         title: 'Registration disapproved',
         description: 'The registration has been successfully disapproved.',
