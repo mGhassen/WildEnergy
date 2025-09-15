@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Edit, Trash2, CreditCard, RefreshCw } from "lucide-react";
+import { ArrowLeft, Edit, Trash2, CreditCard, RefreshCw, MoreVertical } from "lucide-react";
 import { useSubscriptions } from "@/hooks/useSubscriptions";
 import { usePayments } from "@/hooks/usePayments";
 import { useMembers } from "@/hooks/useMembers";
@@ -16,6 +16,7 @@ import { formatCurrency } from "@/lib/config";
 import { getInitials } from "@/lib/auth";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Form, FormControl, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -493,35 +494,68 @@ export default function AdminSubscriptionDetails() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => setIsEditModalOpen(true)}>
-            <Edit className="w-4 h-4 mr-2" />
-            Edit
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={handleManualRefund}
-            disabled={manualRefundMutation.isPending}
-          >
-            <RefreshCw className="w-4 h-4 mr-2" />
-            {manualRefundMutation.isPending ? 'Refunding...' : 'Refund 1 Session'}
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={() => setIsConsumeSessionModalOpen(true)}
-          >
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Consume 1 Session
-          </Button>
-          {!isFullyPaid && (
-            <Button onClick={() => openPaymentModal()}>
-              <CreditCard className="w-4 h-4 mr-2" />
-              Add Payment
-            </Button>
-          )}
-          <Button variant="destructive" onClick={handleDeleteSubscription}>
-            <Trash2 className="w-4 h-4 mr-2" />
-            Delete
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon">
+                <MoreVertical className="w-4 h-4" />
+                <span className="sr-only">Open menu</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              {/* Subscription Management */}
+              <DropdownMenuItem onClick={() => setIsEditModalOpen(true)}>
+                <Edit className="w-4 h-4 mr-2" />
+                Edit Subscription
+              </DropdownMenuItem>
+              
+              <DropdownMenuSeparator />
+              
+              {/* Session Management */}
+              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                Session Management
+              </div>
+              <DropdownMenuItem 
+                onClick={handleManualRefund}
+                disabled={manualRefundMutation.isPending}
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                {manualRefundMutation.isPending ? 'Refunding...' : 'Refund 1 Session'}
+              </DropdownMenuItem>
+              
+              <DropdownMenuItem onClick={() => setIsConsumeSessionModalOpen(true)}>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Consume 1 Session
+              </DropdownMenuItem>
+              
+              {/* Payment Management */}
+              {!isFullyPaid && (
+                <>
+                  <DropdownMenuSeparator />
+                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                    Payment Management
+                  </div>
+                  <DropdownMenuItem onClick={() => openPaymentModal()}>
+                    <CreditCard className="w-4 h-4 mr-2" />
+                    Add Payment
+                  </DropdownMenuItem>
+                </>
+              )}
+              
+              <DropdownMenuSeparator />
+              
+              {/* Danger Zone */}
+              <div className="px-2 py-1.5 text-xs font-semibold text-destructive">
+                Danger Zone
+              </div>
+              <DropdownMenuItem 
+                onClick={handleDeleteSubscription}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete Subscription
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
