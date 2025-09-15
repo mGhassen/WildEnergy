@@ -303,8 +303,7 @@ export function CourseDetailsDialog({ event, children }: IProps) {
                     <p className="text-sm font-medium text-foreground">Participants</p>
                     <div className="text-sm text-muted-foreground">
                       {courseLoading ? <Skeleton className="h-4 w-20 mx-auto" /> : 
-                        isCourseFull ? 'Course Full' :
-                        courseData.max_participants > 0 ? `${courseData.current_participants}/${courseData.max_participants}` : 'Open'}
+                        isCourseFull ? 'Course Full' : 'Open'}
                     </div>
                   </div>
                 </div>
