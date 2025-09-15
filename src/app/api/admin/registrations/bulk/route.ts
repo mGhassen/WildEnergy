@@ -224,9 +224,9 @@ export async function POST(req: NextRequest) {
           continue;
         }
 
-        // Use the stored procedure to handle registration with session deduction
+        // Use the admin-specific stored procedure to handle registration with session deduction
         const rpcResult: any = await supabaseServer()
-          .rpc('create_registration_with_updates', {
+          .rpc('create_admin_registration_with_updates', {
             p_user_id: memberId,
             p_course_id: courseId,
             p_current_participants: course.current_participants + registrationResults.length,

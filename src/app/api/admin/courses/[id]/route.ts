@@ -416,7 +416,7 @@ export async function POST(
               course_id: courseId,
               status: 'registered',
               registration_date: new Date().toISOString(),
-              qr_code: `${Date.now()}-${memberId}-${courseId}`, // Simple QR code generation
+              qr_code: 'GST_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11), // Guest QR code generation
               notes: 'Guest registration (no subscription sessions used)'
             })
             .select()
@@ -481,14 +481,13 @@ export async function POST(
             continue;
           }
 
-          // Use the stored procedure to handle registration with session deduction
+          // Use the admin-specific stored procedure to handle registration with session deduction
           const { data: result, error: procedureError } = await supabaseServer()
-            .rpc('create_registration_with_updates', {
+            .rpc('create_admin_registration_with_updates', {
               p_user_id: memberId,
               p_course_id: courseId,
               p_current_participants: course.current_participants + registrationResults.length,
-              p_subscription_id: activeSubscription.id,
-              p_group_id: groupSelections[memberId] || null
+              p_subscription_id: activeSubscription.id
             }) as { data: any; error: any };
 
           if (procedureError) {
