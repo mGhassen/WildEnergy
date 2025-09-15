@@ -147,7 +147,7 @@ export default function MemberHome() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
       <div className="max-w-7xl mx-auto px-4 py-6 space-y-8">
         {/* Hero Section */}
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-primary via-primary/90 to-primary/80 p-8 text-white">
@@ -262,7 +262,7 @@ export default function MemberHome() {
             {/* Upcoming Classes */}
             {upcomingRegistrations.length > 0 && (
               <Card className="border-0 shadow-xl rounded-3xl overflow-hidden">
-                <div className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 p-6">
+                <div className="bg-gradient-to-r from-card to-muted/30 p-6">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center">
                       <Calendar className="w-6 h-6 text-primary" />
@@ -281,7 +281,7 @@ export default function MemberHome() {
                 <CardContent className="p-6">
                   <div className="space-y-4">
                     {upcomingRegistrations.map((registration: any) => (
-                      <div key={registration.id} className="group flex items-center justify-between p-4 border border-border rounded-2xl hover:shadow-lg hover:border-primary/30 transition-all duration-300 bg-gradient-to-r from-white to-slate-50 dark:from-slate-800 dark:to-slate-700">
+                      <div key={registration.id} className="group flex items-center justify-between p-4 border border-border rounded-2xl hover:shadow-lg hover:border-primary/30 transition-all duration-300 bg-gradient-to-r from-card to-muted/20">
                         <div className="flex items-center gap-4">
                           <div className="w-14 h-14 bg-gradient-to-br from-primary/10 to-primary/20 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
                             <span className="text-primary font-bold text-lg">
@@ -325,7 +325,7 @@ export default function MemberHome() {
             {/* No Classes State */}
             {allRegistrations.length === 0 && (
               <Card className="border-0 shadow-xl rounded-3xl overflow-hidden">
-                <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 p-12 text-center">
+                <div className="bg-gradient-to-br from-card to-muted/30 p-12 text-center">
                   <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
                     <Calendar className="w-12 h-12 text-primary" />
                   </div>
@@ -372,7 +372,7 @@ export default function MemberHome() {
                     <div className="relative">
                       <div 
                         key={currentPlanIndex}
-                        className="p-6 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-2xl border-2 border-primary/20 hover:border-primary/40 transition-all duration-500"
+                        className="p-6 bg-gradient-to-br from-card to-muted/20 rounded-2xl border-2 border-primary/20 hover:border-primary/40 transition-all duration-500"
                       >
                         <div className="space-y-4">
                           <div className="flex items-start justify-between">
@@ -453,7 +453,7 @@ export default function MemberHome() {
 
             {/* Quick Actions */}
             <Card className="border-0 shadow-xl rounded-3xl overflow-hidden">
-              <div className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 p-6">
+              <div className="bg-gradient-to-r from-card to-muted/30 p-6">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center">
                     <Zap className="w-6 h-6 text-primary" />
@@ -501,7 +501,7 @@ export default function MemberHome() {
               </div>
               <CardContent className="p-6">
                 <div className="space-y-4">
-                  <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-2xl">
+                  <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-card to-muted/20 rounded-2xl">
                     <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
                       <Clock className="w-5 h-5 text-primary" />
                     </div>
@@ -510,7 +510,7 @@ export default function MemberHome() {
                       <p className="text-sm text-muted-foreground">6:00 AM - 10:00 PM</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-2xl">
+                  <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-card to-muted/20 rounded-2xl">
                     <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
                       <Users className="w-5 h-5 text-primary" />
                     </div>
