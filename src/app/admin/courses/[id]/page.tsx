@@ -8,6 +8,7 @@ import {
   useDeleteCourse, 
   useAddMembersToCourse 
 } from '@/hooks/useCourse';
+import { useAdminCancelRegistration } from '@/hooks/useRegistrations';
 import { CourseEditDialog } from '@/components/course-edit-dialog';
 import { useMembers, useCheckMemberSessions } from '@/hooks/useMembers';
 import { Button } from '@/components/ui/button';
@@ -47,7 +48,10 @@ import {
   UserMinus,
   CheckSquare,
   Square,
-  QrCode
+  QrCode,
+  ChevronUp,
+  ChevronDown,
+  X
 } from 'lucide-react';
 import { formatTime, formatDate } from '@/lib/date';
 import { useToast } from '@/hooks/use-toast';
@@ -55,6 +59,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 interface CourseDetails {
@@ -243,8 +248,10 @@ export default function CourseDetailsPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
-  const [groupSelectionOpen, setGroupSelectionOpen] = useState(false);
+  const [expandedMembers, setExpandedMembers] = useState<Set<string>>(new Set());
   const [memberGroupSelections, setMemberGroupSelections] = useState<Record<string, number>>({});
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [registrationToCancel, setRegistrationToCancel] = useState<{ id: number; memberName: string } | null>(null);
 
   const courseId = params.id as string;
 
@@ -255,6 +262,7 @@ export default function CourseDetailsPage() {
 
   const deleteCourseMutation = useDeleteCourse();
   const addMembersToCourseMutation = useAddMembersToCourse();
+  const cancelRegistrationMutation = useAdminCancelRegistration();
 
 
   // Member management functions
@@ -266,20 +274,40 @@ export default function CourseDetailsPage() {
     );
   };
 
+  const handleMemberExpand = (memberId: string) => {
+    setExpandedMembers(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(memberId)) {
+        newSet.delete(memberId);
+      } else {
+        newSet.add(memberId);
+      }
+      return newSet;
+    });
+  };
+
   const handleAddMembers = () => {
-    // Check if any selected members have subscriptions with group sessions
+    // Check if all members with subscriptions have group selections or guest registration
     const membersWithSubscriptions = selectedMembers.filter(memberId => {
       const member = allMembers.find((m: any) => m.id === memberId);
       return member?.groupSessions && member.groupSessions.length > 0;
     });
 
-    if (membersWithSubscriptions.length > 0) {
-      // Show group selection modal
-      setGroupSelectionOpen(true);
-    } else {
-      // No subscriptions, proceed directly
-      proceedWithMemberAddition();
+    const membersWithoutSelection = membersWithSubscriptions.filter(memberId => 
+      !memberGroupSelections[memberId] // No selection at all (neither group nor guest)
+    );
+
+    if (membersWithoutSelection.length > 0) {
+      toast({
+        title: 'Registration Selection Required',
+        description: `Please select either a subscription group or guest registration for ${membersWithoutSelection.length} member(s) with active subscriptions.`,
+        variant: 'destructive',
+      });
+      return;
     }
+
+    // Proceed with member addition
+    proceedWithMemberAddition();
   };
 
   const proceedWithMemberAddition = () => {
@@ -308,6 +336,28 @@ export default function CourseDetailsPage() {
           description: error.message || 'Failed to add members. Please try again.',
           variant: 'destructive'
         });
+      }
+    });
+  };
+
+  const handleCancelRegistration = (registration: any) => {
+    setRegistrationToCancel({
+      id: registration.id,
+      memberName: `${registration.member?.first_name || 'Unknown'} ${registration.member?.last_name || 'Member'}`
+    });
+    setCancelDialogOpen(true);
+  };
+
+  const confirmCancelRegistration = () => {
+    if (!registrationToCancel) return;
+    
+    cancelRegistrationMutation.mutate({
+      registrationId: registrationToCancel.id,
+      refundSession: true // Admin can choose to refund session
+    }, {
+      onSuccess: () => {
+        setCancelDialogOpen(false);
+        setRegistrationToCancel(null);
       }
     });
   };
@@ -827,6 +877,20 @@ export default function CourseDetailsPage() {
                       >
                         <QrCode className="w-4 h-4" />
                       </Button>
+                      {registration.status === 'registered' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCancelRegistration(registration);
+                          }}
+                          className="h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          title="Cancel Registration"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      )}
                       <Badge 
                         variant="outline" 
                         className={`text-xs ${
@@ -913,43 +977,156 @@ export default function CourseDetailsPage() {
                   const groupSession = member.groupSessions?.find((gs: any) => gs.group_id === courseGroupId);
                   const remainingSessions = groupSession?.sessions_remaining || 0;
                   const totalSessions = groupSession?.total_sessions || 0;
+                  const isExpanded = expandedMembers.has(member.id);
+                  const hasSubscriptions = member.groupSessions && member.groupSessions.length > 0;
                   
                   return (
                     <div
                       key={member.id}
-                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                      className="border rounded-lg overflow-hidden"
                     >
-                      <div className="flex items-center gap-3">
-                        <Checkbox
-                          checked={selectedMembers.includes(member.id)}
-                          onCheckedChange={() => handleMemberSelect(member.id)}
-                        />
-                        <Avatar>
-                          <AvatarFallback>
-                            {member.first_name?.[0] || 'M'}{member.last_name?.[0] || 'M'}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="font-medium">
-                            {member.first_name || 'Unknown'} {member.last_name || 'Member'}
-                          </p>
-                          <p className="text-sm text-muted-foreground">{member.email || 'No email'}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {/* Simple remaining sessions display */}
-                        <div className="text-right">
-                          <div className="text-sm font-medium">
-                            {remainingSessions > 0 ? `${remainingSessions} sessions left` : 'No sessions'}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {totalSessions > 0 ? `of ${totalSessions} total` : 'No subscription'}
+                      {/* Member Header */}
+                      <div
+                        className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors cursor-pointer"
+                        onClick={() => handleMemberExpand(member.id)}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Checkbox
+                            checked={selectedMembers.includes(member.id)}
+                            onCheckedChange={() => handleMemberSelect(member.id)}
+                          />
+                          <Avatar>
+                            <AvatarFallback>
+                              {member.first_name?.[0] || 'M'}{member.last_name?.[0] || 'M'}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="font-medium">
+                              {member.first_name || 'Unknown'} {member.last_name || 'Member'}
+                            </p>
+                            <p className="text-sm text-muted-foreground">{member.email || 'No email'}</p>
                           </div>
                         </div>
-                        <Badge variant="outline" className="text-xs">
-                          {member.phone || 'No phone'}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          {/* Simple remaining sessions display */}
+                          <div className="text-right">
+                            <div className="text-sm font-medium">
+                              {remainingSessions > 0 ? `${remainingSessions} sessions left` : 'No sessions'}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {totalSessions > 0 ? `of ${totalSessions} total` : 'No subscription'}
+                            </div>
+                          </div>
+                          <Badge variant="outline" className="text-xs">
+                            {member.phone || 'No phone'}
+                          </Badge>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                          >
+                            {isExpanded ? (
+                              <ChevronUp className="w-4 h-4" />
+                            ) : (
+                              <ChevronDown className="w-4 h-4" />
+                            )}
+                          </Button>
+                        </div>
                       </div>
+
+                      {/* Expanded Member Details */}
+                      {isExpanded && (
+                        <div className="border-t bg-muted/20 p-4 space-y-4">
+                          {/* Member Info */}
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <span className="font-medium">Phone:</span> {member.phone || 'Not provided'}
+                            </div>
+                            <div>
+                              <span className="font-medium">Member ID:</span> {member.id}
+                            </div>
+                          </div>
+
+                          {/* Registration Options */}
+                          <div className="space-y-3">
+                            {/* Guest Registration Option */}
+                            <div className="flex items-center space-x-2 p-3 border rounded-lg bg-blue-50 border-blue-200">
+                              <Checkbox
+                                id={`guest-${member.id}`}
+                                checked={memberGroupSelections[member.id] === -1}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setMemberGroupSelections(prev => ({
+                                      ...prev,
+                                      [member.id]: -1 // -1 indicates guest registration
+                                    }));
+                                  } else {
+                                    setMemberGroupSelections(prev => {
+                                      const newSelections = { ...prev };
+                                      delete newSelections[member.id];
+                                      return newSelections;
+                                    });
+                                  }
+                                }}
+                              />
+                              <label 
+                                htmlFor={`guest-${member.id}`}
+                                className="flex-1 cursor-pointer"
+                              >
+                                <div>
+                                  <h5 className="font-medium text-sm text-blue-800">Register as Guest</h5>
+                                  <p className="text-xs text-blue-600">
+                                    Register this member as a free guest (no subscription sessions will be used)
+                                  </p>
+                                </div>
+                              </label>
+                            </div>
+
+                            {/* Subscription Groups Selection */}
+                            {hasSubscriptions && (
+                              <div className="space-y-3">
+                                <div className="flex items-center gap-2">
+                                  <Users className="w-4 h-4" />
+                                  <span className="font-medium text-sm">Or Select Subscription Group:</span>
+                                </div>
+                                <RadioGroup
+                                  value={memberGroupSelections[member.id] > 0 ? memberGroupSelections[member.id]?.toString() : ''}
+                                  onValueChange={(value) => {
+                                    setMemberGroupSelections(prev => ({
+                                      ...prev,
+                                      [member.id]: parseInt(value)
+                                    }));
+                                  }}
+                                  className="space-y-2"
+                                >
+                                  {member.groupSessions.map((groupSession: any) => (
+                                    <div 
+                                      key={`${member.id}-${groupSession.group_id}`}
+                                      className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+                                    >
+                                      <RadioGroupItem 
+                                        value={groupSession.group_id.toString()} 
+                                        id={`${member.id}-${groupSession.group_id}`}
+                                      />
+                                      <label 
+                                        htmlFor={`${member.id}-${groupSession.group_id}`}
+                                        className="flex-1 cursor-pointer"
+                                      >
+                                        <div>
+                                          <h5 className="font-medium text-sm">{groupSession.group_name}</h5>
+                                          <p className="text-xs text-muted-foreground">
+                                            {groupSession.sessions_remaining} sessions remaining of {groupSession.total_sessions} total
+                                          </p>
+                                        </div>
+                                      </label>
+                                    </div>
+                                  ))}
+                                </RadioGroup>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })
@@ -971,11 +1148,32 @@ export default function CourseDetailsPage() {
                     return member?.groupSessions && member.groupSessions.length > 0;
                   });
                   
+                  const membersWithoutSelection = membersWithSubscriptions.filter(memberId => 
+                    !memberGroupSelections[memberId]
+                  );
+                  
+                  const guestMembers = membersWithSubscriptions.filter(memberId =>
+                    memberGroupSelections[memberId] === -1
+                  );
+                  
+                  const subscriptionMembers = membersWithSubscriptions.filter(memberId =>
+                    memberGroupSelections[memberId] && memberGroupSelections[memberId] > 0
+                  );
+                  
                   if (membersWithSubscriptions.length > 0) {
                     return (
                       <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
                         <p className="text-xs text-blue-800">
-                          ℹ️ <strong>Note:</strong> {membersWithSubscriptions.length} member{membersWithSubscriptions.length !== 1 ? 's have' : ' has'} subscription{membersWithSubscriptions.length !== 1 ? 's' : ''} with group sessions. You'll be asked to select which groups to consume sessions from.
+                          ℹ️ <strong>Note:</strong> {membersWithSubscriptions.length} member{membersWithSubscriptions.length !== 1 ? 's have' : ' has'} subscription{membersWithSubscriptions.length !== 1 ? 's' : ''} with group sessions.
+                          {membersWithoutSelection.length > 0 ? (
+                            <span className="block mt-1 text-red-600">
+                              ⚠️ {membersWithoutSelection.length} member{membersWithoutSelection.length !== 1 ? 's need' : ' needs'} registration selection. Click on the member{membersWithoutSelection.length !== 1 ? 's' : ''} to expand and select group or guest registration.
+                            </span>
+                          ) : (
+                            <span className="block mt-1 text-green-600">
+                              ✅ All members with subscriptions have selections: {subscriptionMembers.length} using subscription{subscriptionMembers.length !== 1 ? 's' : ''}, {guestMembers.length} as guest{guestMembers.length !== 1 ? 's' : ''}.
+                            </span>
+                          )}
                         </p>
                       </div>
                     );
@@ -1011,124 +1209,6 @@ export default function CourseDetailsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Group Selection Modal */}
-      <Dialog open={groupSelectionOpen} onOpenChange={setGroupSelectionOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Users className="w-5 h-5" />
-              Select Subscription Groups
-            </DialogTitle>
-            <DialogDescription>
-              Choose which subscription groups to consume sessions from for each member
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="flex-1 overflow-y-auto space-y-4 p-1">
-            {/* Summary */}
-            <div className="bg-muted/50 p-3 rounded-lg">
-              <p className="text-sm font-medium">
-                {selectedMembers.length} member{selectedMembers.length !== 1 ? 's' : ''} selected
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Select which subscription groups to consume sessions from for each member
-              </p>
-            </div>
-            
-            {selectedMembers.map((memberId) => {
-              const member = allMembers.find((m: any) => m.id === memberId);
-              if (!member?.groupSessions || member.groupSessions.length === 0) {
-                return null; // Skip members without subscriptions
-              }
-
-              return (
-                <div key={memberId} className="border rounded-lg p-4">
-                  <div className="flex items-center gap-3 mb-3">
-                    <Avatar>
-                      <AvatarFallback>
-                        {member.first_name?.[0] || 'M'}{member.last_name?.[0] || 'M'}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <h4 className="font-medium">
-                        {member.first_name || 'Unknown'} {member.last_name || 'Member'}
-                      </h4>
-                      <p className="text-sm text-muted-foreground">{member.email || 'No email'}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium">Available Groups:</p>
-                    {member.groupSessions.map((groupSession: any) => (
-                      <div 
-                        key={`${memberId}-${groupSession.group_id}`}
-                        className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                          memberGroupSelections[memberId] === groupSession.group_id 
-                            ? 'border-primary bg-primary/5' 
-                            : 'border-border hover:border-primary/50'
-                        }`}
-                        onClick={() => {
-                          setMemberGroupSelections(prev => ({
-                            ...prev,
-                            [memberId]: groupSession.group_id
-                          }));
-                        }}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h5 className="font-medium">{groupSession.group_name}</h5>
-                            <p className="text-sm text-muted-foreground">
-                              {groupSession.sessions_remaining} sessions remaining
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div 
-                              className="w-4 h-4 rounded-full border-2 flex items-center justify-center"
-                              style={{ 
-                                backgroundColor: memberGroupSelections[memberId] === groupSession.group_id ? 'var(--primary)' : 'transparent',
-                                borderColor: 'var(--primary)'
-                              }}
-                            >
-                              {memberGroupSelections[memberId] === groupSession.group_id && (
-                                <div className="w-2 h-2 rounded-full bg-white" />
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setGroupSelectionOpen(false);
-                setMemberGroupSelections({});
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={proceedWithMemberAddition}
-              disabled={(() => {
-                const membersWithSubscriptions = selectedMembers.filter(memberId => {
-                  const member = allMembers.find((m: any) => m.id === memberId);
-                  return member?.groupSessions && member.groupSessions.length > 0;
-                });
-                return membersWithSubscriptions.length > 0 && Object.keys(memberGroupSelections).length === 0;
-              })()}
-            >
-              <UserPlus className="w-4 h-4 mr-2" />
-              Add Members with Selected Groups
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
@@ -1170,6 +1250,29 @@ export default function CourseDetailsPage() {
               className="bg-red-600 hover:bg-red-700"
             >
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Cancel Registration Confirmation Dialog */}
+      <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Registration</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to cancel the registration for {registrationToCancel?.memberName}? 
+              This will remove them from the course and refund their session if they have an active subscription.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmCancelRegistration}
+              disabled={cancelRegistrationMutation.isPending}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {cancelRegistrationMutation.isPending ? 'Cancelling...' : 'Cancel Registration'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

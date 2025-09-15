@@ -2,7 +2,7 @@ import { apiRequest } from '@/lib/queryClient';
 
 export interface Subscription {
   id: number;
-  user_id: string;
+  member_id: string;
   plan_id: number;
   status: string;
   start_date: string;
@@ -12,9 +12,10 @@ export interface Subscription {
   payment_reference?: string;
   created_at: string;
   updated_at: string;
-  user?: {
+  member?: {
     id: string;
-    full_name: string;
+    firstName: string;
+    lastName: string;
     email: string;
   };
   plan?: {

@@ -399,126 +399,145 @@ export async function POST(
       }, { status: 400 });
     }
 
-    // Create registrations for new members
-    const registrations = newMemberIds.map(memberId => ({
-      member_id: memberId,
-      course_id: courseId,
-      qr_code: `REG_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      registration_date: new Date().toISOString(),
-      status: 'registered',
-      notes: 'Added by admin'
-    }));
+    // Register members using the stored procedure to properly handle session tracking
+    const registrationResults = [];
+    const errors = [];
 
-    const { data: newRegistrations, error: registrationError } = await supabaseServer()
-      .from('class_registrations')
-      .insert(registrations)
-      .select('id, member_id');
-
-    if (registrationError) {
-      console.error('Registration creation error:', registrationError);
-      return NextResponse.json({ error: 'Failed to register members' }, { status: 500 });
-    }
-
-    // Update course current_participants count
-    const { error: updateError } = await supabaseServer()
-      .from('courses')
-      .update({ 
-        current_participants: course.current_participants + newRegistrations.length,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', courseId);
-
-    if (updateError) {
-      console.error('Course update error:', updateError);
-      return NextResponse.json({ error: 'Failed to update course capacity' }, { status: 500 });
-    }
-
-    // Consume sessions for members with group selections
-    const sessionConsumptionResults = [];
     for (const memberId of newMemberIds) {
-      const selectedGroupId = groupSelections[memberId];
-      if (selectedGroupId) {
-        try {
-          // Get the member's active subscription
-          const { data: subscription, error: subError } = await supabaseServer()
+      try {
+        const isGuestRegistration = groupSelections[memberId] === -1;
+        
+        if (isGuestRegistration) {
+          // Guest registration - create registration without session deduction
+          const { data: registration, error: registrationError } = await supabaseServer()
+            .from('class_registrations')
+            .insert({
+              member_id: memberId,
+              course_id: courseId,
+              status: 'registered',
+              registration_date: new Date().toISOString(),
+              qr_code: `${Date.now()}-${memberId}-${courseId}`, // Simple QR code generation
+              notes: 'Guest registration (no subscription sessions used)'
+            })
+            .select()
+            .single();
+
+          if (registrationError) {
+            console.error('Guest registration error for member:', memberId, registrationError);
+            errors.push({
+              memberId,
+              error: 'Failed to create guest registration'
+            });
+            continue;
+          }
+
+          // Update course participant count for guest registration
+          const { error: updateError } = await supabaseServer()
+            .from('courses')
+            .update({ 
+              current_participants: course.current_participants + registrationResults.length + 1 
+            })
+            .eq('id', courseId);
+
+          if (updateError) {
+            console.error('Failed to update course participant count:', updateError);
+          }
+
+          registrationResults.push({
+            memberId,
+            registration,
+            success: true,
+            type: 'guest'
+          });
+
+        } else {
+          // Regular registration with subscription
+          // Get member's active subscription
+          const { data: activeSubscription } = await supabaseServer()
             .from('subscriptions')
             .select('id')
             .eq('member_id', memberId)
             .eq('status', 'active')
+            .order('end_date', { ascending: false })
+            .limit(1)
             .single();
 
-          if (subError || !subscription) {
-            console.error(`No active subscription found for member ${memberId}:`, subError);
-            sessionConsumptionResults.push({
+          if (!activeSubscription) {
+            errors.push({
               memberId,
-              success: false,
               error: 'No active subscription found'
             });
             continue;
           }
 
-          // First get the current sessions_remaining
-          const { data: currentSession, error: getError } = await supabaseServer()
-            .from('subscription_group_sessions')
-            .select('sessions_remaining')
-            .eq('group_id', selectedGroupId)
-            .eq('subscription_id', subscription.id)
-            .gt('sessions_remaining', 0)
-            .single();
+          // Use the stored procedure to handle registration with session deduction
+          const { data: result, error: procedureError } = await supabaseServer()
+            .rpc('create_registration_with_updates', {
+              p_member_id: memberId,
+              p_course_id: courseId,
+              p_current_participants: course.current_participants + registrationResults.length,
+              p_subscription_id: activeSubscription.id,
+              p_group_id: groupSelections[memberId] || null
+            }) as { data: any; error: any };
 
-          if (getError || !currentSession) {
-            console.error(`No sessions available for member ${memberId}:`, getError);
-            sessionConsumptionResults.push({
+          if (procedureError) {
+            console.error('Registration procedure error for member:', memberId, procedureError);
+            errors.push({
               memberId,
-              success: false,
-              error: 'No sessions available'
+              error: 'Failed to create registration'
             });
             continue;
           }
 
-          // Consume one session from the selected group
-          const { data: consumeResult, error: consumeError } = await supabaseServer()
-            .from('subscription_group_sessions')
-            .update({ 
-              sessions_remaining: currentSession.sessions_remaining - 1,
-              updated_at: new Date().toISOString()
-            })
-            .eq('group_id', selectedGroupId)
-            .eq('subscription_id', subscription.id)
-            .select('sessions_remaining')
-            .single();
-
-          if (consumeError) {
-            console.error(`Failed to consume session for member ${memberId}:`, consumeError);
-            sessionConsumptionResults.push({
-              memberId,
-              success: false,
-              error: 'Failed to consume session'
-            });
-          } else {
-            sessionConsumptionResults.push({
-              memberId,
-              success: true,
-              sessionsRemaining: consumeResult.sessions_remaining
-            });
-          }
-        } catch (error) {
-          console.error(`Error consuming session for member ${memberId}:`, error);
-          sessionConsumptionResults.push({
+          registrationResults.push({
             memberId,
-            success: false,
-            error: 'Session consumption failed'
+            registration: result,
+            success: true,
+            type: 'subscription'
           });
         }
+
+      } catch (error) {
+        console.error('Error registering member:', memberId, error);
+        errors.push({
+          memberId,
+          error: 'Registration failed'
+        });
       }
     }
 
+    // Return results
+    const successfulRegistrations = registrationResults.length;
+    const failedRegistrations = errors.length;
+    const guestRegistrations = registrationResults.filter(r => r.type === 'guest').length;
+    const subscriptionRegistrations = registrationResults.filter(r => r.type === 'subscription').length;
+    
+    let message = `Successfully registered ${successfulRegistrations} members`;
+    if (guestRegistrations > 0 && subscriptionRegistrations > 0) {
+      message += ` (${subscriptionRegistrations} using subscription, ${guestRegistrations} as guests)`;
+    } else if (guestRegistrations > 0) {
+      message += ` as guests`;
+    } else if (subscriptionRegistrations > 0) {
+      message += ` using subscriptions`;
+    }
+    
+    if (alreadyRegistered.length > 0) {
+      message += ` (${alreadyRegistered.length} were already registered)`;
+    }
+    if (failedRegistrations > 0) {
+      message += ` (${failedRegistrations} failed)`;
+    }
+    
     return NextResponse.json({ 
       success: true, 
-      registered: newRegistrations.length,
+      registered: successfulRegistrations,
       alreadyRegistered: alreadyRegistered.length,
-      message: `Successfully registered ${newRegistrations.length} members${alreadyRegistered.length > 0 ? ` (${alreadyRegistered.length} were already registered)` : ''}`,
-      sessionConsumption: sessionConsumptionResults
+      failed: failedRegistrations,
+      guestRegistrations,
+      subscriptionRegistrations,
+      message,
+      errors: errors,
+      registrations: registrationResults
     });
 
   } catch (error) {
