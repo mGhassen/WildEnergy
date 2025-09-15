@@ -278,7 +278,7 @@ export async function POST(req: NextRequest) {
     // Check if user can register for this course (group session check)
     const { data: canRegister, error: canRegisterError } = await supabaseServer()
       .rpc('can_register_for_course', {
-        p_member_id: userProfile.member_id,
+        p_user_id: userProfile.member_id,
         p_course_id: courseId
       });
 
@@ -318,7 +318,7 @@ export async function POST(req: NextRequest) {
     // Use the stored procedure to handle registration with session deduction
     const { data: result, error: procedureError } = await supabaseServer()
       .rpc('create_registration_with_updates', {
-        p_member_id: userProfile.member_id,
+        p_user_id: userProfile.member_id,
         p_course_id: courseId,
         p_current_participants: course.current_participants,
         p_subscription_id: activeSubscription.id
