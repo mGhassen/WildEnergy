@@ -93,8 +93,8 @@ export function useManualRefundSessions() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: ({ subscriptionId, sessionsToRefund }: { subscriptionId: number; sessionsToRefund: number }) => 
-      subscriptionApi.manualRefundSessions(subscriptionId, sessionsToRefund),
+    mutationFn: ({ subscriptionId, sessionsToRefund, groupId }: { subscriptionId: number; sessionsToRefund: number; groupId?: number }) => 
+      subscriptionApi.manualRefundSessions(subscriptionId, sessionsToRefund, groupId),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
       queryClient.invalidateQueries({ queryKey: ['/api/admin/subscriptions'] });
@@ -104,9 +104,14 @@ export function useManualRefundSessions() {
       });
     },
     onError: (error: any) => {
+      const errorMessage = error.message || 'Please try again';
+      const isCapacityError = errorMessage.includes('maximum capacity') || errorMessage.includes('No sessions could be refunded');
+      
       toast({
-        title: 'Failed to refund sessions',
-        description: error.message || 'Please try again',
+        title: isCapacityError ? 'Cannot refund sessions' : 'Failed to refund sessions',
+        description: isCapacityError 
+          ? 'All group sessions are already at maximum capacity. No sessions can be refunded.'
+          : errorMessage,
         variant: 'destructive',
       });
     },

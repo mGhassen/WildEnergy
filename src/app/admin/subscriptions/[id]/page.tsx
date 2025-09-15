@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDate } from "@/lib/date";
 import { formatCurrency } from "@/lib/config";
 import { getInitials } from "@/lib/auth";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -130,7 +130,10 @@ export default function AdminSubscriptionDetails() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [subscriptionToDelete, setSubscriptionToDelete] = useState<number | null>(null);
   const [isConsumeSessionModalOpen, setIsConsumeSessionModalOpen] = useState(false);
+  const [isRefundSessionModalOpen, setIsRefundSessionModalOpen] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
+  const [selectedRefundGroupId, setSelectedRefundGroupId] = useState<number | null>(null);
+  const initializedSubscriptionId = useRef<number | null>(null);
   
   const { toast } = useToast();
 
@@ -208,6 +211,8 @@ export default function AdminSubscriptionDetails() {
           ...sub,
           member: mappedMembers.find((m: any) => m.id === sub.member_id) || null,
           plan: plans.find((p: any) => p.id === sub.plan_id) || null,
+          // Preserve subscription_group_sessions data
+          subscription_group_sessions: sub.subscription_group_sessions || [],
         }))
       : [];
   }, [subscriptions, mappedMembers, plans]);
@@ -316,8 +321,29 @@ export default function AdminSubscriptionDetails() {
   };
 
   const handleManualRefund = () => {
-    if (subscription?.id) {
-      manualRefundMutation.mutate({ subscriptionId: subscription.id, sessionsToRefund: 1 });
+    if (!subscription?.id) return;
+    
+    // Check if there are multiple groups with refundable sessions
+    const refundableGroups = subscription.subscription_group_sessions?.filter(
+      (gs: any) => gs.sessions_remaining < gs.total_sessions
+    ) || [];
+    
+    
+    if (refundableGroups.length === 0) {
+      toast({
+        title: 'Cannot refund sessions',
+        description: 'All group sessions are already at maximum capacity. No sessions can be refunded.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    if (refundableGroups.length === 1) {
+      // Only one group available, refund directly
+      manualRefundMutation.mutate({ subscriptionId: subscription.id, sessionsToRefund: 1, groupId: refundableGroups[0].group_id });
+    } else {
+      // Multiple groups available, show selection modal
+      setIsRefundSessionModalOpen(true);
     }
   };
 
@@ -366,9 +392,24 @@ export default function AdminSubscriptionDetails() {
     });
   };
 
+  const handleRefundSession = () => {
+    if (!subscription?.id || !selectedRefundGroupId) return;
+    
+    manualRefundMutation.mutate({
+      subscriptionId: subscription.id,
+      sessionsToRefund: 1,
+      groupId: selectedRefundGroupId
+    }, {
+      onSuccess: () => {
+        setIsRefundSessionModalOpen(false);
+        setSelectedRefundGroupId(null);
+      }
+    });
+  };
+
   // Initialize subscription form when subscription data is available
   useEffect(() => {
-    if (subscription) {
+    if (subscription && subscription.id !== initializedSubscriptionId.current) {
       subscriptionForm.reset({
         member_id: subscription.member_id || '',
         plan_id: subscription.plan_id || 0,
@@ -377,8 +418,9 @@ export default function AdminSubscriptionDetails() {
         status: subscription.status || 'active',
         notes: subscription.notes || '',
       });
+      initializedSubscriptionId.current = subscription.id;
     }
-  }, [subscription]); // Remove subscriptionForm from dependencies to prevent infinite loop
+  }, [subscription?.id]); // Only depend on subscription ID
 
   // Utility functions
   const formatPrice = (price: string | number) => {
@@ -973,6 +1015,83 @@ export default function AdminSubscriptionDetails() {
               disabled={!selectedGroupId || consumeSessionMutation.isPending}
             >
               {consumeSessionMutation.isPending ? 'Consuming...' : 'Consume Session'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Refund Session Modal */}
+      <Dialog open={isRefundSessionModalOpen} onOpenChange={setIsRefundSessionModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Refund Session</DialogTitle>
+            <DialogDescription>
+              Select which group to refund a session to
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {subscription?.subscription_group_sessions?.filter((gs: any) => gs.sessions_remaining < gs.total_sessions).length > 0 ? (
+              <div className="space-y-2">
+                {subscription.subscription_group_sessions
+                  .filter((gs: any) => gs.sessions_remaining < gs.total_sessions)
+                  .map((groupSession: any) => (
+                  <div 
+                    key={groupSession.group_id}
+                    className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                      selectedRefundGroupId === groupSession.group_id 
+                        ? 'border-primary bg-primary/5' 
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                    onClick={() => setSelectedRefundGroupId(groupSession.group_id)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-medium">{groupSession.group?.name}</h4>
+                        <p className="text-sm text-muted-foreground">
+                          {groupSession.sessions_remaining} / {groupSession.total_sessions} sessions
+                        </p>
+                        <p className="text-xs text-green-600">
+                          Can refund {groupSession.total_sessions - groupSession.sessions_remaining} more sessions
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-4 h-4 rounded-full border-2 flex items-center justify-center"
+                          style={{ 
+                            backgroundColor: selectedRefundGroupId === groupSession.group_id ? 'var(--primary)' : 'transparent',
+                            borderColor: groupSession.group?.color || 'var(--border)'
+                          }}
+                        >
+                          {selectedRefundGroupId === groupSession.group_id && (
+                            <div className="w-2 h-2 rounded-full bg-white" />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-center py-4">
+                No groups available for refund. All groups are at maximum capacity.
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setIsRefundSessionModalOpen(false);
+                setSelectedRefundGroupId(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleRefundSession}
+              disabled={!selectedRefundGroupId || manualRefundMutation.isPending}
+            >
+              {manualRefundMutation.isPending ? 'Refunding...' : 'Refund Session'}
             </Button>
           </DialogFooter>
         </DialogContent>
