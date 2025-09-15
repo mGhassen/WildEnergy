@@ -39,7 +39,7 @@ export interface CreateSubscriptionData {
 }
 
 export interface UpdateSubscriptionData {
-  member_id?: number;
+  member_id?: string; // Changed from number to string to match API expectations
   plan_id?: number;
   status?: string;
   start_date?: string;
