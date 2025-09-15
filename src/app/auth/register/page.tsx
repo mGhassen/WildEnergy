@@ -111,15 +111,17 @@ export default function Register({ searchParams }: { searchParams: Promise<Recor
         }
       } else {
         // Handle regular email/password registration
-        await register({
+        const result = await register({
           email: credentials.email,
           password: credentials.password,
           firstName: credentials.firstName,
           lastName: credentials.lastName,
         });
 
-        // Redirect to account status page after successful registration
-        router.push(`/auth/account-status?email=${encodeURIComponent(credentials.email)}`);
+        // If registration was successful, redirect to member portal
+        if (result.success) {
+          router.push('/member');
+        }
       }
     } catch (err) {
       console.error('Registration error:', err);

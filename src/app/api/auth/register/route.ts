@@ -65,8 +65,8 @@ export async function POST(req: NextRequest) {
         throw new Error(`Failed to create account: ${accountError.message}`);
       }
       
-      // 4. Create member record (since this is a registration, they're registering as a member)
-      const memberStatus = 'active';
+      // 4. Create member record with inactive status (pending accounts have inactive members)
+      const memberStatus = 'inactive'; // Pending accounts should have inactive members
       const { error: memberError } = await supabaseServer()
         .from('members')
         .insert({
@@ -81,17 +81,8 @@ export async function POST(req: NextRequest) {
         throw new Error(`Failed to create member record: ${memberError.message}`);
       }
 
-      // 5. Update account status to match member status
-      const accountStatus = mapMemberStatusToAccountStatus(memberStatus);
-      const { error: accountStatusError } = await supabaseServer()
-        .from('accounts')
-        .update({ status: accountStatus })
-        .eq('id', authUserId);
-
-      if (accountStatusError) {
-        console.error('Failed to sync account status with member status:', accountStatusError);
-        // Don't fail the request, just log the error
-      }
+      // 5. Keep account status as 'pending' - no need to update since it's already pending
+      // The account will remain pending until admin approval
       
     } catch (error: any) {
       // Clean up auth user if any database operation fails
@@ -107,6 +98,17 @@ export async function POST(req: NextRequest) {
       success: true,
       message: 'User registered successfully. Your account is pending admin approval.',
       userId: authData.user.id,
+      session: {
+        access_token: authData.session?.access_token,
+        refresh_token: authData.session?.refresh_token,
+      },
+      user: {
+        id: authData.user.id,
+        email: authData.user.email,
+        first_name: firstName,
+        last_name: lastName || '',
+        status: 'pending'
+      }
     });
   } catch (error: any) {
     return NextResponse.json({

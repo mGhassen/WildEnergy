@@ -58,6 +58,21 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
     currentTerms 
   });
 
+  // Check if user is pending approval
+  const isPendingUser = user?.status === 'pending';
+  
+  // Define allowed paths for pending users
+  const allowedPathsForPending = [
+    '/member/onboarding',
+    '/member/terms/re-accept',
+    '/member/plans',
+    '/member/profile',
+    '/member/waiting-approval'
+  ];
+  
+  // Check if current path is allowed for pending users
+  const isPathAllowedForPending = allowedPathsForPending.some(path => pathname.startsWith(path));
+
   // Force refetch onboarding status when component mounts to ensure fresh data
   useEffect(() => {
     if (isAuthenticated && user) {
@@ -130,6 +145,13 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
         return;
       }
     }
+
+    // Third priority: Check if pending user is trying to access restricted areas
+    if (isPendingUser && !isPathAllowedForPending) {
+      console.log("Pending user trying to access restricted area, redirecting to waiting approval");
+      router.push("/member/waiting-approval");
+      return;
+    }
   }, [
     isAuthenticated, 
     isLoadingOnboarding, 
@@ -137,6 +159,8 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
     onboardingStatus?.success, 
     onboardingStatus?.data?.onboardingCompleted, 
     needsTermsReAcceptance,
+    isPendingUser,
+    isPathAllowedForPending,
     pathname, 
     router
   ]);
@@ -182,21 +206,36 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
       name: "Dashboard", 
       href: "/member", 
       icon: LayoutDashboard,
-      description: "Overview and quick actions"
+      description: "Overview and quick actions",
+      allowedForPending: false
     },
     { 
       name: "Courses & Schedule", 
       href: "/member/agenda", 
       icon: Calendar,
-      description: "Browse courses and view your schedule"
+      description: "Browse courses and view your schedule",
+      allowedForPending: false
     },
     { 
       name: "My Subscriptions", 
       href: "/member/subscriptions", 
       icon: CreditCard,
-      description: "Manage your plans"
+      description: "Manage your plans",
+      allowedForPending: false
+    },
+    { 
+      name: "Plans", 
+      href: "/member/plans", 
+      icon: CreditCard,
+      description: "View available plans",
+      allowedForPending: true
     },
   ];
+
+  // Filter navigation based on user status
+  const filteredNavigation = isPendingUser 
+    ? navigation.filter(item => item.allowedForPending)
+    : navigation;
 
   const isActive = (href: string) => {
     if (href === "/member") {
@@ -281,7 +320,7 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
             
             {/* Desktop Navigation */}
             <nav className="hidden lg:flex items-center space-x-1">
-              {navigation.map((item) => {
+              {filteredNavigation.map((item) => {
                 const Icon = item.icon;
                 return (
                   <Link key={item.name} href={item.href}>
