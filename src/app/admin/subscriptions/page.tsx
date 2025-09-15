@@ -349,7 +349,7 @@ export default function AdminSubscriptions() {
     const endDateStr = startDateObj.toISOString().split('T')[0];
 
     const submitData = {
-      member_id: parseInt(data.memberId),
+      member_id: data.memberId,
       plan_id: parseInt(data.planId),
       start_date: data.startDate,
       end_date: endDateStr,

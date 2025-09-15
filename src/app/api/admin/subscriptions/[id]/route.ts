@@ -39,12 +39,12 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { userId, planId, startDate, endDate, notes, status } = body;
+    const { member_id, planId, startDate, endDate, notes, status } = body;
 
     // Validate required fields
-    if (!userId || !planId || !startDate || !endDate) {
+    if (!member_id || !planId || !startDate || !endDate) {
       return NextResponse.json({ 
-        error: 'Missing required fields: userId, planId, startDate, endDate' 
+        error: 'Missing required fields: member_id, planId, startDate, endDate' 
       }, { status: 400 });
     }
 
@@ -70,20 +70,20 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Plan not found' }, { status: 400 });
     }
 
-    // Validate user exists
-    const { data: user, error: userError } = await supabaseServer()
-      .from('user_profiles')
+    // Validate member exists
+    const { data: member, error: memberError } = await supabaseServer()
+      .from('members')
       .select('*')
-      .eq('id', userId)
+      .eq('id', member_id)
       .single();
 
-    if (userError || !user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 400 });
+    if (memberError || !member) {
+      return NextResponse.json({ error: 'Member not found' }, { status: 400 });
     }
 
     // Update subscription
     const updateData: any = {
-      user_id: userId,
+      member_id: member_id,
       plan_id: parseInt(planId),
       start_date: startDate,
       end_date: endDate,
@@ -105,7 +105,7 @@ export async function PUT(request: NextRequest) {
       .eq('id', subscriptionId)
       .select(`
         *,
-        users:user_id (
+        members:member_id (
           id,
           first_name,
           last_name,
@@ -129,12 +129,12 @@ export async function PUT(request: NextRequest) {
     }
 
     // Flatten the response for frontend compatibility
-    const userData = Array.isArray(updatedSubscription.users) ? updatedSubscription.users[0] : updatedSubscription.users;
+    const memberData = Array.isArray(updatedSubscription.members) ? updatedSubscription.members[0] : updatedSubscription.members;
     const planData = Array.isArray(updatedSubscription.plans) ? updatedSubscription.plans[0] : updatedSubscription.plans;
 
     const flattenedSubscription = {
       id: updatedSubscription.id,
-      user_id: updatedSubscription.member_id,
+      member_id: updatedSubscription.member_id,
       plan_id: updatedSubscription.plan_id,
       start_date: updatedSubscription.start_date,
       end_date: updatedSubscription.end_date,
@@ -142,11 +142,11 @@ export async function PUT(request: NextRequest) {
       notes: updatedSubscription.notes,
       created_at: updatedSubscription.created_at,
       updated_at: updatedSubscription.updated_at,
-      member: userData ? {
-        id: userData.id,
-        firstName: userData.first_name,
-        lastName: userData.last_name,
-        email: userData.email,
+      member: memberData ? {
+        id: memberData.id,
+        firstName: memberData.first_name,
+        lastName: memberData.last_name,
+        email: memberData.email,
       } : null,
       plan: planData ? {
         id: planData.id,

@@ -131,7 +131,7 @@ export const registrationApi = {
   },
 
   async adminCancelRegistration(registrationId: number, refundSession?: boolean): Promise<any> {
-    return apiRequest('POST', `/api/registrations/${registrationId}/cancel`, refundSession !== undefined ? { refundSession } : {});
+    return apiRequest('POST', `/api/admin/registrations/${registrationId}/cancel`, refundSession !== undefined ? { refundSession } : {});
   },
 
   async approveRegistration(registrationId: number): Promise<any> {

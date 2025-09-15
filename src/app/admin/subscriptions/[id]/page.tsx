@@ -107,7 +107,7 @@ type PaymentFormData = z.infer<typeof paymentFormSchema>;
 
 // Subscription form schema
 const subscriptionFormSchema = z.object({
-  member_id: z.number().min(1, "Member is required"),
+  member_id: z.string().min(1, "Member is required"),
   plan_id: z.number().min(1, "Plan is required"),
   start_date: z.string().min(1, "Start date is required"),
   end_date: z.string().min(1, "End date is required"),
@@ -156,7 +156,7 @@ export default function AdminSubscriptionDetails() {
   const subscriptionForm = useForm<SubscriptionFormData>({
     resolver: zodResolver(subscriptionFormSchema),
     defaultValues: {
-      member_id: 0,
+      member_id: '',
       plan_id: 0,
       start_date: '',
       end_date: '',
@@ -362,7 +362,7 @@ export default function AdminSubscriptionDetails() {
   useEffect(() => {
     if (subscription) {
       subscriptionForm.reset({
-        member_id: subscription.member_id || 0,
+        member_id: subscription.member_id || '',
         plan_id: subscription.plan_id || 0,
         start_date: subscription.start_date ? subscription.start_date.split('T')[0] : '',
         end_date: subscription.end_date ? subscription.end_date.split('T')[0] : '',
@@ -757,9 +757,9 @@ export default function AdminSubscriptionDetails() {
                     <FormItem>
                       <FormLabel>Member</FormLabel>
                       <Select
-                        value={field.value?.toString()}
+                        value={field.value}
                         onValueChange={val => {
-                          field.onChange(parseInt(val));
+                          field.onChange(val);
                           field.onBlur();
                         }}
                       >
@@ -770,7 +770,7 @@ export default function AdminSubscriptionDetails() {
                         </FormControl>
                         <SelectContent>
                           {mappedMembers.map((member) => (
-                            <SelectItem key={member.id} value={member.id.toString()}>
+                            <SelectItem key={member.id} value={member.id}>
                               {member.firstName} {member.lastName} ({member.email})
                             </SelectItem>
                           ))}
