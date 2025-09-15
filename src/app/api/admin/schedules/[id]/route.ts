@@ -270,7 +270,10 @@ export async function PUT(request: NextRequest) {
       // Generate new courses based on updated schedule
       const coursesToInsert = [];
       const repetitionType = scheduleForGeneration.repetition_type || 'once';
-      const maxParticipants = (scheduleForGeneration.classes as any)?.max_capacity || 10;
+      // Always use schedule's max_participants if it exists, otherwise fall back to class capacity
+      const maxParticipants = scheduleForGeneration.max_participants !== null && scheduleForGeneration.max_participants !== undefined 
+        ? scheduleForGeneration.max_participants 
+        : ((scheduleForGeneration.classes as any)?.max_capacity || 10);
 
       if (repetitionType === 'once') {
         // One-time event
@@ -550,7 +553,10 @@ export async function POST(request: NextRequest) {
   // Prepare course generation
   const coursesToInsert = [];
   const repetitionType = schedule.repetition_type || 'once';
-  const maxParticipants = classData?.max_capacity || 10;
+  // Always use schedule's max_participants if it exists, otherwise fall back to class capacity
+  const maxParticipants = schedule.max_participants !== null && schedule.max_participants !== undefined 
+    ? schedule.max_participants 
+    : (classData?.max_capacity || 10);
 
   if (repetitionType === 'once') {
     // One-time event

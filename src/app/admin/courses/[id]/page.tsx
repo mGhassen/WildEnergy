@@ -75,8 +75,30 @@ interface CourseDetails {
   isEdited?: boolean;
   differences?: {
     trainer?: {
-      original: number;
-      current: number;
+      original: {
+        id: number;
+        first_name: string;
+        last_name: string;
+        email: string;
+        phone?: string;
+        specialization: string;
+        experience_years: number;
+        bio?: string;
+        certification?: string;
+        status: string;
+      } | null;
+      current: {
+        id: number;
+        first_name: string;
+        last_name: string;
+        email: string;
+        phone?: string;
+        specialization: string;
+        experience_years: number;
+        bio?: string;
+        certification?: string;
+        status: string;
+      } | null;
     };
     startTime?: {
       original: string;
@@ -196,10 +218,20 @@ const getDifficultyColor = (difficulty: string) => {
   }
 };
 
-const getTrainerName = (trainerId: number, courseData: any) => {
-  const trainer = courseData?.trainer;
-  if (!trainer) return 'Unknown Trainer';
-  return `${trainer.member?.first_name || 'Unknown'} ${trainer.member?.last_name || 'Trainer'}`;
+const getTrainerName = (trainerData: any, courseData: any) => {
+  // If trainerData is a number (old format), use courseData.trainer
+  if (typeof trainerData === 'number') {
+    const trainer = courseData?.trainer;
+    if (!trainer) return 'Unknown Trainer';
+    return `${trainer.member?.first_name || 'Unknown'} ${trainer.member?.last_name || 'Trainer'}`;
+  }
+  
+  // If trainerData is an object (new format), use it directly
+  if (trainerData && typeof trainerData === 'object') {
+    return `${trainerData.first_name || 'Unknown'} ${trainerData.last_name || 'Trainer'}`;
+  }
+  
+  return 'Unknown Trainer';
 };
 
 export default function CourseDetailsPage() {
