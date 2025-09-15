@@ -319,7 +319,7 @@ export default function AdminSubscriptionDetails() {
     updateSubscriptionMutation.mutate({
       subscriptionId: subscription.id,
       data: {
-        member_id: data.member_id,
+        member_id: parseInt(data.member_id),
         plan_id: data.plan_id,
         start_date: data.start_date,
         end_date: data.end_date,
