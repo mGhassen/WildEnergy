@@ -49,6 +49,7 @@ import { formatCurrency } from "@/lib/config";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { TableSkeleton } from "@/components/skeletons";
 import { getCurrentSubscriptionStatus, getActiveSubscriptions } from "@/lib/api/subscriptions";
+import { GuestCountBadge } from "@/components/guest-count-badge";
 
 // Proper types based on actual API response
 interface Member {
@@ -63,6 +64,7 @@ interface Member {
   member_notes?: string;
   member_status: string;
   account_status?: string; // Account status for error styling
+  guest_count?: number; // Number of times registered as guest by admin
   // subscription_status removed - calculated dynamically from subscriptions
   user_type: string;
   accessible_portals: string[];
@@ -428,6 +430,14 @@ export default function MembersPage() {
               </div>
             )}
             <div className="flex justify-between items-center">
+              <span className="text-sm text-muted-foreground">Guest Count:</span>
+              <GuestCountBadge 
+                memberId={member.id} 
+                memberName={`${member.first_name} ${member.last_name}`}
+                showIncrementButton={false}
+              />
+            </div>
+            <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">Joined:</span>
               <span className="text-sm">{formatDate(member.created_at || "")}</span>
             </div>
@@ -701,6 +711,7 @@ export default function MembersPage() {
                       )}
                     </div>
                   </TableHead>
+                  <TableHead>Guest Count</TableHead>
                   <TableHead 
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => handleSort("createdAt")}
@@ -784,6 +795,13 @@ export default function MembersPage() {
                         ) : (
                           <span className="text-sm text-muted-foreground">No credit</span>
                         )}
+                      </TableCell>
+                      <TableCell>
+                        <GuestCountBadge 
+                          memberId={member.id} 
+                          memberName={`${member.first_name} ${member.last_name}`}
+                          showIncrementButton={false}
+                        />
                       </TableCell>
                       <TableCell>
                         <p className="text-sm text-muted-foreground">
@@ -943,6 +961,14 @@ export default function MembersPage() {
                             </span>
                           </div>
                         )}
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-muted-foreground">Guest Count:</span>
+                          <GuestCountBadge 
+                            memberId={member.id} 
+                            memberName={`${member.first_name} ${member.last_name}`}
+                            showIncrementButton={false}
+                          />
+                        </div>
                       </div>
                     </CardContent>
                   </Card>

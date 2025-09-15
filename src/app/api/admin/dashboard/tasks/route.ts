@@ -27,9 +27,17 @@ export async function GET(req: NextRequest) {
 
     // Fetch accounts pending approval
     const { data: pendingAccounts, error: accountsError } = await supabaseServer()
-      .from('user_profiles')
-      .select('account_id, email, first_name, last_name, created_at')
-      .eq('account_status', 'pending')
+      .from('accounts')
+      .select(`
+        id,
+        email,
+        created_at,
+        profiles!inner(
+          first_name,
+          last_name
+        )
+      `)
+      .eq('status', 'pending')
       .order('created_at', { ascending: false });
 
     if (accountsError) {
@@ -60,7 +68,7 @@ export async function GET(req: NextRequest) {
         ),
         trainer:trainers(
           id,
-          member:members(first_name, last_name)
+          profile:profiles(first_name, last_name)
         )
       `)
       .in('status', ['scheduled'])
@@ -84,10 +92,19 @@ export async function GET(req: NextRequest) {
       return hoursUntilStart <= 1 && hoursUntilStart >= -2; // Allow 2 hours grace period for overdue
     });
 
+    // Flatten the nested profile data for pending accounts
+    const flattenedPendingAccounts = (pendingAccounts || []).map((account: any) => ({
+      account_id: account.id,
+      email: account.email,
+      first_name: account.profiles?.first_name || '',
+      last_name: account.profiles?.last_name || '',
+      created_at: account.created_at
+    }));
+
     return NextResponse.json({
       pendingAccounts: {
-        count: pendingAccounts?.length || 0,
-        accounts: pendingAccounts || []
+        count: flattenedPendingAccounts.length,
+        accounts: flattenedPendingAccounts
       },
       coursesNeedingCheck: {
         count: coursesNeedingCheck.length,

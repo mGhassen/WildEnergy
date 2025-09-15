@@ -459,6 +459,7 @@ export default function CheckinQRPage() {
                   <div className="px-4 pb-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                       <div className={`${isLateCheckin() ? 'text-orange-700' : 'text-green-700'}`}>
+                  <p><strong>Course ID:</strong> {checkinInfo.course?.id ? `CRS-${String(checkinInfo.course.id).padStart(5, '0')}` : 'Unknown'}</p>
                   <p><strong>Class:</strong> {checkinInfo.course?.class?.name || 'Unknown'}</p>
                   <p><strong>Date:</strong> {formatDateTime(checkinInfo.course?.course_date)}</p>
                   <p><strong>Time:</strong> {checkinInfo.course?.start_time && checkinInfo.course?.end_time ? `${checkinInfo.course.start_time} - ${checkinInfo.course.end_time}` : 'Unknown'}</p>

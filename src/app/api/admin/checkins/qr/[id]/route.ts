@@ -128,21 +128,50 @@ export async function GET(
 
     console.log('Check-in QR API - Registration found:', registration.id);
 
-    // Fetch member data separately
-    const { data: memberData, error: memberError } = await supabaseServer()
-      .from('members')
-      .select(`
-        id,
-        status,
-        profiles!inner (
-          first_name,
-          last_name,
-          profile_email,
-          phone
-        )
-      `)
-      .eq('id', registration.member_id)
+    // Fetch member data from user_profiles (linked members) or members table (unlinked)
+    let memberData = null;
+    let memberError = null;
+
+    // First try to find by member_id in user_profiles
+    const { data: linkedMember, error: linkedError } = await supabaseServer()
+      .from('user_profiles')
+      .select('*')
+      .eq('member_id', registration.member_id)
       .single();
+
+    if (!linkedError && linkedMember) {
+      memberData = linkedMember;
+    } else {
+      // If not found, try unlinked member from members table
+      const { data: unlinkedMember, error: unlinkedError } = await supabaseServer()
+        .from('members')
+        .select(`
+          id,
+          status,
+          profiles!inner (
+            first_name,
+            last_name,
+            phone
+          )
+        `)
+        .eq('id', registration.member_id)
+        .single();
+
+      if (!unlinkedError && unlinkedMember) {
+        memberData = {
+          member_id: unlinkedMember.id,
+          account_id: null,
+          email: null,
+          first_name: (unlinkedMember.profiles as any)?.first_name || '',
+          last_name: (unlinkedMember.profiles as any)?.last_name || '',
+          phone: (unlinkedMember.profiles as any)?.phone || '',
+          account_status: unlinkedMember.status,
+          member_status: unlinkedMember.status
+        };
+      } else {
+        memberError = unlinkedError;
+      }
+    }
 
     if (memberError) {
       console.log('Check-in QR API - Member query error:', memberError);
@@ -340,12 +369,12 @@ export async function GET(
 
     const checkinInfo = {
       member: {
-        id: memberData.id,
-        first_name: memberData.profiles?.[0]?.first_name,
-        last_name: memberData.profiles?.[0]?.last_name,
-        email: memberData.profiles?.[0]?.profile_email,
-        phone: memberData.profiles?.[0]?.phone,
-        status: memberData.status,
+        id: memberData.member_id || memberData.id,
+        first_name: memberData.first_name,
+        last_name: memberData.last_name,
+        email: memberData.email,
+        phone: memberData.phone,
+        status: memberData.member_status || memberData.account_status,
         activeSubscription: activeSubscription ? {
           id: activeSubscription.id,
           planName: (activeSubscription.plans as any)?.name,
@@ -369,6 +398,7 @@ export async function GET(
       },
       course: {
         ...registration.courses,
+        id: courseObj.id,
         class: {
           ...classInfo,
           category: (() => {
@@ -387,9 +417,9 @@ export async function GET(
         },
         trainer: {
           id: trainerInfo?.id,
-          first_name: trainerInfo?.profiles?.[0]?.first_name,
-          last_name: trainerInfo?.profiles?.[0]?.last_name,
-          phone: trainerInfo?.profiles?.[0]?.phone,
+          first_name: (trainerInfo?.profiles as any)?.first_name || '',
+          last_name: (trainerInfo?.profiles as any)?.last_name || '',
+          phone: (trainerInfo?.profiles as any)?.phone || '',
           specialization: trainerInfo?.specialization,
           experience_years: trainerInfo?.experience_years,
           bio: trainerInfo?.bio,
