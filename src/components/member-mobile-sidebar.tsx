@@ -17,29 +17,19 @@ const navigation = [
     name: "Dashboard", 
     href: "/member", 
     icon: LayoutDashboard,
-    description: "Overview and quick actions",
-    allowedForPending: false
+    description: "Overview and quick actions"
   },
   { 
     name: "Courses & Schedule", 
     href: "/member/courses?view=day", 
     icon: Calendar,
-    description: "Browse courses and view your schedule",
-    allowedForPending: false
-  },
-  { 
-    name: "Plans", 
-    href: "/member/plans", 
-    icon: CreditCard,
-    description: "View available plans",
-    allowedForPending: true
+    description: "Browse courses and view your schedule"
   },
   { 
     name: "My Subscriptions", 
     href: "/member/subscriptions", 
     icon: CreditCard,
-    description: "Manage your plans",
-    allowedForPending: false
+    description: "Manage your plans"
   },
 ]
 
@@ -49,13 +39,7 @@ export function MemberMobileSidebar() {
   const router = useRouter()
   const pathname = usePathname()
 
-  // Check if user is pending approval
-  const isPendingUser = user?.status === 'pending';
-  
-  // Filter navigation based on user status
-  const filteredNavigation = isPendingUser 
-    ? navigation.filter(item => item.allowedForPending)
-    : navigation;
+  // No pending user restrictions - all users have full access
 
   const handleLogout = () => {
     logout()
@@ -172,7 +156,7 @@ export function MemberMobileSidebar() {
         {/* Main Navigation */}
         <div className="flex-1 p-4 overflow-y-auto">
           <div className="space-y-2">
-            {filteredNavigation.map((item) => {
+            {navigation.map((item) => {
               const Icon = item.icon
               const isActive = isItemActive(item.href)
               
@@ -208,17 +192,15 @@ export function MemberMobileSidebar() {
                 </div>
               </div>
             </Link>
-            {!isPendingUser && (
-              <Link href="/member/history" onClick={() => setOpen(false)}>
-                <div className="flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer">
-                  <History className="w-4 h-4" />
-                  <div className="flex-1">
-                    <div>My History</div>
-                    <div className="text-xs opacity-70">View your activity</div>
-                  </div>
+            <Link href="/member/history" onClick={() => setOpen(false)}>
+              <div className="flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer">
+                <History className="w-4 h-4" />
+                <div className="flex-1">
+                  <div>My History</div>
+                  <div className="text-xs opacity-70">View your activity</div>
                 </div>
-              </Link>
-            )}
+              </div>
+            </Link>
           </div>
         </div>
 
