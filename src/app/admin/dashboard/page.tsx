@@ -206,11 +206,11 @@ export default function AdminDashboard() {
                         <div className="flex items-center space-x-2">
                           <div className="w-8 h-8 bg-orange-100 dark:bg-orange-900 rounded-full flex items-center justify-center">
                             <span className="text-xs font-medium text-orange-600 dark:text-orange-400">
-                              {account.first_name?.[0]}{account.last_name?.[0]}
+                              {account.first_name?.[0] || 'U'}{account.last_name?.[0] || 'A'}
                             </span>
                           </div>
                           <div>
-                            <p className="text-sm font-medium">{account.first_name} {account.last_name}</p>
+                            <p className="text-sm font-medium">{account.first_name || 'Unknown'} {account.last_name || 'User'}</p>
                             <p className="text-xs text-muted-foreground">{account.email}</p>
                           </div>
                         </div>
@@ -280,7 +280,7 @@ export default function AdminDashboard() {
                           <div>
                             <p className="text-sm font-medium">{course.class.name}</p>
                             <p className="text-xs text-muted-foreground">
-                              {course.trainer.member.first_name} {course.trainer.member.last_name}
+                              {course.trainer?.profile?.first_name || 'Unknown'} {course.trainer?.profile?.last_name || 'Trainer'}
                             </p>
                           </div>
                         </div>
@@ -469,7 +469,7 @@ export default function AdminDashboard() {
                               <div className="flex flex-wrap gap-2">
                                 {scheduleRegs.slice(0, 6).map((reg: any) => (
                                   <Badge key={reg.id} variant="outline" className="text-xs">
-                                    {reg.member?.firstName} {reg.member?.lastName}
+                                    {reg.member?.first_name || 'Unknown'} {reg.member?.last_name || 'Member'}
                                   </Badge>
                                 ))}
                                 {scheduleRegs.length > 6 && (
