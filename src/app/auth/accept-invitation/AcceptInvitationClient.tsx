@@ -165,23 +165,18 @@ export default function AcceptInvitationClient({ searchParams }: { searchParams:
       
       toast({
         title: "Password set successfully!",
-        description: "You will be automatically logged in...",
+        description: "Your account has been activated. You can now log in.",
       });
 
-      // After password is set, log in directly using the login API and store tokens
-      setTimeout(async () => {
-        try {
-          if (!email) {
-            throw new Error('No email available for auto-login');
-          }
-          // Use the auth hook for login
-          await login(email, password);
-          
-          // The auth hook will handle token storage and redirect
-        } catch (loginError) {
-          console.error('Auto-login failed:', loginError);
-          router.push('/auth/login?message=password-set-success');
-        }
+      // After password is set, redirect to login page with success message
+      setTimeout(() => {
+        // Clean up any pending email data
+        localStorage.removeItem('pending_email');
+        localStorage.removeItem('pending_approval_email');
+        localStorage.removeItem('account_status_email');
+        
+        // Redirect to login page with success message
+        router.push('/auth/login?message=password-set-success');
       }, 2000);
 
     } catch (err: any) {
