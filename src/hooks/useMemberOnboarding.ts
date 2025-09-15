@@ -76,6 +76,9 @@ export function useOnboardingStatus() {
     queryFn: () => apiRequest('GET', '/api/member/onboarding/status'),
     staleTime: 0, // Always consider data stale to force refetch
     refetchOnMount: true, // Refetch when component mounts
+    refetchOnWindowFocus: true, // Refetch when window gains focus
+    refetchInterval: 5000, // Refetch every 5 seconds to catch updates
+    refetchIntervalInBackground: false, // Don't refetch in background
   });
 }
 
@@ -112,16 +115,25 @@ export function useAcceptTerms() {
   return useMutation({
     mutationFn: ({ memberId }: { memberId: string }) => 
       apiRequest('POST', `/api/member/onboarding/${memberId}/accept-terms`),
-    onSuccess: (_, { memberId }) => {
-      // Invalidate all related queries to prevent stale data issues
-      queryClient.invalidateQueries({ queryKey: ['/api/member/onboarding/status'] });
-      queryClient.invalidateQueries({ queryKey: ['member-onboarding', memberId] });
-      queryClient.invalidateQueries({ queryKey: ['member'] });
-      queryClient.invalidateQueries({ queryKey: ['terms-re-acceptance'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/terms'] });
+    onSuccess: async (_, { memberId }) => {
+      // Clear all caches first
+      queryClient.removeQueries({ queryKey: ['/api/member/onboarding/status'] });
+      queryClient.removeQueries({ queryKey: ['member-onboarding', memberId] });
+      queryClient.removeQueries({ queryKey: ['member'] });
+      queryClient.removeQueries({ queryKey: ['terms-re-acceptance'] });
+      queryClient.removeQueries({ queryKey: ['/api/terms'] });
       
-      // Force refetch the onboarding status immediately
-      queryClient.refetchQueries({ queryKey: ['/api/member/onboarding/status'] });
+      // Wait a moment for the database to be updated
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Force refetch all related queries with fresh data
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ['/api/member/onboarding/status'] }),
+        queryClient.refetchQueries({ queryKey: ['member-onboarding', memberId] }),
+        queryClient.refetchQueries({ queryKey: ['member'] }),
+        queryClient.refetchQueries({ queryKey: ['terms-re-acceptance'] }),
+        queryClient.refetchQueries({ queryKey: ['/api/terms'] })
+      ]);
       
       toast({
         title: 'Terms accepted',
