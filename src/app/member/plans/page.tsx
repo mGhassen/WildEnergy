@@ -3,13 +3,15 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Star, Calendar, Users, CheckCircle } from "lucide-react";
+import { Star, Calendar, Users, CheckCircle, ChevronDown, ChevronRight } from "lucide-react";
 import { formatCurrency } from "@/lib/config";
 import { useMemberPlans } from "@/hooks/useMemberPlans";
 import { CardSkeleton } from "@/components/skeletons";
+import { useState } from "react";
 
 export default function PlansPage() {
   const { data: plans, isLoading: plansLoading } = useMemberPlans();
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
   // Helper function to get total sessions from plan groups
   const getTotalSessions = (plan: any) => {
@@ -26,6 +28,20 @@ export default function PlansPage() {
   const getGroupCategories = (group: any) => {
     if (!group.groups?.group_categories) return [];
     return group.groups.group_categories.map((gc: any) => gc.categories);
+  };
+
+  // Toggle group expansion
+  const toggleGroup = (planId: number, groupIndex: number) => {
+    const groupKey = `${planId}-${groupIndex}`;
+    setExpandedGroups(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(groupKey)) {
+        newSet.delete(groupKey);
+      } else {
+        newSet.add(groupKey);
+      }
+      return newSet;
+    });
   };
 
   return (
@@ -76,20 +92,35 @@ export default function PlansPage() {
                         <div className="space-y-2">
                           {plan.plan_groups.map((group: any, index: number) => {
                             const categories = getGroupCategories(group);
+                            const groupKey = `${plan.id}-${index}`;
+                            const isExpanded = expandedGroups.has(groupKey);
+                            
                             return (
                               <div key={index} className="space-y-1">
                                 <div className="flex items-center justify-between text-xs sm:text-sm">
-                                  <div className="flex items-center gap-2 min-w-0">
+                                  <div 
+                                    className="flex items-center gap-2 min-w-0 cursor-pointer hover:bg-muted/50 rounded-md p-1 -m-1 transition-colors"
+                                    onClick={() => toggleGroup(plan.id, index)}
+                                  >
                                     <div 
                                       className="w-2 h-2 sm:w-3 sm:h-3 rounded-full flex-shrink-0" 
                                       style={{ backgroundColor: group.groups?.color || '#6B7280' }}
                                     />
                                     <span className="font-medium truncate">{group.groups?.name}</span>
+                                    {categories.length > 0 && (
+                                      <div className="flex items-center ml-1">
+                                        {isExpanded ? (
+                                          <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground" />
+                                        ) : (
+                                          <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground" />
+                                        )}
+                                      </div>
+                                    )}
                                   </div>
                                   <span className="text-muted-foreground text-xs sm:text-sm flex-shrink-0 ml-2">{group.session_count} sessions</span>
                                 </div>
-                                {categories.length > 0 && (
-                                  <div className="ml-4 sm:ml-5 text-xs text-muted-foreground">
+                                {categories.length > 0 && isExpanded && (
+                                  <div className="ml-4 sm:ml-5 text-xs text-muted-foreground animate-in slide-in-from-top-1 duration-200">
                                     {categories.map((cat: any, catIndex: number) => (
                                       <span key={catIndex}>
                                         {cat.name}
