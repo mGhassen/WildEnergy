@@ -359,7 +359,7 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid course ID' }, { status: 400 });
     }
 
-    const { memberIds } = await req.json();
+    const { memberIds, groupSelections = {} } = await req.json();
     if (!Array.isArray(memberIds) || memberIds.length === 0) {
       return NextResponse.json({ error: 'Member IDs are required' }, { status: 400 });
     }
@@ -433,11 +433,92 @@ export async function POST(
       return NextResponse.json({ error: 'Failed to update course capacity' }, { status: 500 });
     }
 
+    // Consume sessions for members with group selections
+    const sessionConsumptionResults = [];
+    for (const memberId of newMemberIds) {
+      const selectedGroupId = groupSelections[memberId];
+      if (selectedGroupId) {
+        try {
+          // Get the member's active subscription
+          const { data: subscription, error: subError } = await supabaseServer()
+            .from('subscriptions')
+            .select('id')
+            .eq('member_id', memberId)
+            .eq('status', 'active')
+            .single();
+
+          if (subError || !subscription) {
+            console.error(`No active subscription found for member ${memberId}:`, subError);
+            sessionConsumptionResults.push({
+              memberId,
+              success: false,
+              error: 'No active subscription found'
+            });
+            continue;
+          }
+
+          // First get the current sessions_remaining
+          const { data: currentSession, error: getError } = await supabaseServer()
+            .from('subscription_group_sessions')
+            .select('sessions_remaining')
+            .eq('group_id', selectedGroupId)
+            .eq('subscription_id', subscription.id)
+            .gt('sessions_remaining', 0)
+            .single();
+
+          if (getError || !currentSession) {
+            console.error(`No sessions available for member ${memberId}:`, getError);
+            sessionConsumptionResults.push({
+              memberId,
+              success: false,
+              error: 'No sessions available'
+            });
+            continue;
+          }
+
+          // Consume one session from the selected group
+          const { data: consumeResult, error: consumeError } = await supabaseServer()
+            .from('subscription_group_sessions')
+            .update({ 
+              sessions_remaining: currentSession.sessions_remaining - 1,
+              updated_at: new Date().toISOString()
+            })
+            .eq('group_id', selectedGroupId)
+            .eq('subscription_id', subscription.id)
+            .select('sessions_remaining')
+            .single();
+
+          if (consumeError) {
+            console.error(`Failed to consume session for member ${memberId}:`, consumeError);
+            sessionConsumptionResults.push({
+              memberId,
+              success: false,
+              error: 'Failed to consume session'
+            });
+          } else {
+            sessionConsumptionResults.push({
+              memberId,
+              success: true,
+              sessionsRemaining: consumeResult.sessions_remaining
+            });
+          }
+        } catch (error) {
+          console.error(`Error consuming session for member ${memberId}:`, error);
+          sessionConsumptionResults.push({
+            memberId,
+            success: false,
+            error: 'Session consumption failed'
+          });
+        }
+      }
+    }
+
     return NextResponse.json({ 
       success: true, 
       registered: newRegistrations.length,
       alreadyRegistered: alreadyRegistered.length,
-      message: `Successfully registered ${newRegistrations.length} members${alreadyRegistered.length > 0 ? ` (${alreadyRegistered.length} were already registered)` : ''}`
+      message: `Successfully registered ${newRegistrations.length} members${alreadyRegistered.length > 0 ? ` (${alreadyRegistered.length} were already registered)` : ''}`,
+      sessionConsumption: sessionConsumptionResults
     });
 
   } catch (error) {

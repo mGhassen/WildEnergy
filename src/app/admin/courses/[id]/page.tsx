@@ -243,6 +243,8 @@ export default function CourseDetailsPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+  const [groupSelectionOpen, setGroupSelectionOpen] = useState(false);
+  const [memberGroupSelections, setMemberGroupSelections] = useState<Record<string, number>>({});
 
   const courseId = params.id as string;
 
@@ -262,6 +264,52 @@ export default function CourseDetailsPage() {
         ? prev.filter(id => id !== memberId)
         : [...prev, memberId]
     );
+  };
+
+  const handleAddMembers = () => {
+    // Check if any selected members have subscriptions with group sessions
+    const membersWithSubscriptions = selectedMembers.filter(memberId => {
+      const member = allMembers.find((m: any) => m.id === memberId);
+      return member?.groupSessions && member.groupSessions.length > 0;
+    });
+
+    if (membersWithSubscriptions.length > 0) {
+      // Show group selection modal
+      setGroupSelectionOpen(true);
+    } else {
+      // No subscriptions, proceed directly
+      proceedWithMemberAddition();
+    }
+  };
+
+  const proceedWithMemberAddition = () => {
+    if (!course) return;
+    
+    addMembersToCourseMutation.mutate({
+      courseId: course.id,
+      data: { 
+        memberIds: selectedMembers,
+        groupSelections: memberGroupSelections
+      }
+    }, {
+      onSuccess: (result) => {
+        toast({
+          title: 'Members Added',
+          description: result.message,
+        });
+        setMemberManagementOpen(false);
+        setSelectedMembers([]);
+        setMemberGroupSelections({});
+      },
+      onError: (error: any) => {
+        console.error('Error adding members:', error);
+        toast({
+          title: 'Error',
+          description: error.message || 'Failed to add members. Please try again.',
+          variant: 'destructive'
+        });
+      }
+    });
   };
 
   // Function to check if a member has remaining sessions for this course's group
@@ -861,7 +909,7 @@ export default function CourseDetailsPage() {
               ) : (
                 getFilteredMembers().map((member: any) => {
                   // Get remaining sessions for this course's group
-                  const courseGroupId = course?.class?.category?.group?.id;
+                  const courseGroupId = course?.class?.category?.category_groups?.[0]?.group?.id;
                   const groupSession = member.groupSessions?.find((gs: any) => gs.group_id === courseGroupId);
                   const remainingSessions = groupSession?.sessions_remaining || 0;
                   const totalSessions = groupSession?.total_sessions || 0;
@@ -917,11 +965,30 @@ export default function CourseDetailsPage() {
                 <p className="text-xs text-muted-foreground">
                   Will be added to the course
                 </p>
-            <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
-              <p className="text-xs text-blue-800">
-                ℹ️ <strong>Note:</strong> Members with remaining sessions will have sessions deducted from their group allocation. Members without sessions will be added as free guests.
-              </p>
-            </div>
+                {(() => {
+                  const membersWithSubscriptions = selectedMembers.filter(memberId => {
+                    const member = allMembers.find((m: any) => m.id === memberId);
+                    return member?.groupSessions && member.groupSessions.length > 0;
+                  });
+                  
+                  if (membersWithSubscriptions.length > 0) {
+                    return (
+                      <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                        <p className="text-xs text-blue-800">
+                          ℹ️ <strong>Note:</strong> {membersWithSubscriptions.length} member{membersWithSubscriptions.length !== 1 ? 's have' : ' has'} subscription{membersWithSubscriptions.length !== 1 ? 's' : ''} with group sessions. You'll be asked to select which groups to consume sessions from.
+                        </p>
+                      </div>
+                    );
+                  } else {
+                    return (
+                      <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-md">
+                        <p className="text-xs text-green-800">
+                          ✅ All selected members will be added as free guests (no subscription sessions).
+                        </p>
+                      </div>
+                    );
+                  }
+                })()}
               </div>
             )}
           </div>
@@ -934,33 +1001,130 @@ export default function CourseDetailsPage() {
               Cancel
             </Button>
             <Button
-              onClick={() => {
-                addMembersToCourseMutation.mutate({
-                  courseId: course.id,
-                  data: { memberIds: selectedMembers }
-                }, {
-                  onSuccess: (result) => {
-                    toast({
-                      title: 'Members Added',
-                      description: result.message,
-                    });
-                    setMemberManagementOpen(false);
-                    setSelectedMembers([]);
-                  },
-                  onError: (error: any) => {
-                    console.error('Error adding members:', error);
-                    toast({
-                      title: 'Error',
-                      description: error.message || 'Failed to add members. Please try again.',
-                      variant: 'destructive'
-                    });
-                  }
-                });
-              }}
+              onClick={handleAddMembers}
               disabled={selectedMembers.length === 0}
             >
               <UserPlus className="w-4 h-4 mr-2" />
               Add Selected Members ({selectedMembers.length})
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Group Selection Modal */}
+      <Dialog open={groupSelectionOpen} onOpenChange={setGroupSelectionOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5" />
+              Select Subscription Groups
+            </DialogTitle>
+            <DialogDescription>
+              Choose which subscription groups to consume sessions from for each member
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-y-auto space-y-4 p-1">
+            {/* Summary */}
+            <div className="bg-muted/50 p-3 rounded-lg">
+              <p className="text-sm font-medium">
+                {selectedMembers.length} member{selectedMembers.length !== 1 ? 's' : ''} selected
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Select which subscription groups to consume sessions from for each member
+              </p>
+            </div>
+            
+            {selectedMembers.map((memberId) => {
+              const member = allMembers.find((m: any) => m.id === memberId);
+              if (!member?.groupSessions || member.groupSessions.length === 0) {
+                return null; // Skip members without subscriptions
+              }
+
+              return (
+                <div key={memberId} className="border rounded-lg p-4">
+                  <div className="flex items-center gap-3 mb-3">
+                    <Avatar>
+                      <AvatarFallback>
+                        {member.first_name?.[0] || 'M'}{member.last_name?.[0] || 'M'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <h4 className="font-medium">
+                        {member.first_name || 'Unknown'} {member.last_name || 'Member'}
+                      </h4>
+                      <p className="text-sm text-muted-foreground">{member.email || 'No email'}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Available Groups:</p>
+                    {member.groupSessions.map((groupSession: any) => (
+                      <div 
+                        key={`${memberId}-${groupSession.group_id}`}
+                        className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                          memberGroupSelections[memberId] === groupSession.group_id 
+                            ? 'border-primary bg-primary/5' 
+                            : 'border-border hover:border-primary/50'
+                        }`}
+                        onClick={() => {
+                          setMemberGroupSelections(prev => ({
+                            ...prev,
+                            [memberId]: groupSession.group_id
+                          }));
+                        }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h5 className="font-medium">{groupSession.group_name}</h5>
+                            <p className="text-sm text-muted-foreground">
+                              {groupSession.sessions_remaining} sessions remaining
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div 
+                              className="w-4 h-4 rounded-full border-2 flex items-center justify-center"
+                              style={{ 
+                                backgroundColor: memberGroupSelections[memberId] === groupSession.group_id ? 'var(--primary)' : 'transparent',
+                                borderColor: 'var(--primary)'
+                              }}
+                            >
+                              {memberGroupSelections[memberId] === groupSession.group_id && (
+                                <div className="w-2 h-2 rounded-full bg-white" />
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setGroupSelectionOpen(false);
+                setMemberGroupSelections({});
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={proceedWithMemberAddition}
+              disabled={(() => {
+                const membersWithSubscriptions = selectedMembers.filter(memberId => {
+                  const member = allMembers.find((m: any) => m.id === memberId);
+                  return member?.groupSessions && member.groupSessions.length > 0;
+                });
+                return membersWithSubscriptions.length > 0 && Object.keys(memberGroupSelections).length === 0;
+              })()}
+            >
+              <UserPlus className="w-4 h-4 mr-2" />
+              Add Members with Selected Groups
             </Button>
           </DialogFooter>
         </DialogContent>

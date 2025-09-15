@@ -38,6 +38,8 @@ export interface CreateSubscriptionData {
 }
 
 export interface UpdateSubscriptionData {
+  member_id?: number;
+  plan_id?: number;
   status?: string;
   start_date?: string;
   end_date?: string;
@@ -77,6 +79,10 @@ export const subscriptionApi = {
 
   async manualRefundSessions(subscriptionId: number, sessionsToRefund: number): Promise<any> {
     return apiRequest('POST', '/api/member/subscriptions', { subscriptionId, sessionsToRefund });
+  },
+
+  async consumeSession(subscriptionId: number, groupId: number): Promise<any> {
+    return apiRequest('POST', `/api/admin/subscriptions/${subscriptionId}/consume-session`, { group_id: groupId });
   }
 };
 

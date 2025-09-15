@@ -209,10 +209,10 @@ export default function TermsOnboarding() {
           description: "Votre inscription est maintenant complète. Bienvenue chez Wild Energy !",
         });
         
-        // Add a small delay to ensure cache is updated before redirect
+        // Add a longer delay to ensure cache is updated and database is propagated before redirect
         setTimeout(() => {
-          router.push("/member");
-        }, 500);
+          router.replace("/member");
+        }, 1500);
       },
       onError: (error: any) => {
         toast({

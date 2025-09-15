@@ -84,6 +84,9 @@ export default function OAuthSuccessPage() {
         // Store the session token
         if (session.access_token) {
           localStorage.setItem('access_token', session.access_token);
+          if (session.refresh_token) {
+            localStorage.setItem('refresh_token', session.refresh_token);
+          }
           if (typeof window !== 'undefined') {
             (window as any).__authToken = session.access_token;
           }
@@ -92,6 +95,9 @@ export default function OAuthSuccessPage() {
           const { data: currentSession } = await supabase.auth.getSession();
           if (currentSession.session?.access_token) {
             localStorage.setItem('access_token', currentSession.session.access_token);
+            if (currentSession.session.refresh_token) {
+              localStorage.setItem('refresh_token', currentSession.session.refresh_token);
+            }
             if (typeof window !== 'undefined') {
               (window as any).__authToken = currentSession.session.access_token;
             }
@@ -119,6 +125,9 @@ export default function OAuthSuccessPage() {
                   setTimeout(() => {
                     // Store email for account status checking
                     localStorage.setItem('account_status_email', account.email);
+                    
+                    // Trigger authentication state refresh
+                    window.dispatchEvent(new CustomEvent('auth-state-changed'));
                     
                     // Redirect based on account status
                     if (account.status === 'pending') {
@@ -169,7 +178,8 @@ export default function OAuthSuccessPage() {
             email: session.user.email,
             profile_id: newProfile.id,
             is_admin: false,
-            status: 'pending', // New accounts need admin approval
+            status: 'active', // OAuth users are automatically active
+            last_login: new Date().toISOString(),
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           };
@@ -197,6 +207,7 @@ export default function OAuthSuccessPage() {
           const memberData = {
             account_id: newAccount.id,
             profile_id: newProfile.id,
+            member_notes: '',
             status: 'active',
             credit: 0,
             created_at: new Date().toISOString(),
@@ -233,10 +244,11 @@ export default function OAuthSuccessPage() {
             // Store email for account status checking
             localStorage.setItem('account_status_email', newAccount.email);
             
-            // Redirect based on account status
-            if (newAccount.status === 'pending') {
-              router.push('/auth/waiting-approval');
-            } else if (newAccount.is_admin) {
+            // Trigger authentication state refresh
+            window.dispatchEvent(new CustomEvent('auth-state-changed'));
+            
+            // Redirect based on account status - OAuth users are automatically active
+            if (newAccount.is_admin) {
               router.push('/admin');
             } else {
               router.push('/member');

@@ -116,19 +116,30 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
     if (onboardingStatus?.success && onboardingStatus.data) {
       const { onboardingCompleted } = onboardingStatus.data;
       
-      console.log("Onboarding status:", { onboardingCompleted });
+      console.log("Onboarding status check:", { 
+        onboardingCompleted, 
+        pathname,
+        needsTermsReAcceptance,
+        fullStatus: onboardingStatus.data
+      });
       
       // First priority: Complete onboarding if not done
       if (!onboardingCompleted) {
         console.log("Onboarding not completed, redirecting to onboarding");
-        router.push("/member/onboarding/personal-info");
+        // Add a small delay to prevent rapid redirects
+        setTimeout(() => {
+          router.push("/member/onboarding/personal-info");
+        }, 100);
         return; // Exit early to prevent re-acceptance check
       }
 
       // Second priority: Check for terms re-acceptance ONLY after onboarding is complete
       if (onboardingCompleted && needsTermsReAcceptance) {
         console.log("Terms re-acceptance needed, redirecting...");
-        router.push("/member/terms/re-accept");
+        // Add a small delay to prevent rapid redirects
+        setTimeout(() => {
+          router.push("/member/terms/re-accept");
+        }, 100);
         return;
       }
     }

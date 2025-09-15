@@ -11,6 +11,7 @@ import { SessionData } from './auth';
 
 export interface AddMembersToCourseRequest {
   memberIds: string[];
+  groupSelections?: Record<string, number>;
 }
 
 export interface AddMembersToCourseResponse {
@@ -18,6 +19,12 @@ export interface AddMembersToCourseResponse {
   registered: number;
   alreadyRegistered: number;
   message: string;
+  sessionConsumption?: Array<{
+    memberId: string;
+    success: boolean;
+    sessionsRemaining?: number;
+    error?: string;
+  }>;
 }
 
 export interface Course {
