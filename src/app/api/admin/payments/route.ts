@@ -144,7 +144,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Check if this payment completes the subscription
+    // Check if this payment completes the subscription and handle excess credit
     if (payment.subscription_id) {
       // Get the subscription and plan details
       const { data: subscription, error: subError } = await supabaseServer()
@@ -174,6 +174,45 @@ export async function POST(req: NextRequest) {
           const planPrice = parseFloat(subscription.plan?.price || '0');
           
           console.log(`Subscription ${subscription.id}: Total paid: ${totalPaid}, Plan price: ${planPrice}`);
+          
+          // Handle excess payment - add credit to member if payment exceeds subscription amount
+          if (totalPaid > planPrice && paymentData.payment_type !== 'credit') {
+            const excessAmount = totalPaid - planPrice;
+            console.log(`Payment exceeds subscription amount by ${excessAmount} TND. Adding to member credit.`);
+            
+            try {
+              // Get current member credit
+              const { data: member, error: memberError } = await supabaseServer()
+                .from('members')
+                .select('credit')
+                .eq('id', paymentData.member_id)
+                .single();
+                
+              if (memberError) {
+                console.error('Error fetching member credit for excess payment:', memberError);
+              } else if (member) {
+                const currentCredit = parseFloat(member.credit || '0');
+                const newCredit = currentCredit + excessAmount;
+                
+                // Update member credit with excess amount
+                const { error: creditUpdateError } = await supabaseServer()
+                  .from('members')
+                  .update({ 
+                    credit: newCredit.toString(),
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq('id', paymentData.member_id);
+                  
+                if (creditUpdateError) {
+                  console.error('Error updating member credit with excess payment:', creditUpdateError);
+                } else {
+                  console.log(`Added ${excessAmount} TND excess payment to member ${paymentData.member_id} credit. New balance: ${newCredit} TND`);
+                }
+              }
+            } catch (error) {
+              console.error('Error processing excess payment credit:', error);
+            }
+          }
           
           // Determine the correct status based on payment amount
           let newStatus = subscription.status;
