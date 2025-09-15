@@ -84,6 +84,8 @@ export async function GET(
         member_id,
         course_id,
         qr_code,
+        notes,
+        subscription_id,
         courses (
           id,
           course_date,
@@ -127,6 +129,12 @@ export async function GET(
     }
 
     console.log('Check-in QR API - Registration found:', registration.id);
+
+    // Check if this is a guest registration
+    const isGuestRegistration = registration.notes?.includes('Guest registration') || !registration.subscription_id;
+    console.log('Check-in QR API - Guest registration detected:', isGuestRegistration);
+    console.log('Check-in QR API - Registration notes:', registration.notes);
+    console.log('Check-in QR API - Subscription ID:', registration.subscription_id);
 
     // Fetch member data from user_profiles (linked members) or members table (unlinked)
     let memberData = null;
@@ -432,7 +440,9 @@ export async function GET(
       registration: {
         id: registration.id,
         status: registration.status,
-        registeredAt: registration.registration_date
+        registeredAt: registration.registration_date,
+        isGuestRegistration: isGuestRegistration,
+        notes: registration.notes
       },
       registeredCount,
       checkedInCount,
