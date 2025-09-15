@@ -33,6 +33,7 @@ export async function POST(req: NextRequest) {
     }
 
     const authUserId = authData.user.id;
+    let memberData: any = null;
     
     try {
       // 2. Create profile record first
@@ -67,7 +68,7 @@ export async function POST(req: NextRequest) {
       
       // 4. Create member record with active status
       const memberStatus = 'active'; // Active accounts have active members
-      const { data: memberData, error: memberError } = await supabaseServer()
+      const { data: member, error: memberError } = await supabaseServer()
         .from('members')
         .insert({
           account_id: authUserId,
@@ -82,6 +83,8 @@ export async function POST(req: NextRequest) {
       if (memberError) {
         throw new Error(`Failed to create member record: ${memberError.message}`);
       }
+
+      memberData = member;
 
       // 5. Account and member are both active - no additional updates needed
       
