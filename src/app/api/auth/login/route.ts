@@ -107,6 +107,9 @@ export async function POST(req: NextRequest) {
       }, { status: 403 });
     }
 
+    // Determine authentication provider
+    const provider = user.app_metadata?.provider || 'email';
+    
     // Return session and user info
     console.log('Login API returning session:', {
       access_token: session?.access_token ? 'present' : 'missing',
@@ -121,15 +124,22 @@ export async function POST(req: NextRequest) {
         id: userProfile.account_id,
         account_id: userProfile.account_id,
         email: user.email || '',
+        profileEmail: userProfile.profile_email || '', // Contact email
         isAdmin: Boolean(userProfile.is_admin),
         firstName: userProfile.first_name || user.email?.split('@')[0] || 'User',
         lastName: userProfile.last_name || '',
+        phone: userProfile.phone || '',
+        age: userProfile.date_of_birth ? new Date().getFullYear() - new Date(userProfile.date_of_birth).getFullYear() : 0,
+        profession: userProfile.profession || '',
+        address: userProfile.address || '',
         status: userProfile.account_status || 'active',
         credit: userProfile.credit ?? 0,
+        role: userProfile.user_type === 'admin' || userProfile.user_type === 'admin_member' || userProfile.user_type === 'admin_trainer' || userProfile.user_type === 'admin_member_trainer' ? 'admin' : 'member',
         userType: userProfile.user_type,
         accessiblePortals: userProfile.accessible_portals,
         member_id: userProfile.member_id,
         trainer_id: userProfile.trainer_id,
+        provider: provider,
       },
     });
   } catch (error: any) {

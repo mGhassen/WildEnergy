@@ -56,14 +56,7 @@ export async function GET(req: NextRequest) {
 
     console.log('User profile found, account status:', userData.account_status);
 
-    // Status checks
-    if (userData.account_status === 'pending') {
-      return NextResponse.json({
-        success: false,
-        error: 'Account is pending approval. Please wait for admin approval.',
-        status: 'pending',
-      }, { status: 403 });
-    }
+    // Status checks - allow pending users to access their data
     if (userData.account_status === 'suspended') {
       return NextResponse.json({
         success: false,

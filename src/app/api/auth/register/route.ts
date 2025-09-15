@@ -49,14 +49,14 @@ export async function POST(req: NextRequest) {
         throw new Error(`Failed to create profile: ${profileError.message}`);
       }
       
-      // 3. Create account record with 'pending' status (waiting for admin approval)
+      // 3. Create account record with 'active' status
       const { error: accountError } = await supabaseServer()
         .from('accounts')
         .insert({
           id: authUserId,
           auth_user_id: authUserId, // Link to auth user
           email,
-          status: 'pending', // Users with passwords start with 'pending' status
+          status: 'active', // Users start with 'active' status
           is_admin: false,
           profile_id: profile.id, // Link to profile via foreign key
         });
@@ -65,9 +65,9 @@ export async function POST(req: NextRequest) {
         throw new Error(`Failed to create account: ${accountError.message}`);
       }
       
-      // 4. Create member record with inactive status (pending accounts have inactive members)
-      const memberStatus = 'inactive'; // Pending accounts should have inactive members
-      const { error: memberError } = await supabaseServer()
+      // 4. Create member record with active status
+      const memberStatus = 'active'; // Active accounts have active members
+      const { data: memberData, error: memberError } = await supabaseServer()
         .from('members')
         .insert({
           account_id: authUserId,
@@ -75,14 +75,15 @@ export async function POST(req: NextRequest) {
           member_notes: '',
           credit: 0,
           status: memberStatus,
-        });
+        })
+        .select('id')
+        .single();
 
       if (memberError) {
         throw new Error(`Failed to create member record: ${memberError.message}`);
       }
 
-      // 5. Keep account status as 'pending' - no need to update since it's already pending
-      // The account will remain pending until admin approval
+      // 5. Account and member are both active - no additional updates needed
       
     } catch (error: any) {
       // Clean up auth user if any database operation fails
@@ -96,7 +97,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'User registered successfully. Your account is pending admin approval.',
+      message: 'User registered successfully. Welcome to Wild Energy!',
       userId: authData.user.id,
       session: {
         access_token: authData.session?.access_token,
@@ -104,10 +105,16 @@ export async function POST(req: NextRequest) {
       },
       user: {
         id: authData.user.id,
+        account_id: authData.user.id,
         email: authData.user.email,
-        first_name: firstName,
-        last_name: lastName || '',
-        status: 'pending'
+        firstName: firstName,
+        lastName: lastName || '',
+        status: 'active',
+        isAdmin: false,
+        role: 'member',
+        accessiblePortals: ['member'],
+        member_id: memberData?.id || null,
+        provider: 'email'
       }
     });
   } catch (error: any) {
