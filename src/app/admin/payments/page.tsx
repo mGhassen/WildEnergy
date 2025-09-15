@@ -25,7 +25,7 @@ import { TableSkeleton, FormSkeleton } from "@/components/skeletons";
 type Payment = {
   id: number;
   subscription_id: number;
-  user_id: string;
+  member_id: string;
   amount: number;
   payment_type: string;
   payment_status: string;
@@ -280,8 +280,8 @@ export default function AdminPayments() {
       payment_type: editFormData.payment_type,
       payment_status: editFormData.payment_status,
       payment_date: editFormData.payment_date,
-      transaction_id: editFormData.transaction_id || null,
-      notes: editFormData.notes || null,
+      transaction_id: editFormData.transaction_id || undefined,
+      notes: editFormData.notes || undefined,
     };
     
     updatePaymentMutation.mutate({

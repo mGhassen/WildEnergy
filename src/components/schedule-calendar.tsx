@@ -227,7 +227,8 @@ export default function ScheduleCalendar({
       sub.member_id === memberId &&
       sub.status === 'active' &&
       new Date(sub.end_date) > new Date() &&
-      sub.sessions_remaining > 0
+      sub.subscription_group_sessions &&
+      sub.subscription_group_sessions.some((sgs: any) => sgs.sessions_remaining > 0)
     );
   }
 

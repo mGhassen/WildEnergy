@@ -109,7 +109,8 @@ export default function AdminCourses() {
         s.member_id === member.id &&
         s.status === 'active' &&
         new Date(s.end_date) > new Date() &&
-        s.sessions_remaining > 0
+        s.subscription_group_sessions &&
+        s.subscription_group_sessions.some((sgs: any) => sgs.sessions_remaining > 0)
     );
     
     // Debug logging
@@ -119,7 +120,8 @@ export default function AdminCourses() {
         hasSubscription: !!memberSub,
         subscriptionStatus: memberSub?.status,
         endDate: memberSub?.end_date,
-        sessionsRemaining: memberSub?.sessions_remaining,
+        hasGroupSessions: memberSub?.subscription_group_sessions?.length > 0,
+        groupSessionsRemaining: memberSub?.subscription_group_sessions?.map((sgs: any) => sgs.sessions_remaining) || [],
         isExpired: memberSub ? new Date(memberSub.end_date) <= new Date() : true
       });
     } else {
@@ -127,7 +129,7 @@ export default function AdminCourses() {
         subscriptionId: sub.id,
         status: sub.status,
         endDate: sub.end_date,
-        sessionsRemaining: sub.sessions_remaining
+        groupSessionsRemaining: sub.subscription_group_sessions?.map((sgs: any) => sgs.sessions_remaining) || []
       });
     }
     
