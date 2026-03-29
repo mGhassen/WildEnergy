@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { registrationStatusBlocksDelete } from '@/lib/course-delete-rules';
+import {
+  assertCourseDeletableWithAutoCancel,
+  deleteCourseWithRegistrationCleanup,
+} from '@/lib/course-delete-cleanup';
 
 function extractIdFromUrl(request: NextRequest): string | null {
   const match = request.nextUrl.pathname.match(/\/schedules\/([^/]+)/);
@@ -438,13 +442,14 @@ export async function DELETE(request: NextRequest) {
         trainer_id,
         classes!inner(id, name),
         courses(
-          id, 
-          course_date, 
+          id,
+          course_date,
+          start_time,
           status,
           class_registrations(
             id,
             status,
-            user_id,
+            member_id,
             checkins(id)
           )
         )
@@ -462,30 +467,50 @@ export async function DELETE(request: NextRequest) {
       course.status === 'scheduled' || course.status === 'in_progress'
     ).length || 0;
     
-    let blockingRegistrations = 0;
-    let totalCheckins = 0;
-
-    schedule.courses?.forEach((course: any) => {
-      const registrations = course.class_registrations || [];
-      registrations.forEach((reg: any) => {
-        if (registrationStatusBlocksDelete(reg.status)) blockingRegistrations++;
-        totalCheckins += (reg.checkins || []).length;
-      });
-    });
-
-    if (blockingRegistrations > 0 || totalCheckins > 0) {
-      return NextResponse.json({
-        error: 'Cannot delete schedule with active registrations or attendance',
-        message:
-          'Remove active registrations (registered/attended) or check-ins first. Cancelled/absent-only rows do not block.',
-        details: {
-          blockingRegistrations,
-          totalCheckins,
-          coursesCount,
-          scheduleName: (schedule.classes as any)?.name || 'Unknown',
-          trainerName: 'Unknown',
+    for (const course of schedule.courses || []) {
+      const regs = (course.class_registrations || []).map((r: any) => ({
+        id: r.id,
+        status: r.status,
+        member_id: r.member_id,
+      }));
+      const checkinsForCourse: { registration_id: number }[] = [];
+      for (const reg of course.class_registrations || []) {
+        const n = (reg.checkins || []).length;
+        for (let i = 0; i < n; i++) {
+          checkinsForCourse.push({ registration_id: reg.id });
+        }
+      }
+      const reason = assertCourseDeletableWithAutoCancel(
+        {
+          course_date: course.course_date,
+          start_time: course.start_time,
         },
-      }, { status: 400 });
+        regs,
+        checkinsForCourse
+      );
+      if (reason) {
+        const message =
+          reason === 'checkins'
+            ? 'A course under this schedule has check-ins.'
+            : reason === 'attended'
+              ? 'A course has attended registrations.'
+              : reason === 'past_registered'
+                ? 'A course that has already started still has active registrations.'
+                : 'A registration is missing member data.';
+        return NextResponse.json(
+          {
+            error: 'Cannot delete schedule',
+            message,
+            details: {
+              reason,
+              coursesCount,
+              scheduleName: (schedule.classes as any)?.name || 'Unknown',
+              trainerName: 'Unknown',
+            },
+          },
+          { status: 400 }
+        );
+      }
     }
 
     // Get trainer user details
@@ -495,17 +520,19 @@ export async function DELETE(request: NextRequest) {
       .eq('trainer_id', schedule.trainer_id)
       .single();
 
-    // Remove course rows first (explicit; also matches FK expectations if CASCADE differs in prod)
-    const { error: deleteCoursesError } = await supabaseServer()
-      .from('courses')
-      .delete()
-      .eq('schedule_id', id);
-
-    if (deleteCoursesError) {
-      return NextResponse.json(
-        { error: 'Failed to delete schedule courses', details: deleteCoursesError.message },
-        { status: 500 }
-      );
+    const sb = supabaseServer();
+    for (const course of schedule.courses || []) {
+      const del = await deleteCourseWithRegistrationCleanup(sb, course.id);
+      if (!del.ok) {
+        return NextResponse.json(
+          {
+            error: 'Failed to delete schedule courses',
+            details: del.error,
+            courseId: course.id,
+          },
+          { status: del.status }
+        );
+      }
     }
 
     const { error: deleteError } = await supabaseServer()

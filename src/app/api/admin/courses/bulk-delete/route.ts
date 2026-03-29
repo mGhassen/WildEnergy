@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
-import { registrationStatusBlocksDelete } from '@/lib/course-delete-rules';
+import { deleteCourseWithRegistrationCleanup } from '@/lib/course-delete-cleanup';
 import { z } from 'zod';
 
 const bulkDeleteSchema = z.object({
@@ -39,39 +39,13 @@ export async function POST(req: NextRequest) {
     const failed: { courseId: number; reason: string }[] = [];
 
     for (const courseId of courseIds) {
-      const { data: registrations } = await supabaseServer()
-        .from('class_registrations')
-        .select('id, status')
-        .eq('course_id', courseId);
-
-      const { data: checkins } = await supabaseServer()
-        .from('checkins')
-        .select(`
-          id,
-          registration_id,
-          class_registrations!inner(course_id)
-        `)
-        .eq('class_registrations.course_id', courseId);
-
-      const hasBlockingReg = (registrations || []).some((r) =>
-        registrationStatusBlocksDelete(r.status)
+      const result = await deleteCourseWithRegistrationCleanup(
+        supabaseServer(),
+        courseId
       );
 
-      if (hasBlockingReg || (checkins?.length || 0) > 0) {
-        failed.push({
-          courseId,
-          reason: 'Active registration or check-in on course',
-        });
-        continue;
-      }
-
-      const { error: delError } = await supabaseServer()
-        .from('courses')
-        .delete()
-        .eq('id', courseId);
-
-      if (delError) {
-        failed.push({ courseId, reason: delError.message || 'Delete failed' });
+      if (!result.ok) {
+        failed.push({ courseId, reason: result.error });
         continue;
       }
 

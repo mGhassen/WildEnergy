@@ -54,6 +54,10 @@ import {
   X
 } from 'lucide-react';
 import { formatTime, formatDate } from '@/lib/date';
+import {
+  assertCourseDeletableWithAutoCancel,
+  describeCourseDeleteBlockReason,
+} from '@/lib/course-delete-cleanup';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
@@ -434,6 +438,22 @@ export default function CourseDetailsPage() {
 
   const courseData = course as CourseDetails;
 
+  const courseDeleteBlockReason = assertCourseDeletableWithAutoCancel(
+    {
+      course_date: courseData.course_date,
+      start_time: courseData.start_time,
+    },
+    courseData.registrations.map((r: any) => ({
+      id: r.id,
+      status: r.status,
+      member_id: r.member_id ?? r.member?.id,
+    })),
+    courseData.checkins.map((c: any) => ({
+      registration_id: c.registration_id,
+    }))
+  );
+  const canDeleteThisCourse = courseDeleteBlockReason === null;
+
   const getAvailableMembers = () => {
     if (!courseData || !allMembers) return [];
     const registeredIds = courseData.registrations.map(r => r.member?.id).filter(Boolean);
@@ -494,6 +514,12 @@ export default function CourseDetailsPage() {
             size="sm"
             onClick={() => setDeleteDialogOpen(true)}
             className="text-red-600 hover:text-red-700"
+            disabled={!canDeleteThisCourse}
+            title={
+              courseDeleteBlockReason
+                ? describeCourseDeleteBlockReason(courseDeleteBlockReason)
+                : undefined
+            }
           >
             <Trash2 className="w-4 h-4 mr-2" />
             Delete
@@ -1217,9 +1243,15 @@ export default function CourseDetailsPage() {
             <AlertDialogTitle>Delete Course</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to delete this course? This action cannot be undone.
-              {courseData.statistics.totalRegistrations > 0 && (
+              {canDeleteThisCourse &&
+                courseData.registrations.some((r) => r.status === "registered") && (
+                  <span className="block mt-2 text-amber-700 font-medium">
+                    Active registrations will be cancelled, sessions refunded where applicable, then removed with the course.
+                  </span>
+                )}
+              {!canDeleteThisCourse && courseDeleteBlockReason && (
                 <span className="block mt-2 text-red-600 font-medium">
-                  Warning: This course has {courseData.statistics.totalRegistrations} registrations and cannot be deleted.
+                  {describeCourseDeleteBlockReason(courseDeleteBlockReason)}
                 </span>
               )}
             </AlertDialogDescription>
@@ -1246,7 +1278,7 @@ export default function CourseDetailsPage() {
                 });
                 setDeleteDialogOpen(false);
               }}
-              disabled={courseData.statistics.totalRegistrations > 0}
+              disabled={!canDeleteThisCourse}
               className="bg-red-600 hover:bg-red-700"
             >
               Delete

@@ -30,7 +30,7 @@ additional_redirect_urls = [
   "http://localhost:3000/auth/accept-invitation",
   "http://localhost:3000/update-password"
 ]
-jwt_expiry = 3600
+jwt_expiry = 604800
 enable_signup = true
 
 [auth.external.google]

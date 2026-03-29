@@ -44,7 +44,10 @@ import {
   BarChart3
 } from "lucide-react";
 import { getDayName, formatTime } from "@/lib/date";
-import { registrationStatusBlocksDelete } from "@/lib/course-delete-rules";
+import {
+  assertCourseDeletableWithAutoCancel,
+  assertScheduleDeletableWithAutoCancel,
+} from "@/lib/course-delete-cleanup";
 import { useToast } from "@/hooks/use-toast";
 
 // Utility function for European date formatting (DD/MM/YYYY)
@@ -202,25 +205,27 @@ export default function ScheduleDetailsPage() {
   const scheduleRegistrations = registrations.filter((reg: any) =>
     courseIds.includes(reg.course_id)
   );
-  const scheduleRegistrationIds = new Set(
-    scheduleRegistrations.map((r: any) => r.id)
-  );
-  const attendedMembers = checkins.filter((checkin: any) =>
-    scheduleRegistrationIds.has(checkin.registration_id)
-  );
-
   const selectedDeletableIds = useMemo(() => {
     return selectedCourseIds.filter((id) => {
+      const course = scheduleCourses.find((c: any) => c.id === id);
+      if (!course) return false;
       const regs = registrations.filter((r: any) => r.course_id === id);
-      if (regs.some((r: any) => registrationStatusBlocksDelete(r.status)))
-        return false;
-      const regIds = new Set(regs.map((r: any) => r.id));
-      const blockedByCheckin = checkins.some((ch: any) =>
-        regIds.has(ch.registration_id)
+      return (
+        assertCourseDeletableWithAutoCancel(
+          {
+            course_date: course.course_date,
+            start_time: course.start_time,
+          },
+          regs.map((r: any) => ({
+            id: r.id,
+            status: r.status,
+            member_id: r.member_id ?? r.user_id,
+          })),
+          checkins
+        ) === null
       );
-      return !blockedByCheckin;
     });
-  }, [selectedCourseIds, registrations, checkins]);
+  }, [selectedCourseIds, scheduleCourses, registrations, checkins]);
 
   // Filtered and paginated courses
   const filteredCourses = useMemo(() => {
@@ -377,11 +382,21 @@ export default function ScheduleDetailsPage() {
     });
   };
 
-  const scheduleHasBlockingRegs = scheduleRegistrations.some((r: any) =>
-    registrationStatusBlocksDelete(r.status)
-  );
   const canDeleteSchedule =
-    !scheduleHasBlockingRegs && attendedMembers.length === 0;
+    assertScheduleDeletableWithAutoCancel(
+      scheduleCourses.map((c: any) => ({
+        id: c.id,
+        course_date: c.course_date,
+        start_time: c.start_time,
+      })),
+      scheduleRegistrations.map((r: any) => ({
+        course_id: r.course_id,
+        id: r.id,
+        status: r.status,
+        member_id: r.member_id ?? r.user_id,
+      })),
+      checkins
+    ) === null;
 
   const bulkStatusMaxIdx = BULK_COURSE_STATUS_STEPS.length - 1;
   const bulkStatusIdx = bulkCourseStatusToIndex(bulkCourseOverrides.status);
@@ -507,7 +522,7 @@ export default function ScheduleDetailsPage() {
             ) : (
               <DropdownMenuItem disabled className="text-muted-foreground">
                 <Trash2 className="mr-2 h-4 w-4" />
-                Delete schedule (clear active regs / check-ins first)
+                Delete schedule (blocked: check-ins, attended, or past roster)
               </DropdownMenuItem>
             )}
           </DropdownMenuContent>

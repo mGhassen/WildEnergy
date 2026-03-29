@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer, createSupabaseClient } from '@/lib/supabase';
-import { registrationStatusBlocksDelete } from '@/lib/course-delete-rules';
+import { deleteCourseWithRegistrationCleanup } from '@/lib/course-delete-cleanup';
 import { editCourseSchema } from '@/shared/zod-schemas';
 
 export async function GET(
@@ -656,39 +656,13 @@ export async function DELETE(
       return NextResponse.json({ error: 'Invalid course ID' }, { status: 400 });
     }
 
-    const { data: registrations } = await supabaseServer()
-      .from('class_registrations')
-      .select('id, status')
-      .eq('course_id', courseId);
-
-    const { data: checkins } = await supabaseServer()
-      .from('checkins')
-      .select(`
-        id,
-        registration_id,
-        class_registrations!inner(course_id)
-      `)
-      .eq('class_registrations.course_id', courseId);
-
-    const hasBlockingReg = (registrations || []).some((r) =>
-      registrationStatusBlocksDelete(r.status)
+    const result = await deleteCourseWithRegistrationCleanup(
+      supabaseServer(),
+      courseId
     );
 
-    if (hasBlockingReg || (checkins?.length || 0) > 0) {
-      return NextResponse.json({
-        error:
-          'Cannot delete course with active registrations (registered/attended) or check-ins',
-      }, { status: 400 });
-    }
-
-    const { error } = await supabaseServer()
-      .from('courses')
-      .delete()
-      .eq('id', courseId);
-
-    if (error) {
-      console.error('Course deletion error:', error);
-      return NextResponse.json({ error: 'Failed to delete course' }, { status: 500 });
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error }, { status: result.status });
     }
 
     return NextResponse.json({ success: true });

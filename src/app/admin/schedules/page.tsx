@@ -28,6 +28,7 @@ import { useCourses } from "@/hooks/useCourse";
 import { Plus, Search, Edit, Trash2, Calendar, Users, TrendingUp, RepeatIcon, Clock, MapPin, Activity, MoreHorizontal, Eye } from "lucide-react";
 import { getDayName, formatTime } from "@/lib/date";
 import { registrationStatusBlocksDelete } from "@/lib/course-delete-rules";
+import { assertScheduleDeletableWithAutoCancel } from "@/lib/course-delete-cleanup";
 import { TableSkeleton, FormSkeleton } from "@/components/skeletons";
 
 // Utility function for European date formatting (DD/MM/YYYY)
@@ -580,8 +581,31 @@ export default function AdminSchedules() {
   };
 
   const canDeleteSchedule = (scheduleId: number) => {
-    const { hasBlockingRegs, checkinCount } = getScheduleBlockingState(scheduleId);
-    return !hasBlockingRegs && checkinCount === 0;
+    const scheduleCourses = courses.filter(
+      (course: any) => course.schedule_id === scheduleId
+    );
+    const courseIds = scheduleCourses.map((course: any) => course.id);
+    const scheduleRegs = registrations.filter((reg: any) =>
+      courseIds.includes(reg.course_id)
+    );
+    return (
+      assertScheduleDeletableWithAutoCancel(
+        scheduleCourses.map((c: any) => ({
+          id: c.id,
+          course_date: c.course_date,
+          start_time: c.start_time,
+        })),
+        scheduleRegs.map((r: any) => ({
+          course_id: r.course_id,
+          id: r.id,
+          status: r.status,
+          member_id: r.member_id ?? r.user_id,
+        })),
+        (checkins as any[]).map((ch: any) => ({
+          registration_id: ch.registration_id,
+        }))
+      ) === null
+    );
   };
 
   const canEditSchedule = (scheduleId: number) => {
