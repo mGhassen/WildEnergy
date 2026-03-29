@@ -14,6 +14,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useForm } from "react-hook-form";
@@ -101,6 +102,32 @@ const getRepetitionLabel = (type: string) => {
   }
 };
 
+const BULK_COURSE_STATUS_STEPS = [
+  { api: "scheduled" as const, label: "Scheduled", short: "Sch." },
+  { api: "in_progress" as const, label: "In progress", short: "Live" },
+  { api: "completed" as const, label: "Completed", short: "Done" },
+  { api: "cancelled" as const, label: "Cancelled", short: "Off" },
+] as const;
+
+type BulkCourseStatus = (typeof BULK_COURSE_STATUS_STEPS)[number]["api"];
+
+function bulkCourseStatusToIndex(status: string) {
+  const i = BULK_COURSE_STATUS_STEPS.findIndex((s) => s.api === status);
+  return i >= 0 ? i : 0;
+}
+
+function inferBulkStatusFromSelection(selectedIds: number[], allCourses: any[]): BulkCourseStatus {
+  const allowed = new Set(["scheduled", "in_progress", "completed", "cancelled"]);
+  if (selectedIds.length === 0) return "scheduled";
+  const byId = new Map<number, any>(allCourses.map((c: any) => [c.id, c]));
+  for (const id of selectedIds) {
+    const c = byId.get(id);
+    const st = c?.status;
+    if (st && allowed.has(st)) return st as BulkCourseStatus;
+  }
+  return "scheduled";
+}
+
 export default function ScheduleDetailsPage() {
   const params = useParams();
   const router = useRouter();
@@ -114,8 +141,8 @@ export default function ScheduleDetailsPage() {
   const [selectedCourseIds, setSelectedCourseIds] = useState<number[]>([]);
   const [bulkEditDialogOpen, setBulkEditDialogOpen] = useState(false);
   const [bulkCourseOverrides, setBulkCourseOverrides] = useState<{
-    status: '' | 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
-  }>({ status: '' });
+    status: BulkCourseStatus;
+  }>({ status: "scheduled" });
 
   // Pagination and filtering state for courses
   const [coursesPage, setCoursesPage] = useState(1);
@@ -265,7 +292,9 @@ export default function ScheduleDetailsPage() {
       endDate: toDateInputValue(schedule.end_date),
       isActive: schedule.is_active,
     });
-    setBulkCourseOverrides({ status: '' });
+    setBulkCourseOverrides({
+      status: inferBulkStatusFromSelection(selectedCourseIds, scheduleCourses),
+    });
     setBulkEditDialogOpen(true);
   };
 
@@ -279,14 +308,11 @@ export default function ScheduleDetailsPage() {
         scheduleId: Number(scheduleId),
         data: mapScheduleToApi(data),
       });
-      const changes: { status?: string } = {};
-      if (bulkCourseOverrides.status !== "") changes.status = bulkCourseOverrides.status;
-      if (Object.keys(changes).length > 0 && selectedCourseIds.length > 0) {
+      if (selectedCourseIds.length > 0) {
         await bulkUpdateCoursesMutation.mutateAsync({
           courseIds: selectedCourseIds,
-          changes,
+          changes: { status: bulkCourseOverrides.status },
         });
-        toast({ title: "Overrides applied to selected courses" });
       }
       setBulkEditDialogOpen(false);
       clearSelection();
@@ -333,6 +359,11 @@ export default function ScheduleDetailsPage() {
 
   const canDeleteSchedule =
     scheduleRegistrations.length === 0 && attendedMembers.length === 0;
+
+  const bulkStatusMaxIdx = BULK_COURSE_STATUS_STEPS.length - 1;
+  const bulkStatusIdx = bulkCourseStatusToIndex(bulkCourseOverrides.status);
+  const bulkStatusTooltipLeftPct =
+    bulkStatusMaxIdx === 0 ? 0 : (bulkStatusIdx / bulkStatusMaxIdx) * 100;
 
   // Pagination handlers
   const handleCoursesPageChange = (newPage: number) => {
@@ -1028,7 +1059,7 @@ export default function ScheduleDetailsPage() {
             <DialogTitle>Edit schedule &amp; selected courses</DialogTitle>
             <DialogDescription>
               {scheduleCourses.length > 0
-                ? `Schedule fields update the template and sync related courses (per server rules). Optional fields below apply only to the ${selectedCourseIds.length} selected course(s).`
+                ? `Schedule fields update the template and sync related courses. Course status applies to the ${selectedCourseIds.length} selected course(s).`
                 : "This schedule has no courses yet; saving updates the template only."}
             </DialogDescription>
           </DialogHeader>
@@ -1280,35 +1311,45 @@ export default function ScheduleDetailsPage() {
               />
 
               {scheduleCourses.length > 0 && (
-                <div className="border-t pt-4 space-y-4">
-                  <p className="text-sm font-medium">Selected courses only</p>
-                  <p className="text-xs text-muted-foreground">
-                    Use <span className="font-medium">Schedule active</span> above for on/off. Status below is optional; leave &quot;No change&quot; to skip.
-                  </p>
-                  <div>
-                    <Label htmlFor="bulk-ov-status" className="text-sm">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="bulk-ov-status-slider" className="sr-only">
                       Course status
                     </Label>
-                    <Select
-                      value={bulkCourseOverrides.status || "no_change"}
-                      onValueChange={(v) =>
-                        setBulkCourseOverrides((f) => ({
-                          ...f,
-                          status: (v === "no_change" ? "" : v) as typeof f.status,
-                        }))
-                      }
-                    >
-                      <SelectTrigger id="bulk-ov-status" className="mt-1">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="no_change">No change</SelectItem>
-                        <SelectItem value="scheduled">Scheduled</SelectItem>
-                        <SelectItem value="in_progress">In progress</SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
-                        <SelectItem value="cancelled">Cancelled</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <div className="relative px-1 pb-1 pt-10">
+                      <div
+                        className="pointer-events-none absolute left-0 top-1 z-10 -translate-x-1/2"
+                        style={{ left: `${bulkStatusTooltipLeftPct}%` }}
+                        aria-hidden
+                      >
+                        <span className="inline-block whitespace-nowrap rounded-md border border-border bg-muted/90 px-2.5 py-1 text-xs font-medium text-foreground shadow-sm backdrop-blur-sm">
+                          {BULK_COURSE_STATUS_STEPS[bulkStatusIdx].label}
+                        </span>
+                      </div>
+                      <Slider
+                        id="bulk-ov-status-slider"
+                        min={0}
+                        max={bulkStatusMaxIdx}
+                        step={1}
+                        value={[bulkStatusIdx]}
+                        onValueChange={(v) =>
+                          setBulkCourseOverrides({
+                            status: BULK_COURSE_STATUS_STEPS[v[0]].api,
+                          })
+                        }
+                        className="py-3"
+                      />
+                    </div>
+                    <div className="flex justify-between gap-0.5 px-0.5">
+                      {BULK_COURSE_STATUS_STEPS.map((s) => (
+                        <span
+                          key={s.api}
+                          className="flex-1 text-center text-[10px] font-medium text-muted-foreground leading-tight"
+                        >
+                          {s.short}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
