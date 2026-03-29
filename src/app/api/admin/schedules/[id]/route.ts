@@ -347,10 +347,44 @@ export async function PUT(request: NextRequest) {
     }
 
     if (body.is_active === true && hasRegistrationsOrCheckins) {
+      // Keep course rows aligned with the schedule template (trainer, times, class, capacity).
+      // Without this, schedule edits only change `schedules` while `courses` stay stale → wrong
+      // course detail trainer and false "Course Modifications" vs schedule.
+      const courseSyncPayload: Record<string, unknown> = {
+        class_id: updatedSchedule.class_id,
+        trainer_id: updatedSchedule.trainer_id,
+        start_time: updatedSchedule.start_time,
+        end_time: updatedSchedule.end_time,
+        updated_at: new Date().toISOString(),
+      };
+      if (
+        updatedSchedule.max_participants !== null &&
+        updatedSchedule.max_participants !== undefined
+      ) {
+        courseSyncPayload.max_participants = updatedSchedule.max_participants;
+      }
+
+      const { error: syncCoursesError } = await supabaseServer()
+        .from('courses')
+        .update(courseSyncPayload)
+        .eq('schedule_id', id);
+
+      if (syncCoursesError) {
+        console.error('Error syncing courses with updated schedule:', syncCoursesError);
+        return NextResponse.json(
+          {
+            error: 'Schedule updated but failed to sync related courses',
+            details: syncCoursesError.message,
+          },
+          { status: 500 }
+        );
+      }
+
       return NextResponse.json({
         ...updatedSchedule,
         regeneratedCourses: 0,
-        message: 'Schedule updated. Existing courses were not regenerated because members are registered or have attended.'
+        message:
+          'Schedule updated and related courses synced (trainer, times, class, capacity).',
       });
     } else {
       // Schedule is inactive, return success without regenerating courses
