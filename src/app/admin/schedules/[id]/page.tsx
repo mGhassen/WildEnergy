@@ -102,7 +102,11 @@ const getRepetitionLabel = (type: string) => {
   }
 };
 
+/** Matches Slider thumb (h-5 w-5): center travels between half-width insets */
+const SLIDER_THUMB_HALF_REM = 0.625;
+
 const BULK_COURSE_STATUS_STEPS = [
+  { api: "" as const, label: "Keep current", short: "—" },
   { api: "scheduled" as const, label: "Scheduled", short: "Sch." },
   { api: "in_progress" as const, label: "In progress", short: "Live" },
   { api: "completed" as const, label: "Completed", short: "Done" },
@@ -116,16 +120,20 @@ function bulkCourseStatusToIndex(status: string) {
   return i >= 0 ? i : 0;
 }
 
+/** Same status for all selected → prefill it; mixed or unknown → keep current (skip bulk status). */
 function inferBulkStatusFromSelection(selectedIds: number[], allCourses: any[]): BulkCourseStatus {
   const allowed = new Set(["scheduled", "in_progress", "completed", "cancelled"]);
-  if (selectedIds.length === 0) return "scheduled";
+  if (selectedIds.length === 0) return "";
   const byId = new Map<number, any>(allCourses.map((c: any) => [c.id, c]));
+  const statuses: string[] = [];
   for (const id of selectedIds) {
-    const c = byId.get(id);
-    const st = c?.status;
-    if (st && allowed.has(st)) return st as BulkCourseStatus;
+    const st = byId.get(id)?.status;
+    if (st && allowed.has(st)) statuses.push(st);
   }
-  return "scheduled";
+  if (statuses.length === 0) return "";
+  const unique = new Set(statuses);
+  if (unique.size === 1) return statuses[0] as Exclude<BulkCourseStatus, "">;
+  return "";
 }
 
 export default function ScheduleDetailsPage() {
@@ -142,7 +150,7 @@ export default function ScheduleDetailsPage() {
   const [bulkEditDialogOpen, setBulkEditDialogOpen] = useState(false);
   const [bulkCourseOverrides, setBulkCourseOverrides] = useState<{
     status: BulkCourseStatus;
-  }>({ status: "scheduled" });
+  }>({ status: "" });
 
   // Pagination and filtering state for courses
   const [coursesPage, setCoursesPage] = useState(1);
@@ -313,7 +321,7 @@ export default function ScheduleDetailsPage() {
         scheduleId: Number(scheduleId),
         data: mapScheduleToApi(data),
       });
-      if (selectedCourseIds.length > 0) {
+      if (selectedCourseIds.length > 0 && bulkCourseOverrides.status !== "") {
         await bulkUpdateCoursesMutation.mutateAsync({
           courseIds: selectedCourseIds,
           changes: { status: bulkCourseOverrides.status },
@@ -1065,7 +1073,7 @@ export default function ScheduleDetailsPage() {
             <DialogTitle>Edit schedule &amp; selected courses</DialogTitle>
             <DialogDescription>
               {scheduleCourses.length > 0
-                ? `Schedule fields update the template and sync related courses. Course status applies to the ${selectedCourseIds.length} selected course(s).`
+                ? `Schedule fields update the template and sync related courses. Course status applies only if you move the slider away from &quot;Keep current&quot; (${selectedCourseIds.length} selected).`
                 : "This schedule has no courses yet; saving updates the template only."}
             </DialogDescription>
           </DialogHeader>
@@ -1322,10 +1330,12 @@ export default function ScheduleDetailsPage() {
                     <Label htmlFor="bulk-ov-status-slider" className="sr-only">
                       Course status
                     </Label>
-                    <div className="relative px-1 pb-1 pt-10">
+                    <div className="relative w-full pb-1 pt-10">
                       <div
                         className="pointer-events-none absolute left-0 top-1 z-10 -translate-x-1/2"
-                        style={{ left: `${bulkStatusTooltipLeftPct}%` }}
+                        style={{
+                          left: `calc(${SLIDER_THUMB_HALF_REM}rem + (100% - ${SLIDER_THUMB_HALF_REM * 2}rem) * ${bulkStatusTooltipLeftPct / 100})`,
+                        }}
                         aria-hidden
                       >
                         <span className="inline-block whitespace-nowrap rounded-md border border-border bg-muted/90 px-2.5 py-1 text-xs font-medium text-foreground shadow-sm backdrop-blur-sm">
@@ -1340,7 +1350,8 @@ export default function ScheduleDetailsPage() {
                         value={[bulkStatusIdx]}
                         onValueChange={(v) =>
                           setBulkCourseOverrides({
-                            status: BULK_COURSE_STATUS_STEPS[v[0]].api,
+                            status: BULK_COURSE_STATUS_STEPS[v[0]]
+                              .api as BulkCourseStatus,
                           })
                         }
                         className="py-3"
@@ -1349,7 +1360,7 @@ export default function ScheduleDetailsPage() {
                     <div className="flex justify-between gap-0.5 px-0.5">
                       {BULK_COURSE_STATUS_STEPS.map((s) => (
                         <span
-                          key={s.api}
+                          key={s.api || "keep"}
                           className="flex-1 text-center text-[10px] font-medium text-muted-foreground leading-tight"
                         >
                           {s.short}
