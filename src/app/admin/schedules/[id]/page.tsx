@@ -114,9 +114,8 @@ export default function ScheduleDetailsPage() {
   const [selectedCourseIds, setSelectedCourseIds] = useState<number[]>([]);
   const [bulkEditDialogOpen, setBulkEditDialogOpen] = useState(false);
   const [bulkCourseOverrides, setBulkCourseOverrides] = useState<{
-    is_active: '' | boolean;
     status: '' | 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
-  }>({ is_active: '', status: '' });
+  }>({ status: '' });
 
   // Pagination and filtering state for courses
   const [coursesPage, setCoursesPage] = useState(1);
@@ -266,7 +265,7 @@ export default function ScheduleDetailsPage() {
       endDate: toDateInputValue(schedule.end_date),
       isActive: schedule.is_active,
     });
-    setBulkCourseOverrides({ is_active: '', status: '' });
+    setBulkCourseOverrides({ status: '' });
     setBulkEditDialogOpen(true);
   };
 
@@ -280,9 +279,7 @@ export default function ScheduleDetailsPage() {
         scheduleId: Number(scheduleId),
         data: mapScheduleToApi(data),
       });
-      const changes: { is_active?: boolean; status?: string } = {};
-      if (bulkCourseOverrides.is_active !== "")
-        changes.is_active = bulkCourseOverrides.is_active as boolean;
+      const changes: { status?: string } = {};
       if (bulkCourseOverrides.status !== "") changes.status = bulkCourseOverrides.status;
       if (Object.keys(changes).length > 0 && selectedCourseIds.length > 0) {
         await bulkUpdateCoursesMutation.mutateAsync({
@@ -1286,37 +1283,8 @@ export default function ScheduleDetailsPage() {
                 <div className="border-t pt-4 space-y-4">
                   <p className="text-sm font-medium">Selected courses only</p>
                   <p className="text-xs text-muted-foreground">
-                    Leave as &quot;No change&quot; to skip. Schedule fields above always save when you submit.
+                    Use <span className="font-medium">Schedule active</span> above for on/off. Status below is optional; leave &quot;No change&quot; to skip.
                   </p>
-                  <div>
-                    <Label htmlFor="bulk-ov-active" className="text-sm">
-                      Course active
-                    </Label>
-                    <Select
-                      value={
-                        bulkCourseOverrides.is_active === ""
-                          ? "no_change"
-                          : bulkCourseOverrides.is_active
-                            ? "true"
-                            : "false"
-                      }
-                      onValueChange={(v) =>
-                        setBulkCourseOverrides((f) => ({
-                          ...f,
-                          is_active: v === "no_change" ? "" : v === "true",
-                        }))
-                      }
-                    >
-                      <SelectTrigger id="bulk-ov-active" className="mt-1">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="no_change">No change</SelectItem>
-                        <SelectItem value="true">Active</SelectItem>
-                        <SelectItem value="false">Inactive</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
                   <div>
                     <Label htmlFor="bulk-ov-status" className="text-sm">
                       Course status
