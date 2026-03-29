@@ -27,6 +27,7 @@ import { useTrainers } from "@/hooks/useTrainers";
 import { useCourses } from "@/hooks/useCourse";
 import { Plus, Search, Edit, Trash2, Calendar, Users, TrendingUp, RepeatIcon, Clock, MapPin, Activity, MoreHorizontal, Eye } from "lucide-react";
 import { getDayName, formatTime } from "@/lib/date";
+import { registrationStatusBlocksDelete } from "@/lib/course-delete-rules";
 import { TableSkeleton, FormSkeleton } from "@/components/skeletons";
 
 // Utility function for European date formatting (DD/MM/YYYY)
@@ -558,40 +559,34 @@ export default function AdminSchedules() {
     );
   };
 
-  const canDeleteSchedule = (scheduleId: number) => {
-    // Get all courses for this schedule
-    const scheduleCourses = courses.filter((course: any) => course.schedule_id === scheduleId);
+  const getScheduleBlockingState = (scheduleId: number) => {
+    const scheduleCourses = courses.filter(
+      (course: any) => course.schedule_id === scheduleId
+    );
     const courseIds = scheduleCourses.map((course: any) => course.id);
-    
-    // Check if any of these courses have registrations
-    const scheduleRegistrations = registrations.filter((reg: any) => 
+    const scheduleRegistrations = registrations.filter((reg: any) =>
       courseIds.includes(reg.course_id)
     );
-    
-    // Check if any of these courses have checkins
-    const scheduleCheckins = checkins.filter((checkin: any) => 
+    const hasBlockingRegs = scheduleRegistrations.some((r: any) =>
+      registrationStatusBlocksDelete(r.status)
+    );
+    const scheduleCheckins = checkins.filter((checkin: any) =>
       courseIds.includes(checkin.registration?.course_id)
     );
-    
-    return scheduleRegistrations.length === 0 && scheduleCheckins.length === 0;
+    return {
+      hasBlockingRegs,
+      checkinCount: scheduleCheckins.length,
+    };
+  };
+
+  const canDeleteSchedule = (scheduleId: number) => {
+    const { hasBlockingRegs, checkinCount } = getScheduleBlockingState(scheduleId);
+    return !hasBlockingRegs && checkinCount === 0;
   };
 
   const canEditSchedule = (scheduleId: number) => {
-    // Get all courses for this schedule
-    const scheduleCourses = courses.filter((course: any) => course.schedule_id === scheduleId);
-    const courseIds = scheduleCourses.map((course: any) => course.id);
-    
-    // Check if any of these courses have registrations
-    const scheduleRegistrations = registrations.filter((reg: any) => 
-      courseIds.includes(reg.course_id)
-    );
-    
-    // Check if any of these courses have checkins
-    const scheduleCheckins = checkins.filter((checkin: any) => 
-      courseIds.includes(checkin.registration?.course_id)
-    );
-    
-    return scheduleRegistrations.length === 0 && scheduleCheckins.length === 0;
+    const { hasBlockingRegs, checkinCount } = getScheduleBlockingState(scheduleId);
+    return !hasBlockingRegs && checkinCount === 0;
   };
 
   const getRepetitionLabel = (type: string) => {
@@ -1186,7 +1181,7 @@ export default function AdminSchedules() {
                   <div>• Schedule configuration and timing</div>
                   <div className="font-semibold mt-2">This action cannot be undone!</div>
                   <div className="text-xs text-muted-foreground mt-2">
-                    Note: Schedules with member registrations cannot be deleted. Cancel all registrations first.
+                    Note: You cannot delete if anyone is still registered or attended, or if there are check-ins. Cancelled/absent-only history does not block.
                   </div>
                 </div>
               </div>

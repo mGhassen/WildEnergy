@@ -143,11 +143,14 @@ export function useDeleteScheduleWithCourses() {
       });
     },
     onError: (error: any) => {
-      if (error.message?.includes('Cannot delete schedule with existing registrations')) {
+      if (
+        error.message?.includes('Cannot delete schedule') &&
+        error.message?.includes('active registrations')
+      ) {
         const details = error.details || {};
         toast({
           title: 'Cannot delete schedule',
-          description: `This schedule has ${details.registeredMembers || 0} registered members and ${details.attendedMembers || 0} who have attended. Please cancel all registrations first.`,
+          description: `Active registrations or check-ins must be cleared first (blocking: ${details.blockingRegistrations ?? '—'}, check-ins: ${details.totalCheckins ?? '—'}).`,
           variant: 'destructive',
         });
       } else {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { registrationStatusBlocksDelete } from '@/lib/course-delete-rules';
 import { z } from 'zod';
 
 const bulkDeleteSchema = z.object({
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest) {
     for (const courseId of courseIds) {
       const { data: registrations } = await supabaseServer()
         .from('class_registrations')
-        .select('id')
+        .select('id, status')
         .eq('course_id', courseId);
 
       const { data: checkins } = await supabaseServer()
@@ -52,10 +53,14 @@ export async function POST(req: NextRequest) {
         `)
         .eq('class_registrations.course_id', courseId);
 
-      if ((registrations?.length || 0) > 0 || (checkins?.length || 0) > 0) {
+      const hasBlockingReg = (registrations || []).some((r) =>
+        registrationStatusBlocksDelete(r.status)
+      );
+
+      if (hasBlockingReg || (checkins?.length || 0) > 0) {
         failed.push({
           courseId,
-          reason: 'Course has registrations or check-ins',
+          reason: 'Active registration or check-in on course',
         });
         continue;
       }

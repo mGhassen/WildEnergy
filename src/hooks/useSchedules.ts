@@ -74,6 +74,7 @@ export function useDeleteSchedule() {
     mutationFn: (scheduleId: number) => scheduleApi.deleteSchedule(scheduleId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['schedules'] });
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
       toast({
         title: 'Schedule deleted',
         description: 'The schedule has been successfully deleted.',

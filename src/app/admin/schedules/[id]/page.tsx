@@ -44,6 +44,7 @@ import {
   BarChart3
 } from "lucide-react";
 import { getDayName, formatTime } from "@/lib/date";
+import { registrationStatusBlocksDelete } from "@/lib/course-delete-rules";
 import { useToast } from "@/hooks/use-toast";
 
 // Utility function for European date formatting (DD/MM/YYYY)
@@ -211,11 +212,12 @@ export default function ScheduleDetailsPage() {
   const selectedDeletableIds = useMemo(() => {
     return selectedCourseIds.filter((id) => {
       const regs = registrations.filter((r: any) => r.course_id === id);
-      if (regs.length > 0) return false;
-      const blockedByCheckin = checkins.some((ch: any) => {
-        const reg = registrations.find((r: any) => r.id === ch.registration_id);
-        return reg?.course_id === id;
-      });
+      if (regs.some((r: any) => registrationStatusBlocksDelete(r.status)))
+        return false;
+      const regIds = new Set(regs.map((r: any) => r.id));
+      const blockedByCheckin = checkins.some((ch: any) =>
+        regIds.has(ch.registration_id)
+      );
       return !blockedByCheckin;
     });
   }, [selectedCourseIds, registrations, checkins]);
@@ -375,8 +377,11 @@ export default function ScheduleDetailsPage() {
     });
   };
 
+  const scheduleHasBlockingRegs = scheduleRegistrations.some((r: any) =>
+    registrationStatusBlocksDelete(r.status)
+  );
   const canDeleteSchedule =
-    scheduleRegistrations.length === 0 && attendedMembers.length === 0;
+    !scheduleHasBlockingRegs && attendedMembers.length === 0;
 
   const bulkStatusMaxIdx = BULK_COURSE_STATUS_STEPS.length - 1;
   const bulkStatusIdx = bulkCourseStatusToIndex(bulkCourseOverrides.status);
@@ -502,7 +507,7 @@ export default function ScheduleDetailsPage() {
             ) : (
               <DropdownMenuItem disabled className="text-muted-foreground">
                 <Trash2 className="mr-2 h-4 w-4" />
-                Delete schedule (no registrations / check-ins)
+                Delete schedule (clear active regs / check-ins first)
               </DropdownMenuItem>
             )}
           </DropdownMenuContent>

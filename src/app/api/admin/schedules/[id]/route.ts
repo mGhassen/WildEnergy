@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { registrationStatusBlocksDelete } from '@/lib/course-delete-rules';
 
 function extractIdFromUrl(request: NextRequest): string | null {
   const match = request.nextUrl.pathname.match(/\/schedules\/([^/]+)/);
@@ -156,18 +157,19 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Schedule not found' }, { status: 404 });
     }
 
-    let totalRegistrations = 0;
+    let blockingRegistrations = 0;
     let totalCheckins = 0;
 
     schedule.courses?.forEach((course: any) => {
       const registrations = course.class_registrations || [];
-      totalRegistrations += registrations.length;
       registrations.forEach((reg: any) => {
+        if (registrationStatusBlocksDelete(reg.status)) blockingRegistrations++;
         totalCheckins += (reg.checkins || []).length;
       });
     });
 
-    const hasRegistrationsOrCheckins = totalRegistrations > 0 || totalCheckins > 0;
+    const hasRegistrationsOrCheckins =
+      blockingRegistrations > 0 || totalCheckins > 0;
 
     // Update the schedule
     const { data: updatedSchedule, error: updateError } = await supabaseServer()
@@ -460,39 +462,29 @@ export async function DELETE(request: NextRequest) {
       course.status === 'scheduled' || course.status === 'in_progress'
     ).length || 0;
     
-    // Count registrations and checkins
-    let totalRegistrations = 0;
+    let blockingRegistrations = 0;
     let totalCheckins = 0;
-    let registeredMembers = 0;
-    let attendedMembers = 0;
-    
+
     schedule.courses?.forEach((course: any) => {
       const registrations = course.class_registrations || [];
-      totalRegistrations += registrations.length;
-      
       registrations.forEach((reg: any) => {
-        if (reg.status === 'registered') registeredMembers++;
-        if (reg.status === 'attended') attendedMembers++;
-        
-        const checkins = reg.checkins || [];
-        totalCheckins += checkins.length;
+        if (registrationStatusBlocksDelete(reg.status)) blockingRegistrations++;
+        totalCheckins += (reg.checkins || []).length;
       });
     });
 
-    // Check if schedule can be deleted (no registrations or attendance)
-    if (totalRegistrations > 0 || totalCheckins > 0) {
-      return NextResponse.json({ 
-        error: 'Cannot delete schedule with existing registrations or attendance',
-        message: 'This schedule has members registered or who have attended courses. Please cancel all registrations first.',
+    if (blockingRegistrations > 0 || totalCheckins > 0) {
+      return NextResponse.json({
+        error: 'Cannot delete schedule with active registrations or attendance',
+        message:
+          'Remove active registrations (registered/attended) or check-ins first. Cancelled/absent-only rows do not block.',
         details: {
-          totalRegistrations,
+          blockingRegistrations,
           totalCheckins,
-          registeredMembers,
-          attendedMembers,
           coursesCount,
           scheduleName: (schedule.classes as any)?.name || 'Unknown',
-          trainerName: 'Unknown'
-        }
+          trainerName: 'Unknown',
+        },
       }, { status: 400 });
     }
 
@@ -503,8 +495,19 @@ export async function DELETE(request: NextRequest) {
       .eq('trainer_id', schedule.trainer_id)
       .single();
 
-    // Delete the schedule (courses will be deleted automatically due to CASCADE)
-    // No need to delete registrations/checkins since we verified there are none
+    // Remove course rows first (explicit; also matches FK expectations if CASCADE differs in prod)
+    const { error: deleteCoursesError } = await supabaseServer()
+      .from('courses')
+      .delete()
+      .eq('schedule_id', id);
+
+    if (deleteCoursesError) {
+      return NextResponse.json(
+        { error: 'Failed to delete schedule courses', details: deleteCoursesError.message },
+        { status: 500 }
+      );
+    }
+
     const { error: deleteError } = await supabaseServer()
       .from('schedules')
       .delete()

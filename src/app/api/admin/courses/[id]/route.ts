@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer, createSupabaseClient } from '@/lib/supabase';
+import { registrationStatusBlocksDelete } from '@/lib/course-delete-rules';
 import { editCourseSchema } from '@/shared/zod-schemas';
 
 export async function GET(
@@ -655,10 +656,9 @@ export async function DELETE(
       return NextResponse.json({ error: 'Invalid course ID' }, { status: 400 });
     }
 
-    // Check if course has registrations or check-ins
     const { data: registrations } = await supabaseServer()
       .from('class_registrations')
-      .select('id')
+      .select('id, status')
       .eq('course_id', courseId);
 
     const { data: checkins } = await supabaseServer()
@@ -670,9 +670,14 @@ export async function DELETE(
       `)
       .eq('class_registrations.course_id', courseId);
 
-    if ((registrations?.length || 0) > 0 || (checkins?.length || 0) > 0) {
-      return NextResponse.json({ 
-        error: 'Cannot delete course with existing registrations or check-ins' 
+    const hasBlockingReg = (registrations || []).some((r) =>
+      registrationStatusBlocksDelete(r.status)
+    );
+
+    if (hasBlockingReg || (checkins?.length || 0) > 0) {
+      return NextResponse.json({
+        error:
+          'Cannot delete course with active registrations (registered/attended) or check-ins',
       }, { status: 400 });
     }
 
