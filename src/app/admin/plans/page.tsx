@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,6 +52,26 @@ type AdminPlanSort =
   | "sessions-asc"
   | "active-first";
 
+const ADMIN_PLANS_SORT_STORAGE_KEY = "wildenergy-admin-plans-sort";
+
+const ADMIN_PLAN_SORT_VALUES: readonly AdminPlanSort[] = [
+  "default",
+  "name-asc",
+  "name-desc",
+  "price-asc",
+  "price-desc",
+  "duration-asc",
+  "duration-desc",
+  "sessions-desc",
+  "sessions-asc",
+  "active-first",
+];
+
+function parseStoredAdminPlanSort(raw: string | null): AdminPlanSort | null {
+  if (!raw || !(ADMIN_PLAN_SORT_VALUES as readonly string[]).includes(raw)) return null;
+  return raw as AdminPlanSort;
+}
+
 function totalPlanSessions(plan: { plan_groups?: Array<{ session_count?: number }> }) {
   if (!plan.plan_groups?.length) return 0;
   return plan.plan_groups.reduce((t, g) => t + (g.session_count ?? 0), 0);
@@ -98,6 +118,24 @@ export default function AdminPlans() {
   const [planSort, setPlanSort] = useState<AdminPlanSort>("default");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    try {
+      const v = parseStoredAdminPlanSort(localStorage.getItem(ADMIN_PLANS_SORT_STORAGE_KEY));
+      if (v) setPlanSort(v);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const setPersistedPlanSort = useCallback((v: AdminPlanSort) => {
+    setPlanSort(v);
+    try {
+      localStorage.setItem(ADMIN_PLANS_SORT_STORAGE_KEY, v);
+    } catch {
+      /* ignore */
+    }
+  }, []);
   const { toast } = useToast();
 
   const { data: plans, isLoading } = usePlans();
@@ -534,7 +572,7 @@ export default function AdminPlans() {
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3 shrink-0">
-          <Select value={planSort} onValueChange={(v) => setPlanSort(v as AdminPlanSort)}>
+          <Select value={planSort} onValueChange={(v) => setPersistedPlanSort(v as AdminPlanSort)}>
             <SelectTrigger className="w-full sm:w-[200px]">
               <SelectValue placeholder="Sort" />
             </SelectTrigger>

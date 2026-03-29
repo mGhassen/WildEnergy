@@ -7,6 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import QRGenerator from "@/components/qr-generator";
 import { useCheckins } from "@/hooks/useCheckins";
@@ -147,13 +154,21 @@ export default function AdminCheckins() {
           <Label>Member</Label>
           <Input placeholder="Name or email" value={filterMember} onChange={e => setFilterMember(e.target.value)} />
         </div>
-        <div>
-          <Label>Status</Label>
-          <select className="border rounded px-2 py-1" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-            <option value="">All</option>
-            <option value="checkedin">Checked In</option>
-            <option value="notcheckedin">Not Checked In</option>
-          </select>
+        <div className="min-w-[11rem]">
+          <Label htmlFor="checkins-filter-status">Status</Label>
+          <Select
+            value={filterStatus === "" ? "all" : filterStatus}
+            onValueChange={(v) => setFilterStatus(v === "all" ? "" : v)}
+          >
+            <SelectTrigger id="checkins-filter-status" className="shadow-md">
+              <SelectValue placeholder="All" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="checkedin">Checked In</SelectItem>
+              <SelectItem value="notcheckedin">Not Checked In</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 

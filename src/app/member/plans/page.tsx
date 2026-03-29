@@ -8,9 +8,26 @@ import { formatCurrency } from "@/lib/config";
 import { useMemberPlans } from "@/hooks/useMemberPlans";
 import { CardSkeleton } from "@/components/skeletons";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 type PlanSort = "default" | "name-asc" | "name-desc" | "price-asc" | "price-desc" | "sessions-desc" | "sessions-asc";
+
+const MEMBER_PLANS_SORT_STORAGE_KEY = "wildenergy-member-plans-sort";
+
+const MEMBER_PLAN_SORT_VALUES: readonly PlanSort[] = [
+  "default",
+  "name-asc",
+  "name-desc",
+  "price-asc",
+  "price-desc",
+  "sessions-desc",
+  "sessions-asc",
+];
+
+function parseStoredMemberPlanSort(raw: string | null): PlanSort | null {
+  if (!raw || !(MEMBER_PLAN_SORT_VALUES as readonly string[]).includes(raw)) return null;
+  return raw as PlanSort;
+}
 
 function getTotalSessions(plan: { plan_groups?: Array<{ session_count: number }> }) {
   if (plan.plan_groups && plan.plan_groups.length > 0) {
@@ -23,6 +40,24 @@ export default function PlansPage() {
   const { data: plans, isLoading: plansLoading } = useMemberPlans();
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [sortBy, setSortBy] = useState<PlanSort>("default");
+
+  useEffect(() => {
+    try {
+      const v = parseStoredMemberPlanSort(localStorage.getItem(MEMBER_PLANS_SORT_STORAGE_KEY));
+      if (v) setSortBy(v);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const setPersistedSortBy = useCallback((v: PlanSort) => {
+    setSortBy(v);
+    try {
+      localStorage.setItem(MEMBER_PLANS_SORT_STORAGE_KEY, v);
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   const sortedPlans = useMemo(() => {
     if (!plans?.length) return [];
@@ -79,7 +114,7 @@ export default function PlansPage() {
         {!plansLoading && plans && plans.length > 0 && (
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2 max-w-7xl mx-auto">
             <span className="text-sm text-muted-foreground sm:mr-1">Sort by</span>
-            <Select value={sortBy} onValueChange={(v) => setSortBy(v as PlanSort)}>
+            <Select value={sortBy} onValueChange={(v) => setPersistedSortBy(v as PlanSort)}>
               <SelectTrigger className="w-full sm:w-[220px]">
                 <SelectValue placeholder="Sort" />
               </SelectTrigger>
