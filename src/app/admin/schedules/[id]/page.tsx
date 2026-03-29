@@ -105,6 +105,11 @@ const getRepetitionLabel = (type: string) => {
 /** Matches Slider thumb (h-5 w-5): center travels between half-width insets */
 const SLIDER_THUMB_HALF_REM = 0.625;
 
+function bulkSliderThumbLeftCalc(idx: number, maxIdx: number) {
+  const pct = maxIdx === 0 ? 0 : (idx / maxIdx) * 100;
+  return `calc(${SLIDER_THUMB_HALF_REM}rem + (100% - ${SLIDER_THUMB_HALF_REM * 2}rem) * ${pct / 100})`;
+}
+
 const BULK_COURSE_STATUS_STEPS = [
   { api: "" as const, label: "Keep current", short: "—" },
   { api: "scheduled" as const, label: "Scheduled", short: "Sch." },
@@ -375,8 +380,6 @@ export default function ScheduleDetailsPage() {
 
   const bulkStatusMaxIdx = BULK_COURSE_STATUS_STEPS.length - 1;
   const bulkStatusIdx = bulkCourseStatusToIndex(bulkCourseOverrides.status);
-  const bulkStatusTooltipLeftPct =
-    bulkStatusMaxIdx === 0 ? 0 : (bulkStatusIdx / bulkStatusMaxIdx) * 100;
 
   // Pagination handlers
   const handleCoursesPageChange = (newPage: number) => {
@@ -1333,9 +1336,7 @@ export default function ScheduleDetailsPage() {
                     <div className="relative w-full pb-1 pt-10">
                       <div
                         className="pointer-events-none absolute left-0 top-1 z-10 -translate-x-1/2"
-                        style={{
-                          left: `calc(${SLIDER_THUMB_HALF_REM}rem + (100% - ${SLIDER_THUMB_HALF_REM * 2}rem) * ${bulkStatusTooltipLeftPct / 100})`,
-                        }}
+                        style={{ left: bulkSliderThumbLeftCalc(bulkStatusIdx, bulkStatusMaxIdx) }}
                         aria-hidden
                       >
                         <span className="inline-block whitespace-nowrap rounded-md border border-border bg-muted/90 px-2.5 py-1 text-xs font-medium text-foreground shadow-sm backdrop-blur-sm">
@@ -1356,16 +1357,17 @@ export default function ScheduleDetailsPage() {
                         }
                         className="py-3"
                       />
-                    </div>
-                    <div className="flex justify-between gap-0.5 px-0.5">
-                      {BULK_COURSE_STATUS_STEPS.map((s) => (
-                        <span
-                          key={s.api || "keep"}
-                          className="flex-1 text-center text-[10px] font-medium text-muted-foreground leading-tight"
-                        >
-                          {s.short}
-                        </span>
-                      ))}
+                      <div className="relative mt-1 h-5 w-full">
+                        {BULK_COURSE_STATUS_STEPS.map((s, i) => (
+                          <span
+                            key={s.api || "keep"}
+                            className="absolute top-0 -translate-x-1/2 text-[10px] font-medium text-muted-foreground"
+                            style={{ left: bulkSliderThumbLeftCalc(i, bulkStatusMaxIdx) }}
+                          >
+                            {s.short}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
