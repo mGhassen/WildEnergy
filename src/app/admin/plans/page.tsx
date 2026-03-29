@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +40,53 @@ type PlanFormData = z.infer<typeof planFormSchema>;
 // Use the inferred type from schema
 type PlanFormUi = PlanFormData;
 
+type AdminPlanSort =
+  | "default"
+  | "name-asc"
+  | "name-desc"
+  | "price-asc"
+  | "price-desc"
+  | "duration-asc"
+  | "duration-desc"
+  | "sessions-desc"
+  | "sessions-asc"
+  | "active-first";
+
+function totalPlanSessions(plan: { plan_groups?: Array<{ session_count?: number }> }) {
+  if (!plan.plan_groups?.length) return 0;
+  return plan.plan_groups.reduce((t, g) => t + (g.session_count ?? 0), 0);
+}
+
+function sortMappedPlans(list: any[], sort: AdminPlanSort) {
+  if (sort === "default") return list;
+  const copy = [...list];
+  switch (sort) {
+    case "name-asc":
+      return copy.sort((a, b) => a.name.localeCompare(b.name));
+    case "name-desc":
+      return copy.sort((a, b) => b.name.localeCompare(a.name));
+    case "price-asc":
+      return copy.sort((a, b) => Number(a.price) - Number(b.price));
+    case "price-desc":
+      return copy.sort((a, b) => Number(b.price) - Number(a.price));
+    case "duration-asc":
+      return copy.sort((a, b) => a.durationDays - b.durationDays);
+    case "duration-desc":
+      return copy.sort((a, b) => b.durationDays - a.durationDays);
+    case "sessions-desc":
+      return copy.sort((a, b) => totalPlanSessions(b) - totalPlanSessions(a));
+    case "sessions-asc":
+      return copy.sort((a, b) => totalPlanSessions(a) - totalPlanSessions(b));
+    case "active-first":
+      return copy.sort((a, b) => {
+        if (a.isActive === b.isActive) return a.name.localeCompare(b.name);
+        return a.isActive ? -1 : 1;
+      });
+    default:
+      return list;
+  }
+}
+
 export default function AdminPlans() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<any>(null);
@@ -48,6 +95,7 @@ export default function AdminPlans() {
   const [deletingPlan, setDeletingPlan] = useState<any>(null);
   const [linkedSubscriptions, setLinkedSubscriptions] = useState<any[]>([]);
   const [viewType, setViewType] = useState<'cards' | 'table'>('cards');
+  const [planSort, setPlanSort] = useState<AdminPlanSort>("default");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -98,18 +146,21 @@ export default function AdminPlans() {
   };
 
 
-  const filteredPlans = Array.isArray(plans) ? plans.filter((plan: any) =>
-    `${plan.name} ${plan.description}`
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase())
-  ) : [];
-
-  // Map snake_case fields to camelCase for rendering
-  const mappedPlans = filteredPlans.map((plan: any) => ({
-    ...plan,
-    durationDays: plan.duration_days ?? plan.durationDays,
-    isActive: plan.is_active ?? plan.isActive,
-  }));
+  const mappedPlans = useMemo(() => {
+    const raw = Array.isArray(plans)
+      ? plans.filter((plan: any) =>
+          `${plan.name} ${plan.description}`
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase())
+        )
+      : [];
+    const mapped = raw.map((plan: any) => ({
+      ...plan,
+      durationDays: plan.duration_days ?? plan.durationDays,
+      isActive: plan.is_active ?? plan.isActive,
+    }));
+    return sortMappedPlans(mapped, planSort);
+  }, [plans, searchTerm, planSort]);
 
   const handleSubmit = (data: PlanFormUi) => {
     // Map camelCase to snake_case for API
@@ -470,9 +521,9 @@ export default function AdminPlans() {
         </Dialog>
       </div>
 
-      {/* Search and View Toggle */}
-      <div className="flex items-center justify-between space-x-4">
-        <div className="relative flex-1">
+      {/* Search, Sort, View Toggle */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:space-x-4">
+        <div className="relative flex-1 min-w-0">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
           <Input
             placeholder="Search plans..."
@@ -481,7 +532,26 @@ export default function AdminPlans() {
             className="pl-10"
           />
         </div>
-        
+
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3 shrink-0">
+          <Select value={planSort} onValueChange={(v) => setPlanSort(v as AdminPlanSort)}>
+            <SelectTrigger className="w-full sm:w-[200px]">
+              <SelectValue placeholder="Sort" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="default">Default</SelectItem>
+              <SelectItem value="name-asc">Name (A–Z)</SelectItem>
+              <SelectItem value="name-desc">Name (Z–A)</SelectItem>
+              <SelectItem value="price-asc">Price (low to high)</SelectItem>
+              <SelectItem value="price-desc">Price (high to low)</SelectItem>
+              <SelectItem value="duration-asc">Duration (shortest first)</SelectItem>
+              <SelectItem value="duration-desc">Duration (longest first)</SelectItem>
+              <SelectItem value="sessions-desc">Sessions (most first)</SelectItem>
+              <SelectItem value="sessions-asc">Sessions (fewest first)</SelectItem>
+              <SelectItem value="active-first">Active first</SelectItem>
+            </SelectContent>
+          </Select>
+
         {/* View Toggle */}
         <div className="flex items-center gap-2 bg-muted p-1 rounded-lg">
           <Button
@@ -503,6 +573,7 @@ export default function AdminPlans() {
             Table
           </Button>
         </div>
+        </div>
       </div>
 
       {/* Plans Grid */}
@@ -511,7 +582,7 @@ export default function AdminPlans() {
           <div>
             <h2 className="text-lg font-semibold">All Plans</h2>
             <p className="text-sm text-muted-foreground">
-              {filteredPlans.length} of {mappedPlans.length} plans
+              {mappedPlans.length} of {Array.isArray(plans) ? plans.length : 0} plans
             </p>
           </div>
         </div>
