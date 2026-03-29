@@ -274,8 +274,13 @@ export default function ScheduleDetailsPage() {
     setSelectedCourseIds((prev) => prev.filter((id) => !idsOnPage.has(id)));
   };
 
-  const openBulkEdit = () => {
+  const openBulkEdit = (selectionOverride?: number[]) => {
     if (!schedule) return;
+    const ids =
+      selectionOverride !== undefined ? selectionOverride : selectedCourseIds;
+    if (selectionOverride !== undefined) {
+      setSelectedCourseIds(selectionOverride);
+    }
     form.reset({
       classId: schedule.class_id || 0,
       trainerId: schedule.trainer_id || "",
@@ -293,7 +298,7 @@ export default function ScheduleDetailsPage() {
       isActive: schedule.is_active,
     });
     setBulkCourseOverrides({
-      status: inferBulkStatusFromSelection(selectedCourseIds, scheduleCourses),
+      status: inferBulkStatusFromSelection(ids, scheduleCourses),
     });
     setBulkEditDialogOpen(true);
   };
@@ -458,7 +463,7 @@ export default function ScheduleDetailsPage() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             {scheduleCourses.length === 0 && (
-              <DropdownMenuItem onClick={openBulkEdit}>
+              <DropdownMenuItem onClick={() => openBulkEdit()}>
                 <Edit className="mr-2 h-4 w-4" />
                 Edit schedule
               </DropdownMenuItem>
@@ -768,7 +773,7 @@ export default function ScheduleDetailsPage() {
             {selectedCourseIds.length > 0 && (
               <div className="flex flex-wrap items-center gap-2 mt-3 p-3 bg-primary/10 rounded-lg border border-border">
                 <span className="text-sm font-medium">{selectedCourseIds.length} selected</span>
-                <Button size="sm" onClick={openBulkEdit}>
+                <Button size="sm" onClick={() => openBulkEdit()}>
                   <Edit className="w-4 h-4 mr-2" />
                   Edit schedule &amp; courses
                 </Button>
@@ -948,11 +953,12 @@ export default function ScheduleDetailsPage() {
                                   View Details
                                 </Link>
                               </DropdownMenuItem>
-                              <DropdownMenuItem asChild>
-                                <Link href={`/admin/courses/${course.id}`} className="flex items-center gap-2">
-                                  <Edit className="w-4 h-4" />
-                                  Edit Course
-                                </Link>
+                              <DropdownMenuItem
+                                className="flex items-center gap-2"
+                                onSelect={() => openBulkEdit([course.id])}
+                              >
+                                <Edit className="w-4 h-4" />
+                                Edit course
                               </DropdownMenuItem>
                               <DropdownMenuItem asChild>
                                 <Link href={`/admin/registrations?courseId=${course.id}`} className="flex items-center gap-2">
