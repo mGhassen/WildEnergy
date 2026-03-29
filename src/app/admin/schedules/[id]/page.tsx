@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useForm } from "react-hook-form";
 
@@ -20,7 +21,7 @@ import { useSchedule, useUpdateSchedule, useDeleteSchedule } from "@/hooks/useSc
 import { useClasses } from "@/hooks/useClasses";
 import { useTrainers } from "@/hooks/useTrainers";
 import { useAdminRegistrations, useAdminCheckins } from "@/hooks/useAdmin";
-import { useCourses } from "@/hooks/useCourse";
+import { useCourses, useBulkUpdateCourses } from "@/hooks/useCourse";
 import { 
   ArrowLeft, 
   Calendar, 
@@ -33,13 +34,11 @@ import {
   Edit, 
   Trash2, 
   Activity,
-  MapPin,
   User,
   ChevronDown,
   ChevronRight,
   UserCheck,
   UserX,
-  Settings,
   BarChart3
 } from "lucide-react";
 import { getDayName, formatTime } from "@/lib/date";
@@ -106,7 +105,14 @@ export default function ScheduleDetailsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [showTrainerDetails, setShowTrainerDetails] = useState(false);
-  
+  const [selectedCourseIds, setSelectedCourseIds] = useState<number[]>([]);
+  const [bulkEditDialogOpen, setBulkEditDialogOpen] = useState(false);
+  const [bulkEditForm, setBulkEditForm] = useState<{
+    max_participants: string;
+    is_active: '' | boolean;
+    status: '' | 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+  }>({ max_participants: '', is_active: '', status: '' });
+
   // Pagination and filtering state for courses
   const [coursesPage, setCoursesPage] = useState(1);
   const [coursesPerPage] = useState(10);
@@ -192,8 +198,71 @@ export default function ScheduleDetailsPage() {
   // Pagination info
   const totalPages = Math.ceil(filteredCourses.length / coursesPerPage);
 
-  // Update schedule mutation
   const updateScheduleMutation = useUpdateSchedule();
+  const bulkUpdateCoursesMutation = useBulkUpdateCourses();
+
+  const toggleCourseSelection = (id: number) => {
+    setSelectedCourseIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const selectAllOnPage = () => {
+    const ids = paginatedCourses.map((c: any) => c.id);
+    setSelectedCourseIds((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id: number) => next.add(id));
+      return Array.from(next);
+    });
+  };
+
+  const selectAllFiltered = () => {
+    setSelectedCourseIds(filteredCourses.map((c: any) => c.id));
+  };
+
+  const clearSelection = () => setSelectedCourseIds([]);
+
+  const clearSelectionOnPage = () => {
+    const idsOnPage = new Set(paginatedCourses.map((c: any) => c.id));
+    setSelectedCourseIds((prev) => prev.filter((id) => !idsOnPage.has(id)));
+  };
+
+  const openBulkEdit = () => {
+    setBulkEditForm({ max_participants: '', is_active: '', status: '' });
+    setBulkEditDialogOpen(true);
+  };
+
+  const handleBulkEditSubmit = () => {
+    const changes: { max_participants?: number; is_active?: boolean; status?: string } = {};
+    const mp = bulkEditForm.max_participants.trim();
+    if (mp) {
+      const n = parseInt(mp, 10);
+      if (isNaN(n) || n < 1) {
+        toast({ title: 'Invalid max participants', variant: 'destructive' });
+        return;
+      }
+      changes.max_participants = n;
+    }
+    if (bulkEditForm.is_active !== '') changes.is_active = bulkEditForm.is_active as boolean;
+    if (bulkEditForm.status !== '') changes.status = bulkEditForm.status;
+    if (Object.keys(changes).length === 0) {
+      toast({ title: 'Set at least one field to update', variant: 'destructive' });
+      return;
+    }
+    bulkUpdateCoursesMutation.mutate(
+      { courseIds: selectedCourseIds, changes },
+      {
+        onSuccess: (data) => {
+          toast({ title: data.message });
+          setBulkEditDialogOpen(false);
+          clearSelection();
+        },
+        onError: (err: any) => {
+          toast({ title: err?.message || 'Bulk update failed', variant: 'destructive' });
+        },
+      }
+    );
+  };
 
   const handleEdit = () => {
     if (schedule) {
@@ -641,6 +710,22 @@ export default function ScheduleDetailsPage() {
                 </SelectContent>
               </Select>
             </div>
+
+            {selectedCourseIds.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 mt-3 p-3 bg-primary/10 rounded-lg border border-border">
+                <span className="text-sm font-medium">{selectedCourseIds.length} selected</span>
+                <Button size="sm" onClick={openBulkEdit}>
+                  <Edit className="w-4 h-4 mr-2" />
+                  Bulk edit
+                </Button>
+                <Button size="sm" variant="outline" onClick={selectAllFiltered}>
+                  Select all {filteredCourses.length}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={clearSelection}>
+                  Clear
+                </Button>
+              </div>
+            )}
           </CardHeader>
           <CardContent>
             {paginatedCourses.length > 0 ? (
@@ -648,17 +733,23 @@ export default function ScheduleDetailsPage() {
                 {/* Enhanced Course Table */}
                 <div className="space-y-2">
                   {/* Table Header */}
-                  <div className="grid grid-cols-12 gap-4 p-3 bg-muted/20 rounded-lg border border-border/50 text-xs font-medium text-muted-foreground">
-                    <div className="col-span-2">Date & Time</div>
-                    <div className="col-span-1">Code</div>
-                    <div className="col-span-1">Capacity</div>
-                    <div className="col-span-1">Registered</div>
-                    <div className="col-span-1">Attended</div>
-                    <div className="col-span-1">Rate</div>
-                    <div className="col-span-1">Status</div>
-                    <div className="col-span-1">Active</div>
-                    <div className="col-span-1">Edited</div>
-                    <div className="col-span-2">Actions</div>
+                  <div className="grid grid-cols-[auto_2fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_2fr] gap-4 p-3 bg-muted/20 rounded-lg border border-border/50 text-xs font-medium text-muted-foreground items-center">
+                    <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={paginatedCourses.length > 0 && paginatedCourses.every((c: any) => selectedCourseIds.includes(c.id))}
+                        onCheckedChange={(checked) => (checked ? selectAllOnPage() : clearSelectionOnPage())}
+                      />
+                    </div>
+                    <div>Date & Time</div>
+                    <div>Code</div>
+                    <div>Capacity</div>
+                    <div>Registered</div>
+                    <div>Attended</div>
+                    <div>Rate</div>
+                    <div>Status</div>
+                    <div>Active</div>
+                    <div>Edited</div>
+                    <div>Actions</div>
                   </div>
 
                   {/* Course Rows */}
@@ -677,11 +768,17 @@ export default function ScheduleDetailsPage() {
                     return (
                       <div 
                         key={course.id} 
-                        className="grid grid-cols-12 gap-4 p-3 bg-muted/30 rounded-lg border border-border hover:bg-muted/50 transition-colors cursor-pointer"
+                        className="grid grid-cols-[auto_2fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_2fr] gap-4 p-3 bg-muted/30 rounded-lg border border-border hover:bg-muted/50 transition-colors cursor-pointer items-center"
                         onClick={() => router.push(`/admin/courses/${course.id}`)}
                       >
+                        <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={selectedCourseIds.includes(course.id)}
+                            onCheckedChange={() => toggleCourseSelection(course.id)}
+                          />
+                        </div>
                         {/* Date & Time */}
-                        <div className="col-span-2">
+                        <div>
                           <div className="flex items-center gap-2">
                             <Calendar className="w-4 h-4 text-muted-foreground" />
                             <div>
@@ -696,14 +793,14 @@ export default function ScheduleDetailsPage() {
                         </div>
 
                         {/* Course Code */}
-                        <div className="col-span-1 flex items-center">
+                        <div className="flex items-center">
                           <span className="text-xs font-mono text-muted-foreground">
                             {course.code || `CRS-${String(course.id).padStart(5, '0')}`}
                           </span>
                         </div>
 
                         {/* Capacity */}
-                        <div className="col-span-1 flex items-center">
+                        <div className="flex items-center">
                           <div className="flex items-center gap-1">
                             <Users className="w-3 h-3 text-muted-foreground" />
                             <span className="text-sm">{maxCapacity}</span>
@@ -711,7 +808,7 @@ export default function ScheduleDetailsPage() {
                         </div>
 
                         {/* Registered */}
-                        <div className="col-span-1 flex items-center">
+                        <div className="flex items-center">
                           <div className="flex items-center gap-1">
                             <UserCheck className="w-3 h-3 text-blue-500" />
                             <span className="text-sm">{registeredCount}</span>
@@ -719,7 +816,7 @@ export default function ScheduleDetailsPage() {
                         </div>
 
                         {/* Attended */}
-                        <div className="col-span-1 flex items-center">
+                        <div className="flex items-center">
                           <div className="flex items-center gap-1">
                             <UserX className="w-3 h-3 text-green-500" />
                             <span className="text-sm">{attendedCount}</span>
@@ -727,7 +824,7 @@ export default function ScheduleDetailsPage() {
                         </div>
 
                         {/* Attendance Rate */}
-                        <div className="col-span-1 flex items-center">
+                        <div className="flex items-center">
                           <div className="flex items-center gap-1">
                             <BarChart3 className="w-3 h-3 text-muted-foreground" />
                             <span className="text-sm">{attendanceRate}%</span>
@@ -735,7 +832,7 @@ export default function ScheduleDetailsPage() {
                         </div>
 
                         {/* Status */}
-                        <div className="col-span-1 flex items-center">
+                        <div className="flex items-center">
                           <Badge 
                             variant={
                               course.status === 'completed' ? 'default' : 
@@ -749,12 +846,12 @@ export default function ScheduleDetailsPage() {
                         </div>
 
                         {/* Active Status */}
-                        <div className="col-span-1 flex items-center">
+                        <div className="flex items-center">
                           <div className={`w-2 h-2 rounded-full ${course.is_active ? 'bg-green-500' : 'bg-red-500'}`} />
                         </div>
 
                         {/* Edited Status */}
-                        <div className="col-span-1 flex items-center">
+                        <div className="flex items-center">
                           {course.isEdited ? (
                             <Badge variant="outline" className="text-orange-600 border-orange-200 text-xs">
                               <AlertTriangle className="w-3 h-3 mr-1" />
@@ -766,7 +863,7 @@ export default function ScheduleDetailsPage() {
                         </div>
 
                         {/* Actions */}
-                        <div className="col-span-2 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
@@ -1020,42 +1117,9 @@ export default function ScheduleDetailsPage() {
                 />
               </div>
 
-              <FormField
-                control={form.control}
-                name="maxParticipants"
-                render={({ field }) => {
-                  const selectedClassId = form.watch("classId");
-                  const selectedClass = classes?.find((cls: any) => cls.id === selectedClassId);
-                  const classCapacity = selectedClass?.max_capacity || 0;
-                  
-                  return (
-                    <FormItem>
-                      <FormLabel>Max Participants</FormLabel>
-                      <FormControl>
-                        <div className="space-y-2">
-                          <Input 
-                            type="number" 
-                            min="1" 
-                            max="100" 
-                            {...field} 
-                            value={field.value || ""}
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              field.onChange(value === "" ? 0 : parseInt(value, 10) || 0);
-                            }}
-                          />
-                          {classCapacity > 0 && (
-                            <p className="text-xs text-muted-foreground">
-                              Class capacity: {classCapacity} participants
-                            </p>
-                          )}
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  );
-                }}
-              />
+              <p className="text-xs text-muted-foreground">
+                To change capacity for existing sessions, use &quot;Bulk edit&quot; on the courses list below.
+              </p>
 
               <FormField
                 control={form.control}
@@ -1112,6 +1176,73 @@ export default function ScheduleDetailsPage() {
               </DialogFooter>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Edit Courses Dialog */}
+      <Dialog open={bulkEditDialogOpen} onOpenChange={setBulkEditDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Bulk edit courses</DialogTitle>
+            <DialogDescription>
+              Update {selectedCourseIds.length} selected course(s). Set only the fields you want to change.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <FormLabel className="text-sm">Max participants</FormLabel>
+              <Input
+                type="number"
+                min={1}
+                placeholder="Leave empty to keep current"
+                value={bulkEditForm.max_participants}
+                onChange={(e) => setBulkEditForm((f) => ({ ...f, max_participants: e.target.value }))}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <FormLabel className="text-sm">Active</FormLabel>
+              <Select
+                value={bulkEditForm.is_active === '' ? 'no_change' : bulkEditForm.is_active ? 'true' : 'false'}
+                onValueChange={(v) => setBulkEditForm((f) => ({ ...f, is_active: v === 'no_change' ? '' : v === 'true' }))}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="no_change">No change</SelectItem>
+                  <SelectItem value="true">Active</SelectItem>
+                  <SelectItem value="false">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <FormLabel className="text-sm">Status</FormLabel>
+              <Select
+                value={bulkEditForm.status || 'no_change'}
+                onValueChange={(v) => setBulkEditForm((f) => ({ ...f, status: (v === 'no_change' ? '' : v) as any }))}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="no_change">No change</SelectItem>
+                  <SelectItem value="scheduled">Scheduled</SelectItem>
+                  <SelectItem value="in_progress">In progress</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleBulkEditSubmit} disabled={bulkUpdateCoursesMutation.isPending}>
+              {bulkUpdateCoursesMutation.isPending ? 'Updating...' : 'Update'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

@@ -156,32 +156,19 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Schedule not found' }, { status: 404 });
     }
 
-    // Count registrations and checkins
     let totalRegistrations = 0;
     let totalCheckins = 0;
-    
+
     schedule.courses?.forEach((course: any) => {
       const registrations = course.class_registrations || [];
       totalRegistrations += registrations.length;
-      
       registrations.forEach((reg: any) => {
-        const checkins = reg.checkins || [];
-        totalCheckins += checkins.length;
+        totalCheckins += (reg.checkins || []).length;
       });
     });
 
-    // Check if schedule can be edited (no registrations or attendance)
-    if (totalRegistrations > 0 || totalCheckins > 0) {
-      return NextResponse.json({ 
-        error: 'Cannot edit schedule with existing registrations or attendance',
-        message: 'This schedule has members registered or who have attended courses. Please cancel all registrations first.',
-        details: {
-          totalRegistrations,
-          totalCheckins
-        }
-      }, { status: 400 });
-    }
-    
+    const hasRegistrationsOrCheckins = totalRegistrations > 0 || totalCheckins > 0;
+
     // Update the schedule
     const { data: updatedSchedule, error: updateError } = await supabaseServer()
       .from('schedules')
@@ -221,8 +208,8 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    // Only regenerate courses if the schedule is active
-    if (body.is_active === true) {
+    // Only regenerate courses if the schedule is active AND has no registrations/checkins
+    if (body.is_active === true && !hasRegistrationsOrCheckins) {
       try {
         // First, delete all existing courses for this schedule
         const { error: deleteCoursesError } = await supabaseServer()
@@ -357,6 +344,14 @@ export async function PUT(request: NextRequest) {
           details: String(courseError) 
         }, { status: 500 });
       }
+    }
+
+    if (body.is_active === true && hasRegistrationsOrCheckins) {
+      return NextResponse.json({
+        ...updatedSchedule,
+        regeneratedCourses: 0,
+        message: 'Schedule updated. Existing courses were not regenerated because members are registered or have attended.'
+      });
     } else {
       // Schedule is inactive, return success without regenerating courses
       return NextResponse.json({

@@ -40,6 +40,22 @@ export function useUpdateCourse() {
   });
 }
 
+export function useBulkUpdateCourses() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      courseIds,
+      changes,
+    }: {
+      courseIds: number[];
+      changes: { max_participants?: number; is_active?: boolean; status?: string };
+    }) => courseApi.bulkUpdateCourses(courseIds, changes),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
+    },
+  });
+}
+
 export function useDeleteCourse() {
   const queryClient = useQueryClient();
   

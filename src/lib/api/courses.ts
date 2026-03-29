@@ -91,6 +91,13 @@ export const courseApi = {
     return apiRequest('PUT', `/api/admin/courses/${courseId}`, data);
   },
 
+  async bulkUpdateCourses(
+    courseIds: number[],
+    changes: { max_participants?: number; is_active?: boolean; status?: string }
+  ): Promise<{ success: boolean; updatedCount: number; message: string }> {
+    return apiRequest('POST', '/api/admin/courses/bulk-update', { courseIds, changes });
+  },
+
   async deleteCourse(courseId: number): Promise<void> {
     return apiRequest('DELETE', `/api/admin/courses/${courseId}`);
   },
