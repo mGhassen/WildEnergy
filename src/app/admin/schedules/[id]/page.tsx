@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -1190,8 +1191,11 @@ export default function ScheduleDetailsPage() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
-              <FormLabel className="text-sm">Max participants</FormLabel>
+              <Label htmlFor="bulk-edit-max-participants" className="text-sm">
+                Max participants
+              </Label>
               <Input
+                id="bulk-edit-max-participants"
                 type="number"
                 min={1}
                 placeholder="Leave empty to keep current"
@@ -1201,12 +1205,14 @@ export default function ScheduleDetailsPage() {
               />
             </div>
             <div>
-              <FormLabel className="text-sm">Active</FormLabel>
+              <Label htmlFor="bulk-edit-active" className="text-sm">
+                Active
+              </Label>
               <Select
                 value={bulkEditForm.is_active === '' ? 'no_change' : bulkEditForm.is_active ? 'true' : 'false'}
                 onValueChange={(v) => setBulkEditForm((f) => ({ ...f, is_active: v === 'no_change' ? '' : v === 'true' }))}
               >
-                <SelectTrigger className="mt-1">
+                <SelectTrigger id="bulk-edit-active" className="mt-1">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1217,12 +1223,14 @@ export default function ScheduleDetailsPage() {
               </Select>
             </div>
             <div>
-              <FormLabel className="text-sm">Status</FormLabel>
+              <Label htmlFor="bulk-edit-status" className="text-sm">
+                Status
+              </Label>
               <Select
                 value={bulkEditForm.status || 'no_change'}
                 onValueChange={(v) => setBulkEditForm((f) => ({ ...f, status: (v === 'no_change' ? '' : v) as any }))}
               >
-                <SelectTrigger className="mt-1">
+                <SelectTrigger id="bulk-edit-status" className="mt-1">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
