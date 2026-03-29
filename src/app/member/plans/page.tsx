@@ -7,22 +7,45 @@ import { Star, Calendar, Users, CheckCircle, ChevronDown, ChevronRight } from "l
 import { formatCurrency } from "@/lib/config";
 import { useMemberPlans } from "@/hooks/useMemberPlans";
 import { CardSkeleton } from "@/components/skeletons";
-import { useState } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useMemo, useState } from "react";
+
+type PlanSort = "default" | "name-asc" | "name-desc" | "price-asc" | "price-desc" | "sessions-desc" | "sessions-asc";
+
+function getTotalSessions(plan: { plan_groups?: Array<{ session_count: number }> }) {
+  if (plan.plan_groups && plan.plan_groups.length > 0) {
+    return plan.plan_groups.reduce((total, group) => total + group.session_count, 0);
+  }
+  return 0;
+}
 
 export default function PlansPage() {
   const { data: plans, isLoading: plansLoading } = useMemberPlans();
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [sortBy, setSortBy] = useState<PlanSort>("default");
 
-  // Helper function to get total sessions from plan groups
-  const getTotalSessions = (plan: any) => {
-    if (plan.plan_groups && plan.plan_groups.length > 0) {
-      return plan.plan_groups.reduce((total: number, group: any) => total + group.session_count, 0);
+  const sortedPlans = useMemo(() => {
+    if (!plans?.length) return [];
+    const list = [...plans];
+    switch (sortBy) {
+      case "name-asc":
+        return list.sort((a, b) => a.name.localeCompare(b.name));
+      case "name-desc":
+        return list.sort((a, b) => b.name.localeCompare(a.name));
+      case "price-asc":
+        return list.sort((a, b) => Number(a.price) - Number(b.price));
+      case "price-desc":
+        return list.sort((a, b) => Number(b.price) - Number(a.price));
+      case "sessions-desc":
+        return list.sort((a, b) => getTotalSessions(b) - getTotalSessions(a));
+      case "sessions-asc":
+        return list.sort((a, b) => getTotalSessions(a) - getTotalSessions(b));
+      default:
+        return list;
     }
-    return 0;
-  };
+  }, [plans, sortBy]);
 
-  // Find the plan with the most sessions for 'Popular' badge
-  const maxSessions = Math.max(...(plans?.map(p => getTotalSessions(p)) || [0]));
+  const maxSessions = Math.max(...(plans?.map((p) => getTotalSessions(p)) || [0]));
 
   // Helper function to get categories from a group
   const getGroupCategories = (group: any) => {
@@ -52,6 +75,26 @@ export default function PlansPage() {
             Choose the plan that fits your goals. Flexible options, great value, and all the features you need to succeed!
           </p>
         </div>
+
+        {!plansLoading && plans && plans.length > 0 && (
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2 max-w-7xl mx-auto">
+            <span className="text-sm text-muted-foreground sm:mr-1">Sort by</span>
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v as PlanSort)}>
+              <SelectTrigger className="w-full sm:w-[220px]">
+                <SelectValue placeholder="Sort" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">Default</SelectItem>
+                <SelectItem value="name-asc">Name (A–Z)</SelectItem>
+                <SelectItem value="name-desc">Name (Z–A)</SelectItem>
+                <SelectItem value="price-asc">Price (low to high)</SelectItem>
+                <SelectItem value="price-desc">Price (high to low)</SelectItem>
+                <SelectItem value="sessions-desc">Sessions (most first)</SelectItem>
+                <SelectItem value="sessions-asc">Sessions (fewest first)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
         
         {plansLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
@@ -61,7 +104,7 @@ export default function PlansPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {plans?.map((plan) => (
+            {sortedPlans.map((plan) => (
               <Card key={plan.id} className="h-full">
                 <CardContent className="p-4 sm:p-6">
                   <div className="flex items-start justify-between mb-3 gap-2">
