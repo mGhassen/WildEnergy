@@ -48,16 +48,16 @@ export interface CreateScheduleData {
 
 export interface UpdateScheduleData {
   class_id?: number;
-  trainer_id?: string; // Changed to string for UUID
+  trainer_id?: string | null;
   day_of_week?: number;
   start_time?: string;
   end_time?: string;
   max_participants?: number;
   is_active?: boolean;
   repetition_type?: string;
-  schedule_date?: string;
-  start_date?: string;
-  end_date?: string;
+  schedule_date?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
 }
 
 export const scheduleApi = {

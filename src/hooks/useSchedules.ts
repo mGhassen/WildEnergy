@@ -50,6 +50,7 @@ export function useUpdateSchedule() {
     onSuccess: (_, { scheduleId }) => {
       queryClient.invalidateQueries({ queryKey: ['schedule', scheduleId] });
       queryClient.invalidateQueries({ queryKey: ['schedules'] });
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
       toast({
         title: 'Schedule updated',
         description: 'The schedule has been successfully updated.',

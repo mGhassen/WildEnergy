@@ -98,6 +98,16 @@ export const courseApi = {
     return apiRequest('POST', '/api/admin/courses/bulk-update', { courseIds, changes });
   },
 
+  async bulkDeleteCourses(courseIds: number[]): Promise<{
+    success: boolean;
+    deletedCount: number;
+    deleted: number[];
+    failed: { courseId: number; reason: string }[];
+    message: string;
+  }> {
+    return apiRequest('POST', '/api/admin/courses/bulk-delete', { courseIds });
+  },
+
   async deleteCourse(courseId: number): Promise<void> {
     return apiRequest('DELETE', `/api/admin/courses/${courseId}`);
   },

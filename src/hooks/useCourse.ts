@@ -56,6 +56,16 @@ export function useBulkUpdateCourses() {
   });
 }
 
+export function useBulkDeleteCourses() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (courseIds: number[]) => courseApi.bulkDeleteCourses(courseIds),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
+    },
+  });
+}
+
 export function useDeleteCourse() {
   const queryClient = useQueryClient();
   

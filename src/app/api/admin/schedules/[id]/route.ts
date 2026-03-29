@@ -178,6 +178,7 @@ export async function PUT(request: NextRequest) {
         day_of_week: body.day_of_week,
         start_time: body.start_time,
         end_time: body.end_time,
+        max_participants: body.max_participants,
         repetition_type: body.repetition_type,
         schedule_date: body.schedule_date,
         start_date: body.start_date,

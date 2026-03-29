@@ -22,7 +22,7 @@ import { useSchedule, useUpdateSchedule, useDeleteSchedule } from "@/hooks/useSc
 import { useClasses } from "@/hooks/useClasses";
 import { useTrainers } from "@/hooks/useTrainers";
 import { useAdminRegistrations, useAdminCheckins } from "@/hooks/useAdmin";
-import { useCourses, useBulkUpdateCourses } from "@/hooks/useCourse";
+import { useCourses, useBulkUpdateCourses, useBulkDeleteCourses } from "@/hooks/useCourse";
 import { 
   ArrowLeft, 
   Calendar, 
@@ -69,20 +69,25 @@ interface ScheduleFormData {
   isActive?: boolean;
 }
 
-// Helper to map camelCase to snake_case for API
-function mapScheduleToApi(data: any) {
+function toDateInputValue(v?: string | null) {
+  if (!v) return "";
+  return String(v).split("T")[0];
+}
+
+function mapScheduleToApi(data: ScheduleFormData) {
+  const d = (v?: string) => (v && v.trim() !== "" ? v.split("T")[0] : null);
   return {
     class_id: Number(data.classId),
-    trainer_id: data.trainerId && data.trainerId.trim() !== "" ? data.trainerId : null, // Convert empty string to null
+    trainer_id: data.trainerId && data.trainerId.trim() !== "" ? data.trainerId : null,
     day_of_week: data.dayOfWeek,
     start_time: data.startTime,
     end_time: data.endTime,
     max_participants: data.maxParticipants,
     repetition_type: data.repetitionType,
-    schedule_date: data.scheduleDate,
-    start_date: data.startDate,
-    end_date: data.endDate,
-    is_active: data.isActive,
+    schedule_date: d(data.scheduleDate ?? ""),
+    start_date: d(data.startDate ?? ""),
+    end_date: d(data.endDate ?? ""),
+    is_active: data.isActive ?? true,
   };
 }
 
@@ -104,15 +109,14 @@ export default function ScheduleDetailsPage() {
   const { toast } = useToast();
   
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
   const [showTrainerDetails, setShowTrainerDetails] = useState(false);
   const [selectedCourseIds, setSelectedCourseIds] = useState<number[]>([]);
   const [bulkEditDialogOpen, setBulkEditDialogOpen] = useState(false);
-  const [bulkEditForm, setBulkEditForm] = useState<{
-    max_participants: string;
+  const [bulkCourseOverrides, setBulkCourseOverrides] = useState<{
     is_active: '' | boolean;
     status: '' | 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
-  }>({ max_participants: '', is_active: '', status: '' });
+  }>({ is_active: '', status: '' });
 
   // Pagination and filtering state for courses
   const [coursesPage, setCoursesPage] = useState(1);
@@ -155,12 +159,27 @@ export default function ScheduleDetailsPage() {
   // Get schedule-specific data
   const scheduleCourses = courses.filter((course: any) => course.schedule_id?.toString() === scheduleId);
   const courseIds = scheduleCourses.map((course: any) => course.id);
-  const scheduleRegistrations = registrations.filter((reg: any) => 
+  const scheduleRegistrations = registrations.filter((reg: any) =>
     courseIds.includes(reg.course_id)
   );
-  const attendedMembers = checkins.filter((checkin: any) => 
-    courseIds.includes(checkin.course_id)
+  const scheduleRegistrationIds = new Set(
+    scheduleRegistrations.map((r: any) => r.id)
   );
+  const attendedMembers = checkins.filter((checkin: any) =>
+    scheduleRegistrationIds.has(checkin.registration_id)
+  );
+
+  const selectedDeletableIds = useMemo(() => {
+    return selectedCourseIds.filter((id) => {
+      const regs = registrations.filter((r: any) => r.course_id === id);
+      if (regs.length > 0) return false;
+      const blockedByCheckin = checkins.some((ch: any) => {
+        const reg = registrations.find((r: any) => r.id === ch.registration_id);
+        return reg?.course_id === id;
+      });
+      return !blockedByCheckin;
+    });
+  }, [selectedCourseIds, registrations, checkins]);
 
   // Filtered and paginated courses
   const filteredCourses = useMemo(() => {
@@ -201,6 +220,7 @@ export default function ScheduleDetailsPage() {
 
   const updateScheduleMutation = useUpdateSchedule();
   const bulkUpdateCoursesMutation = useBulkUpdateCourses();
+  const bulkDeleteCoursesMutation = useBulkDeleteCourses();
 
   const toggleCourseSelection = (id: number) => {
     setSelectedCourseIds((prev) =>
@@ -229,70 +249,74 @@ export default function ScheduleDetailsPage() {
   };
 
   const openBulkEdit = () => {
-    setBulkEditForm({ max_participants: '', is_active: '', status: '' });
+    if (!schedule) return;
+    form.reset({
+      classId: schedule.class_id || 0,
+      trainerId: schedule.trainer_id || "",
+      dayOfWeek: schedule.day_of_week,
+      startTime: schedule.start_time,
+      endTime: schedule.end_time,
+      maxParticipants:
+        schedule.max_participants ??
+        (schedule.class as { max_capacity?: number } | undefined)?.max_capacity ??
+        10,
+      repetitionType: schedule.repetition_type || "once",
+      scheduleDate: toDateInputValue(schedule.schedule_date),
+      startDate: toDateInputValue(schedule.start_date),
+      endDate: toDateInputValue(schedule.end_date),
+      isActive: schedule.is_active,
+    });
+    setBulkCourseOverrides({ is_active: '', status: '' });
     setBulkEditDialogOpen(true);
   };
 
-  const handleBulkEditSubmit = () => {
-    const changes: { max_participants?: number; is_active?: boolean; status?: string } = {};
-    const mp = bulkEditForm.max_participants.trim();
-    if (mp) {
-      const n = parseInt(mp, 10);
-      if (isNaN(n) || n < 1) {
-        toast({ title: 'Invalid max participants', variant: 'destructive' });
-        return;
-      }
-      changes.max_participants = n;
-    }
-    if (bulkEditForm.is_active !== '') changes.is_active = bulkEditForm.is_active as boolean;
-    if (bulkEditForm.status !== '') changes.status = bulkEditForm.status;
-    if (Object.keys(changes).length === 0) {
-      toast({ title: 'Set at least one field to update', variant: 'destructive' });
+  const handleUnifiedSubmit = async (data: ScheduleFormData) => {
+    if (scheduleCourses.length > 0 && selectedCourseIds.length === 0) {
+      toast({ title: "Select at least one course", variant: "destructive" });
       return;
     }
-    bulkUpdateCoursesMutation.mutate(
-      { courseIds: selectedCourseIds, changes },
-      {
-        onSuccess: (data) => {
-          toast({ title: data.message });
-          setBulkEditDialogOpen(false);
-          clearSelection();
-        },
-        onError: (err: any) => {
-          toast({ title: err?.message || 'Bulk update failed', variant: 'destructive' });
-        },
-      }
-    );
-  };
-
-  const handleEdit = () => {
-    if (schedule) {
-      form.reset({
-        classId: schedule.class_id || 0,
-        trainerId: schedule.trainer_id || "",
-        dayOfWeek: schedule.day_of_week,
-        startTime: schedule.start_time,
-        endTime: schedule.end_time,
-        maxParticipants: schedule.max_participants || 10,
-        repetitionType: schedule.repetition_type || "once",
-        scheduleDate: schedule.schedule_date || "",
-        startDate: schedule.start_date || "",
-        endDate: schedule.end_date || "",
-        isActive: schedule.is_active,
+    try {
+      await updateScheduleMutation.mutateAsync({
+        scheduleId: Number(scheduleId),
+        data: mapScheduleToApi(data),
       });
-      setEditDialogOpen(true);
+      const changes: { is_active?: boolean; status?: string } = {};
+      if (bulkCourseOverrides.is_active !== "")
+        changes.is_active = bulkCourseOverrides.is_active as boolean;
+      if (bulkCourseOverrides.status !== "") changes.status = bulkCourseOverrides.status;
+      if (Object.keys(changes).length > 0 && selectedCourseIds.length > 0) {
+        await bulkUpdateCoursesMutation.mutateAsync({
+          courseIds: selectedCourseIds,
+          changes,
+        });
+        toast({ title: "Overrides applied to selected courses" });
+      }
+      setBulkEditDialogOpen(false);
+      clearSelection();
+    } catch {
+      // useUpdateSchedule / mutation hooks surface errors
     }
   };
 
-  const handleSubmit = (data: ScheduleFormData) => {
-    const apiData = mapScheduleToApi(data);
-    updateScheduleMutation.mutate({ 
-      scheduleId: Number(scheduleId), 
-      data: apiData 
-    }, {
-      onSuccess: () => {
-        setEditDialogOpen(false);
-      }
+  const confirmBulkDelete = () => {
+    const ids = selectedDeletableIds;
+    if (ids.length === 0) return;
+    bulkDeleteCoursesMutation.mutate(ids, {
+      onSuccess: (res) => {
+        queryClient.invalidateQueries({ queryKey: ["schedule", Number(scheduleId)] });
+        toast({
+          title: res.message,
+          variant: res.failed?.length ? "destructive" : "default",
+        });
+        setBulkDeleteDialogOpen(false);
+        clearSelection();
+      },
+      onError: (err: any) => {
+        toast({
+          title: err?.message || "Bulk delete failed",
+          variant: "destructive",
+        });
+      },
     });
   };
 
@@ -310,9 +334,8 @@ export default function ScheduleDetailsPage() {
     });
   };
 
-  const canDeleteSchedule = (scheduleId: string) => {
-    return scheduleCourses.length === 0;
-  };
+  const canDeleteSchedule =
+    scheduleRegistrations.length === 0 && attendedMembers.length === 0;
 
   // Pagination handlers
   const handleCoursesPageChange = (newPage: number) => {
@@ -406,34 +429,36 @@ export default function ScheduleDetailsPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            {scheduleCourses.length === 0 && (
+              <DropdownMenuItem onClick={openBulkEdit}>
+                <Edit className="mr-2 h-4 w-4" />
+                Edit schedule
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem
               onClick={() => {
-                handleEdit();
+                const params = new URLSearchParams({
+                  scheduleId,
+                  status: "registered,attended",
+                });
+                router.push(`/admin/registrations?${params.toString()}`);
               }}
             >
-              <Edit className="mr-2 h-4 w-4" />
-              Edit Schedule
+              <Users className="mr-2 h-4 w-4" />
+              View registrations
             </DropdownMenuItem>
-            {canDeleteSchedule(scheduleId) ? (
+            {canDeleteSchedule ? (
               <DropdownMenuItem
                 onClick={handleDelete}
                 className="text-red-600 focus:text-red-600"
               >
                 <Trash2 className="mr-2 h-4 w-4" />
-                Delete Schedule
+                Delete schedule
               </DropdownMenuItem>
             ) : (
-              <DropdownMenuItem
-                onClick={() => {
-                  const params = new URLSearchParams({
-                    scheduleId: scheduleId,
-                    status: 'registered,attended'
-                  });
-                  router.push(`/admin/registrations?${params.toString()}`);
-                }}
-              >
-                <Users className="mr-2 h-4 w-4" />
-                View Registrations
+              <DropdownMenuItem disabled className="text-muted-foreground">
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete schedule (no registrations / check-ins)
               </DropdownMenuItem>
             )}
           </DropdownMenuContent>
@@ -717,7 +742,24 @@ export default function ScheduleDetailsPage() {
                 <span className="text-sm font-medium">{selectedCourseIds.length} selected</span>
                 <Button size="sm" onClick={openBulkEdit}>
                   <Edit className="w-4 h-4 mr-2" />
-                  Bulk edit
+                  Edit schedule &amp; courses
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  disabled={
+                    selectedDeletableIds.length !== selectedCourseIds.length ||
+                    selectedCourseIds.length === 0
+                  }
+                  title={
+                    selectedDeletableIds.length !== selectedCourseIds.length
+                      ? "All selected courses must have zero registrations and check-ins"
+                      : undefined
+                  }
+                  onClick={() => setBulkDeleteDialogOpen(true)}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete selected
                 </Button>
                 <Button size="sm" variant="outline" onClick={selectAllFiltered}>
                   Select all {filteredCourses.length}
@@ -983,57 +1025,50 @@ export default function ScheduleDetailsPage() {
         </Card>
       )}
 
-      {/* Edit Schedule Dialog */}
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+      <Dialog open={bulkEditDialogOpen} onOpenChange={setBulkEditDialogOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Schedule</DialogTitle>
+            <DialogTitle>Edit schedule &amp; selected courses</DialogTitle>
             <DialogDescription>
-              Update schedule information
+              {scheduleCourses.length > 0
+                ? `Schedule fields update the template and sync related courses (per server rules). Optional fields below apply only to the ${selectedCourseIds.length} selected course(s).`
+                : "This schedule has no courses yet; saving updates the template only."}
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+            <form onSubmit={form.handleSubmit(handleUnifiedSubmit)} className="space-y-4">
               <FormField
                 control={form.control}
                 name="classId"
-                render={({ field }) => {
-                  const selectedClass = classes ? (classes as any[]).find((cls: any) => cls.id === field.value) : null;
-                  
-                  return (
-                    <FormItem>
-                      <FormLabel>Class</FormLabel>
-                      <Select onValueChange={value => field.onChange(Number(value))} value={String(field.value)}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select class" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {classes?.map((cls: any) => (
-                            <SelectItem key={cls.id} value={String(cls.id)}>
-                              <div className="flex items-center gap-2">
-                                <div className="flex items-center gap-2">
-                                  <div 
-                                    className="w-3 h-3 rounded-full" 
-                                    style={{ backgroundColor: cls.category?.color || '#6b7280' }}
-                                  />
-                                  <span>{cls.name}</span>
-                                </div>
-                                {cls.group && (
-                                  <span className="text-xs text-muted-foreground ml-2">
-                                    ({cls.group.name})
-                                  </span>
-                                )}
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  );
-                }}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Class</FormLabel>
+                    <Select onValueChange={(value) => field.onChange(Number(value))} value={String(field.value)}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select class" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {classes?.map((cls: any) => (
+                          <SelectItem key={cls.id} value={String(cls.id)}>
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="w-3 h-3 rounded-full"
+                                style={{ backgroundColor: cls.category?.color || "#6b7280" }}
+                              />
+                              <span>{cls.name}</span>
+                              {cls.group && (
+                                <span className="text-xs text-muted-foreground ml-2">({cls.group.name})</span>
+                              )}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
 
               <FormField
@@ -1042,7 +1077,7 @@ export default function ScheduleDetailsPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Trainer</FormLabel>
-                    <Select onValueChange={value => field.onChange(value)} value={field.value ?? ""}>
+                    <Select onValueChange={(value) => field.onChange(value)} value={field.value ?? ""}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select trainer" />
@@ -1061,40 +1096,13 @@ export default function ScheduleDetailsPage() {
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="dayOfWeek"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Day of Week</FormLabel>
-                    <Select onValueChange={value => field.onChange(Number(value))} value={String(field.value)}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select day of week" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="0">Sunday</SelectItem>
-                        <SelectItem value="1">Monday</SelectItem>
-                        <SelectItem value="2">Tuesday</SelectItem>
-                        <SelectItem value="3">Wednesday</SelectItem>
-                        <SelectItem value="4">Thursday</SelectItem>
-                        <SelectItem value="5">Friday</SelectItem>
-                        <SelectItem value="6">Saturday</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="startTime"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Start Time</FormLabel>
+                      <FormLabel>Start time</FormLabel>
                       <FormControl>
                         <Input type="time" {...field} />
                       </FormControl>
@@ -1102,13 +1110,12 @@ export default function ScheduleDetailsPage() {
                     </FormItem>
                   )}
                 />
-
                 <FormField
                   control={form.control}
                   name="endTime"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>End Time</FormLabel>
+                      <FormLabel>End time</FormLabel>
                       <FormControl>
                         <Input type="time" {...field} />
                       </FormControl>
@@ -1117,10 +1124,6 @@ export default function ScheduleDetailsPage() {
                   )}
                 />
               </div>
-
-              <p className="text-xs text-muted-foreground">
-                To change capacity for existing sessions, use &quot;Bulk edit&quot; on the courses list below.
-              </p>
 
               <FormField
                 control={form.control}
@@ -1146,33 +1149,213 @@ export default function ScheduleDetailsPage() {
                 )}
               />
 
-              {/* Active Status Toggle */}
+              {form.watch("repetitionType") === "once" && (
+                <FormField
+                  control={form.control}
+                  name="scheduleDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Schedule date</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
+              {(form.watch("repetitionType") === "daily" ||
+                form.watch("repetitionType") === "weekly" ||
+                form.watch("repetitionType") === "monthly") && (
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="startDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Start date</FormLabel>
+                        <FormControl>
+                          <Input type="date" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="endDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>End date</FormLabel>
+                        <FormControl>
+                          <Input type="date" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
+
+              <FormField
+                control={form.control}
+                name="dayOfWeek"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Day of week</FormLabel>
+                    <Select
+                      onValueChange={(value) => field.onChange(Number(value))}
+                      value={field.value !== undefined ? String(field.value) : ""}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select day of week" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="0">Sunday</SelectItem>
+                        <SelectItem value="1">Monday</SelectItem>
+                        <SelectItem value="2">Tuesday</SelectItem>
+                        <SelectItem value="3">Wednesday</SelectItem>
+                        <SelectItem value="4">Thursday</SelectItem>
+                        <SelectItem value="5">Friday</SelectItem>
+                        <SelectItem value="6">Saturday</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="maxParticipants"
+                render={({ field }) => {
+                  const selectedClassId = form.watch("classId");
+                  const selectedClass = (classes as any[])?.find((cls: any) => cls.id === selectedClassId);
+                  const classCapacity = selectedClass?.max_capacity || 0;
+                  return (
+                    <FormItem>
+                      <FormLabel>Max participants</FormLabel>
+                      <FormControl>
+                        <div className="space-y-2">
+                          <Input
+                            type="number"
+                            min={1}
+                            max={100}
+                            {...field}
+                            value={field.value || ""}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              field.onChange(value === "" ? 0 : parseInt(value, 10) || 0);
+                            }}
+                          />
+                          {classCapacity > 0 && (
+                            <p className="text-xs text-muted-foreground">Class capacity: {classCapacity}</p>
+                          )}
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
+              />
+
               <FormField
                 control={form.control}
                 name="isActive"
                 render={({ field }) => (
                   <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                     <div className="space-y-0.5">
-                      <FormLabel className="text-base">
-                        Active Status
-                      </FormLabel>
+                      <FormLabel className="text-base">Schedule active</FormLabel>
                       <div className="text-sm text-muted-foreground">
-                        {field.value ? "Schedule is active and courses can be created" : "Schedule is inactive and courses will be deactivated"}
+                        {field.value
+                          ? "Schedule is active"
+                          : "Schedule is inactive; related courses are deactivated"}
                       </div>
                     </div>
                     <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
+                      <Switch checked={field.value} onCheckedChange={field.onChange} />
                     </FormControl>
                   </FormItem>
                 )}
               />
 
-              <DialogFooter>
-                <Button type="submit" disabled={updateScheduleMutation.isPending}>
-                  {updateScheduleMutation.isPending ? "Updating..." : "Update Schedule"}
+              {scheduleCourses.length > 0 && (
+                <div className="border-t pt-4 space-y-4">
+                  <p className="text-sm font-medium">Selected courses only</p>
+                  <p className="text-xs text-muted-foreground">
+                    Leave as &quot;No change&quot; to skip. Schedule fields above always save when you submit.
+                  </p>
+                  <div>
+                    <Label htmlFor="bulk-ov-active" className="text-sm">
+                      Course active
+                    </Label>
+                    <Select
+                      value={
+                        bulkCourseOverrides.is_active === ""
+                          ? "no_change"
+                          : bulkCourseOverrides.is_active
+                            ? "true"
+                            : "false"
+                      }
+                      onValueChange={(v) =>
+                        setBulkCourseOverrides((f) => ({
+                          ...f,
+                          is_active: v === "no_change" ? "" : v === "true",
+                        }))
+                      }
+                    >
+                      <SelectTrigger id="bulk-ov-active" className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="no_change">No change</SelectItem>
+                        <SelectItem value="true">Active</SelectItem>
+                        <SelectItem value="false">Inactive</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="bulk-ov-status" className="text-sm">
+                      Course status
+                    </Label>
+                    <Select
+                      value={bulkCourseOverrides.status || "no_change"}
+                      onValueChange={(v) =>
+                        setBulkCourseOverrides((f) => ({
+                          ...f,
+                          status: (v === "no_change" ? "" : v) as typeof f.status,
+                        }))
+                      }
+                    >
+                      <SelectTrigger id="bulk-ov-status" className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="no_change">No change</SelectItem>
+                        <SelectItem value="scheduled">Scheduled</SelectItem>
+                        <SelectItem value="in_progress">In progress</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button type="button" variant="outline" onClick={() => setBulkEditDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={updateScheduleMutation.isPending || bulkUpdateCoursesMutation.isPending}
+                >
+                  {updateScheduleMutation.isPending || bulkUpdateCoursesMutation.isPending
+                    ? "Saving…"
+                    : "Save"}
                 </Button>
               </DialogFooter>
             </form>
@@ -1180,79 +1363,29 @@ export default function ScheduleDetailsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Bulk Edit Courses Dialog */}
-      <Dialog open={bulkEditDialogOpen} onOpenChange={setBulkEditDialogOpen}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle>Bulk edit courses</DialogTitle>
-            <DialogDescription>
-              Update {selectedCourseIds.length} selected course(s). Set only the fields you want to change.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div>
-              <Label htmlFor="bulk-edit-max-participants" className="text-sm">
-                Max participants
-              </Label>
-              <Input
-                id="bulk-edit-max-participants"
-                type="number"
-                min={1}
-                placeholder="Leave empty to keep current"
-                value={bulkEditForm.max_participants}
-                onChange={(e) => setBulkEditForm((f) => ({ ...f, max_participants: e.target.value }))}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label htmlFor="bulk-edit-active" className="text-sm">
-                Active
-              </Label>
-              <Select
-                value={bulkEditForm.is_active === '' ? 'no_change' : bulkEditForm.is_active ? 'true' : 'false'}
-                onValueChange={(v) => setBulkEditForm((f) => ({ ...f, is_active: v === 'no_change' ? '' : v === 'true' }))}
-              >
-                <SelectTrigger id="bulk-edit-active" className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="no_change">No change</SelectItem>
-                  <SelectItem value="true">Active</SelectItem>
-                  <SelectItem value="false">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="bulk-edit-status" className="text-sm">
-                Status
-              </Label>
-              <Select
-                value={bulkEditForm.status || 'no_change'}
-                onValueChange={(v) => setBulkEditForm((f) => ({ ...f, status: (v === 'no_change' ? '' : v) as any }))}
-              >
-                <SelectTrigger id="bulk-edit-status" className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="no_change">No change</SelectItem>
-                  <SelectItem value="scheduled">Scheduled</SelectItem>
-                  <SelectItem value="in_progress">In progress</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setBulkEditDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleBulkEditSubmit} disabled={bulkUpdateCoursesMutation.isPending}>
-              {bulkUpdateCoursesMutation.isPending ? 'Updating...' : 'Update'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <AlertDialog open={bulkDeleteDialogOpen} onOpenChange={setBulkDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedDeletableIds.length} course(s)?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This cannot be undone. Only courses with no registrations and no check-ins are deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={(e) => {
+                e.preventDefault();
+                confirmBulkDelete();
+              }}
+              disabled={bulkDeleteCoursesMutation.isPending}
+            >
+              {bulkDeleteCoursesMutation.isPending ? "Deleting…" : "Delete courses"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
