@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import Link from "next/link";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -47,7 +48,6 @@ export default function AdminTerms() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingTerms, setEditingTerms] = useState<any>(null);
-  const [deletingTerms, setDeletingTerms] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -139,7 +139,16 @@ export default function AdminTerms() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    if (editingTerms?.is_active) {
+      toast({
+        title: "Cannot edit",
+        description: "Active terms versions cannot be edited.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!formData.version || !formData.title || !formData.content) {
       toast({
         title: "Error",
@@ -178,20 +187,17 @@ export default function AdminTerms() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!deletingTerms) return;
-
+  const handleDeleteTerm = async (termId: string) => {
     try {
-      await deleteTermsMutation.mutateAsync(deletingTerms.id);
+      await deleteTermsMutation.mutateAsync(termId);
       toast({
         title: "Success",
         description: "Terms deleted successfully",
       });
-      setDeletingTerms(null);
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to delete terms",
+        description: error instanceof Error ? error.message : "Failed to delete terms",
         variant: "destructive",
       });
     }
@@ -297,7 +303,7 @@ export default function AdminTerms() {
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to delete some terms",
+        description: error instanceof Error ? error.message : "Failed to delete some terms",
         variant: "destructive",
       });
     }
@@ -575,11 +581,18 @@ export default function AdminTerms() {
                 <thead className="border-b border-border">
                   <tr className="text-left">
                     <th className="p-4 w-12">
-                      <input
-                        type="checkbox"
-                        checked={selectedTerms.length === filteredAndSortedTerms.length && filteredAndSortedTerms.length > 0}
-                        onChange={handleSelectAll}
-                        className="rounded border-border"
+                      <Checkbox
+                        checked={
+                          filteredAndSortedTerms.length === 0
+                            ? false
+                            : selectedTerms.length === filteredAndSortedTerms.length
+                              ? true
+                              : selectedTerms.length > 0
+                                ? "indeterminate"
+                                : false
+                        }
+                        onCheckedChange={() => handleSelectAll()}
+                        aria-label="Select all terms"
                       />
                     </th>
                     <th className="p-4 font-medium text-muted-foreground">
@@ -643,11 +656,10 @@ export default function AdminTerms() {
                       onClick={() => window.location.href = `/admin/terms/${term.id}`}
                     >
                       <td className="p-4" onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="checkbox"
+                        <Checkbox
                           checked={selectedTerms.includes(term.id)}
-                          onChange={() => handleSelectTerm(term.id)}
-                          className="rounded border-border"
+                          onCheckedChange={() => handleSelectTerm(term.id)}
+                          aria-label={`Select ${term.title}`}
                         />
                       </td>
                       <td className="p-4">
@@ -675,7 +687,11 @@ export default function AdminTerms() {
                       <td className="p-4 text-sm text-muted-foreground">
                         {formatDate(term.effective_date)}
                       </td>
-                      <td className="p-4">
+                      <td
+                        className="p-4"
+                        onClick={(e) => e.stopPropagation()}
+                        onPointerDown={(e) => e.stopPropagation()}
+                      >
                         <div className="flex items-center gap-1">
                           {!term.is_active && (
                             <Button
@@ -698,7 +714,6 @@ export default function AdminTerms() {
                                   size="sm"
                                   variant="outline"
                                   className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                                  onClick={(e) => e.stopPropagation()}
                                 >
                                   <Trash2 className="w-4 h-4" />
                                 </Button>
@@ -713,10 +728,7 @@ export default function AdminTerms() {
                                 <AlertDialogFooter>
                                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                                   <AlertDialogAction
-                                    onClick={() => {
-                                      setDeletingTerms(term);
-                                      handleDelete();
-                                    }}
+                                    onClick={() => handleDeleteTerm(term.id)}
                                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                   >
                                     Delete

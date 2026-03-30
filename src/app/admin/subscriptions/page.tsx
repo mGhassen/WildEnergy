@@ -900,14 +900,26 @@ export default function AdminSubscriptions() {
               <TableRow>
                 <TableHead className="w-12">
                   <Checkbox
-                    checked={selectedSubscriptions.length === filteredAndSortedSubscriptions.length && filteredAndSortedSubscriptions.length > 0}
+                    checked={
+                      filteredAndSortedSubscriptions.length === 0
+                        ? false
+                        : selectedSubscriptions.length ===
+                            filteredAndSortedSubscriptions.length
+                          ? true
+                          : selectedSubscriptions.length > 0
+                            ? "indeterminate"
+                            : false
+                    }
                     onCheckedChange={(checked) => {
                       if (checked) {
-                        setSelectedSubscriptions(filteredAndSortedSubscriptions.map(s => s.id));
+                        setSelectedSubscriptions(
+                          filteredAndSortedSubscriptions.map((s) => s.id)
+                        );
                       } else {
                         setSelectedSubscriptions([]);
                       }
                     }}
+                    aria-label="Select all subscriptions"
                   />
                 </TableHead>
                 <TableHead 
@@ -978,9 +990,11 @@ export default function AdminSubscriptions() {
                     selectedSubscriptions.includes(subscription.id) && "bg-muted/50"
                   )}
                   onClick={e => {
-                    // Prevent row click if clicking on actions menu or checkbox
-                    if ((e.target as HTMLElement).closest('.actions-menu') || 
-                        (e.target as HTMLElement).closest('input[type="checkbox"]')) return;
+                    if (
+                      (e.target as HTMLElement).closest(".actions-menu") ||
+                      (e.target as HTMLElement).closest('[role="checkbox"]')
+                    )
+                      return;
                     navigateToSubscriptionDetails(subscription);
                   }}
                 >

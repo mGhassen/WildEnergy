@@ -558,8 +558,18 @@ export default function DataTable({
             {selectable && (
               <div className="p-3">
                 <Checkbox
-                  checked={selectedRows.size > 0 && selectedRows.size === (groupBy === "none" ? sortedData.length : Object.values(groupedData).flat().length)}
+                  checked={(() => {
+                    const allIds =
+                      groupBy === "none"
+                        ? sortedData.length
+                        : Object.values(groupedData).flat().length;
+                    if (allIds === 0) return false;
+                    if (selectedRows.size === allIds) return true;
+                    if (selectedRows.size > 0) return "indeterminate";
+                    return false;
+                  })()}
                   onCheckedChange={handleSelectAll}
+                  aria-label="Select all rows"
                 />
               </div>
             )}

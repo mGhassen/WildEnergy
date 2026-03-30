@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import ScheduleCalendar from '@/components/schedule-calendar';
@@ -468,13 +469,16 @@ function CourseEditForm({ course, classes, trainers, activeMembers, onSubmit, on
       </div>
 
       <div className="flex items-center space-x-2">
-        <input
+        <Checkbox
           id="is_active"
-          type="checkbox"
           checked={formData.is_active}
-          onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+          onCheckedChange={(checked) =>
+            setFormData({ ...formData, is_active: checked === true })
+          }
         />
-        <Label htmlFor="is_active">Active</Label>
+        <Label htmlFor="is_active" className="cursor-pointer font-normal">
+          Active
+        </Label>
       </div>
 
       <div className="flex gap-2">

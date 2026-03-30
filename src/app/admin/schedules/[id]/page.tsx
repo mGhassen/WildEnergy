@@ -843,8 +843,23 @@ export default function ScheduleDetailsPage() {
                   <div className="grid grid-cols-[auto_2fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_2fr] gap-4 p-3 bg-muted/20 rounded-lg border border-border/50 text-xs font-medium text-muted-foreground items-center">
                     <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
                       <Checkbox
-                        checked={paginatedCourses.length > 0 && paginatedCourses.every((c: any) => selectedCourseIds.includes(c.id))}
-                        onCheckedChange={(checked) => (checked ? selectAllOnPage() : clearSelectionOnPage())}
+                        checked={
+                          paginatedCourses.length === 0
+                            ? false
+                            : paginatedCourses.every((c: any) =>
+                                selectedCourseIds.includes(c.id)
+                              )
+                              ? true
+                              : paginatedCourses.some((c: any) =>
+                                    selectedCourseIds.includes(c.id)
+                                  )
+                                ? "indeterminate"
+                                : false
+                        }
+                        onCheckedChange={(checked) =>
+                          checked ? selectAllOnPage() : clearSelectionOnPage()
+                        }
+                        aria-label="Select all courses on this page"
                       />
                     </div>
                     <div>Date & Time</div>

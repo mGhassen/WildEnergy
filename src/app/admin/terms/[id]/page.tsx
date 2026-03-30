@@ -75,7 +75,14 @@ export default function AdminTermsView() {
     }
   }, [terms, termId, toast, router]);
 
+  useEffect(() => {
+    if (currentTerm?.is_active) {
+      setIsEditing(false);
+    }
+  }, [currentTerm?.id, currentTerm?.is_active]);
+
   const handleEdit = () => {
+    if (currentTerm?.is_active) return;
     setIsEditing(true);
   };
 
@@ -95,7 +102,16 @@ export default function AdminTermsView() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    if (currentTerm.is_active) {
+      toast({
+        title: "Cannot edit",
+        description: "Active terms versions cannot be edited.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!formData.version || !formData.title || !formData.content) {
       toast({
         title: "Error",
@@ -236,10 +252,12 @@ export default function AdminTermsView() {
                 Activate
               </Button>
             )}
-            <Button onClick={handleEdit}>
-              <Edit className="w-4 h-4 mr-2" />
-              Edit
-            </Button>
+            {!currentTerm.is_active && (
+              <Button onClick={handleEdit}>
+                <Edit className="w-4 h-4 mr-2" />
+                Edit
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -254,7 +272,11 @@ export default function AdminTermsView() {
                 Content
               </CardTitle>
               <CardDescription>
-                {isEditing ? "Edit the terms content below" : "Terms and conditions document"}
+                {currentTerm.is_active
+                  ? "This version is live and cannot be edited. Create a new version to make changes."
+                  : isEditing
+                    ? "Edit the terms content below"
+                    : "Terms and conditions document"}
               </CardDescription>
             </div>
             {!isEditing && (

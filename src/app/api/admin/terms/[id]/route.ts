@@ -82,6 +82,27 @@ export async function PUT(
     }
 
     const { id } = await params;
+
+    const { data: existing, error: existingError } = await supabaseServer()
+      .from('terms_and_conditions')
+      .select('is_active')
+      .eq('id', id)
+      .single();
+
+    if (existingError || !existing) {
+      return NextResponse.json({ error: 'Terms not found' }, { status: 404 });
+    }
+
+    if (existing.is_active) {
+      return NextResponse.json(
+        {
+          error:
+            'Cannot edit an active terms version. Create a new version or activate another to replace it.',
+        },
+        { status: 400 }
+      );
+    }
+
     const { version, title, content, is_active, term_type = 'terms' } = await req.json();
 
     if (!version || !title || !content) {
@@ -176,7 +197,26 @@ export async function DELETE(
       }, { status: 400 });
     }
 
-    // Delete terms version
+    const { count: onboardingRefs, error: refError } = await supabaseServer()
+      .from('member_onboarding')
+      .select('*', { count: 'exact', head: true })
+      .eq('terms_version_id', id);
+
+    if (refError) {
+      console.error('Error checking terms references:', refError);
+      return NextResponse.json({ error: 'Failed to verify terms usage' }, { status: 500 });
+    }
+
+    const refCount = onboardingRefs ?? 0;
+    if (refCount > 0) {
+      return NextResponse.json(
+        {
+          error: `Cannot delete: ${refCount} member(s) have this version as their accepted terms (audit trail).`,
+        },
+        { status: 409 }
+      );
+    }
+
     const { error } = await supabaseServer()
       .from('terms_and_conditions')
       .delete()
@@ -184,6 +224,15 @@ export async function DELETE(
 
     if (error) {
       console.error('Error deleting terms:', error);
+      if (error.code === '23503') {
+        return NextResponse.json(
+          {
+            error:
+              'Cannot delete: this version is still referenced (e.g. by member acceptances).',
+          },
+          { status: 409 }
+        );
+      }
       return NextResponse.json({ error: 'Failed to delete terms' }, { status: 500 });
     }
 
