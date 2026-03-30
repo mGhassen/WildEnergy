@@ -135,19 +135,16 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
         return; // Exit early to prevent re-acceptance check
       }
 
-      // Second priority: Check for terms re-acceptance ONLY after onboarding is complete
-      // Only redirect if terms are not accepted AND we need re-acceptance
-      if (onboardingCompleted && !termsAccepted && needsTermsReAcceptance) {
+      // Second priority: re-accept when active terms version changed (member may still have termsAccepted: true for the old version)
+      if (onboardingCompleted && needsTermsReAcceptance) {
         console.log("Terms re-acceptance needed, redirecting...");
-        // Add a small delay to prevent rapid redirects
         setTimeout(() => {
           router.push("/member/terms/re-accept");
         }, 100);
         return;
       }
 
-      // If onboarding is completed and terms are accepted, no redirect needed
-      if (onboardingCompleted && termsAccepted) {
+      if (onboardingCompleted && termsAccepted && !needsTermsReAcceptance) {
         console.log("Onboarding completed and terms accepted - no redirect needed");
         return;
       }
