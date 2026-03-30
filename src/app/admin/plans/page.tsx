@@ -258,8 +258,14 @@ export default function AdminPlans() {
       const res = await planApi.checkPlanDeletion(plan.id);
       const n = res.subscriptionCount ?? res.linkedSubscriptions?.length ?? 0;
       setEditPlanSubscriptionCount(n);
-    } catch {
+    } catch (e) {
+      console.error('checkPlanDeletion (edit dialog):', e);
       setEditPlanSubscriptionCount(null);
+      toast({
+        title: 'Could not load subscription info',
+        description: e instanceof Error ? e.message : 'Try again or refresh the page.',
+        variant: 'destructive',
+      });
     } finally {
       setEditPlanSubscriptionLoading(false);
     }
@@ -1063,10 +1069,10 @@ export default function AdminPlans() {
                       <div key={sub.id} className="flex items-center gap-3 p-2 bg-background/80 rounded-md border border-destructive/20">
                         <div className="w-1.5 h-1.5 rounded-full bg-destructive flex-shrink-0"></div>
                         <span className="text-sm font-medium text-foreground">
-                          {sub.users?.first_name} {sub.users?.last_name}
+                          {sub.member?.first_name} {sub.member?.last_name}
                         </span>
                         <span className="text-sm text-muted-foreground">
-                          {sub.users?.email}
+                          {sub.member?.account_email}
                         </span>
                       </div>
                     ))}

@@ -1,5 +1,59 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
-import { getAuthToken } from "./api";
+import { getAuthToken, setAuthToken } from "./api";
+
+async function fetchWithOptionalRefresh(
+  method: string,
+  url: string,
+  data: unknown | undefined,
+  isRetry: boolean,
+): Promise<Response> {
+  const token = getAuthToken();
+  const headers: Record<string, string> = data
+    ? { "Content-Type": "application/json" }
+    : {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(url, {
+    method,
+    headers,
+    body: data ? JSON.stringify(data) : undefined,
+    credentials: "include",
+  });
+
+  if (
+    res.status === 401 &&
+    !isRetry &&
+    typeof window !== "undefined"
+  ) {
+    const refreshToken = localStorage.getItem("refresh_token");
+    if (refreshToken) {
+      try {
+        const refreshRes = await fetch("/api/auth/refresh", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refresh_token: refreshToken }),
+          credentials: "include",
+        });
+        if (refreshRes.ok) {
+          const tokens = await refreshRes.json();
+          if (tokens.access_token) {
+            setAuthToken(tokens.access_token);
+            if (tokens.refresh_token) {
+              localStorage.setItem("refresh_token", tokens.refresh_token);
+            }
+            return fetchWithOptionalRefresh(method, url, data, true);
+          }
+        }
+      } catch {
+        /* fall through to return 401 response */
+      }
+    }
+  }
+
+  return res;
+}
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -52,23 +106,7 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<any> {
-  // Get token using the shared utility
-  const token = getAuthToken();
-
-  const headers: Record<string, string> = data
-    ? { "Content-Type": "application/json" }
-    : {};
-
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-
-  const res = await fetch(url, {
-    method,
-    headers,
-    body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
-  });
+  const res = await fetchWithOptionalRefresh(method, url, data, false);
 
   const throwResult = await throwIfResNotOk(res);
   
@@ -92,15 +130,12 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const token = getAuthToken();
-    const headers: Record<string, string> = {};
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
-    }
-    const res = await fetch(queryKey[0] as string, {
-      credentials: "include",
-      headers,
-    });
+    const res = await fetchWithOptionalRefresh(
+      "GET",
+      queryKey[0] as string,
+      undefined,
+      false,
+    );
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
       return null;

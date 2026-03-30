@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { mapMemberStatusToAccountStatus } from '@/lib/status-mapping';
+import { resolveProfileIdForAccount } from '@/lib/resolve-account-profile';
 
 export async function GET(req: NextRequest) {
   try {
@@ -246,11 +247,15 @@ export async function PUT(req: NextRequest) {
       if (profileData.emergencyContactPhone !== undefined) profileUpdates.emergency_contact_phone = profileData.emergencyContactPhone;
       
       if (Object.keys(profileUpdates).length > 0) {
+        const profileId = await resolveProfileIdForAccount(accountId);
+        if (!profileId) {
+          return NextResponse.json({ error: 'Account not found' }, { status: 404 });
+        }
         const { error: profileError } = await supabaseServer()
           .from('profiles')
           .update(profileUpdates)
-          .eq('id', accountId);
-        
+          .eq('id', profileId);
+
         if (profileError) {
           console.error('Profile update error:', profileError);
           return NextResponse.json({ error: 'Failed to update profile', details: profileError.message }, { status: 500 });
@@ -299,13 +304,16 @@ export async function PUT(req: NextRequest) {
           }
         }
       } else {
-        // Create new member record
+        const profileId = await resolveProfileIdForAccount(accountId);
+        if (!profileId) {
+          return NextResponse.json({ error: 'Account not found' }, { status: 404 });
+        }
         const memberStatus = memberData.status || 'active';
         const { error: memberError } = await supabaseServer()
           .from('members')
           .insert([{
             account_id: accountId,
-            profile_id: accountId,
+            profile_id: profileId,
             member_notes: memberData.memberNotes || '',
             credit: memberData.credit || 0,
             status: memberStatus,
@@ -359,12 +367,15 @@ export async function PUT(req: NextRequest) {
           }
         }
       } else {
-        // Create new trainer record
+        const profileId = await resolveProfileIdForAccount(accountId);
+        if (!profileId) {
+          return NextResponse.json({ error: 'Account not found' }, { status: 404 });
+        }
         const { error: trainerError } = await supabaseServer()
           .from('trainers')
           .insert([{
             account_id: accountId,
-            profile_id: accountId,
+            profile_id: profileId,
             specialization: trainerData.specialization || '',
             experience_years: trainerData.experienceYears || 0,
             bio: trainerData.bio || '',

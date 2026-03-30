@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { resolveProfileIdForAccount } from '@/lib/resolve-account-profile';
 
 function extractIdFromUrl(request: NextRequest): string | null {
   const pathname = request.nextUrl.pathname;
@@ -119,11 +120,15 @@ export async function PUT(request: NextRequest) {
     }
     
     if (Object.keys(profileUpdates).length > 0) {
+      const profileId = await resolveProfileIdForAccount(accountId);
+      if (!profileId) {
+        return NextResponse.json({ error: 'Account not found' }, { status: 404 });
+      }
       const { error: profileError } = await supabaseServer()
         .from('profiles')
         .update(profileUpdates)
-        .eq('id', accountId); // In this system, profile.id = account.id
-      
+        .eq('id', profileId);
+
       if (profileError) {
         console.error('Profile update error:', profileError);
         return NextResponse.json({ 
