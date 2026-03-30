@@ -10,6 +10,10 @@ export interface AdminTermsData {
   effective_date: string;
   created_at: string;
   updated_at: string;
+  /** Set on list GET: members with this version as accepted terms */
+  acceptance_count?: number;
+  /** Set on list GET: inactive and no member references */
+  can_delete?: boolean;
 }
 
 export interface CreateTermsData {

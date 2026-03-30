@@ -37,7 +37,39 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch terms' }, { status: 500 });
     }
 
-    return NextResponse.json(terms);
+    const list = terms ?? [];
+    const termIds = list.map((t) => t.id);
+    const counts = new Map<string, number>();
+
+    if (termIds.length > 0) {
+      const { data: refRows, error: refError } = await supabaseServer()
+        .from('member_onboarding')
+        .select('terms_version_id')
+        .in('terms_version_id', termIds);
+
+      if (refError) {
+        console.error('Error fetching terms acceptance counts:', refError);
+        return NextResponse.json({ error: 'Failed to fetch terms' }, { status: 500 });
+      }
+
+      for (const row of refRows ?? []) {
+        const vid = row.terms_version_id as string | null;
+        if (vid) {
+          counts.set(vid, (counts.get(vid) ?? 0) + 1);
+        }
+      }
+    }
+
+    const enriched = list.map((t) => {
+      const acceptance_count = counts.get(t.id) ?? 0;
+      return {
+        ...t,
+        acceptance_count,
+        can_delete: !t.is_active && acceptance_count === 0,
+      };
+    });
+
+    return NextResponse.json(enriched);
   } catch (error) {
     console.error('Admin terms GET error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

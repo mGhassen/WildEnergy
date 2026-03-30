@@ -15,26 +15,31 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  Plus, 
-  Edit, 
-  Trash2, 
-  CheckCircle, 
-  Circle, 
+import {
+  Plus,
+  Trash2,
+  CheckCircle,
+  Circle,
   Search,
   FileText,
   Calendar,
   Filter,
   MoreHorizontal,
-  Eye,
   Copy,
-  Download,
   SortAsc,
   SortDesc,
-  X
+  X,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { formatDate } from "@/lib/date";
 import DataTable from "@/components/data-table";
+import { termIsDeletable } from "@/lib/terms-admin";
 
 interface TermsFormData {
   version: string;
@@ -56,6 +61,10 @@ export default function AdminTerms() {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedTerms, setSelectedTerms] = useState<string[]>([]);
   const [showBulkActions, setShowBulkActions] = useState(false);
+  const [deleteTermTarget, setDeleteTermTarget] = useState<{
+    id: string;
+    version: string;
+  } | null>(null);
   const { toast } = useToast();
 
   const { data: terms = [], isLoading } = useAdminTerms();
@@ -113,6 +122,18 @@ export default function AdminTerms() {
       }
     });
   }, [terms, searchTerm, statusFilter, typeFilter, sortBy, sortOrder]);
+
+  const selectedDeletableIds = useMemo(
+    () =>
+      selectedTerms.filter((id) => {
+        const t = terms.find((x) => x.id === id);
+        return t && termIsDeletable(t);
+      }),
+    [selectedTerms, terms]
+  );
+
+  const selectionIncludesUndeletable =
+    selectedTerms.length > 0 && selectedDeletableIds.length < selectedTerms.length;
 
   const handleCreate = () => {
     setFormData({
@@ -219,6 +240,29 @@ export default function AdminTerms() {
     }
   };
 
+  const handleDuplicate = async (term: any) => {
+    try {
+      await createTermsMutation.mutateAsync({
+        version: `${term.version}-copy-${Date.now()}`,
+        title: term.title,
+        content: term.content,
+        is_active: false,
+        term_type: term.term_type ?? "terms",
+      });
+      toast({
+        title: "Success",
+        description: "Duplicated as a new inactive version",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error ? error.message : "Failed to duplicate terms",
+        variant: "destructive",
+      });
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       version: "",
@@ -290,13 +334,13 @@ export default function AdminTerms() {
   };
 
   const handleBulkDelete = async () => {
-    if (selectedTerms.length === 0) return;
+    if (selectedDeletableIds.length === 0) return;
 
     try {
-      await Promise.all(selectedTerms.map(id => deleteTermsMutation.mutateAsync(id)));
+      await Promise.all(selectedDeletableIds.map((id) => deleteTermsMutation.mutateAsync(id)));
       toast({
         title: "Success",
-        description: `${selectedTerms.length} terms deleted successfully`,
+        description: `${selectedDeletableIds.length} terms deleted successfully`,
       });
       setSelectedTerms([]);
       setShowBulkActions(false);
@@ -529,6 +573,12 @@ export default function AdminTerms() {
                       size="sm"
                       variant="outline"
                       className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      disabled={selectionIncludesUndeletable}
+                      title={
+                        selectionIncludesUndeletable
+                          ? "Selection includes active terms or versions members accepted — remove those rows from the selection"
+                          : undefined
+                      }
                     >
                       <Trash2 className="w-4 h-4 mr-1" />
                       Delete Selected
@@ -538,7 +588,8 @@ export default function AdminTerms() {
                     <AlertDialogHeader>
                       <AlertDialogTitle>Delete Selected Terms</AlertDialogTitle>
                       <AlertDialogDescription>
-                        Are you sure you want to delete {selectedTerms.length} selected terms? This action cannot be undone.
+                        Are you sure you want to delete {selectedDeletableIds.length} selected terms? This
+                        action cannot be undone.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -547,7 +598,7 @@ export default function AdminTerms() {
                         onClick={handleBulkDelete}
                         className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                       >
-                        Delete {selectedTerms.length} Terms
+                        Delete {selectedDeletableIds.length} Terms
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
@@ -692,51 +743,54 @@ export default function AdminTerms() {
                         onClick={(e) => e.stopPropagation()}
                         onPointerDown={(e) => e.stopPropagation()}
                       >
-                        <div className="flex items-center gap-1">
-                          {!term.is_active && (
-                            <Button
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleActivate(term);
-                              }}
-                              disabled={activateTermsMutation.isPending}
-                              className="bg-green-600 hover:bg-green-700 text-white"
-                            >
-                              <CheckCircle className="w-4 h-4 mr-1" />
-                              Activate
-                            </Button>
-                          )}
-                          {!term.is_active && (
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Delete Terms Version</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Are you sure you want to delete terms version "{term.version}"? This action cannot be undone.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => handleDeleteTerm(term.id)}
-                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        <div className="flex items-center gap-2">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                aria-label="Row actions"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                disabled={createTermsMutation.isPending}
+                                onClick={() => void handleDuplicate(term)}
+                              >
+                                <Copy className="mr-2 h-4 w-4" />
+                                Duplicate
+                              </DropdownMenuItem>
+                              {!term.is_active && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    disabled={activateTermsMutation.isPending}
+                                    onClick={() => void handleActivate(term)}
                                   >
-                                    Delete
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          )}
+                                    <CheckCircle className="mr-2 h-4 w-4" />
+                                    Activate
+                                  </DropdownMenuItem>
+                                  {termIsDeletable(term) && (
+                                    <DropdownMenuItem
+                                      className="text-destructive focus:text-destructive"
+                                      onSelect={() =>
+                                        setDeleteTermTarget({
+                                          id: term.id,
+                                          version: term.version,
+                                        })
+                                      }
+                                    >
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      Delete
+                                    </DropdownMenuItem>
+                                  )}
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </td>
                     </tr>
@@ -747,6 +801,35 @@ export default function AdminTerms() {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog
+        open={deleteTermTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTermTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Terms Version</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete terms version &quot;
+              {deleteTermTarget?.version}&quot;? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const id = deleteTermTarget?.id;
+                if (id) void handleDeleteTerm(id);
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Create/Edit Dialog */}
       <Dialog open={isCreateDialogOpen || isEditDialogOpen} onOpenChange={(open) => {

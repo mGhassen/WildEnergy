@@ -11,18 +11,21 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  ArrowLeft, 
-  FileText, 
-  Calendar, 
+import {
+  ArrowLeft,
+  FileText,
+  Calendar,
   Edit,
   CheckCircle,
   Circle,
   Save,
-  X
+  X,
+  Info,
 } from "lucide-react";
 import { formatDate } from "@/lib/date";
 import { FormSkeleton } from "@/components/skeletons";
+import { termIsDeletable } from "@/lib/terms-admin";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface TermsFormData {
   version: string;
@@ -261,6 +264,18 @@ export default function AdminTermsView() {
           </div>
         )}
       </div>
+
+      {currentTerm && !currentTerm.is_active && !termIsDeletable(currentTerm) && (
+        <Alert className="mb-6 border-muted-foreground/30">
+          <Info className="h-4 w-4" />
+          <AlertTitle>Cannot delete this version</AlertTitle>
+          <AlertDescription>
+            {currentTerm.acceptance_count ?? 0} member
+            {(currentTerm.acceptance_count ?? 0) === 1 ? " has" : "s have"} this version recorded as their
+            acceptance. It is kept for audit and cannot be removed.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Terms Content */}
       <Card>
