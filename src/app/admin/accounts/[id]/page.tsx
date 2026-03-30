@@ -785,17 +785,17 @@ export default function AccountDetailPage() {
 
                                     {/* Member Role Card */}
                                     <div 
-                                        className={`flex items-center justify-between p-3 border rounded-lg transition-colors ${
+                                        className={`flex items-center justify-between p-3 border border-border rounded-lg transition-colors ${
                                             account.member_id 
-                                                ? 'hover:bg-blue-50 cursor-pointer border-blue-200' 
+                                                ? 'hover:bg-muted cursor-pointer' 
                                                 : 'opacity-60'
                                         }`}
                                         onClick={() => account.member_id && router.push(`/admin/members/${account.member_id}`)}
                                     >
                                         <div className="flex items-center space-x-3">
-                                            <User className="w-5 h-5 text-blue-600" />
+                                            <User className="w-5 h-5 text-primary" />
                                             <div>
-                                                <p className="font-medium">Member</p>
+                                                <p className="font-medium text-foreground">Member</p>
                                                 <p className="text-sm text-muted-foreground">
                                                     {account.member_id ? 'Click to view member details' : 'Gym membership and class access'}
                                                 </p>
@@ -822,7 +822,6 @@ export default function AccountDetailPage() {
                                                         e.stopPropagation();
                                                         setIsCreateMemberDialogOpen(true);
                                                     }}
-                                                    className="text-blue-600 border-blue-300 hover:bg-blue-50"
                                                 >
                                                     <UserPlus className="w-4 h-4 mr-1" />
                                                     Create Member
@@ -833,17 +832,17 @@ export default function AccountDetailPage() {
 
                                     {/* Trainer Role Card */}
                                     <div 
-                                        className={`flex items-center justify-between p-3 border rounded-lg transition-colors ${
+                                        className={`flex items-center justify-between p-3 border border-border rounded-lg transition-colors ${
                                             account.trainer_id 
-                                                ? 'hover:bg-green-50 cursor-pointer border-green-200' 
+                                                ? 'hover:bg-muted cursor-pointer' 
                                                 : 'opacity-60'
                                         }`}
                                         onClick={() => account.trainer_id && router.push(`/admin/trainers/${account.trainer_id}`)}
                                     >
                                         <div className="flex items-center space-x-3">
-                                            <GraduationCap className="w-5 h-5 text-green-600" />
+                                            <GraduationCap className="w-5 h-5 text-primary" />
                                             <div>
-                                                <p className="font-medium">Trainer</p>
+                                                <p className="font-medium text-foreground">Trainer</p>
                                                 <p className="text-sm text-muted-foreground">
                                                     {account.trainer_id ? 'Click to view trainer details' : 'Class instruction and member training'}
                                                 </p>
@@ -870,7 +869,6 @@ export default function AccountDetailPage() {
                                                         e.stopPropagation();
                                                         setIsCreateTrainerDialogOpen(true);
                                                     }}
-                                                    className="text-green-600 border-green-300 hover:bg-green-50"
                                                 >
                                                     <UserPlus className="w-4 h-4 mr-1" />
                                                     Create Trainer
