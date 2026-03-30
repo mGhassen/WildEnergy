@@ -21,9 +21,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Loader2, AlertTriangle, Eye, MoreHorizontal, Trash2 } from "lucide-react";
+import { Loader2, AlertTriangle, Check, Eye, MoreHorizontal, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useRegistrations, useDeleteRegistration } from "@/hooks/useRegistrations";
+import { useRegistrations, useDeleteRegistration, useCheckInRegistration } from "@/hooks/useRegistrations";
 
 const formatEuropeanDate = (dateString: string) => {
   const date = new Date(dateString);
@@ -39,6 +39,7 @@ export default function AdminRegistrations() {
   const { toast } = useToast();
   const { data: registrations = [], isLoading, error } = useRegistrations();
   const deleteRegistrationMutation = useDeleteRegistration();
+  const checkInMutation = useCheckInRegistration();
   const [deleteTarget, setDeleteTarget] = useState<{
     id: number;
     label: string;
@@ -81,43 +82,6 @@ export default function AdminRegistrations() {
   };
 
   const columns = [
-    {
-      key: "actions",
-      label: "",
-      width: "56px",
-      render: (_: unknown, row: any) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              aria-label="Open registration actions"
-            >
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handleView(row)}>
-              <Eye className="mr-2 h-4 w-4" />
-              View
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              className="text-destructive focus:text-destructive"
-              onClick={() =>
-                setDeleteTarget({
-                  id: row.id,
-                  label: `${row.member?.first_name ?? ""} ${row.member?.last_name ?? ""} · REG-${String(row.id).padStart(5, "0")}`.trim(),
-                })
-              }
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
-    },
     {
       key: "id",
       label: "ID",
@@ -174,6 +138,51 @@ export default function AdminRegistrations() {
       width: "100px",
       render: (value: any) => getStatusBadge(value),
     },
+    {
+      key: "actions",
+      label: "",
+      render: (_: unknown, row: any) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              aria-label="Open registration actions"
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handleView(row)}>
+              <Eye className="mr-2 h-4 w-4" />
+              View
+            </DropdownMenuItem>
+            {(row.status === "registered" || row.status === "absent") && (
+              <DropdownMenuItem
+                disabled={checkInMutation.isPending}
+                onClick={() => checkInMutation.mutate(row.id)}
+              >
+                <Check className="mr-2 h-4 w-4" />
+                Check in
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={() =>
+                setDeleteTarget({
+                  id: row.id,
+                  label: `${row.member?.first_name ?? ""} ${row.member?.last_name ?? ""} · REG-${String(row.id).padStart(5, "0")}`.trim(),
+                })
+              }
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    },
   ];
 
   if (isLoading) {
@@ -210,6 +219,7 @@ export default function AdminRegistrations() {
         selectable={false}
         title=""
         description=""
+        onRowClick={handleView}
       />
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>

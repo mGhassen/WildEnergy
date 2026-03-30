@@ -89,6 +89,7 @@ export function useCheckInRegistration() {
   return useMutation({
     mutationFn: (registrationId: number) => registrationApi.checkInRegistration(registrationId.toString()),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['registrations'] });
       queryClient.invalidateQueries({ queryKey: ['/api/checkins'] });
       queryClient.invalidateQueries({ queryKey: ['/api/member/registrations'] });
       toast({

@@ -340,6 +340,9 @@ export default function DataTable({
     });
   };
 
+  const actionsColumn = columns.find((c) => c.key === "actions");
+  const mobileDataColumns = columns.filter((c) => c.key !== "actions");
+
   // Render table rows
   const renderRows = (rows: any[]) => {
     return rows.map((row, index) => (
@@ -363,11 +366,16 @@ export default function DataTable({
         {columns.map((column) => (
           <div
             key={column.key}
-            className={`p-3 ${column.width ? '' : 'flex-1'}`}
-            style={{ 
+            className={
+              column.key === "actions"
+                ? "flex shrink-0 items-center justify-end py-3 pl-3 pr-1.5"
+                : `p-3 ${column.width ? "" : "flex-1"}`
+            }
+            style={{
               width: column.width,
-              flex: column.flex ? `${column.flex}` : undefined
+              flex: column.flex ? `${column.flex}` : undefined,
             }}
+            onClick={column.key === "actions" ? (e) => e.stopPropagation() : undefined}
           >
             {column.render ? column.render(row[column.key], row) : String(row[column.key] || "")}
           </div>
@@ -559,16 +567,24 @@ export default function DataTable({
             {columns.map((column) => (
               <div
                 key={column.key}
-                className={`p-3 font-medium text-foreground ${
-                  column.sortable ? "cursor-pointer hover:bg-muted/50" : ""
-                } ${column.width ? '' : 'flex-1'}`}
-                style={{ 
+                className={
+                  column.key === "actions"
+                    ? `flex shrink-0 items-center justify-end py-3 pl-3 pr-1.5 font-medium text-foreground`
+                    : `p-3 font-medium text-foreground ${
+                        column.sortable ? "cursor-pointer hover:bg-muted/50" : ""
+                      } ${column.width ? "" : "flex-1"}`
+                }
+                style={{
                   width: column.width,
-                  flex: column.flex ? `${column.flex}` : undefined
+                  flex: column.flex ? `${column.flex}` : undefined,
                 }}
                 onClick={() => column.sortable && handleSort(column.key)}
               >
-                <div className="flex items-center gap-2">
+                <div
+                  className={`flex items-center gap-2 ${
+                    column.key === "actions" ? "w-full justify-end" : ""
+                  }`}
+                >
                   {column.label}
                   {column.sortable && sortColumn === column.key && (
                     <span className="text-xs">
@@ -592,18 +608,44 @@ export default function DataTable({
               <div className="block md:hidden">
                 {Array.isArray(groupedData) ? (
                   groupedData.map((row: any, index: number) => (
-                    <div key={row.id || index} className="border-b border-border p-4 space-y-2">
-                      {columns.slice(0, 3).map((column) => (
-                        <div key={column.key} className="flex justify-between">
-                          <span className="text-sm font-medium text-muted-foreground">{column.label}:</span>
-                          <span className="text-sm text-foreground">
-                            {column.render ? column.render(getNestedValue(row, column.key), row) : getNestedValue(row, column.key)}
-                          </span>
+                    <div
+                      key={row.id || index}
+                      className={`border-b border-border p-4 space-y-2 ${
+                        onRowClick ? "cursor-pointer hover:bg-muted/20" : ""
+                      }`}
+                      onClick={() => onRowClick?.(row)}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1 space-y-2">
+                          {mobileDataColumns.slice(0, 3).map((column) => (
+                            <div key={column.key} className="flex justify-between gap-2">
+                              <span className="text-sm font-medium text-muted-foreground">{column.label}:</span>
+                              <span className="text-sm text-foreground text-right">
+                                {column.render ? column.render(getNestedValue(row, column.key), row) : getNestedValue(row, column.key)}
+                              </span>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                        {actionsColumn && (
+                          <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
+                            {actionsColumn.render
+                              ? actionsColumn.render(getNestedValue(row, actionsColumn.key), row)
+                              : getNestedValue(row, actionsColumn.key)}
+                          </div>
+                        )}
+                      </div>
                       {columns.length > 3 && (
                         <div className="pt-2 border-t border-border">
-                          <Button variant="outline" size="sm" className="w-full">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onRowClick?.(row);
+                            }}
+                          >
                             View Details
                           </Button>
                         </div>
@@ -617,18 +659,44 @@ export default function DataTable({
                         {groupKey}
                       </div>
                       {groupRows.map((row: any, index: number) => (
-                        <div key={row.id || index} className="border-b border-border p-4 space-y-2">
-                          {columns.slice(0, 3).map((column) => (
-                            <div key={column.key} className="flex justify-between">
-                              <span className="text-sm font-medium text-muted-foreground">{column.label}:</span>
-                              <span className="text-sm text-foreground">
-                                {column.render ? column.render(getNestedValue(row, column.key), row) : getNestedValue(row, column.key)}
-                              </span>
+                        <div
+                          key={row.id || index}
+                          className={`border-b border-border p-4 space-y-2 ${
+                            onRowClick ? "cursor-pointer hover:bg-muted/20" : ""
+                          }`}
+                          onClick={() => onRowClick?.(row)}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1 space-y-2">
+                              {mobileDataColumns.slice(0, 3).map((column) => (
+                                <div key={column.key} className="flex justify-between gap-2">
+                                  <span className="text-sm font-medium text-muted-foreground">{column.label}:</span>
+                                  <span className="text-sm text-foreground text-right">
+                                    {column.render ? column.render(getNestedValue(row, column.key), row) : getNestedValue(row, column.key)}
+                                  </span>
+                                </div>
+                              ))}
                             </div>
-                          ))}
+                            {actionsColumn && (
+                              <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
+                                {actionsColumn.render
+                                  ? actionsColumn.render(getNestedValue(row, actionsColumn.key), row)
+                                  : getNestedValue(row, actionsColumn.key)}
+                              </div>
+                            )}
+                          </div>
                           {columns.length > 3 && (
                             <div className="pt-2 border-t border-border">
-                              <Button variant="outline" size="sm" className="w-full">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full"
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onRowClick?.(row);
+                                }}
+                              >
                                 View Details
                               </Button>
                             </div>
