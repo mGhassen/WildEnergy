@@ -79,7 +79,11 @@ export const planApi = {
     return apiRequest('DELETE', `/api/admin/plans/${planId}`);
   },
 
-  async checkPlanDeletion(planId: number): Promise<{ canDelete: boolean; linkedSubscriptions?: any[] }> {
+  async checkPlanDeletion(planId: number): Promise<{
+    canDelete: boolean;
+    linkedSubscriptions?: any[];
+    subscriptionCount?: number;
+  }> {
     return apiRequest('GET', `/api/admin/plans/${planId}/check-deletion`);
   }
 };

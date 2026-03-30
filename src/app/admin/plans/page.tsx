@@ -15,12 +15,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertPlanSchema, insertPlanGroupSchema } from "@/shared/zod-schemas";
-import { Plus, Search, Edit, Trash2, Clock, X, Star, Users, Calendar, DollarSign, Zap, Grid3X3, Table, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Clock, X, Star, Users, Calendar, DollarSign, Zap, Grid3X3, Table, ChevronDown, ChevronRight, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 import { formatCurrency } from "@/lib/config";
 import { usePlans, useCreatePlan, useUpdatePlan, useDeletePlan, useCheckPlanDeletion } from "@/hooks/usePlans";
 import { useGroups } from "@/hooks/useGroups";
+import { planApi } from "@/lib/api/plans";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const planFormSchema = z.object({
   name: z.string().min(1, 'Plan name is required'),
@@ -117,6 +119,8 @@ export default function AdminPlans() {
   const [viewType, setViewType] = useState<'cards' | 'table'>('cards');
   const [planSort, setPlanSort] = useState<AdminPlanSort>("default");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [editPlanSubscriptionCount, setEditPlanSubscriptionCount] = useState<number | null>(null);
+  const [editPlanSubscriptionLoading, setEditPlanSubscriptionLoading] = useState(false);
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -233,8 +237,10 @@ export default function AdminPlans() {
     }
   };
 
-  const handleEdit = (plan: any) => {
+  const handleEdit = async (plan: any) => {
     setEditingPlan(plan);
+    setEditPlanSubscriptionCount(null);
+    setEditPlanSubscriptionLoading(true);
     form.reset({
       name: plan.name,
       description: plan.description,
@@ -248,6 +254,15 @@ export default function AdminPlans() {
       })) || [],
     });
     setIsModalOpen(true);
+    try {
+      const res = await planApi.checkPlanDeletion(plan.id);
+      const n = res.subscriptionCount ?? res.linkedSubscriptions?.length ?? 0;
+      setEditPlanSubscriptionCount(n);
+    } catch {
+      setEditPlanSubscriptionCount(null);
+    } finally {
+      setEditPlanSubscriptionLoading(false);
+    }
   };
 
   const handleDelete = async (plan: any) => {
@@ -286,6 +301,8 @@ export default function AdminPlans() {
 
   const openCreateModal = () => {
     setEditingPlan(null);
+    setEditPlanSubscriptionCount(null);
+    setEditPlanSubscriptionLoading(false);
     form.reset();
     setIsModalOpen(true);
   };
@@ -309,7 +326,17 @@ export default function AdminPlans() {
           <h1 className="text-3xl font-bold text-foreground mb-2">Plans</h1>
           <p className="text-muted-foreground">Manage membership plans and subscriptions</p>
         </div>
-        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <Dialog
+          open={isModalOpen}
+          onOpenChange={(open) => {
+            setIsModalOpen(open);
+            if (!open) {
+              setEditingPlan(null);
+              setEditPlanSubscriptionCount(null);
+              setEditPlanSubscriptionLoading(false);
+            }
+          }}
+        >
           <DialogTrigger asChild>
             <Button onClick={openCreateModal}>
               <Plus className="w-4 h-4 mr-2" />
@@ -323,6 +350,24 @@ export default function AdminPlans() {
                 {editingPlan ? "Update plan information" : "Add a new membership plan"}
               </DialogDescription>
             </DialogHeader>
+            {editingPlan && editPlanSubscriptionLoading && (
+              <p className="text-sm text-muted-foreground">Checking linked subscriptions…</p>
+            )}
+            {editingPlan &&
+              !editPlanSubscriptionLoading &&
+              editPlanSubscriptionCount !== null &&
+              editPlanSubscriptionCount > 0 && (
+                <Alert className="border-amber-500/50 bg-amber-50/80 text-amber-950 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-100 [&>svg]:text-amber-700 dark:[&>svg]:text-amber-400">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>Subscribed members</AlertTitle>
+                  <AlertDescription>
+                    Editing this plan can impact existing subscriptions.{" "}
+                    {editPlanSubscriptionCount === 1
+                      ? "One member already has a subscription on this plan."
+                      : `${editPlanSubscriptionCount} subscriptions are linked to this plan.`}
+                  </AlertDescription>
+                </Alert>
+              )}
             <Form {...form}>
               <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
                 <FormField

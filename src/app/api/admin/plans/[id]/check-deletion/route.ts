@@ -39,10 +39,12 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 
     const activeSubscriptions = subscriptions?.filter(sub => sub.status === 'active') || [];
     const canDelete = activeSubscriptions.length === 0;
+    const subscriptionCount = subscriptions?.length ?? 0;
 
     return NextResponse.json({
       canDelete,
       linkedSubscriptions: activeSubscriptions,
+      subscriptionCount,
       message: canDelete 
         ? 'Plan can be deleted safely'
         : `This plan has ${activeSubscriptions.length} active subscription(s)`
