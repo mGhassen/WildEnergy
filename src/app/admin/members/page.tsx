@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { useMembers } from "@/hooks/useMembers";
+import { useMembers, useDeleteMember } from "@/hooks/useMembers";
+import { ConfirmationDialog } from "@/components/confirmation-dialog";
 import { 
   Search, 
   User, 
@@ -208,9 +209,11 @@ export default function MembersPage() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [viewMode, setViewMode] = useState<"grid" | "table">("table");
   const [showFilters, setShowFilters] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Member | null>(null);
 
   // Fetch members with related data
   const { data: members = [], isLoading, refetch } = useMembers();
+  const deleteMemberMutation = useDeleteMember();
 
   // Process and filter members with proper data handling
   const processedMembers = useMemo(() => {
@@ -336,6 +339,16 @@ export default function MembersPage() {
     setSubscriptionFilter("all");
   };
 
+  const handleConfirmDeleteFromList = async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteMemberMutation.mutateAsync(deleteTarget.id);
+      setDeleteTarget(null);
+    } catch {
+      /* toast from useDeleteMember */
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -390,17 +403,20 @@ export default function MembersPage() {
                   <MoreHorizontal className="w-4 h-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem>
+              <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
+                <DropdownMenuItem
+                  onPointerDown={(e) => e.preventDefault()}
+                  onSelect={() => router.push(`/admin/members/${member.id}`)}
+                >
                   <Edit className="w-4 h-4 mr-2" />
                   Edit Member
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>
+                <DropdownMenuItem onPointerDown={(e) => e.preventDefault()}>
                   <Mail className="w-4 h-4 mr-2" />
                   Send Email
                 </DropdownMenuItem>
-                <DropdownMenuItem disabled={!member.phone}>
+                <DropdownMenuItem disabled={!member.phone} onPointerDown={(e) => e.preventDefault()}>
                   <Phone className="w-4 h-4 mr-2" />
                   Call Member
                 </DropdownMenuItem>
@@ -819,26 +835,33 @@ export default function MembersPage() {
                               <MoreHorizontal className="w-3 h-3" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem>
+                          <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
+                            <DropdownMenuItem
+                              onPointerDown={(e) => e.preventDefault()}
+                              onSelect={() => router.push(`/admin/members/${member.id}`)}
+                            >
                               <Edit className="w-4 h-4 mr-2" />
                               Edit Member
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onPointerDown={(e) => e.preventDefault()}>
                               <Mail className="w-4 h-4 mr-2" />
                               Send Email
                             </DropdownMenuItem>
-                            <DropdownMenuItem disabled={!member.phone}>
+                            <DropdownMenuItem disabled={!member.phone} onPointerDown={(e) => e.preventDefault()}>
                               <Phone className="w-4 h-4 mr-2" />
                               Call Member
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-destructive">
+                            <DropdownMenuItem className="text-destructive" onPointerDown={(e) => e.preventDefault()}>
                               <UserX className="w-4 h-4 mr-2" />
                               Suspend Member
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive">
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onPointerDown={(e) => e.preventDefault()}
+                              onSelect={() => setDeleteTarget(member)}
+                            >
                               <Trash2 className="w-4 h-4 mr-2" />
                               Delete Member
                             </DropdownMenuItem>
@@ -909,26 +932,33 @@ export default function MembersPage() {
                               <MoreHorizontal className="w-4 h-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem>
+                          <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
+                            <DropdownMenuItem
+                              onPointerDown={(e) => e.preventDefault()}
+                              onSelect={() => router.push(`/admin/members/${member.id}`)}
+                            >
                               <Edit className="w-4 h-4 mr-2" />
                               Edit Member
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onPointerDown={(e) => e.preventDefault()}>
                               <Mail className="w-4 h-4 mr-2" />
                               Send Email
                             </DropdownMenuItem>
-                            <DropdownMenuItem disabled={!member.phone}>
+                            <DropdownMenuItem disabled={!member.phone} onPointerDown={(e) => e.preventDefault()}>
                               <Phone className="w-4 h-4 mr-2" />
                               Call Member
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-destructive">
+                            <DropdownMenuItem className="text-destructive" onPointerDown={(e) => e.preventDefault()}>
                               <UserX className="w-4 h-4 mr-2" />
                               Suspend Member
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive">
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onPointerDown={(e) => e.preventDefault()}
+                              onSelect={() => setDeleteTarget(member)}
+                            >
                               <Trash2 className="w-4 h-4 mr-2" />
                               Delete Member
                             </DropdownMenuItem>
@@ -1013,6 +1043,24 @@ export default function MembersPage() {
           )}
         </CardContent>
       </Card>
+
+      <ConfirmationDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        onConfirm={handleConfirmDeleteFromList}
+        title="Delete Member"
+        description={
+          deleteTarget
+            ? `Are you sure you want to delete ${deleteTarget.first_name} ${deleteTarget.last_name}? This action cannot be undone and will permanently remove all member data.`
+            : ""
+        }
+        confirmText="Delete Member"
+        cancelText="Cancel"
+        variant="destructive"
+        isPending={deleteMemberMutation.isPending}
+      />
     </div>
   );
 }
