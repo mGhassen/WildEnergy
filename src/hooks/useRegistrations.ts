@@ -191,6 +191,8 @@ export function useDeleteRegistration() {
     mutationFn: (registrationId: number) => registrationApi.deleteRegistration(registrationId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['registrations'] });
+      queryClient.invalidateQueries({ queryKey: ['course'] });
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
       toast({
         title: 'Registration deleted',
         description: 'The registration has been successfully deleted.',

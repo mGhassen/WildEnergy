@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { deleteSubscriptionWithDependents } from '@/lib/subscription-delete-cleanup';
 
 export async function GET(req: NextRequest) {
   try {
@@ -278,12 +279,16 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
     const { id } = await req.json();
-    const { error } = await supabaseServer()
-      .from('subscriptions')
-      .delete()
-      .eq('id', id);
-    if (error) {
-      return NextResponse.json({ error: 'Failed to delete subscription' }, { status: 500 });
+    const subscriptionId = typeof id === 'number' ? id : parseInt(String(id), 10);
+    if (Number.isNaN(subscriptionId)) {
+      return NextResponse.json({ error: 'Invalid subscription ID' }, { status: 400 });
+    }
+    const result = await deleteSubscriptionWithDependents(supabaseServer(), subscriptionId);
+    if (!result.ok) {
+      return NextResponse.json(
+        { error: result.error, details: result.details },
+        { status: result.status }
+      );
     }
     return NextResponse.json({ success: true });
   } catch {

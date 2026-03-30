@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { deleteSubscriptionWithDependents } from '@/lib/subscription-delete-cleanup';
 
 function extractIdFromUrl(request: NextRequest): string | null {
   const match = request.nextUrl.pathname.match(/\/subscriptions\/(.+?)(\/|$)/);
@@ -219,37 +220,21 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Subscription not found' }, { status: 404 });
     }
 
-    // Delete related payments first
-    const { error: paymentsDeleteError } = await supabaseServer()
-      .from('payments')
-      .delete()
-      .eq('subscription_id', subscriptionId);
-
-    if (paymentsDeleteError) {
-      console.error('Error deleting related payments:', paymentsDeleteError);
-      return NextResponse.json({ 
-        error: 'Failed to delete related payments', 
-        details: paymentsDeleteError 
-      }, { status: 500 });
+    const result = await deleteSubscriptionWithDependents(
+      supabaseServer(),
+      subscriptionId
+    );
+    if (!result.ok) {
+      console.error('Subscription delete error:', result.error, result.details);
+      return NextResponse.json(
+        { error: result.error, details: result.details },
+        { status: result.status }
+      );
     }
 
-    // Delete the subscription
-    const { error: deleteError } = await supabaseServer()
-      .from('subscriptions')
-      .delete()
-      .eq('id', subscriptionId);
-
-    if (deleteError) {
-      console.error('Subscription delete error:', deleteError);
-      return NextResponse.json({ 
-        error: 'Failed to delete subscription', 
-        details: deleteError 
-      }, { status: 500 });
-    }
-
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Subscription deleted successfully' 
+    return NextResponse.json({
+      success: true,
+      message: 'Subscription deleted successfully',
     });
 
   } catch (error) {
