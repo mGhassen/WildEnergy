@@ -107,6 +107,14 @@ export async function POST(req: NextRequest) {
       }, { status: 403 });
     }
 
+    const { error: lastLoginError } = await supabaseServer()
+      .from('accounts')
+      .update({ last_login: new Date().toISOString() })
+      .eq('id', userProfile.account_id);
+    if (lastLoginError) {
+      console.warn('Failed to update accounts.last_login:', lastLoginError.message);
+    }
+
     // Determine authentication provider
     const provider = user.app_metadata?.provider || 'email';
     

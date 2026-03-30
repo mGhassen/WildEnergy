@@ -61,6 +61,7 @@ export interface UpdateAccountData {
     firstName?: string;
     lastName?: string;
     phone?: string;
+    profileEmail?: string;
     dateOfBirth?: string;
     address?: string;
     profession?: string;
