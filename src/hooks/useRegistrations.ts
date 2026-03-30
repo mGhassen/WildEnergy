@@ -140,6 +140,9 @@ export function useAdminCancelRegistration() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/member/registrations'] });
       queryClient.invalidateQueries({ queryKey: ['/api/courses'] });
+      queryClient.invalidateQueries({ queryKey: ['course'] });
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
+      queryClient.invalidateQueries({ queryKey: ['registrations'] });
       toast({
         title: 'Registration cancelled',
         description: 'The registration has been successfully cancelled.',
