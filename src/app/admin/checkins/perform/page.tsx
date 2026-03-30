@@ -104,7 +104,7 @@ export default function CheckinPerformPage() {
     if (checkinData) {
       setStatus('info');
       setCheckinInfo(checkinData);
-      setMessage('Please validate the check-in information below');
+      setMessage('');
     } else if (error) {
       setStatus('error');
       setMessage(error.message || 'Failed to fetch check-in information');
@@ -202,29 +202,25 @@ export default function CheckinPerformPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Status Icon */}
-          <div className="flex justify-center">
-            {status === 'loading' && (
-              <Loader2 className="w-16 h-16 text-blue-500 animate-spin" />
-            )}
-            {status === 'info' && (
-              <User className="w-16 h-16 text-blue-500" />
-            )}
-            {status === 'success' && (
-              <CheckCircle className="w-16 h-16 text-green-500" />
-            )}
-            {status === 'error' && (
-              <XCircle className="w-16 h-16 text-red-500" />
-            )}
-            {status === 'invalid' && (
-              <XCircle className="w-16 h-16 text-red-500" />
-            )}
-          </div>
+          {(status === 'loading' || status === 'error' || status === 'invalid') && (
+            <div className="flex justify-center">
+              {status === 'loading' && (
+                <Loader2 className="w-16 h-16 text-blue-500 animate-spin" />
+              )}
+              {status === 'error' && (
+                <XCircle className="w-16 h-16 text-red-500" />
+              )}
+              {status === 'invalid' && (
+                <XCircle className="w-16 h-16 text-red-500" />
+              )}
+            </div>
+          )}
 
-          {/* Message */}
-          <div className="text-center">
-            <p className="text-lg font-medium">{message}</p>
-          </div>
+          {message ? (
+            <div className="text-center">
+              <p className="text-lg font-medium">{message}</p>
+            </div>
+          ) : null}
 
           {/* Loading Skeleton */}
           {status === 'loading' && (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -97,6 +97,8 @@ export default function CheckinQRPage() {
   
   const [status, setStatus] = useState<'loading' | 'info' | 'success' | 'error' | 'invalid'>('loading');
   const [message, setMessage] = useState('');
+  /** After check-in, query refetch must not reset UI back to the pre-approval state. */
+  const checkInSucceededRef = useRef(false);
   
   // Use hooks for data fetching and mutations
   const { data: checkinInfo, isLoading, error, refetch } = useCheckinInfo(qrCode);
@@ -189,6 +191,10 @@ export default function CheckinQRPage() {
   };
 
   useEffect(() => {
+    checkInSucceededRef.current = false;
+  }, [qrCode]);
+
+  useEffect(() => {
     if (!qrCode) {
       setStatus('invalid');
       setMessage('Invalid QR code');
@@ -196,15 +202,24 @@ export default function CheckinQRPage() {
     }
     
     if (isLoading) {
-      setStatus('loading');
-      setMessage('Fetching check-in information...');
-    } else if (error) {
+      if (!checkInSucceededRef.current) {
+        setStatus('loading');
+        setMessage('Fetching check-in information...');
+      }
+      return;
+    }
+    if (error) {
       setStatus('error');
       setMessage(error.message || 'Failed to fetch check-in information');
     } else if (checkinInfo) {
+      if (checkInSucceededRef.current) {
+        setStatus('success');
+        setMessage('');
+        return;
+      }
       setStatus('info');
-      setMessage('Please validate the check-in information below');
-      
+      setMessage('');
+
       // Debug subscription data
       console.log('QR Page - Check-in info received:', checkinInfo);
       console.log('QR Page - Member data:', checkinInfo.member);
@@ -227,8 +242,9 @@ export default function CheckinQRPage() {
       checkinInfo.registration.id,
       {
         onSuccess: () => {
+          checkInSucceededRef.current = true;
           setStatus('success');
-          setMessage('Check-in successful!');
+          setMessage('');
         },
         onError: (error: any) => {
           setStatus('error');
@@ -256,6 +272,7 @@ export default function CheckinQRPage() {
   };
 
   const handleRetry = () => {
+    checkInSucceededRef.current = false;
     refetch();
   };
 
@@ -265,10 +282,10 @@ export default function CheckinQRPage() {
 
   if (!qrCode) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle className="text-center text-red-600">Invalid QR Code</CardTitle>
+            <CardTitle className="text-center text-destructive">Invalid QR Code</CardTitle>
             <CardDescription className="text-center">
               The QR code is invalid or missing.
             </CardDescription>
@@ -285,8 +302,8 @@ export default function CheckinQRPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <Card className="w-full max-w-2xl">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-2xl border-border shadow-sm">
         <CardHeader>
           <CardTitle className="text-center">
             {status === 'loading' && 'Loading Check-in Information...'}
@@ -300,38 +317,37 @@ export default function CheckinQRPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Status Icon */}
-          <div className="flex justify-center">
-            {status === 'loading' && (
-              <Loader2 className="w-16 h-16 text-blue-500 animate-spin" />
-            )}
-            {status === 'info' && (
-              <User className="w-16 h-16 text-blue-500" />
-            )}
-            {status === 'success' && (
-              <CheckCircle className="w-16 h-16 text-green-500" />
-            )}
-            {status === 'error' && (
-              <XCircle className="w-16 h-16 text-red-500" />
-            )}
-            {status === 'invalid' && (
-              <XCircle className="w-16 h-16 text-red-500" />
-            )}
-          </div>
+          {(status === 'loading' || status === 'error' || status === 'invalid') && (
+            <div className="flex justify-center">
+              {status === 'loading' && (
+                <Loader2 className="w-16 h-16 text-primary animate-spin" />
+              )}
+              {status === 'error' && (
+                <XCircle className="w-16 h-16 text-destructive" />
+              )}
+              {status === 'invalid' && (
+                <XCircle className="w-16 h-16 text-destructive" />
+              )}
+            </div>
+          )}
 
-          {/* Message */}
-          <div className="text-center">
-            <p className="text-lg font-medium">{message}</p>
-          </div>
+          {message ? (
+            <div className="text-center">
+              <p className="text-lg font-medium text-foreground">{message}</p>
+            </div>
+          ) : null}
 
           {/* Late Check-in Alert */}
           {status === 'info' && checkinInfo && isLateCheckin() && !checkinInfo.alreadyCheckedIn && (
-            <Alert className="border-orange-300 bg-orange-50">
-              <AlertTriangle className="h-4 w-4 text-orange-600" />
-              <AlertDescription className="text-orange-800">
-                <strong>⚠️ Late Check-in Alert!</strong><br/>
-                This member is checking in <strong>{getLateCheckinMessage()}</strong> after the class start time ({checkinInfo.course.start_time}).<br/>
-                <span className="text-sm">The registration status will be updated to 'attended' when validated.</span>
+            <Alert className="border-chart-4/40 bg-chart-4/10">
+              <AlertTriangle className="h-4 w-4 text-chart-4" />
+              <AlertDescription className="text-muted-foreground">
+                <strong className="text-foreground">Late check-in</strong>
+                <br />
+                This member is checking in <strong className="text-foreground">{getLateCheckinMessage()}</strong> after the class start time (
+                {checkinInfo.course.start_time}).
+                <br />
+                <span className="text-sm">The registration status will be updated to &apos;attended&apos; when validated.</span>
               </AlertDescription>
             </Alert>
           )}
@@ -341,110 +357,114 @@ export default function CheckinQRPage() {
             <div className="space-y-6">
               {/* Already Checked In Celebration */}
               {checkinInfo.alreadyCheckedIn && (
-                <div className="bg-green-100 border border-green-300 rounded-lg p-4 flex flex-col items-center text-center">
-                  <CheckCircle className="w-12 h-12 text-green-600 mb-2" />
-                  <h4 className="text-xl font-bold text-green-800 mb-1">Checked In! 🎉</h4>
-                  <p className="text-green-700 text-base">This member is already checked in.<br/>Youhouuu! Welcome to the class!</p>
+                <div className="rounded-lg border border-primary/30 bg-primary/15 p-4 flex flex-col items-center text-center">
+                  <CheckCircle className="w-12 h-12 text-primary mb-2" />
+                  <h4 className="text-xl font-bold text-foreground mb-1">Checked in</h4>
+                  <p className="text-muted-foreground text-base">
+                    This member is already checked in.
+                  </p>
                 </div>
               )}
 
               {/* Member Information - Collapsible */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="rounded-lg border border-chart-2/35 bg-chart-2/10">
                 <button
+                  type="button"
                   onClick={() => toggleSection('member')}
-                  className="w-full p-4 text-left flex items-center justify-between hover:bg-blue-100 transition-colors"
+                  className="w-full p-4 text-left flex items-center justify-between hover:bg-chart-2/20 transition-colors rounded-t-lg"
                 >
-                  <h3 className="font-medium text-blue-800 flex items-center">
-                  <User className="w-4 h-4 mr-2" />
+                  <h3 className="font-medium text-foreground flex items-center">
+                  <User className="w-4 h-4 mr-2 text-chart-2" />
                   Member Information
                 </h3>
                   {expandedSections.member ? (
-                    <ChevronDown className="w-4 h-4 text-blue-600" />
+                    <ChevronDown className="w-4 h-4 text-chart-2" />
                   ) : (
-                    <ChevronRight className="w-4 h-4 text-blue-600" />
+                    <ChevronRight className="w-4 h-4 text-chart-2" />
                   )}
                 </button>
                 
                 {expandedSections.member && (
                   <div className="px-4 pb-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-blue-700">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-muted-foreground">
                       <div>
-                  <p><strong>Name:</strong> {checkinInfo.member ? `${checkinInfo.member.first_name} ${checkinInfo.member.last_name}` : 'Unknown'}</p>
-                  <p><strong>Email:</strong> {checkinInfo.member?.email || 'Unknown'}</p>
+                  <p><strong className="text-foreground">Name:</strong> {checkinInfo.member ? `${checkinInfo.member.first_name} ${checkinInfo.member.last_name}` : 'Unknown'}</p>
+                  <p><strong className="text-foreground">Email:</strong> {checkinInfo.member?.email || 'Unknown'}</p>
                   {checkinInfo.member?.phone && (
-                    <p><strong>Phone:</strong> {checkinInfo.member.phone}</p>
+                    <p><strong className="text-foreground">Phone:</strong> {checkinInfo.member.phone}</p>
                   )}
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <strong>Status:</strong>
+                          <strong className="text-foreground">Status:</strong>
                           <Badge variant={checkinInfo.member?.status === 'active' ? 'default' : 'secondary'}>
                             {checkinInfo.member?.status || '-'}
                           </Badge>
                         </div>
-                        <p><strong>Member ID:</strong> {checkinInfo.member?.id || '-'}</p>
+                        <p><strong className="text-foreground">Member ID:</strong> {checkinInfo.member?.id || '-'}</p>
                       </div>
                     </div>
                 
                     {/* Subscription Information */}
                   {checkinInfo.member?.activeSubscription && (
-                      <div className="mt-4 p-3 bg-green-100 border border-green-300 rounded-lg">
-                        <h4 className="font-semibold text-green-800 mb-2 flex items-center">
-                          <CheckCircle className="w-4 h-4 mr-1" />
-                          Active Subscription
+                      <div className="mt-4 p-3 rounded-lg border border-primary/30 bg-primary/10">
+                        <h4 className="font-semibold text-foreground mb-2 flex items-center">
+                          <CheckCircle className="w-4 h-4 mr-1 text-primary" />
+                          Active subscription
                         </h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-green-700">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-muted-foreground">
                           <div>
-                            <p><strong>Plan:</strong> {checkinInfo.member.activeSubscription.planName}</p>
+                            <p><strong className="text-foreground">Plan:</strong> {checkinInfo.member.activeSubscription.planName}</p>
                             <div className="flex items-center gap-2">
-                              <strong>Status:</strong>
-                              <Badge variant="default" className="bg-green-600">
+                              <strong className="text-foreground">Status:</strong>
+                              <Badge variant="default">
                                 {checkinInfo.member.activeSubscription.status}
                               </Badge>
                             </div>
-                            <p><strong>Sessions Remaining:</strong> 
-                              <span className="ml-2 font-bold text-lg text-green-800">
+                            <p>
+                              <strong className="text-foreground">Sessions remaining:</strong>
+                              <span className="ml-2 font-bold text-lg text-foreground">
                                 {checkinInfo.member.activeSubscription.sessionsRemaining}
                               </span>
                             </p>
                           </div>
                           <div>
-                            <p><strong>Total Sessions:</strong> {checkinInfo.member.activeSubscription.planSessionCount}</p>
-                            <p><strong>Price:</strong> {checkinInfo.member.activeSubscription.planPrice ? `$${checkinInfo.member.activeSubscription.planPrice}` : 'N/A'}</p>
-                            <p><strong>Valid Until:</strong> {checkinInfo.member.activeSubscription.endDate ? formatDateTime(checkinInfo.member.activeSubscription.endDate) : 'N/A'}</p>
+                            <p><strong className="text-foreground">Total sessions:</strong> {checkinInfo.member.activeSubscription.planSessionCount}</p>
+                            <p><strong className="text-foreground">Price:</strong> {checkinInfo.member.activeSubscription.planPrice ? `$${checkinInfo.member.activeSubscription.planPrice}` : 'N/A'}</p>
+                            <p><strong className="text-foreground">Valid until:</strong> {checkinInfo.member.activeSubscription.endDate ? formatDateTime(checkinInfo.member.activeSubscription.endDate) : 'N/A'}</p>
                           </div>
                         </div>
                         {checkinInfo.member.activeSubscription.planDescription && (
-                          <p className="mt-2 text-xs text-green-600">
-                            <strong>Description:</strong> {checkinInfo.member.activeSubscription.planDescription}
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            <strong className="text-foreground">Description:</strong> {checkinInfo.member.activeSubscription.planDescription}
                           </p>
                         )}
                       </div>
                     )}
                     
                     {!checkinInfo.member?.activeSubscription && (
-                      <div className="mt-4 p-3 bg-yellow-100 border border-yellow-300 rounded-lg">
-                        <h4 className="font-semibold text-yellow-800 mb-1 flex items-center">
-                          <AlertTriangle className="w-4 h-4 mr-1" />
-                          No Active Subscription
+                      <div className="mt-4 p-3 rounded-lg border border-chart-4/35 bg-chart-4/10">
+                        <h4 className="font-semibold text-foreground mb-1 flex items-center">
+                          <AlertTriangle className="w-4 h-4 mr-1 text-chart-4" />
+                          No active subscription
                         </h4>
-                        <p className="text-yellow-700 text-sm">This member does not have an active subscription.</p>
+                        <p className="text-muted-foreground text-sm">This member does not have an active subscription.</p>
                       </div>
                     )}
 
                     {/* Guest Registration Information */}
                     {checkinInfo.registration?.isGuestRegistration && (
-                      <div className="mt-4 p-3 bg-purple-100 border border-purple-300 rounded-lg">
-                        <h4 className="font-semibold text-purple-800 mb-2 flex items-center">
-                          <Users className="w-4 h-4 mr-1" />
-                          Guest Registration
+                      <div className="mt-4 p-3 rounded-lg border border-dashed border-chart-3/40 bg-chart-3/10">
+                        <h4 className="font-semibold text-foreground mb-2 flex items-center">
+                          <Users className="w-4 h-4 mr-1 text-chart-3" />
+                          Guest registration
                         </h4>
-                        <p className="text-purple-700 text-sm">
-                          This member was registered as a <strong>guest</strong> by an admin. 
-                          This check-in will be counted as a guest check-in and will not consume any subscription sessions.
+                        <p className="text-muted-foreground text-sm">
+                          This member was registered as a <strong className="text-foreground">guest</strong> by an admin.
+                          This check-in will not consume subscription sessions.
                         </p>
                         {checkinInfo.registration.notes && (
-                          <p className="text-purple-600 text-xs mt-1 italic">
+                          <p className="text-muted-foreground text-xs mt-1 italic">
                             Note: {checkinInfo.registration.notes}
                           </p>
                         )}
@@ -455,47 +475,56 @@ export default function CheckinQRPage() {
               </div>
 
               {/* Course Information - Collapsible */}
-              <div className={`rounded-lg ${isLateCheckin() ? 'bg-orange-50 border border-orange-200' : 'bg-green-50 border border-green-200'}`}>
+              <div
+                className={`rounded-lg border ${
+                  isLateCheckin()
+                    ? "border-destructive/40 bg-destructive/10"
+                    : "border-primary/35 bg-primary/10"
+                }`}
+              >
                 <button
+                  type="button"
                   onClick={() => toggleSection('course')}
-                  className={`w-full p-4 text-left flex items-center justify-between hover:${isLateCheckin() ? 'bg-orange-100' : 'bg-green-100'} transition-colors`}
+                  className={`w-full p-4 text-left flex items-center justify-between transition-colors rounded-t-lg ${
+                    isLateCheckin() ? "hover:bg-destructive/15" : "hover:bg-primary/18"
+                  }`}
                 >
-                  <h3 className={`font-medium flex items-center ${isLateCheckin() ? 'text-orange-800' : 'text-green-800'}`}>
-                  <Calendar className="w-4 h-4 mr-2" />
-                  Course Information
+                  <h3 className="font-medium flex items-center text-foreground">
+                  <Calendar className={`w-4 h-4 mr-2 ${isLateCheckin() ? "text-destructive" : "text-primary"}`} />
+                  Course information
                   {isLateCheckin() && (
                       <Badge variant="destructive" className="ml-2">
-                      ⚠️ Late Check-in
+                      Late check-in
                       </Badge>
                     )}
                   </h3>
                   {expandedSections.course ? (
-                    <ChevronDown className={`w-4 h-4 ${isLateCheckin() ? 'text-orange-600' : 'text-green-600'}`} />
+                    <ChevronDown className={`w-4 h-4 ${isLateCheckin() ? "text-destructive" : "text-primary"}`} />
                   ) : (
-                    <ChevronRight className={`w-4 h-4 ${isLateCheckin() ? 'text-orange-600' : 'text-green-600'}`} />
+                    <ChevronRight className={`w-4 h-4 ${isLateCheckin() ? "text-destructive" : "text-primary"}`} />
                   )}
                 </button>
                 
                 {expandedSections.course && (
                   <div className="px-4 pb-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                      <div className={`${isLateCheckin() ? 'text-orange-700' : 'text-green-700'}`}>
-                  <p><strong>Course ID:</strong> {checkinInfo.course?.id ? `CRS-${String(checkinInfo.course.id).padStart(5, '0')}` : 'Unknown'}</p>
-                  <p><strong>Class:</strong> {checkinInfo.course?.class?.name || 'Unknown'}</p>
-                  <p><strong>Date:</strong> {formatDateTime(checkinInfo.course?.course_date)}</p>
-                  <p><strong>Time:</strong> {checkinInfo.course?.start_time && checkinInfo.course?.end_time ? `${checkinInfo.course.start_time} - ${checkinInfo.course.end_time}` : 'Unknown'}</p>
-                  <p><strong>Category:</strong> {checkinInfo.course?.class?.category || '-'}</p>
+                      <div className="text-muted-foreground">
+                  <p><strong className="text-foreground">Course ID:</strong> {checkinInfo.course?.id ? `CRS-${String(checkinInfo.course.id).padStart(5, '0')}` : 'Unknown'}</p>
+                  <p><strong className="text-foreground">Class:</strong> {checkinInfo.course?.class?.name || 'Unknown'}</p>
+                  <p><strong className="text-foreground">Date:</strong> {formatDateTime(checkinInfo.course?.course_date)}</p>
+                  <p><strong className="text-foreground">Time:</strong> {checkinInfo.course?.start_time && checkinInfo.course?.end_time ? `${checkinInfo.course.start_time} - ${checkinInfo.course.end_time}` : 'Unknown'}</p>
+                  <p><strong className="text-foreground">Category:</strong> {checkinInfo.course?.class?.category || '-'}</p>
                       </div>
-                      <div className={`${isLateCheckin() ? 'text-orange-700' : 'text-green-700'}`}>
+                      <div className="text-muted-foreground">
                         <div className="flex items-center gap-2">
-                          <strong>Difficulty:</strong>
+                          <strong className="text-foreground">Difficulty</strong>
                           <Badge variant="outline">
                             {checkinInfo.course?.class?.difficulty || '-'}
                           </Badge>
                         </div>
-                        <p><strong>Capacity:</strong> {checkinInfo.checkedInCount || 0} / {checkinInfo.course?.class?.maxCapacity || '-'}</p>
-                        <p><strong>Registered:</strong> {checkinInfo.registeredCount || 0}</p>
-                        <p><strong>Total Members:</strong> {checkinInfo.totalMembers || 0}</p>
+                        <p><strong className="text-foreground">Capacity:</strong> {checkinInfo.checkedInCount || 0} / {checkinInfo.course?.class?.maxCapacity || '-'}</p>
+                        <p><strong className="text-foreground">Registered:</strong> {checkinInfo.registeredCount || 0}</p>
+                        <p><strong className="text-foreground">Total members:</strong> {checkinInfo.totalMembers || 0}</p>
                       </div>
                     </div>
                   </div>
@@ -503,32 +532,33 @@ export default function CheckinQRPage() {
               </div>
 
               {/* Trainer Information - Collapsible */}
-              <div className="bg-purple-50 border border-purple-200 rounded-lg">
+              <div className="rounded-lg border border-chart-3/35 bg-chart-3/10">
                 <button
+                  type="button"
                   onClick={() => toggleSection('trainer')}
-                  className="w-full p-4 text-left flex items-center justify-between hover:bg-purple-100 transition-colors"
+                  className="w-full p-4 text-left flex items-center justify-between hover:bg-chart-3/20 transition-colors rounded-t-lg"
                 >
-                  <h3 className="font-medium text-purple-800 flex items-center">
-                    <Users className="w-4 h-4 mr-2" />
-                    Trainer Information
+                  <h3 className="font-medium text-foreground flex items-center">
+                    <Users className="w-4 h-4 mr-2 text-chart-3" />
+                    Trainer information
                   </h3>
                   {expandedSections.trainer ? (
-                    <ChevronDown className="w-4 h-4 text-purple-600" />
+                    <ChevronDown className="w-4 h-4 text-chart-3" />
                   ) : (
-                    <ChevronRight className="w-4 h-4 text-purple-600" />
+                    <ChevronRight className="w-4 h-4 text-chart-3" />
                   )}
                 </button>
                 
                 {expandedSections.trainer && (
                   <div className="px-4 pb-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-purple-700">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-muted-foreground">
                       <div>
-                        <p><strong>Name:</strong> {checkinInfo.course?.trainer ? `${checkinInfo.course.trainer.first_name} ${checkinInfo.course.trainer.last_name}` : 'Unknown'}</p>
+                        <p><strong className="text-foreground">Name:</strong> {checkinInfo.course?.trainer ? `${checkinInfo.course.trainer.first_name} ${checkinInfo.course.trainer.last_name}` : 'Unknown'}</p>
                         {checkinInfo.course?.trainer?.phone && (
-                          <p><strong>Phone:</strong> {checkinInfo.course.trainer.phone}</p>
+                          <p><strong className="text-foreground">Phone:</strong> {checkinInfo.course.trainer.phone}</p>
                         )}
                         <div className="flex items-center gap-2">
-                          <strong>Status:</strong>
+                          <strong className="text-foreground">Status:</strong>
                           <Badge variant={checkinInfo.course?.trainer?.status === 'active' ? 'default' : 'secondary'}>
                             {checkinInfo.course?.trainer?.status || '-'}
                           </Badge>
@@ -536,22 +566,22 @@ export default function CheckinQRPage() {
                       </div>
                       <div>
                         {checkinInfo.course?.trainer?.specialization && (
-                          <p><strong>Specialization:</strong> {checkinInfo.course.trainer.specialization}</p>
+                          <p><strong className="text-foreground">Specialization:</strong> {checkinInfo.course.trainer.specialization}</p>
                         )}
                         {checkinInfo.course?.trainer?.experience_years && (
-                          <p><strong>Experience:</strong> {checkinInfo.course.trainer.experience_years} years</p>
+                          <p><strong className="text-foreground">Experience:</strong> {checkinInfo.course.trainer.experience_years} years</p>
                         )}
                         {checkinInfo.course?.trainer?.certification && (
-                          <p><strong>Certification:</strong> {checkinInfo.course.trainer.certification}</p>
+                          <p><strong className="text-foreground">Certification:</strong> {checkinInfo.course.trainer.certification}</p>
                         )}
                         {checkinInfo.course?.trainer?.hourly_rate && (
-                          <p><strong>Rate:</strong> ${checkinInfo.course.trainer.hourly_rate}/hour</p>
+                          <p><strong className="text-foreground">Rate:</strong> ${checkinInfo.course.trainer.hourly_rate}/hour</p>
                         )}
                       </div>
                     </div>
                     {checkinInfo.course?.trainer?.bio && (
-                      <div className="mt-3 p-2 bg-purple-100 rounded text-xs text-purple-600">
-                        <strong>Bio:</strong> {checkinInfo.course.trainer.bio}
+                      <div className="mt-3 p-2 rounded-md border border-chart-3/25 bg-chart-3/5 text-xs text-muted-foreground">
+                        <strong className="text-foreground">Bio:</strong> {checkinInfo.course.trainer.bio}
                       </div>
                     )}
                   </div>
@@ -560,62 +590,62 @@ export default function CheckinQRPage() {
 
 
               {/* Admin Decision Panel */}
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-4">
-                <h3 className="font-bold text-blue-900 mb-4 flex items-center text-lg">
-                  <CheckCircle className="w-5 h-5 mr-2" />
-                  Admin Decision Panel
+              <div className="rounded-lg border border-chart-4/35 bg-chart-4/10 p-4">
+                <h3 className="font-bold text-foreground mb-4 flex items-center text-lg">
+                  <CheckCircle className="w-5 h-5 mr-2 text-chart-4" />
+                  Admin decision
                 </h3>
                 
                 {/* Quick Status Overview */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                  <div className="text-center p-3 bg-white rounded-lg border">
-                    <p className="text-xs text-gray-600 mb-1">Sessions Left</p>
-                    <p className="text-2xl font-bold text-green-600">
-                      {checkinInfo.member?.activeSubscription?.sessionsRemaining || 'N/A'}
+                  <div className="text-center p-3 rounded-lg border border-chart-4/25 bg-card/80 backdrop-blur-sm">
+                    <p className="text-xs text-muted-foreground mb-1">Sessions left</p>
+                    <p className="text-2xl font-bold text-foreground">
+                      {checkinInfo.member?.activeSubscription?.sessionsRemaining ?? 'N/A'}
                     </p>
                   </div>
-                  <div className="text-center p-3 bg-white rounded-lg border">
-                    <p className="text-xs text-gray-600 mb-1">Class Capacity</p>
-                    <p className="text-2xl font-bold text-blue-600">
+                  <div className="text-center p-3 rounded-lg border border-chart-4/25 bg-card/80 backdrop-blur-sm">
+                    <p className="text-xs text-muted-foreground mb-1">Class capacity</p>
+                    <p className="text-2xl font-bold text-foreground">
                       {checkinInfo.checkedInCount || 0}/{checkinInfo.course?.class?.maxCapacity || '-'}
                     </p>
                   </div>
-                  <div className="text-center p-3 bg-white rounded-lg border">
-                    <p className="text-xs text-gray-600 mb-1">Registration</p>
+                  <div className="text-center p-3 rounded-lg border border-chart-4/25 bg-card/80 backdrop-blur-sm">
+                    <p className="text-xs text-muted-foreground mb-1">Registration</p>
                     <Badge variant={checkinInfo.registration?.status === 'registered' ? 'default' : 'secondary'} className="text-sm">
                       {checkinInfo.registration?.status || '-'}
                     </Badge>
                   </div>
-                  <div className="text-center p-3 bg-white rounded-lg border">
-                    <p className="text-xs text-gray-600 mb-1">Check-in Status</p>
+                  <div className="text-center p-3 rounded-lg border border-chart-4/25 bg-card/80 backdrop-blur-sm">
+                    <p className="text-xs text-muted-foreground mb-1">Check-in status</p>
                     <Badge variant={checkinInfo.alreadyCheckedIn ? 'default' : 'outline'} className="text-sm">
-                      {checkinInfo.alreadyCheckedIn ? 'Already In' : 'Not Checked In'}
+                      {checkinInfo.alreadyCheckedIn ? 'Checked in' : 'Not checked in'}
                     </Badge>
                   </div>
                 </div>
 
                 {/* Decision Factors */}
                 <div className="space-y-2 text-sm">
-                  <div className="flex items-center justify-between p-2 bg-white rounded border">
-                    <span className="font-medium">Valid Subscription:</span>
+                  <div className="flex items-center justify-between p-2 rounded-md border border-chart-4/20 bg-card/90">
+                    <span className="font-medium text-foreground">Valid subscription</span>
                     <Badge variant={checkinInfo.member?.activeSubscription ? 'default' : 'destructive'}>
                       {checkinInfo.member?.activeSubscription ? 'Yes' : 'No'}
                     </Badge>
                   </div>
-                  <div className="flex items-center justify-between p-2 bg-white rounded border">
-                    <span className="font-medium">Sessions Available:</span>
+                  <div className="flex items-center justify-between p-2 rounded-md border border-chart-4/20 bg-card/90">
+                    <span className="font-medium text-foreground">Sessions available</span>
                     <Badge variant={(checkinInfo.member?.activeSubscription?.sessionsRemaining || 0) > 0 ? 'default' : 'destructive'}>
                       {(checkinInfo.member?.activeSubscription?.sessionsRemaining || 0) > 0 ? 'Yes' : 'No'}
                     </Badge>
                   </div>
-                  <div className="flex items-center justify-between p-2 bg-white rounded border">
-                    <span className="font-medium">Class Not Full:</span>
+                  <div className="flex items-center justify-between p-2 rounded-md border border-chart-4/20 bg-card/90">
+                    <span className="font-medium text-foreground">Class not full</span>
                     <Badge variant={(checkinInfo.checkedInCount || 0) < (checkinInfo.course?.class?.maxCapacity || 0) ? 'default' : 'destructive'}>
                       {(checkinInfo.checkedInCount || 0) < (checkinInfo.course?.class?.maxCapacity || 0) ? 'Yes' : 'No'}
                     </Badge>
                   </div>
-                  <div className="flex items-center justify-between p-2 bg-white rounded border">
-                    <span className="font-medium">Member Status:</span>
+                  <div className="flex items-center justify-between p-2 rounded-md border border-chart-4/20 bg-card/90">
+                    <span className="font-medium text-foreground">Member status</span>
                     <Badge variant={checkinInfo.member?.status === 'active' ? 'default' : 'secondary'}>
                       {checkinInfo.member?.status || 'Unknown'}
                     </Badge>
@@ -624,10 +654,10 @@ export default function CheckinQRPage() {
               </div>
 
               {/* Unified Members List */}
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <div className="rounded-lg border border-chart-5/35 bg-chart-5/10 p-4">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-medium text-gray-800 flex items-center">
-                    <Users className="w-4 h-4 mr-2" />
+                  <h3 className="font-medium text-foreground flex items-center">
+                    <Users className="w-4 h-4 mr-2 text-chart-5" />
                     Course Members
                     <Badge variant="secondary" className="ml-2">
                       {(() => {
@@ -651,9 +681,9 @@ export default function CheckinQRPage() {
 
                 {/* Status Filter Panel */}
                 {showFilters && (
-                  <div className="mb-4 p-3 bg-white rounded-lg border">
+                  <div className="mb-4 p-3 rounded-lg border border-chart-5/25 bg-card/80">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-gray-700">Filter by Status:</span>
+                      <span className="text-sm font-medium text-foreground">Filter by status</span>
                       <div className="flex gap-2">
                         <Button
                           variant="outline"
@@ -675,11 +705,11 @@ export default function CheckinQRPage() {
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       {[
-                        { key: 'registered', label: 'Registered', color: 'bg-gray-100 text-gray-800' },
-                        { key: 'attended', label: 'Attended', color: 'bg-blue-100 text-blue-800' },
-                        { key: 'absent', label: 'Absent', color: 'bg-red-100 text-red-800' },
-                        { key: 'cancelled', label: 'Cancelled', color: 'bg-gray-100 text-gray-600' }
-                      ].map(({ key, label, color }) => (
+                        { key: 'registered', label: 'Registered' },
+                        { key: 'attended', label: 'Attended' },
+                        { key: 'absent', label: 'Absent' },
+                        { key: 'cancelled', label: 'Cancelled' },
+                      ].map(({ key, label }) => (
                         <div key={key} className="flex items-center space-x-2">
                           <Checkbox
                             id={`filter-${key}`}
@@ -688,11 +718,11 @@ export default function CheckinQRPage() {
                           />
                           <label
                             htmlFor={`filter-${key}`}
-                            className="text-sm flex items-center gap-2 cursor-pointer"
+                            className="text-sm flex items-center gap-2 cursor-pointer text-foreground"
                           >
-                            <span className={`px-2 py-1 rounded text-xs ${color}`}>
+                            <Badge variant="secondary" className="text-xs font-normal">
                               {label}
-                            </span>
+                            </Badge>
                           </label>
                         </div>
                       ))}
@@ -702,31 +732,32 @@ export default function CheckinQRPage() {
                 {getFilteredMembers().length > 0 ? (
                   <div className="space-y-2">
                     {getFilteredMembers().map((member: any) => (
-                      <div key={member.id} className="flex items-center justify-between p-2 bg-white rounded border">
-                        <div className="flex-1">
-                          <span className="font-medium">{member.first_name} {member.last_name}</span>
-                          <span className="text-xs text-gray-500 ml-2">({member.email})</span>
+                      <div key={member.id} className="flex items-center justify-between p-2 rounded-md border border-chart-5/20 bg-card/90">
+                        <div className="flex-1 min-w-0">
+                          <span className="font-medium text-foreground">{member.first_name} {member.last_name}</span>
+                          <span className="text-xs text-muted-foreground ml-2">({member.email})</span>
                         </div>
-                        <span className={`px-2 py-1 rounded text-xs ${
-                          member.status === 'attended'
-                            ? 'bg-blue-100 text-blue-800'
-                            : member.status === 'absent'
-                            ? 'bg-red-100 text-red-800'
-                            : member.status === 'cancelled'
-                            ? 'bg-gray-100 text-gray-600'
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
+                        <Badge
+                          variant={
+                            member.status === 'absent' || member.status === 'cancelled'
+                              ? 'destructive'
+                              : member.status === 'attended'
+                                ? 'default'
+                                : 'secondary'
+                          }
+                          className="text-xs shrink-0"
+                        >
                           {member.status === 'attended' ? 'Attended' :
                            member.status === 'absent' ? 'Absent' :
                            member.status === 'cancelled' ? 'Cancelled' :
                            member.status === 'registered' ? 'Registered' :
                            member.status}
-                        </span>
+                        </Badge>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-muted-foreground">
                     {checkinInfo?.members && checkinInfo.members.length > 0 
                       ? 'No members match the selected filters' 
                       : 'No registered members'}
@@ -738,13 +769,13 @@ export default function CheckinQRPage() {
 
           {/* Success Details */}
           {status === 'success' && checkinInfo && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <h3 className="font-medium text-green-800 mb-2">Check-in Successful!</h3>
-              <div className="space-y-1 text-sm text-green-700">
-                <p><strong>Member:</strong> {checkinInfo.member ? `${checkinInfo.member.first_name} ${checkinInfo.member.last_name}` : 'Unknown'}</p>
-                <p><strong>Course:</strong> {checkinInfo.course?.class?.name || 'Unknown'}</p>
-                <p><strong>Class:</strong> {checkinInfo.course?.class?.name || 'Unknown'}</p>
-                <p><strong>Time:</strong> {new Date().toLocaleString()}</p>
+            <div className="rounded-lg border border-primary/35 bg-primary/15 p-4">
+              <h3 className="font-medium text-foreground mb-2">Check-in successful</h3>
+              <div className="space-y-1 text-sm text-muted-foreground">
+                <p><strong className="text-foreground">Member:</strong> {checkinInfo.member ? `${checkinInfo.member.first_name} ${checkinInfo.member.last_name}` : 'Unknown'}</p>
+                <p><strong className="text-foreground">Course:</strong> {checkinInfo.course?.class?.name || 'Unknown'}</p>
+                <p><strong className="text-foreground">Class:</strong> {checkinInfo.course?.class?.name || 'Unknown'}</p>
+                <p><strong className="text-foreground">Time:</strong> {new Date().toLocaleString()}</p>
               </div>
             </div>
           )}
@@ -763,38 +794,36 @@ export default function CheckinQRPage() {
               <Button 
                 onClick={checkIn} 
                   disabled={checkInMutation.isPending || (!checkinInfo?.member?.activeSubscription && !checkinInfo?.registration?.isGuestRegistration) || ((checkinInfo.member?.activeSubscription?.sessionsRemaining || 0) <= 0 && !checkinInfo?.registration?.isGuestRegistration)}
-                  className={`w-full h-12 text-lg font-semibold ${checkinInfo?.registration?.isGuestRegistration ? 'bg-purple-600 hover:bg-purple-700' : ''}`}
+                  className="w-full h-12 text-lg font-semibold"
                   size="lg"
               >
                 {checkInMutation.isPending ? (
                   <>
                       <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Processing Check-in...
+                      Processing check-in…
                   </>
                 ) : (
                   <>
                       <CheckCircle className="w-5 h-5 mr-2" />
-                      {checkinInfo?.registration?.isGuestRegistration ? '🎉 Approve Guest Check-in' : '✅ Approve Check-in'}
+                      {checkinInfo?.registration?.isGuestRegistration ? 'Approve guest check-in' : 'Approve check-in'}
                   </>
                 )}
               </Button>
                 
-                {/* Guest check-in message */}
                 {checkinInfo?.registration?.isGuestRegistration && (
-                  <div className="text-center text-sm text-purple-700 bg-purple-50 p-2 rounded border">
-                    🎉 Guest Check-in: This check-in will not consume any subscription sessions
+                  <div className="text-center text-sm text-muted-foreground bg-chart-3/10 border border-chart-3/30 p-2 rounded-md">
+                    Guest check-in: no subscription sessions will be used.
                   </div>
                 )}
                 
-                {/* Warning messages for regular registrations */}
                 {!checkinInfo?.member?.activeSubscription && !checkinInfo?.registration?.isGuestRegistration && (
-                  <div className="text-center text-sm text-red-600 bg-red-50 p-2 rounded border">
-                    ⚠️ Cannot check in: No active subscription
+                  <div className="text-center text-sm text-destructive bg-destructive/10 border border-destructive/20 p-2 rounded-md">
+                    Cannot check in: no active subscription.
                   </div>
                 )}
                 {(checkinInfo?.member?.activeSubscription?.sessionsRemaining || 0) <= 0 && checkinInfo?.member?.activeSubscription && !checkinInfo?.registration?.isGuestRegistration && (
-                  <div className="text-center text-sm text-red-600 bg-red-50 p-2 rounded border">
-                    ⚠️ Cannot check in: No sessions remaining
+                  <div className="text-center text-sm text-destructive bg-destructive/10 border border-destructive/20 p-2 rounded-md">
+                    Cannot check in: no sessions remaining.
                   </div>
                 )}
               </div>
@@ -812,16 +841,16 @@ export default function CheckinQRPage() {
                 {checkOutMutation.isPending ? (
                   <>
                       <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Processing Check-out...
+                      Processing check-out…
                   </>
                 ) : (
                   <>
                       <XCircle className="w-5 h-5 mr-2" />
-                      ❌ Check Out Member
+                      Check out member
                   </>
                 )}
               </Button>
-                <div className="text-center text-sm text-gray-600 bg-gray-50 p-2 rounded border">
+                <div className="text-center text-sm text-muted-foreground bg-primary/10 border border-primary/25 p-2 rounded-md">
                   Member is already checked in. Use this button to check them out.
                 </div>
               </div>
@@ -834,7 +863,7 @@ export default function CheckinQRPage() {
                 size="lg"
               >
                 <AlertCircle className="w-5 h-5 mr-2" />
-                🔄 Retry
+                Retry
               </Button>
             )}
             
