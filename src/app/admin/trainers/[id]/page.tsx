@@ -31,7 +31,8 @@ import {
   UserMinus
 } from "lucide-react";
 import { getInitials } from "@/lib/auth";
-import { useTrainer, useLinkTrainerAccount, useUnlinkTrainerAccount } from "@/hooks/useTrainers";
+import { useTrainer, useLinkTrainerAccount, useUnlinkTrainerAccount, useDeleteTrainer } from "@/hooks/useTrainers";
+import { useToast } from "@/hooks/use-toast";
 import { useAccounts } from "@/hooks/useAccounts";
 import { DashboardSkeleton } from "@/components/skeletons";
 import { 
@@ -51,11 +52,70 @@ export default function TrainerDetailsPage() {
   const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
   const [selectedAccountId, setSelectedAccountId] = useState("");
   const [isUnlinkDialogOpen, setIsUnlinkDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   const { data: trainer, isLoading, error } = useTrainer(trainerId);
   const { data: accounts = [] } = useAccounts();
   const linkAccountMutation = useLinkTrainerAccount();
   const unlinkAccountMutation = useUnlinkTrainerAccount();
+  const deleteTrainerMutation = useDeleteTrainer();
+  const { toast } = useToast();
+
+  const goToEditTrainer = () => {
+    router.push(`/admin/trainers?edit=${encodeURIComponent(trainerId)}`);
+  };
+
+  const goToAccountSettings = () => {
+    if (!trainer?.account_id) {
+      toast({
+        title: "No linked account",
+        description: "Link an account first to open account settings.",
+        variant: "destructive",
+      });
+      return;
+    }
+    router.push(`/admin/accounts/${trainer.account_id}`);
+  };
+
+  const goToSchedule = () => {
+    router.push("/admin/agenda");
+  };
+
+  const exportTrainerData = async () => {
+    if (!trainer) return;
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(trainer, null, 2));
+      toast({ title: "Copied", description: "Trainer data copied to clipboard." });
+    } catch {
+      toast({
+        title: "Copy failed",
+        description: "Could not write to clipboard.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const confirmDeleteTrainer = () => {
+    if (!trainer?.account_id) return;
+    deleteTrainerMutation.mutate(trainer.account_id, {
+      onSuccess: () => {
+        setIsDeleteDialogOpen(false);
+        toast({ title: "Trainer deleted", description: `${trainer.first_name} ${trainer.last_name} has been removed.` });
+        router.push("/admin/trainers");
+      },
+      onError: (e: Error) => {
+        toast({
+          title: "Delete failed",
+          description: e.message || "Could not delete trainer.",
+          variant: "destructive",
+        });
+      },
+    });
+  };
+
+  const scrollToProfile = () => {
+    document.getElementById("trainer-personal-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   // Filter accounts that are not already linked to trainers
   const availableAccounts = accounts.filter(account => 
@@ -166,15 +226,15 @@ export default function TrainerDetailsPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={scrollToProfile}>
               <Eye className="w-4 h-4 mr-2" />
               View Profile
             </DropdownMenuItem>
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={goToEditTrainer}>
               <Edit className="w-4 h-4 mr-2" />
               Edit Trainer
             </DropdownMenuItem>
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={goToAccountSettings}>
               <Settings className="w-4 h-4 mr-2" />
               Settings
             </DropdownMenuItem>
@@ -191,12 +251,25 @@ export default function TrainerDetailsPage() {
               </DropdownMenuItem>
             )}
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={exportTrainerData}>
               <Download className="w-4 h-4 mr-2" />
               Export Data
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive">
+            <DropdownMenuItem
+              className="text-destructive"
+              onClick={() => {
+                if (!trainer.account_id) {
+                  toast({
+                    title: "Cannot delete",
+                    description: "This trainer has no linked login account. Remove the trainer record from the database or link an account first.",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+                setIsDeleteDialogOpen(true);
+              }}
+            >
               <Trash2 className="w-4 h-4 mr-2" />
               Delete Trainer
             </DropdownMenuItem>
@@ -208,7 +281,7 @@ export default function TrainerDetailsPage() {
         {/* Main Information */}
         <div className="lg:col-span-2 space-y-6">
           {/* Personal Information */}
-          <Card>
+          <Card id="trainer-personal-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <User className="w-5 h-5" />
@@ -373,15 +446,15 @@ export default function TrainerDetailsPage() {
               <CardTitle className="text-lg">Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <Button className="w-full justify-start" variant="outline">
+              <Button type="button" className="w-full justify-start" variant="outline" onClick={goToEditTrainer}>
                 <Edit className="w-4 h-4 mr-2" />
                 Edit Profile
               </Button>
-              <Button className="w-full justify-start" variant="outline">
+              <Button type="button" className="w-full justify-start" variant="outline" onClick={goToAccountSettings}>
                 <Settings className="w-4 h-4 mr-2" />
                 Account Settings
               </Button>
-              <Button className="w-full justify-start" variant="outline">
+              <Button type="button" className="w-full justify-start" variant="outline" onClick={goToSchedule}>
                 <Calendar className="w-4 h-4 mr-2" />
                 View Schedule
               </Button>
@@ -533,6 +606,18 @@ export default function TrainerDetailsPage() {
         confirmText="Unlink"
         cancelText="Cancel"
         isPending={unlinkAccountMutation.isPending}
+        variant="destructive"
+      />
+
+      <ConfirmationDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        onConfirm={confirmDeleteTrainer}
+        title="Delete trainer"
+        description="This removes the login account and related trainer data. This cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        isPending={deleteTrainerMutation.isPending}
         variant="destructive"
       />
     </div>

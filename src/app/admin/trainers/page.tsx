@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -71,10 +71,11 @@ export default function AdminTrainers() {
   const [showFilters, setShowFilters] = useState(false);
   const queryClient = useQueryClient();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
 
   const { data: trainersData = [], isLoading } = useTrainers();
-  
+
   // Get unique specializations for filter
   const specializations = Array.from(
     new Set(trainersData.map((trainer: any) => trainer.specialization).filter(Boolean))
@@ -120,6 +121,28 @@ export default function AdminTrainers() {
     },
   });
 
+  const editIdFromUrl = searchParams.get("edit");
+  useEffect(() => {
+    if (!editIdFromUrl || isLoading) return;
+    const t = trainersData.find((x: any) => x.id === editIdFromUrl);
+    if (t) {
+      setEditingTrainer(t);
+      form.reset({
+        firstName: t.first_name,
+        lastName: t.last_name,
+        email: t.email ?? "",
+        phone: t.phone,
+        bio: t.bio,
+        status: t.status,
+        specialization: t.specialization,
+        experience_years: t.experience_years,
+        certification: t.certification,
+      });
+      setIsModalOpen(true);
+    }
+    router.replace("/admin/trainers", { scroll: false });
+  }, [editIdFromUrl, isLoading, trainersData, router]);
+
   const createTrainerMutation = useCreateTrainer();
 
   const updateTrainerMutation = useUpdateTrainer();
@@ -150,13 +173,25 @@ export default function AdminTrainers() {
         }
       });
     } else {
-      createTrainerMutation.mutate(data, {
-        onSuccess: () => {
-          setIsModalOpen(false);
-          setEditingTrainer(null);
-          form.reset();
-        }
-      });
+      createTrainerMutation.mutate(
+        {
+          firstName: data.firstName,
+          lastName: data.lastName,
+          email: data.email,
+          phone: data.phone,
+          bio: data.bio,
+          specialization: data.specialization,
+          experienceYears: data.experience_years,
+          certification: data.certification,
+        },
+        {
+          onSuccess: () => {
+            setIsModalOpen(false);
+            setEditingTrainer(null);
+            form.reset();
+          },
+        },
+      );
     }
   };
 

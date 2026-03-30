@@ -115,6 +115,7 @@ export async function GET(req: NextRequest) {
         account_status: m.account_status, // Include account status
         user_type: m.user_type,
         accessible_portals: m.accessible_portals,
+        created_at: m.created_at,
         subscriptions: m.subscriptions || [],
         groupSessions: allGroupSessions
       };
@@ -134,6 +135,7 @@ export async function GET(req: NextRequest) {
       member_status: m.status,
       user_type: 'member',
       accessible_portals: ['member'],
+      created_at: m.created_at,
       subscriptions: [],
       groupSessions: []
     }));

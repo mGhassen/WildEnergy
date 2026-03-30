@@ -18,8 +18,7 @@ export async function GET(req: NextRequest) {
     const { data: linkedTrainers, error: linkedError } = await supabaseServer()
       .from('user_profiles')
       .select('*')
-      .not('trainer_id', 'is', null) // Only users with trainer records
-      .eq('trainer_status', 'active')
+      .not('trainer_id', 'is', null)
       .order('first_name', { ascending: true });
       
     if (linkedError) {
@@ -31,8 +30,7 @@ export async function GET(req: NextRequest) {
     const { data: unlinkedTrainers, error: unlinkedError } = await supabaseServer()
       .from('trainers')
       .select('*')
-      .is('account_id', null) // Only unlinked trainers
-      .eq('status', 'active');
+      .is('account_id', null);
 
     if (unlinkedError) {
       console.error('Error fetching unlinked trainers:', unlinkedError);
@@ -127,7 +125,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
     
-    const { firstName, lastName, email, phone, specialization, experienceYears, bio, certification, hourlyRate } = await req.json();
+    const body = await req.json();
+    const {
+      firstName,
+      lastName,
+      email,
+      phone,
+      specialization,
+      experienceYears,
+      experience_years,
+      bio,
+      certification,
+      hourlyRate,
+    } = body;
+    const resolvedExperienceYears = experienceYears ?? experience_years ?? 0;
     
     if (!firstName || !lastName || !email) {
       return NextResponse.json({ error: 'First name, last name, and email are required' }, { status: 400 });
@@ -173,6 +184,7 @@ export async function POST(req: NextRequest) {
         .from('accounts')
         .insert({
           id: authUserId,
+          auth_user_id: authUserId,
           email,
           status: 'active',
           is_admin: false,
@@ -192,7 +204,7 @@ export async function POST(req: NextRequest) {
           account_id: authUserId,
           profile_id: profile.id, // Use profile.id instead of authUserId
           specialization: specialization || '',
-          experience_years: experienceYears || 0,
+          experience_years: resolvedExperienceYears,
           bio: bio || '',
           certification: certification || '',
           hourly_rate: hourlyRate || 0,
