@@ -39,33 +39,42 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid registration ID' }, { status: 400 });
     }
 
-    // Get the registration details - allow both 'registered' and 'attended' statuses
     const { data: registration, error: registrationError } = await supabaseServer()
       .from('class_registrations')
       .select(`
         *,
-        member:users(id, first_name, last_name, email),
-        course:courses(
+        members (
+          id,
+          profiles (
+            first_name,
+            last_name
+          ),
+          accounts (
+            email
+          )
+        ),
+        courses (
           id,
           course_date,
           start_time,
           end_time,
-          class:classes(name)
+          classes (
+            name
+          )
         )
       `)
       .eq('id', registrationIdNum)
-      .in('status', ['registered', 'attended'])
       .single();
 
     if (registrationError || !registration) {
+      console.error('Check-out registration fetch:', registrationError);
       return NextResponse.json({ error: 'Registration not found or not valid for check-out' }, { status: 404 });
     }
 
-    // Check if there's an existing check-in to remove
     const { data: existingCheckin, error: checkinError } = await supabaseServer()
       .from('checkins')
       .select('id, checkin_time, session_consumed')
-      .eq('registration_id', registrationId)
+      .eq('registration_id', registrationIdNum)
       .single();
 
     if (checkinError && checkinError.code !== 'PGRST116') {
@@ -93,8 +102,23 @@ export async function POST(
     const currentDate = now.toISOString().split('T')[0];
     const currentTime = now.toTimeString().split(' ')[0];
     
-    const courseDate = registration.course.course_date;
-    const courseEndTime = registration.course.end_time;
+    const courseRaw = registration.courses as
+      | {
+          id: string | number;
+          course_date: string;
+          start_time: string;
+          end_time: string;
+          classes?: { name?: string } | { name?: string }[];
+        }
+      | null
+      | undefined;
+    const course = Array.isArray(courseRaw) ? courseRaw[0] : courseRaw;
+    if (!course?.course_date || !course?.end_time) {
+      return NextResponse.json({ error: 'Course data missing for registration' }, { status: 500 });
+    }
+
+    const courseDate = course.course_date;
+    const courseEndTime = course.end_time;
     
     // Check if course has finished
     const isPastDate = courseDate < currentDate;
@@ -125,7 +149,7 @@ export async function POST(
       message: `Member checked out successfully. Registration status set to '${newStatus}'`,
       removedCheckin: {
         id: existingCheckin.id,
-        registrationId: registrationId,
+        registrationId: registrationIdNum,
         checkinTime: existingCheckin.checkin_time,
         sessionConsumed: existingCheckin.session_consumed
       },
@@ -136,17 +160,19 @@ export async function POST(
         courseFinished: hasFinished
       },
       member: {
-        id: registration.member.id,
-        firstName: registration.member.first_name,
-        lastName: registration.member.last_name,
-        email: registration.member.email
+        id: registration.members?.id,
+        firstName: registration.members?.profiles?.first_name,
+        lastName: registration.members?.profiles?.last_name,
+        email: registration.members?.accounts?.email
       },
       course: {
-        id: registration.course.id,
-        courseDate: registration.course.course_date,
-        startTime: registration.course.start_time,
-        endTime: registration.course.end_time,
-        className: registration.course.class.name
+        id: course.id,
+        courseDate: course.course_date,
+        startTime: course.start_time,
+        endTime: course.end_time,
+        className: Array.isArray(course.classes)
+          ? course.classes[0]?.name
+          : course.classes?.name
       }
     });
 
