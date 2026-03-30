@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createSupabaseClient } from '@/lib/supabase';
+import { consumePostLoginRedirect } from '@/lib/auth-return-path';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 
@@ -132,11 +133,15 @@ export default function OAuthSuccessPage() {
                     // Redirect based on account status
                     if (account.status === 'pending') {
                       router.push('/auth/waiting-approval');
-                    } else if (account.is_admin) {
-                      router.push('/admin');
                     } else {
-                      // Existing users go to member portal (onboarding check will happen there)
-                      router.push('/member');
+                      const next = consumePostLoginRedirect();
+                      if (next) {
+                        router.push(next);
+                      } else if (account.is_admin) {
+                        router.push('/admin');
+                      } else {
+                        router.push('/member');
+                      }
                     }
                   }, 1000);
         } else {
@@ -247,8 +252,10 @@ export default function OAuthSuccessPage() {
             // Trigger authentication state refresh
             window.dispatchEvent(new CustomEvent('auth-state-changed'));
             
-            // Redirect based on account status - OAuth users are automatically active
-            if (newAccount.is_admin) {
+            const next = consumePostLoginRedirect();
+            if (next) {
+              router.push(next);
+            } else if (newAccount.is_admin) {
               router.push('/admin');
             } else {
               router.push('/member');

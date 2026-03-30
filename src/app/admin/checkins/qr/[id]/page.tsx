@@ -331,11 +331,38 @@ export default function CheckinQRPage() {
             </div>
           )}
 
-          {message ? (
+          {status === 'loading' && message && (
             <div className="text-center">
               <p className="text-lg font-medium text-foreground">{message}</p>
             </div>
-          ) : null}
+          )}
+
+          {(status === 'error' || status === 'invalid') && message && (
+            <div className="text-center">
+              <p className="text-lg font-medium text-foreground">{message}</p>
+            </div>
+          )}
+
+          {status === 'info' && checkinInfo && !checkinInfo.alreadyCheckedIn && (
+            <>
+              <div className="flex justify-center">
+                {checkInMutation.isPending || checkOutMutation.isPending ? (
+                  <Loader2 className="w-16 h-16 text-primary animate-spin" />
+                ) : (
+                  <User className="w-16 h-16 text-primary" />
+                )}
+              </div>
+              <div className="text-center">
+                <p className="text-lg font-medium text-foreground">
+                  {checkInMutation.isPending
+                    ? message || 'Processing check-in…'
+                    : checkOutMutation.isPending
+                      ? message || 'Processing check-out…'
+                      : 'Please validate the check-in information below'}
+                </p>
+              </div>
+            </>
+          )}
 
           {/* Late Check-in Alert */}
           {status === 'info' && checkinInfo && isLateCheckin() && !checkinInfo.alreadyCheckedIn && (

@@ -99,7 +99,15 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
           <p className="text-muted-foreground mb-4">You need to be logged in to access this page.</p>
-          <Button onClick={() => window.location.href = '/auth/login'}>
+          <Button
+            onClick={() => {
+              const r = window.location.pathname + window.location.search;
+              window.location.href =
+                r && r !== "/auth/login"
+                  ? `/auth/login?returnTo=${encodeURIComponent(r)}`
+                  : "/auth/login";
+            }}
+          >
             Go to Login
           </Button>
         </div>

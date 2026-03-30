@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { authApi, RegisterData, LoginCredentials, AuthResponse } from '@/lib/api/auth';
 import { createSupabaseClient } from '@/lib/supabase';
+import { consumePostLoginRedirect } from '@/lib/auth-return-path';
 
 export interface User {
   id: string;
@@ -132,7 +133,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
             delete window.__authToken;
           }
           setUser(null);
-          router.push('/auth/login');
+          const returnUrl =
+            typeof window !== 'undefined'
+              ? window.location.pathname + window.location.search
+              : '';
+          const loginUrl =
+            returnUrl && returnUrl !== '/auth/login'
+              ? `/auth/login?returnTo=${encodeURIComponent(returnUrl)}`
+              : '/auth/login';
+          router.push(loginUrl);
           setAuthError('Your session has expired or is invalid. Please log in again.');
           return null;
         }
@@ -236,9 +245,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     if (user && !isLoading) {
       const currentPath = window.location.pathname;
-      
+
       // Only redirect if we're on the root page or login page
       if (currentPath === '/' || currentPath === '/auth/login') {
+        const returnPath = consumePostLoginRedirect();
+        if (returnPath) {
+          router.push(returnPath);
+          return;
+        }
         // Check accessible portals to determine where to redirect
         if (user.accessiblePortals?.includes('admin')) {
           router.push('/admin/dashboard');
@@ -251,7 +265,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
       }
     }
-  }, [user, isLoading]); // Remove router dependency
+  }, [user, isLoading, router]);
 
   // Refresh the current session
   const refreshSession = async () => {

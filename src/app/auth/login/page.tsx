@@ -17,6 +17,10 @@ import { useRouter } from 'next/navigation';
 import { AlertCircle, Loader2, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import {
+  LOGIN_RETURN_STORAGE_KEY,
+  parseSafeReturnPath,
+} from "@/lib/auth-return-path";
 
 export default function LoginPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const router = useRouter();
@@ -32,6 +36,21 @@ export default function LoginPage({ searchParams }: { searchParams: Promise<Reco
   const resolvedSearchParams = use(searchParams);
 
   useEffect(() => {
+    const returnToRaw = resolvedSearchParams.returnTo;
+    const returnToParam = Array.isArray(returnToRaw)
+      ? returnToRaw[0]
+      : returnToRaw;
+    const safeReturn = parseSafeReturnPath(returnToParam ?? null);
+    try {
+      if (safeReturn) {
+        sessionStorage.setItem(LOGIN_RETURN_STORAGE_KEY, safeReturn);
+      } else if (returnToParam === undefined || returnToParam === "") {
+        sessionStorage.removeItem(LOGIN_RETURN_STORAGE_KEY);
+      }
+    } catch {
+      /* private mode / no storage */
+    }
+
     // Check for success messages from searchParams
     const messageRaw = resolvedSearchParams.message;
     const message = Array.isArray(messageRaw) ? messageRaw[0] : messageRaw;
