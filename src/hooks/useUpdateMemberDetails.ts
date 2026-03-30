@@ -6,6 +6,7 @@ export interface UpdateMemberDetailsData {
   firstName?: string;
   lastName?: string;
   phone?: string;
+  profileEmail?: string;
   dateOfBirth?: string;
   address?: string;
   profession?: string;

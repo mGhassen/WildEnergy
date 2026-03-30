@@ -394,15 +394,29 @@ export async function PUT(
       }
 
       if (Object.keys(profileUpdates).length > 0) {
+        const { data: accountRow, error: accountRowError } = await supabaseServer()
+          .from('accounts')
+          .select('profile_id')
+          .eq('id', accountId)
+          .single();
+
+        if (accountRowError || !accountRow?.profile_id) {
+          console.error('Error getting account profile_id:', accountRowError);
+          return NextResponse.json(
+            { error: 'Failed to get profile for account' },
+            { status: 500 }
+          );
+        }
+
         const { error: profileError } = await supabaseServer()
           .from('profiles')
           .update(profileUpdates)
-          .eq('id', accountId);
+          .eq('id', accountRow.profile_id);
 
         if (profileError) {
           console.error('Profile update error:', profileError);
           console.error('Profile update data:', profileUpdates);
-          console.error('Account ID:', accountId);
+          console.error('Profile ID:', accountRow.profile_id);
           return NextResponse.json({ 
             error: 'Failed to update profile', 
             details: profileError.message 
