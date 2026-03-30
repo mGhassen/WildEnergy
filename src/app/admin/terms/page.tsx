@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { formatDate } from "@/lib/date";
 import DataTable from "@/components/data-table";
-import { termIsDeletable } from "@/lib/terms-admin";
+import { termIsDeletable, versionForDuplicate } from "@/lib/terms-admin";
 
 interface TermsFormData {
   version: string;
@@ -243,7 +243,7 @@ export default function AdminTerms() {
   const handleDuplicate = async (term: any) => {
     try {
       await createTermsMutation.mutateAsync({
-        version: `${term.version}-copy-${Date.now()}`,
+        version: versionForDuplicate(term.version),
         title: term.title,
         content: term.content,
         is_active: false,
