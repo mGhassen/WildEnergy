@@ -1,8 +1,10 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 // Note: For email confirmations to work properly in production,
 // update your Supabase project's Site URL in Settings → General
 // from http://localhost:3000 to https://your-app.vercel.app
+
+let browserClient: SupabaseClient | null = null;
 
 // Server-side Supabase client (for API routes)
 export const createSupabaseServer = () => {
@@ -18,7 +20,7 @@ export const createSupabaseServer = () => {
   });
 };
 
-// Client-side Supabase client (for browser)
+// Client-side Supabase client (for browser) — singleton so PKCE verifier persists
 export const createSupabaseClient = () => {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -28,21 +30,25 @@ export const createSupabaseClient = () => {
   }
   
   if (typeof window === 'undefined') {
-    // Server-side - use service role key
     const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!supabaseServiceRoleKey) {
       throw new Error('Missing Supabase service role key for server-side operations');
     }
     return createClient(supabaseUrl, supabaseServiceRoleKey);
   }
-  
-  return createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      flowType: 'pkce',
-      detectSessionInUrl: true,
-      persistSession: true,
-    },
-  });
+
+  if (!browserClient) {
+    browserClient = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        flowType: 'pkce',
+        detectSessionInUrl: false,
+        persistSession: true,
+        storage: window.localStorage,
+      },
+    });
+  }
+
+  return browserClient;
 };
 
 export const supabaseServer = () => createSupabaseServer();

@@ -1,15 +1,19 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { createSupabaseClient } from "@/lib/supabase";
+import { exchangeOAuthCode } from "@/lib/oauth-exchange";
 import { Loader2 } from "lucide-react";
 
 function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const startedRef = useRef(false);
 
   useEffect(() => {
+    if (startedRef.current) return;
+    startedRef.current = true;
+
     const handleCallback = async () => {
       const error = searchParams.get("error");
       const errorDescription = searchParams.get("error_description");
@@ -45,16 +49,16 @@ function AuthCallbackContent() {
         return;
       }
 
-      const supabase = createSupabaseClient();
-      const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+      const result = await exchangeOAuthCode(code);
 
-      if (exchangeError) {
+      if (!result.ok) {
         router.replace(
-          `/auth/login?error=exchange_failed&message=${encodeURIComponent(exchangeError.message)}`,
+          `/auth/login?error=exchange_failed&message=${encodeURIComponent(result.error || 'Exchange failed')}`,
         );
         return;
       }
 
+      window.history.replaceState({}, "", "/auth/callback");
       router.replace("/auth/oauth-success");
     };
 

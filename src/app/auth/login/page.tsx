@@ -56,6 +56,8 @@ export default function LoginPage({ searchParams }: { searchParams: Promise<Reco
     const message = Array.isArray(messageRaw) ? messageRaw[0] : messageRaw;
     const errorRaw = resolvedSearchParams.error;
     const error = Array.isArray(errorRaw) ? errorRaw[0] : errorRaw;
+    const errorMessageRaw = resolvedSearchParams.message;
+    const errorMessage = Array.isArray(errorMessageRaw) ? errorMessageRaw[0] : errorMessageRaw;
     const googleAuthRaw = resolvedSearchParams.google_auth;
     const googleAuth = Array.isArray(googleAuthRaw) ? googleAuthRaw[0] : googleAuthRaw;
     
@@ -83,7 +85,7 @@ export default function LoginPage({ searchParams }: { searchParams: Promise<Reco
           setError('No authorization code received from Google. Please try again.');
           break;
         case 'exchange_failed':
-          setError('Failed to exchange authorization code. Please try again.');
+          setError(errorMessage || 'Failed to exchange authorization code. Please try again.');
           break;
         case 'no_session':
           setError('No session created. Please try again.');
