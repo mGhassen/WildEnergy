@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { resolveAccessiblePortals } from '@/lib/resolve-accessible-portals';
 import { supabaseServer } from '@/lib/supabase';
 
 export async function GET(req: NextRequest) {
@@ -85,7 +86,7 @@ export async function GET(req: NextRequest) {
       credit: userData.credit ?? 0,
       role: userData.user_type === 'admin' || userData.user_type === 'admin_member' || userData.user_type === 'admin_trainer' || userData.user_type === 'admin_member_trainer' ? 'admin' : 'member',
       userType: userData.user_type,
-      accessiblePortals: userData.accessible_portals,
+      accessiblePortals: resolveAccessiblePortals(userData),
       member_id: userData.member_id,
       trainer_id: userData.trainer_id,
       provider: provider,

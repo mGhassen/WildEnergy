@@ -1,4 +1,4 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 
 // Note: For email confirmations to work properly in production,
 // update your Supabase project's Site URL in Settings → General
@@ -13,7 +13,9 @@ export const createSupabaseServer = () => {
     throw new Error('Missing Supabase server environment variables');
   }
   
-  return createClient(supabaseUrl, supabaseServiceRoleKey);
+  return createClient(supabaseUrl, supabaseServiceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
 };
 
 // Client-side Supabase client (for browser)
@@ -38,23 +40,9 @@ export const createSupabaseClient = () => {
   return createClient(supabaseUrl, supabaseAnonKey);
 };
 
-// For backward compatibility - create only when needed
-let _supabaseServer: SupabaseClient | null = null;
-let _supabase: SupabaseClient | null = null;
+export const supabaseServer = () => createSupabaseServer();
 
-export const supabaseServer = () => {
-  if (!_supabaseServer) {
-    _supabaseServer = createSupabaseServer();
-  }
-  return _supabaseServer;
-};
-
-export const supabase = () => {
-  if (!_supabase) {
-    _supabase = createSupabaseClient();
-  }
-  return _supabase;
-};
+export const supabase = () => createSupabaseClient();
 
 export const createSupabaseAdminClient = () => {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

@@ -4,24 +4,65 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Clock, ArrowLeft, RefreshCw, CheckCircle } from "lucide-react";
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 
+function resolveStoredEmail(): string {
+  return (
+    localStorage.getItem('account_status_email') ||
+    localStorage.getItem('pending_approval_email') ||
+    localStorage.getItem('pending_email') ||
+    ''
+  );
+}
+
 export default function WaitingApprovalPage() {
-  const { checkAccountStatus } = useAuth();
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5 p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="flex items-center justify-center py-8">
+            <RefreshCw className="w-4 h-4 animate-spin" />
+          </CardContent>
+        </Card>
+      </div>
+    }>
+      <WaitingApprovalContent />
+    </Suspense>
+  );
+}
+
+function WaitingApprovalContent() {
+  const { checkAccountStatus, user, refreshSession } = useAuth();
+  const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<string>("pending");
   const { toast } = useToast();
 
   useEffect(() => {
-    // Get email from localStorage
-    const emailFromStorage = localStorage.getItem('account_status_email');
-    if (emailFromStorage) {
-      setEmail(emailFromStorage);
+    const emailFromUrl = searchParams.get('email');
+    const emailFromStorage = resolveStoredEmail();
+    const resolvedEmail = emailFromUrl || user?.email || emailFromStorage;
+
+    if (resolvedEmail) {
+      setEmail(resolvedEmail);
+      localStorage.setItem('account_status_email', resolvedEmail);
+      return;
     }
-  }, []);
+
+    const token = localStorage.getItem('access_token');
+    if (!token) return;
+
+    refreshSession().then((sessionUser) => {
+      if (sessionUser?.email) {
+        setEmail(sessionUser.email);
+        localStorage.setItem('account_status_email', sessionUser.email);
+      }
+    });
+  }, [searchParams, user, refreshSession]);
 
   const handleCheckStatus = async () => {
     if (!email) {
@@ -84,12 +125,15 @@ export default function WaitingApprovalPage() {
           </CardTitle>
           <CardDescription className="text-base">
             Your account is waiting for admin approval. You'll be notified once it's approved.
-            {email && (
-              <span className="block mt-2 text-sm font-mono bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
+          </CardDescription>
+          {email && (
+            <p className="text-center text-sm text-muted-foreground mt-2">
+              Account:{" "}
+              <span className="font-mono font-medium text-foreground bg-muted px-2 py-1 rounded">
                 {email}
               </span>
-            )}
-          </CardDescription>
+            </p>
+          )}
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="text-center space-y-4">

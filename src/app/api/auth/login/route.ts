@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { resolveAccessiblePortals } from '@/lib/resolve-accessible-portals';
 import { supabaseServer } from '@/lib/supabase';
 
 export async function POST(req: NextRequest) {
@@ -12,35 +13,22 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    // First attempt authentication with Supabase
-    console.log('🔐 Attempting login for email:', email);
-    const { data: { session, user }, error } = await supabaseServer().auth.signInWithPassword({
+    const supabase = supabaseServer();
+
+    const { data: { session, user }, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
-    console.log('🔐 Auth result:', { 
-      hasError: !!error, 
-      error: error?.message, 
-      hasSession: !!session, 
-      hasUser: !!user,
-      userId: user?.id 
-    });
-
     if (error || !session || !user) {
-      console.log('❌ Auth failed:', error?.message);
-      
-      // Check if this is an email confirmation error
       if (error?.message === 'Email not confirmed') {
-        // Check if user profile exists for this email
-        const { data: userProfile, error: profileError } = await supabaseServer()
+        const { data: userProfile, error: profileError } = await supabase
           .from('user_profiles')
           .select('*')
           .eq('email', email)
           .single();
 
         if (!profileError && userProfile) {
-          // User exists but email not confirmed - redirect to account status
           return NextResponse.json({
             success: false,
             error: 'Email not confirmed',
@@ -58,30 +46,19 @@ export async function POST(req: NextRequest) {
       }, { status: 401 });
     }
 
-    // Now get user profile from new user system by email (since account_id doesn't match auth user ID)
-    console.log('👤 Looking for user profile with email:', user.email);
-    const { data: userProfile, error: profileError } = await supabaseServer()
+    const { data: userProfile, error: profileError } = await supabase
       .from('user_profiles')
       .select('*')
       .eq('email', user.email)
       .single();
 
-    console.log('👤 Profile query result:', { 
-      hasError: !!profileError, 
-      error: profileError?.message, 
-      hasProfile: !!userProfile,
-      profileId: userProfile?.account_id 
-    });
-
     if (profileError || !userProfile) {
-      console.log('❌ Profile not found:', profileError?.message);
       return NextResponse.json({
         success: false,
         error: 'User account not found. Please sign up first.',
       }, { status: 401 });
     }
 
-    // Check user status after successful authentication
     if (userProfile.account_status === 'archived') {
       return NextResponse.json({
         success: false,
@@ -107,7 +84,7 @@ export async function POST(req: NextRequest) {
       }, { status: 403 });
     }
 
-    const { error: lastLoginError } = await supabaseServer()
+    const { error: lastLoginError } = await supabase
       .from('accounts')
       .update({ last_login: new Date().toISOString() })
       .eq('id', userProfile.account_id);
@@ -115,15 +92,7 @@ export async function POST(req: NextRequest) {
       console.warn('Failed to update accounts.last_login:', lastLoginError.message);
     }
 
-    // Determine authentication provider
     const provider = user.app_metadata?.provider || 'email';
-    
-    // Return session and user info
-    console.log('Login API returning session:', {
-      access_token: session?.access_token ? 'present' : 'missing',
-      refresh_token: session?.refresh_token ? 'present' : 'missing',
-      expires_at: session?.expires_at,
-    });
     
     return NextResponse.json({
       success: true,
@@ -132,7 +101,7 @@ export async function POST(req: NextRequest) {
         id: userProfile.account_id,
         account_id: userProfile.account_id,
         email: user.email || '',
-        profileEmail: userProfile.profile_email || '', // Contact email
+        profileEmail: userProfile.profile_email || '',
         isAdmin: Boolean(userProfile.is_admin),
         firstName: userProfile.first_name || user.email?.split('@')[0] || 'User',
         lastName: userProfile.last_name || '',
@@ -144,7 +113,7 @@ export async function POST(req: NextRequest) {
         credit: userProfile.credit ?? 0,
         role: userProfile.user_type === 'admin' || userProfile.user_type === 'admin_member' || userProfile.user_type === 'admin_trainer' || userProfile.user_type === 'admin_member_trainer' ? 'admin' : 'member',
         userType: userProfile.user_type,
-        accessiblePortals: userProfile.accessible_portals,
+        accessiblePortals: resolveAccessiblePortals(userProfile),
         member_id: userProfile.member_id,
         trainer_id: userProfile.trainer_id,
         provider: provider,
@@ -157,4 +126,4 @@ export async function POST(req: NextRequest) {
       details: error instanceof Error ? error.message : 'Unknown error',
     }, { status: 500 });
   }
-} 
+}

@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { authApi, RegisterData, LoginCredentials, AuthResponse } from '@/lib/api/auth';
 import { createSupabaseClient } from '@/lib/supabase';
 import { consumePostLoginRedirect } from '@/lib/auth-return-path';
+import { normalizeAuthUser } from '@/lib/resolve-accessible-portals';
 
 export interface User {
   id: string;
@@ -115,8 +116,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (response.status === 403) {
           // User is pending, suspended, or other restricted status
           if (errorData.status === 'pending') {
-            // Redirect to waiting approval page
-            router.push('/auth/waiting-approval');
+            const pendingEmail = errorData.email;
+            if (pendingEmail) {
+              localStorage.setItem('account_status_email', pendingEmail);
+            }
+            router.push(
+              pendingEmail
+                ? `/auth/waiting-approval?email=${encodeURIComponent(pendingEmail)}`
+                : '/auth/waiting-approval',
+            );
             setAuthError(errorData.error || 'Account pending approval');
             return null;
           }
@@ -155,9 +163,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       if (data.success && data.user) {
         console.log('Setting user data:', data.user);
-        setUser(data.user);
-        setAuthError(null); // Clear any previous errors
-        return data.user;
+        const normalizedUser = normalizeAuthUser(data.user);
+        setUser(normalizedUser);
+        setAuthError(null);
+        return normalizedUser;
       }
       console.log('No user data in response or success is false');
       return null;
@@ -254,14 +263,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
           return;
         }
         // Check accessible portals to determine where to redirect
-        if (user.accessiblePortals?.includes('admin')) {
+        if (user.isAdmin || user.role === 'admin' || user.accessiblePortals?.includes('admin')) {
           router.push('/admin/dashboard');
         } else if (user.accessiblePortals?.includes('member')) {
           router.push('/member');
         } else if (user.accessiblePortals?.includes('trainer')) {
           router.push('/member'); // Trainers can also access member portal
         } else {
-          router.push('/auth/waiting-approval');
+          if (user.email) {
+            localStorage.setItem('account_status_email', user.email);
+          }
+          router.push(
+            user.email
+              ? `/auth/waiting-approval?email=${encodeURIComponent(user.email)}`
+              : '/auth/waiting-approval',
+          );
         }
       }
     }
@@ -338,8 +354,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setLoginError(error);
         return;
       }
-      setUser(data.user);
-      setLoginError(null); // Clear any previous errors
+      setUser(normalizeAuthUser(data.user));
+      setLoginError(null);
     } catch (error) {
       console.error('Login error:', error);
       
@@ -450,7 +466,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           };
           
           // Set the user in the auth state
-          setUser(response.user);
+          setUser(normalizeAuthUser(response.user));
           
           // Store session in localStorage for persistence
           if (typeof window !== 'undefined') {
@@ -551,7 +567,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const user = await fetchSession(googleData.access_token);
         if (user) {
           console.log('Google registration completed successfully');
-          setUser(user);
+          setUser(normalizeAuthUser(user));
         }
       } catch (error: any) {
         console.error('Google registration completion error:', error);

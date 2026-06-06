@@ -27,6 +27,7 @@ site_url = "http://localhost:3000"
 additional_redirect_urls = [
   "http://localhost:3000",
   "http://localhost:3000/auth/callback",
+  "http://localhost:3000/auth/oauth-success",
   "http://localhost:3000/auth/accept-invitation",
   "http://localhost:3000/update-password"
 ]
