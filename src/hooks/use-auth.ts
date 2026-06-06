@@ -38,7 +38,7 @@ interface AuthState {
   loginError: Error | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
-  refreshSession: () => Promise<void>;
+  refreshSession: () => Promise<User | null>;
   authError: string | null;
   // Additional auth operations
   register: (data: RegisterData) => Promise<AuthResponse>;
