@@ -17,41 +17,13 @@ export default function OAuthSuccessPage() {
       try {
         const supabase = createSupabaseClient();
 
-        let accessToken = '';
-        let refreshToken = '';
-
-        const urlParams = new URLSearchParams(window.location.search);
-        const queryAccessToken = urlParams.get('access_token');
-        const queryRefreshToken = urlParams.get('refresh_token');
-
-        if (queryAccessToken) {
-          accessToken = queryAccessToken;
-          refreshToken = queryRefreshToken || '';
-        } else if (window.location.hash) {
-          const hashParams = new URLSearchParams(window.location.hash.substring(1));
-          accessToken = hashParams.get('access_token') || '';
-          refreshToken = hashParams.get('refresh_token') || '';
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) {
+          throw new Error(`Session error: ${sessionError.message}`);
         }
 
-        if (accessToken && refreshToken) {
-          await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
-        } else if (!accessToken) {
-          const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-          if (sessionError) {
-            throw new Error(`Session error: ${sessionError.message}`);
-          }
-
-          if (sessionData.session?.access_token) {
-            accessToken = sessionData.session.access_token;
-            refreshToken = sessionData.session.refresh_token || '';
-          } else {
-            const { data: refreshData } = await supabase.auth.refreshSession();
-            if (refreshData.session?.access_token) {
-              accessToken = refreshData.session.access_token;
-              refreshToken = refreshData.session.refresh_token || '';
-            }
-          }
-        }
+        const accessToken = sessionData.session?.access_token;
+        const refreshToken = sessionData.session?.refresh_token || '';
 
         if (!accessToken) {
           throw new Error('No session found after OAuth flow. Please try signing in again.');

@@ -527,23 +527,28 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
     },
     loginWithGoogle: async () => {
-      try {
-        setIsLoggingIn(true);
-        setLoginError(null);
-        
-        // Use manual OAuth flow with Supabase's OAuth endpoint
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const redirectUrl = `${window.location.origin}/auth/callback`;
-        
-        const googleAuthUrl = `${supabaseUrl}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectUrl)}`;
-        
-        window.location.href = googleAuthUrl;
-      } catch (error: any) {
-        console.error('Google login error:', error);
+      setIsLoggingIn(true);
+      setLoginError(null);
+
+      const supabase = createSupabaseClient();
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+
+      if (error) {
+        setIsLoggingIn(false);
         setLoginError(new Error(error.message || 'Failed to initiate Google login'));
         throw error;
-      } finally {
+      }
+
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
         setIsLoggingIn(false);
+        throw new Error('No OAuth redirect URL returned');
       }
     },
     completeGoogleRegistration: async (googleData: any) => {

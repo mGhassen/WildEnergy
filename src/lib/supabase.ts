@@ -36,8 +36,13 @@ export const createSupabaseClient = () => {
     return createClient(supabaseUrl, supabaseServiceRoleKey);
   }
   
-  // Client-side
-  return createClient(supabaseUrl, supabaseAnonKey);
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      flowType: 'pkce',
+      detectSessionInUrl: true,
+      persistSession: true,
+    },
+  });
 };
 
 export const supabaseServer = () => createSupabaseServer();
