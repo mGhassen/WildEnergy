@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "create-users": "node scripts/create-users.js",
+    "create-admin": "node scripts/create-admin-user.js",
+    "approve-user": "node scripts/approve-user.js",
     "reset-and-seed": "node scripts/reset-and-seed.js",
     "test-member": "node scripts/test_member.js"
   },

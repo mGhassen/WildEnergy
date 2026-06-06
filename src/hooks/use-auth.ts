@@ -246,8 +246,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (user && !isLoading) {
       const currentPath = window.location.pathname;
 
-      // Only redirect if we're on the root page or login page
-      if (currentPath === '/' || currentPath === '/auth/login') {
+      const authLandingPaths = ['/', '/auth/login', '/auth/waiting-approval', '/auth/account-status'];
+      if (authLandingPaths.includes(currentPath)) {
         const returnPath = consumePostLoginRedirect();
         if (returnPath) {
           router.push(returnPath);
