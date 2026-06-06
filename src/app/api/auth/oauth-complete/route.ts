@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
           email,
           profile_id: profile.id,
           is_admin: false,
-          status: 'active',
+          status: 'pending',
           last_login: new Date().toISOString(),
         })
         .select('id')
@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
         account_id: account.id,
         profile_id: profile.id,
         member_notes: '',
-        status: 'active',
+        status: 'inactive',
         credit: 0,
       });
 
