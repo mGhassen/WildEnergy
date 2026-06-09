@@ -120,8 +120,7 @@ export default function Register({ searchParams }: { searchParams: Promise<Recor
         } else if (result.account.accessible_portals?.includes('member')) {
           router.push('/member');
         } else {
-          localStorage.setItem('account_status_email', credentials.email);
-          router.push(`/auth/waiting-approval?email=${encodeURIComponent(credentials.email)}`);
+          router.replace(`/auth/waiting-approval?email=${encodeURIComponent(credentials.email)}`);
         }
       } else {
         // Handle regular email/password registration

@@ -117,10 +117,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // User is pending, suspended, or other restricted status
           if (errorData.status === 'pending') {
             const pendingEmail = errorData.email;
-            if (pendingEmail) {
-              localStorage.setItem('account_status_email', pendingEmail);
-            }
-            router.push(
+            router.replace(
               pendingEmail
                 ? `/auth/waiting-approval?email=${encodeURIComponent(pendingEmail)}`
                 : '/auth/waiting-approval',
@@ -270,10 +267,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         } else if (user.accessiblePortals?.includes('trainer')) {
           router.push('/member'); // Trainers can also access member portal
         } else {
-          if (user.email) {
-            localStorage.setItem('account_status_email', user.email);
-          }
-          router.push(
+          router.replace(
             user.email
               ? `/auth/waiting-approval?email=${encodeURIComponent(user.email)}`
               : '/auth/waiting-approval',
@@ -293,6 +287,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const login = async (email: string, password: string) => {
     setIsLoggingIn(true);
     setLoginError(null);
+    localStorage.removeItem('account_status_email');
+    localStorage.removeItem('pending_approval_email');
+    localStorage.removeItem('pending_email');
+    setUser(null);
     try {
       // 1. Login request
       const data = await authApi.login({ email, password });
@@ -529,6 +527,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     loginWithGoogle: async () => {
       setIsLoggingIn(true);
       setLoginError(null);
+      localStorage.removeItem('account_status_email');
+      localStorage.removeItem('pending_approval_email');
+      localStorage.removeItem('pending_email');
+      setUser(null);
 
       const supabase = createSupabaseClient();
       const { data, error } = await supabase.auth.signInWithOAuth({

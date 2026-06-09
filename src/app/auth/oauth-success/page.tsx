@@ -15,6 +15,10 @@ export default function OAuthSuccessPage() {
   useEffect(() => {
     const handleOAuthSuccess = async () => {
       try {
+        localStorage.removeItem('account_status_email');
+        localStorage.removeItem('pending_approval_email');
+        localStorage.removeItem('pending_email');
+
         const supabase = createSupabaseClient();
 
         const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
@@ -49,12 +53,9 @@ export default function OAuthSuccessPage() {
         const data = await response.json();
 
         if (!response.ok) {
-          if (data.status === 'pending') {
+          if (data.status === 'pending' || data.status === 'archived') {
             const pendingEmail = data.email || '';
-            if (pendingEmail) {
-              localStorage.setItem('account_status_email', pendingEmail);
-            }
-            router.push(
+            router.replace(
               pendingEmail
                 ? `/auth/waiting-approval?email=${encodeURIComponent(pendingEmail)}`
                 : '/auth/waiting-approval',
@@ -63,8 +64,6 @@ export default function OAuthSuccessPage() {
           }
           throw new Error(data.error || 'Failed to complete OAuth sign-in');
         }
-
-        localStorage.removeItem('account_status_email');
         window.dispatchEvent(new CustomEvent('auth-state-changed'));
 
         setStatus('success');

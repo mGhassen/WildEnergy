@@ -9,15 +9,6 @@ import { useSearchParams } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 
-function resolveStoredEmail(): string {
-  return (
-    localStorage.getItem('account_status_email') ||
-    localStorage.getItem('pending_approval_email') ||
-    localStorage.getItem('pending_email') ||
-    ''
-  );
-}
-
 export default function WaitingApprovalPage() {
   return (
     <Suspense fallback={
@@ -35,7 +26,7 @@ export default function WaitingApprovalPage() {
 }
 
 function WaitingApprovalContent() {
-  const { checkAccountStatus, user, refreshSession } = useAuth();
+  const { checkAccountStatus, refreshSession } = useAuth();
   const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
@@ -43,26 +34,30 @@ function WaitingApprovalContent() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const emailFromUrl = searchParams.get('email');
-    const emailFromStorage = resolveStoredEmail();
-    const resolvedEmail = emailFromUrl || user?.email || emailFromStorage;
+    let cancelled = false;
 
-    if (resolvedEmail) {
-      setEmail(resolvedEmail);
-      localStorage.setItem('account_status_email', resolvedEmail);
-      return;
-    }
+    const resolveEmail = async () => {
+      const token = localStorage.getItem('access_token');
 
-    const token = localStorage.getItem('access_token');
-    if (!token) return;
-
-    refreshSession().then((sessionUser) => {
-      if (sessionUser?.email) {
-        setEmail(sessionUser.email);
-        localStorage.setItem('account_status_email', sessionUser.email);
+      if (token) {
+        const sessionUser = await refreshSession();
+        if (!cancelled && sessionUser?.email) {
+          setEmail(sessionUser.email);
+          return;
+        }
       }
-    });
-  }, [searchParams, user, refreshSession]);
+
+      const emailFromUrl = searchParams.get('email');
+      if (!cancelled && emailFromUrl) {
+        setEmail(emailFromUrl);
+      }
+    };
+
+    resolveEmail();
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams, refreshSession]);
 
   const handleCheckStatus = async () => {
     if (!email) {
