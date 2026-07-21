@@ -221,6 +221,7 @@ export default function MemberDetailsPage() {
     memberNotes: "",
     status: "",
     credit: 0,
+    createdAt: "",
   });
 
   // Populate edit form when member data changes
@@ -238,6 +239,7 @@ export default function MemberDetailsPage() {
         memberNotes: member.memberNotes || "",
         status: member.status || "active",
         credit: member.credit || 0,
+        createdAt: member.createdAt ? member.createdAt.split('T')[0] : "",
       });
     }
   }, [memberDetails]);
@@ -391,6 +393,7 @@ export default function MemberDetailsPage() {
         memberNotes: member.memberNotes || "",
         status: member.status || "active",
         credit: member.credit || 0,
+        createdAt: member.createdAt ? member.createdAt.split('T')[0] : "",
       });
     }
   };
@@ -844,8 +847,17 @@ export default function MemberDetailsPage() {
                   )}
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Member Since</label>
-                  <p className="text-sm">{formatDate(member.createdAt || "")}</p>
+                  <Label className="text-sm font-medium text-muted-foreground">Member Since</Label>
+                  {isEditing ? (
+                    <Input
+                      type="date"
+                      value={editForm.createdAt}
+                      onChange={(e) => setEditForm({...editForm, createdAt: e.target.value})}
+                      className="mt-1"
+                    />
+                  ) : (
+                    <p className="text-sm">{formatDate(member.createdAt || "")}</p>
+                  )}
                 </div>
                 
                 {/* Member Status */}

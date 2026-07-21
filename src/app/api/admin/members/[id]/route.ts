@@ -499,6 +499,9 @@ export async function PUT(
     }
     if (body.status !== undefined) memberUpdates.status = body.status;
     if (body.credit !== undefined) memberUpdates.credit = body.credit;
+    if (body.createdAt) {
+      memberUpdates.created_at = body.createdAt;
+    }
 
     if (Object.keys(memberUpdates).length > 0) {
       let updateQuery;

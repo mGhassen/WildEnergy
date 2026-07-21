@@ -13,6 +13,7 @@ export interface UpdateMemberDetailsData {
   memberNotes?: string;
   status?: string;
   credit?: number;
+  createdAt?: string;
 }
 
 export function useUpdateMemberDetails() {
