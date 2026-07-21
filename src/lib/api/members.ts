@@ -58,9 +58,23 @@ export interface MemberDetails {
   payments: any[];
 }
 
+export interface CreateMemberRequest {
+  firstName: string;
+  lastName: string;
+  phone?: string;
+  profileEmail?: string;
+  memberNotes?: string;
+  credit?: number;
+  status?: string;
+}
+
 export const memberApi = {
   async getMembers(): Promise<Member[]> {
     return apiRequest('GET', '/api/admin/members');
+  },
+
+  async createMember(data: CreateMemberRequest): Promise<Member> {
+    return apiRequest('POST', '/api/admin/members', data);
   },
 
   async getMemberDetails(memberId: string): Promise<MemberDetails> {

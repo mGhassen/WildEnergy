@@ -1,11 +1,34 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { memberApi, Member, CheckMemberSessionsRequest, CheckMemberSessionsResponse } from '@/lib/api/members';
+import { memberApi, Member, CheckMemberSessionsRequest, CheckMemberSessionsResponse, CreateMemberRequest } from '@/lib/api/members';
 import { useToast } from '@/hooks/use-toast';
 
 export function useMembers() {
   return useQuery({
     queryKey: ['members'],
     queryFn: () => memberApi.getMembers(),
+  });
+}
+
+export function useCreateMember() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (data: CreateMemberRequest) => memberApi.createMember(data),
+    onSuccess: (member) => {
+      queryClient.invalidateQueries({ queryKey: ['members'] });
+      toast({
+        title: 'Member created',
+        description: `${member.first_name} ${member.last_name} created without an account. You can create or link one later.`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to create member',
+        description: error.message || 'Please try again',
+        variant: 'destructive',
+      });
+    },
   });
 }
 
