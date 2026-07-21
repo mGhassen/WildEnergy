@@ -11,13 +11,51 @@ export type StatsFilters = {
 };
 
 export type NamedCount = { name: string; value: number; id?: string | number };
-export type TimePoint = { date: string; value: number; secondary?: number };
-export type RatePoint = { date: string; attendance: number; noShow: number; cancel: number };
+export type TimePoint = {
+  date: string;
+  value: number;
+  secondary?: number;
+  /** Previous-period value aligned by index when compare is on */
+  previous?: number;
+};
+export type RatePoint = {
+  date: string;
+  attendance: number;
+  noShow: number;
+  cancel: number;
+  previousAttendance?: number;
+  previousNoShow?: number;
+  previousCancel?: number;
+};
 
 export type KpiValue = {
   value: number;
   previous?: number;
   deltaPct?: number | null;
+};
+
+export type StatsComparisonKpis = {
+  paidRevenue: KpiValue;
+  avgTicket: KpiValue;
+  collectionRate: KpiValue;
+  discountTotal: KpiValue;
+  arpu: KpiValue;
+  paidCount: KpiValue;
+  outstandingAmount: KpiValue;
+  overdueAmount: KpiValue;
+  newMembers: KpiValue;
+  activeMembers: KpiValue;
+  attendanceRate: KpiValue;
+  avgFillRate: KpiValue;
+  registrations: KpiValue;
+  attended: KpiValue;
+  checkins: KpiValue;
+  completedCourses: KpiValue;
+  cancelledCourses: KpiValue;
+  capacityWaste: KpiValue;
+  activeSubscriptions: KpiValue;
+  expiringSoon: KpiValue;
+  depletedActive: KpiValue;
 };
 
 export type StatsOverview = {
@@ -151,6 +189,12 @@ export type AdminStatsResponse = {
   subscriptions: StatsSubscriptions;
   trainers: StatsTrainers;
   acquisition: StatsAcquisition;
+  /** Present when compare=1 — KPI deltas + previous series are also merged into chart points */
+  comparison?: {
+    previousFrom: string;
+    previousTo: string;
+    kpis: StatsComparisonKpis;
+  };
 };
 
 function toQuery(filters: StatsFilters): string {

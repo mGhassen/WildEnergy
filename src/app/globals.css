@@ -119,6 +119,16 @@ body {
   }
 }
 
+/* Stats widget board (react-grid-layout) */
+.react-grid-item > .h-full {
+  height: 100%;
+}
+.react-grid-item.react-grid-placeholder {
+  background: hsl(var(--primary) / 0.15);
+  border-radius: 0.5rem;
+  opacity: 1;
+}
+
 /* Ensure dialogs are properly contained on small screens */
 @media (max-width: 480px) {
   [data-radix-dialog-content] {

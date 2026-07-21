@@ -1,7 +1,21 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { format, startOfMonth, startOfYear, subDays } from "date-fns"
+import {
+  endOfMonth,
+  endOfQuarter,
+  endOfWeek,
+  format,
+  startOfDay,
+  startOfMonth,
+  startOfQuarter,
+  startOfWeek,
+  startOfYear,
+  subDays,
+  subMonths,
+  subQuarters,
+  subWeeks,
+} from "date-fns"
 import { Check, ChevronsUpDown, SlidersHorizontal, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -42,11 +56,23 @@ export type StatsFilterState = {
 }
 
 const PRESETS = [
-  { id: "7d", label: "7 days" },
-  { id: "30d", label: "30 days" },
-  { id: "90d", label: "90 days" },
+  { id: "today", label: "Today" },
+  { id: "yesterday", label: "Yesterday" },
+  { id: "7d", label: "Last 7 days" },
+  { id: "14d", label: "Last 14 days" },
+  { id: "30d", label: "Last 30 days" },
+  { id: "90d", label: "Last 90 days" },
+  { id: "6m", label: "Last 6 months" },
+  { id: "12m", label: "Last 12 months" },
+  { id: "week", label: "This week" },
+  { id: "last_week", label: "Last week" },
   { id: "month", label: "This month" },
+  { id: "last_month", label: "Last month" },
+  { id: "quarter", label: "This quarter" },
+  { id: "last_quarter", label: "Last quarter" },
   { id: "year", label: "This year" },
+  { id: "last_year", label: "Last year" },
+  { id: "all", label: "All time" },
   { id: "custom", label: "Custom" },
 ] as const
 
@@ -92,15 +118,84 @@ export function filtersToSearchParams(f: StatsFilterState): URLSearchParams {
   return params
 }
 
+function iso(d: Date) {
+  return format(d, "yyyy-MM-dd")
+}
+
 function applyPreset(preset: string): Pick<StatsFilterState, "from" | "to" | "preset"> {
-  const today = new Date()
-  const to = format(today, "yyyy-MM-dd")
-  if (preset === "7d") return { from: format(subDays(today, 6), "yyyy-MM-dd"), to, preset }
-  if (preset === "30d") return { from: format(subDays(today, 29), "yyyy-MM-dd"), to, preset }
-  if (preset === "90d") return { from: format(subDays(today, 89), "yyyy-MM-dd"), to, preset }
-  if (preset === "month") return { from: format(startOfMonth(today), "yyyy-MM-dd"), to, preset }
-  if (preset === "year") return { from: format(startOfYear(today), "yyyy-MM-dd"), to, preset }
-  return { from: format(subDays(today, 29), "yyyy-MM-dd"), to, preset: "custom" }
+  const today = startOfDay(new Date())
+  const toToday = iso(today)
+
+  switch (preset) {
+    case "today":
+      return { from: toToday, to: toToday, preset }
+    case "yesterday": {
+      const y = subDays(today, 1)
+      return { from: iso(y), to: iso(y), preset }
+    }
+    case "7d":
+      return { from: iso(subDays(today, 6)), to: toToday, preset }
+    case "14d":
+      return { from: iso(subDays(today, 13)), to: toToday, preset }
+    case "30d":
+      return { from: iso(subDays(today, 29)), to: toToday, preset }
+    case "90d":
+      return { from: iso(subDays(today, 89)), to: toToday, preset }
+    case "6m":
+      return { from: iso(subMonths(today, 6)), to: toToday, preset }
+    case "12m":
+      return { from: iso(subMonths(today, 12)), to: toToday, preset }
+    case "week":
+      return {
+        from: iso(startOfWeek(today, { weekStartsOn: 1 })),
+        to: toToday,
+        preset,
+      }
+    case "last_week": {
+      const last = subWeeks(today, 1)
+      return {
+        from: iso(startOfWeek(last, { weekStartsOn: 1 })),
+        to: iso(endOfWeek(last, { weekStartsOn: 1 })),
+        preset,
+      }
+    }
+    case "month":
+      return { from: iso(startOfMonth(today)), to: toToday, preset }
+    case "last_month": {
+      const last = subMonths(today, 1)
+      return {
+        from: iso(startOfMonth(last)),
+        to: iso(endOfMonth(last)),
+        preset,
+      }
+    }
+    case "quarter":
+      return { from: iso(startOfQuarter(today)), to: toToday, preset }
+    case "last_quarter": {
+      const last = subQuarters(today, 1)
+      return {
+        from: iso(startOfQuarter(last)),
+        to: iso(endOfQuarter(last)),
+        preset,
+      }
+    }
+    case "year":
+      return { from: iso(startOfYear(today)), to: toToday, preset }
+    case "last_year": {
+      const y = today.getFullYear() - 1
+      return {
+        from: `${y}-01-01`,
+        to: `${y}-12-31`,
+        preset,
+      }
+    }
+    case "all":
+      return { from: "2020-01-01", to: toToday, preset }
+    case "custom":
+      return { from: iso(subDays(today, 29)), to: toToday, preset: "custom" }
+    default:
+      return { from: iso(subDays(today, 29)), to: toToday, preset: "custom" }
+  }
 }
 
 function activeScopeCount(value: StatsFilterState) {
@@ -174,9 +269,11 @@ type Props = {
   value: StatsFilterState
   onChange: (next: StatsFilterState) => void
   options?: StatsFilterOptions
+  previousFrom?: string
+  previousTo?: string
 }
 
-export function StatsFilterBar({ value, onChange, options }: Props) {
+export function StatsFilterBar({ value, onChange, options, previousFrom, previousTo }: Props) {
   const [scopeOpen, setScopeOpen] = useState(false)
   const scopeCount = activeScopeCount(value)
   const presetLabel = PRESETS.find((p) => p.id === value.preset)?.label || "Custom"
@@ -213,7 +310,7 @@ export function StatsFilterBar({ value, onChange, options }: Props) {
             </Button>
           </PopoverTrigger>
           <PopoverContent align="start" className="w-64 p-2">
-            <div className="grid gap-1">
+            <div className="grid max-h-[360px] gap-1 overflow-y-auto">
               {PRESETS.map((p) => (
                 <Button
                   key={p.id}
@@ -257,7 +354,7 @@ export function StatsFilterBar({ value, onChange, options }: Props) {
           {value.from} → {value.to}
         </div>
 
-        <div className="flex items-center gap-2 rounded-md border px-2.5 py-1.5">
+        <div className="flex flex-wrap items-center gap-2 rounded-md border px-2.5 py-1.5">
           <Switch
             id="compare-period"
             checked={value.compare}
@@ -266,6 +363,11 @@ export function StatsFilterBar({ value, onChange, options }: Props) {
           <Label htmlFor="compare-period" className="text-xs cursor-pointer">
             Compare previous period
           </Label>
+          {value.compare && previousFrom && previousTo ? (
+            <span className="text-[11px] tabular-nums text-muted-foreground">
+              vs {previousFrom} → {previousTo}
+            </span>
+          ) : null}
         </div>
 
         <div className="flex-1" />

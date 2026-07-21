@@ -3,12 +3,15 @@ import { format, parseISO } from 'date-fns';
 import { supabaseServer } from '@/lib/supabase';
 import type { AdminStatsResponse } from '@/lib/api/stats';
 import {
+  alignPreviousOntoCurrent,
+  alignPreviousRates,
   buildRatesOverTime,
   countBy,
   daysUntil,
   inRange,
   kpi,
   num,
+  overlapsRange,
   parseRange,
   previousRange,
   profileName,
@@ -125,9 +128,78 @@ function computePeriodMetrics(
     return true;
   });
 
-  // --- Overview ---
-  const totalMembers = members.length;
-  const activeMembers = members.filter((m: any) => m.status === 'active').length;
+  // --- Period-scoped courses / attendance ---
+  const coursesInPeriod = filteredCourses.filter(
+    (c: any) => inRange(c.course_date, range) && c.status !== 'cancelled',
+  );
+  const courseIdsInPeriod = new Set(coursesInPeriod.map((c: any) => c.id));
+
+  const regsInRange = filteredRegs.filter((r: any) => courseIdsInPeriod.has(r.course_id));
+  const nonCancelled = regsInRange.filter((r: any) => r.status !== 'cancelled');
+  const checkinsInRange = filteredCheckins.filter((ch: any) => {
+    if (inRange(ch.checkin_time, range)) return true;
+    const reg = registrations.find((r: any) => r.id === ch.registration_id);
+    return reg ? courseIdsInPeriod.has(reg.course_id) : false;
+  });
+  const attendedCount = nonCancelled.filter(
+    (r: any) =>
+      r.status === 'attended' ||
+      checkinsInRange.some((ch: any) => ch.registration_id === r.id),
+  ).length;
+  const attendanceRate = nonCancelled.length
+    ? (attendedCount / nonCancelled.length) * 100
+    : 0;
+
+  // Fill rate: seats filled on courses that ran in the period (not only status=completed)
+  let fillSum = 0;
+  let capacityWaste = 0;
+  for (const c of coursesInPeriod) {
+    const cap = num(c.max_participants) || 1;
+    const fromRegs = nonCancelled.filter((r: any) => r.course_id === c.id).length;
+    const filled = Math.max(num(c.current_participants), fromRegs);
+    fillSum += (Math.min(filled, cap) / cap) * 100;
+    capacityWaste += Math.max(0, cap - filled);
+  }
+  const avgFillRate = coursesInPeriod.length ? fillSum / coursesInPeriod.length : 0;
+  const completedInRange = coursesInPeriod.filter((c: any) => c.status === 'completed');
+  const completedCourses = completedInRange.length;
+  const scheduledCourses = coursesInPeriod.filter((c: any) => c.status === 'scheduled').length;
+  const cancelledCourses = filteredCourses.filter(
+    (c: any) => c.status === 'cancelled' && inRange(c.course_date, range),
+  ).length;
+
+  // Subscriptions overlapping the selected period
+  const subsInPeriod = filteredSubs.filter((s: any) =>
+    overlapsRange(s.start_date, s.end_date, range),
+  );
+  const activeSubs = subsInPeriod.filter(
+    (s: any) => s.status === 'active' || s.status === 'pending',
+  );
+  const expiringSoon = activeSubs.filter((s: any) => {
+    const days = daysUntil(s.end_date);
+    return days >= 0 && days <= 14;
+  }).length;
+
+  // Active members IN PERIOD: had a live sub, a booking, or a check-in in range
+  const activeMemberIds = new Set<string>();
+  for (const s of subsInPeriod) {
+    if (s.status === 'cancelled') continue;
+    if (s.member_id) activeMemberIds.add(String(s.member_id));
+  }
+  for (const r of nonCancelled) {
+    if (r.member_id) activeMemberIds.add(String(r.member_id));
+  }
+  for (const ch of checkinsInRange) {
+    if (ch.member_id) activeMemberIds.add(String(ch.member_id));
+  }
+  const activeMembers = activeMemberIds.size;
+
+  // Roster size as of end of period (created on/before range end)
+  const totalMembers = members.filter((m: any) => {
+    if (!m.created_at) return true;
+    const created = m.created_at.slice(0, 10);
+    return created <= format(range.to, 'yyyy-MM-dd');
+  }).length;
   const newMembers = members.filter((m: any) => inRange(m.created_at, range)).length;
 
   const paidInRange = filteredPayments.filter(
@@ -135,42 +207,18 @@ function computePeriodMetrics(
   );
   const paidRevenue = paidInRange.reduce((sum: number, p: any) => sum + num(p.amount), 0);
 
-  const pendingPayments = filteredPayments.filter((p: any) => p.payment_status === 'pending');
-  const outstandingAmount = pendingPayments.reduce((sum: number, p: any) => sum + num(p.amount), 0);
-  const today = format(new Date(), 'yyyy-MM-dd');
-  const overduePayments = pendingPayments.filter(
-    (p: any) => p.due_date && p.due_date.slice(0, 10) < today,
+  // Outstanding: pending due in period (or created in period if no due date)
+  const pendingInPeriod = filteredPayments.filter((p: any) => {
+    if (p.payment_status !== 'pending') return false;
+    if (p.due_date) return inRange(p.due_date, range);
+    return inRange(p.created_at, range);
+  });
+  const outstandingAmount = pendingInPeriod.reduce((sum: number, p: any) => sum + num(p.amount), 0);
+  const rangeEnd = format(range.to, 'yyyy-MM-dd');
+  const overduePayments = pendingInPeriod.filter(
+    (p: any) => p.due_date && p.due_date.slice(0, 10) < rangeEnd,
   );
   const overdueAmount = overduePayments.reduce((sum: number, p: any) => sum + num(p.amount), 0);
-
-  const regsInRange = filteredRegs.filter((r: any) => {
-    const course = filteredCourses.find((c: any) => c.id === r.course_id);
-    return course && inRange(course.course_date, range);
-  });
-  const nonCancelled = regsInRange.filter((r: any) => r.status !== 'cancelled');
-  const attendedCount = nonCancelled.filter(
-    (r: any) => r.status === 'attended' || filteredCheckins.some((ch: any) => ch.registration_id === r.id),
-  ).length;
-  const attendanceRate = nonCancelled.length
-    ? (attendedCount / nonCancelled.length) * 100
-    : 0;
-
-  const completedInRange = filteredCourses.filter(
-    (c: any) => c.status === 'completed' && inRange(c.course_date, range),
-  );
-  let fillSum = 0;
-  for (const c of completedInRange) {
-    const cap = num(c.max_participants) || 1;
-    const filled = num(c.current_participants);
-    fillSum += (filled / cap) * 100;
-  }
-  const avgFillRate = completedInRange.length ? fillSum / completedInRange.length : 0;
-
-  const activeSubs = filteredSubs.filter((s: any) => s.status === 'active');
-  const expiringSoon = activeSubs.filter((s: any) => {
-    const days = daysUntil(s.end_date);
-    return days >= 0 && days <= 14;
-  }).length;
 
   // --- Members ---
   const memberGrowthMap = sumMapIntoBuckets(
@@ -235,9 +283,6 @@ function computePeriodMetrics(
     const course = filteredCourses.find((c: any) => c.id === r.course_id);
     return { date: course?.course_date || r.registration_date, status: r.status };
   });
-  const checkinsInRange = filteredCheckins.filter((ch: any) =>
-    inRange(ch.checkin_time, range),
-  );
   const volumeRegs = sumMapIntoBuckets(
     range,
     regsInRange.map((r: any) => {
@@ -282,13 +327,14 @@ function computePeriodMetrics(
   }
 
   // --- Program ---
-  const coursesInRange = filteredCourses.filter((c: any) => inRange(c.course_date, range));
   const fillByClassMap = new Map<string, { seats: number; capacity: number }>();
-  for (const c of completedInRange) {
+  for (const c of coursesInPeriod) {
     const cls = classesById.get(c.class_id);
     const name = cls?.name || 'Unknown';
     const cur = fillByClassMap.get(name) || { seats: 0, capacity: 0 };
-    cur.seats += num(c.current_participants);
+    const fromRegs = nonCancelled.filter((r: any) => r.course_id === c.id).length;
+    const filled = Math.max(num(c.current_participants), fromRegs);
+    cur.seats += filled;
     cur.capacity += num(c.max_participants);
     fillByClassMap.set(name, cur);
   }
@@ -302,25 +348,24 @@ function computePeriodMetrics(
     .sort((a, b) => b.fillRate - a.fillRate)
     .slice(0, 15);
 
-  const cancelledCourses = coursesInRange.filter((c: any) => c.status === 'cancelled').length;
-  const capacityWaste = completedInRange.reduce(
-    (sum: number, c: any) => sum + Math.max(0, num(c.max_participants) - num(c.current_participants)),
-    0,
+  const statusBreakdownCourses = countBy(
+    filteredCourses.filter((c: any) => inRange(c.course_date, range)),
+    (c: any) => c.status || 'unknown',
   );
-  const completedCourses = completedInRange.length;
-  const scheduledCourses = coursesInRange.filter((c: any) => c.status === 'scheduled').length;
-  const statusBreakdownCourses = countBy(coursesInRange, (c: any) => c.status || 'unknown');
 
-  // --- Subscriptions ---
-  const statusMix = countBy(filteredSubs, (s: any) => s.status || 'unknown');
+  // --- Subscriptions (period-overlapping) ---
+  const statusMix = countBy(subsInPeriod, (s: any) => s.status || 'unknown');
   const planMixMap = new Map<string, { count: number; revenue: number }>();
-  for (const s of filteredSubs) {
+  for (const s of subsInPeriod) {
     const plan = plansById.get(s.plan_id);
     const name = plan?.name || 'Unknown';
     const cur = planMixMap.get(name) || { count: 0, revenue: 0 };
     cur.count += 1;
     const subPayments = payments.filter(
-      (p: any) => p.subscription_id === s.id && p.payment_status === 'paid',
+      (p: any) =>
+        p.subscription_id === s.id &&
+        p.payment_status === 'paid' &&
+        inRange(p.payment_date || p.created_at, range),
     );
     cur.revenue += subPayments.reduce((sum: number, p: any) => sum + num(p.amount), 0);
     planMixMap.set(name, cur);
@@ -389,7 +434,7 @@ function computePeriodMetrics(
   // --- Trainers ---
   const trainerRows = Array.from(trainersById.entries())
     .map(([id, t]) => {
-      const tCourses = coursesInRange.filter((c: any) => String(c.trainer_id) === id);
+      const tCourses = coursesInPeriod.filter((c: any) => String(c.trainer_id) === id);
       if (trainerId && id !== trainerId) return null;
       const tCourseIds = new Set(tCourses.map((c: any) => c.id));
       const tRegs = regsInRange.filter((r: any) => tCourseIds.has(r.course_id));
@@ -397,14 +442,15 @@ function computePeriodMetrics(
       const tAttended = tNonCancel.filter(
         (r: any) =>
           r.status === 'attended' ||
-          filteredCheckins.some((ch: any) => ch.registration_id === r.id),
+          checkinsInRange.some((ch: any) => ch.registration_id === r.id),
       );
       const uniqueAttendees = new Set(tAttended.map((r: any) => r.member_id)).size;
-      const completed = tCourses.filter((c: any) => c.status === 'completed');
       let fill = 0;
-      for (const c of completed) {
+      for (const c of tCourses) {
         const cap = num(c.max_participants) || 1;
-        fill += (num(c.current_participants) / cap) * 100;
+        const fromRegs = tNonCancel.filter((r: any) => r.course_id === c.id).length;
+        const filled = Math.max(num(c.current_participants), fromRegs);
+        fill += (Math.min(filled, cap) / cap) * 100;
       }
       return {
         id,
@@ -412,7 +458,7 @@ function computePeriodMetrics(
         courses: tCourses.length,
         uniqueAttendees,
         attendanceRate: tNonCancel.length ? (tAttended.length / tNonCancel.length) * 100 : 0,
-        fillRate: completed.length ? fill / completed.length : 0,
+        fillRate: tCourses.length ? fill / tCourses.length : 0,
       };
     })
     .filter(Boolean)
@@ -463,7 +509,7 @@ function computePeriodMetrics(
       discountTotal,
       creditOutstanding,
       arpu,
-      outstandingCount: pendingPayments.length,
+      outstandingCount: pendingInPeriod.length,
       overdueCount: overduePayments.length,
       paidCount,
       pendingCount,
@@ -515,6 +561,24 @@ function computePeriodMetrics(
       paidRevenue,
       attendanceRate,
       avgFillRate,
+      collectionRate,
+      discountTotal,
+      arpu,
+      paidCount,
+      outstandingAmount,
+      overdueAmount,
+      activeMembers,
+      totalMembers,
+      registrations: regsInRange.length,
+      attended: attendedCount,
+      checkins: checkinsInRange.length,
+      completedCourses,
+      cancelledCourses,
+      capacityWaste,
+      activeSubscriptions: activeSubs.length,
+      expiringSoon,
+      depletedActive,
+      avgTicket: paidCount > 0 ? paidRevenue / paidCount : 0,
     },
   };
 }
@@ -617,25 +681,40 @@ export async function GET(req: NextRequest) {
     };
 
     const current = computePeriodMetrics(range, payload);
+    const options = {
+      categories: (categoriesRes.data || []).map((c: any) => ({ id: c.id, name: c.name })),
+      trainers: Array.from(trainersById.values()),
+      plans: (plansRes.data || []).map((p: any) => ({ id: p.id, name: p.name })),
+      groups: (groupsRes.data || []).map((g: any) => ({ id: g.id, name: g.name })),
+    };
 
     if (compare) {
       const prev = previousRange(range);
       const previous = computePeriodMetrics(prev, payload);
-      current.overview.newMembers = kpi(
-        current._raw.newMembers,
-        previous._raw.newMembers,
+      const c = current._raw;
+      const p = previous._raw;
+
+      current.overview.newMembers = kpi(c.newMembers, p.newMembers);
+      current.overview.paidRevenue = kpi(c.paidRevenue, p.paidRevenue);
+      current.overview.attendanceRate = kpi(c.attendanceRate, p.attendanceRate);
+      current.overview.avgFillRate = kpi(c.avgFillRate, p.avgFillRate);
+
+      // Overlay previous series by index onto current buckets
+      current.finances.revenueOverTime = alignPreviousOntoCurrent(
+        current.finances.revenueOverTime,
+        previous.finances.revenueOverTime,
       );
-      current.overview.paidRevenue = kpi(
-        current._raw.paidRevenue,
-        previous._raw.paidRevenue,
+      current.members.growth = alignPreviousOntoCurrent(
+        current.members.growth,
+        previous.members.growth,
       );
-      current.overview.attendanceRate = kpi(
-        current._raw.attendanceRate,
-        previous._raw.attendanceRate,
+      current.attendance.volumeOverTime = alignPreviousOntoCurrent(
+        current.attendance.volumeOverTime,
+        previous.attendance.volumeOverTime,
       );
-      current.overview.avgFillRate = kpi(
-        current._raw.avgFillRate,
-        previous._raw.avgFillRate,
+      current.attendance.ratesOverTime = alignPreviousRates(
+        current.attendance.ratesOverTime,
+        previous.attendance.ratesOverTime,
       );
 
       const response: AdminStatsResponse = {
@@ -647,12 +726,7 @@ export async function GET(req: NextRequest) {
           compare: true,
           filters,
         },
-        options: {
-          categories: (categoriesRes.data || []).map((c: any) => ({ id: c.id, name: c.name })),
-          trainers: Array.from(trainersById.values()),
-          plans: (plansRes.data || []).map((p: any) => ({ id: p.id, name: p.name })),
-          groups: (groupsRes.data || []).map((g: any) => ({ id: g.id, name: g.name })),
-        },
+        options,
         overview: current.overview,
         members: current.members,
         finances: current.finances,
@@ -661,6 +735,33 @@ export async function GET(req: NextRequest) {
         subscriptions: current.subscriptions,
         trainers: current.trainers,
         acquisition: current.acquisition,
+        comparison: {
+          previousFrom: format(prev.from, 'yyyy-MM-dd'),
+          previousTo: format(prev.to, 'yyyy-MM-dd'),
+          kpis: {
+            paidRevenue: kpi(c.paidRevenue, p.paidRevenue),
+            avgTicket: kpi(c.avgTicket, p.avgTicket),
+            collectionRate: kpi(c.collectionRate, p.collectionRate),
+            discountTotal: kpi(c.discountTotal, p.discountTotal),
+            arpu: kpi(c.arpu, p.arpu),
+            paidCount: kpi(c.paidCount, p.paidCount),
+            outstandingAmount: kpi(c.outstandingAmount, p.outstandingAmount),
+            overdueAmount: kpi(c.overdueAmount, p.overdueAmount),
+            newMembers: kpi(c.newMembers, p.newMembers),
+            activeMembers: kpi(c.activeMembers, p.activeMembers),
+            attendanceRate: kpi(c.attendanceRate, p.attendanceRate),
+            avgFillRate: kpi(c.avgFillRate, p.avgFillRate),
+            registrations: kpi(c.registrations, p.registrations),
+            attended: kpi(c.attended, p.attended),
+            checkins: kpi(c.checkins, p.checkins),
+            completedCourses: kpi(c.completedCourses, p.completedCourses),
+            cancelledCourses: kpi(c.cancelledCourses, p.cancelledCourses),
+            capacityWaste: kpi(c.capacityWaste, p.capacityWaste),
+            activeSubscriptions: kpi(c.activeSubscriptions, p.activeSubscriptions),
+            expiringSoon: kpi(c.expiringSoon, p.expiringSoon),
+            depletedActive: kpi(c.depletedActive, p.depletedActive),
+          },
+        },
       };
       return NextResponse.json(response);
     }
@@ -672,12 +773,7 @@ export async function GET(req: NextRequest) {
         compare: false,
         filters,
       },
-      options: {
-        categories: (categoriesRes.data || []).map((c: any) => ({ id: c.id, name: c.name })),
-        trainers: Array.from(trainersById.values()),
-        plans: (plansRes.data || []).map((p: any) => ({ id: p.id, name: p.name })),
-        groups: (groupsRes.data || []).map((g: any) => ({ id: g.id, name: g.name })),
-      },
+      options,
       overview: current.overview,
       members: current.members,
       finances: current.finances,

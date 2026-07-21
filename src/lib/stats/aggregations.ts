@@ -44,6 +44,18 @@ export function inRange(dateStr: string | null | undefined, range: DateRange): b
   return d >= range.from && d <= range.to;
 }
 
+/** Inclusive date-range overlap (subscription / membership windows). */
+export function overlapsRange(
+  startStr: string | null | undefined,
+  endStr: string | null | undefined,
+  range: DateRange,
+): boolean {
+  if (!startStr || !endStr) return false;
+  const start = startOfDay(parseISO(startStr.slice(0, 10)));
+  const end = endOfDay(parseISO(endStr.slice(0, 10)));
+  return start <= range.to && end >= range.from;
+}
+
 export function num(v: unknown): number {
   if (v == null) return 0;
   const n = typeof v === 'number' ? v : parseFloat(String(v));
@@ -59,6 +71,29 @@ export function kpi(current: number, previous?: number): KpiValue {
     deltaPct = ((current - previous) / Math.abs(previous)) * 100;
   }
   return { value: current, previous, deltaPct };
+}
+
+/** Align previous-period series onto current buckets by index (not calendar date). */
+export function alignPreviousOntoCurrent<T extends { value: number }>(
+  current: T[],
+  previous: Array<{ value: number }>,
+): Array<T & { previous?: number }> {
+  return current.map((point, i) => ({
+    ...point,
+    previous: previous[i]?.value,
+  }));
+}
+
+export function alignPreviousRates(
+  current: Array<{ date: string; attendance: number; noShow: number; cancel: number }>,
+  previous: Array<{ attendance: number; noShow: number; cancel: number }>,
+) {
+  return current.map((point, i) => ({
+    ...point,
+    previousAttendance: previous[i]?.attendance,
+    previousNoShow: previous[i]?.noShow,
+    previousCancel: previous[i]?.cancel,
+  }));
 }
 
 export function bucketGranularity(range: DateRange): 'day' | 'week' {
