@@ -72,10 +72,6 @@ const data = {
           url: "/admin/schedules",
         },
         {
-          title: "Courses",
-          url: "/admin/courses",
-        },
-        {
           title: "Agenda",
           url: "/admin/agenda",
         },
