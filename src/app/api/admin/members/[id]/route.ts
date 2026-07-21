@@ -111,6 +111,7 @@ export async function GET(
           member_notes: unlinkedMember.member_notes,
           credit: unlinkedMember.credit,
           member_status: unlinkedMember.status,
+          created_at: unlinkedMember.created_at,
           trainer_id: null,
           specialization: null,
           experience_years: null,
@@ -134,6 +135,14 @@ export async function GET(
       console.error('Member not found for ID:', id);
       return NextResponse.json({ error: 'Member not found' }, { status: 404 });
     }
+
+    // Member Since = members.created_at (not account created_at)
+    const { data: memberRow } = await supabaseServer()
+      .from('members')
+      .select('created_at')
+      .eq('id', member.member_id || id)
+      .single();
+    const memberCreatedAt = memberRow?.created_at ?? member.created_at ?? null;
 
     // Get subscriptions using member_id
     const { data: subscriptions } = await supabaseServer()
@@ -217,6 +226,7 @@ export async function GET(
         credit: member.credit,
         userType: member.user_type,
         accessiblePortals: member.accessible_portals,
+        createdAt: memberCreatedAt,
         isUnlinked: member.account_id === null // Flag to indicate if member is unlinked
       },
       subscriptions: subscriptions?.map(sub => ({
