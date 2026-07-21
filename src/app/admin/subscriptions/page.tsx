@@ -106,7 +106,11 @@ const subscriptionFormSchema = z.object({
   memberId: z.string().min(1, "Member is required"),
   planId: z.string().min(1, "Plan is required"),
   startDate: z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/, "Invalid date"),
-  endDate: z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/, "Invalid date").optional(),
+  endDate: z
+    .string()
+    .regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/, "Invalid date")
+    .or(z.literal(""))
+    .optional(),
   notes: z.string().optional(),
   status: z.enum(['active', 'pending', 'expired', 'cancelled']).optional(),
 });
@@ -204,7 +208,7 @@ export default function AdminSubscriptions() {
       memberId: "",
       planId: "",
       startDate: new Date().toISOString().split('T')[0],
-      endDate: "",
+      endDate: undefined,
       notes: "",
       status: "pending",
     },
