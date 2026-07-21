@@ -61,7 +61,7 @@ function AdminStatsPageInner() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Stats</h1>
         <p className="text-sm text-muted-foreground">
-          Customizable widget boards — add metrics, set params on the card, drag & resize
+          Templates or custom analytic queries — join objects, filter, aggregate, drag & resize
         </p>
       </div>
 
@@ -95,7 +95,13 @@ function AdminStatsPageInner() {
             {TAB_DEFS.map((t) => (
               <TabsContent key={t.id} value={t.id} className="mt-0">
                 {tab === t.id ? (
-                  <WidgetBoard tab={t.id} data={data} compare={filters.compare} />
+                  <WidgetBoard
+                    tab={t.id}
+                    data={data}
+                    compare={filters.compare}
+                    from={filters.from}
+                    to={filters.to}
+                  />
                 ) : null}
               </TabsContent>
             ))}

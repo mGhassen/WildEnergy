@@ -209,8 +209,20 @@ function toQuery(filters: StatsFilters): string {
   return params.toString();
 }
 
+export type CustomQueryRequest = {
+  query: import('@/lib/stats/query-spec').CustomQuerySpec;
+  from: string;
+  to: string;
+  compare?: boolean;
+};
+
+export type CustomQueryResult = import('@/lib/stats/query-spec').QueryResultPayload;
+
 export const statsApi = {
   async getStats(filters: StatsFilters): Promise<AdminStatsResponse> {
     return apiRequest('GET', `/api/admin/stats?${toQuery(filters)}`);
+  },
+  async runCustomQuery(body: CustomQueryRequest): Promise<CustomQueryResult> {
+    return apiRequest('POST', '/api/admin/stats/query', body);
   },
 };

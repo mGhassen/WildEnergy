@@ -1,6 +1,7 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import {
   Area,
   AreaChart,
@@ -15,9 +16,15 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
-import { GripVertical, Trash2, TrendingDown, TrendingUp, Minus } from "lucide-react"
+import { GripVertical, Pencil, Trash2, TrendingDown, TrendingUp, Minus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import {
   Select,
   SelectContent,
@@ -43,11 +50,15 @@ import {
 } from "@/components/ui/chart"
 import { cn } from "@/lib/utils"
 import { formatCurrency } from "@/lib/config"
-import type { AdminStatsResponse } from "@/lib/api/stats"
+import { statsApi, type AdminStatsResponse, type CustomQueryResult } from "@/lib/api/stats"
+import type { CustomQuerySpec } from "@/lib/stats/query-spec"
+import { CustomStatWizard } from "@/components/stats/custom-stat-wizard"
 import {
+  CUSTOM_METRIC_ID,
   getMetric,
   type BoardWidget,
   type MetricPayload,
+  type WidgetViz,
 } from "@/components/stats/catalog"
 
 const COLORS = [
@@ -314,26 +325,227 @@ function TableBodyView({ payload }: { payload: Extract<MetricPayload, { kind: "t
   )
 }
 
+function customResultToPayload(result: CustomQueryResult): MetricPayload {
+  if (result.kind === "kpi") {
+    return {
+      kind: "kpi",
+      title: result.title,
+      value: result.value,
+      hint: result.hint,
+      deltaPct: result.deltaPct,
+    }
+  }
+  if (result.kind === "timeseries") {
+    return {
+      kind: "timeseries",
+      title: result.title,
+      points: result.points,
+      valueLabel: result.valueLabel,
+      previousLabel: result.previousLabel,
+    }
+  }
+  if (result.kind === "named") {
+    return {
+      kind: "named",
+      title: result.title,
+      items: result.items,
+      valueLabel: result.valueLabel,
+    }
+  }
+  return {
+    kind: "table",
+    title: result.title,
+    columns: result.columns,
+    rows: result.rows,
+  }
+}
+
+function WidgetBody({
+  payload,
+  viz,
+  compare,
+  description,
+}: {
+  payload: MetricPayload
+  viz: WidgetViz | CustomQuerySpec["viz"]
+  compare: boolean
+  description?: string
+}) {
+  const isKpi = viz === "kpi"
+  if (isKpi && payload.kind === "kpi") {
+    return (
+      <div className="flex h-full flex-col justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl">
+            {payload.value}
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <Delta value={payload.deltaPct} compare={compare} />
+            {payload.hint ? <span className="truncate">{payload.hint}</span> : null}
+          </div>
+        </div>
+        {description ? (
+          <p className="line-clamp-3 text-[11px] leading-snug text-muted-foreground">{description}</p>
+        ) : null}
+      </div>
+    )
+  }
+  return (
+    <div className="flex h-full min-h-0 flex-col gap-2">
+      {description ? (
+        <p className="line-clamp-2 shrink-0 text-[11px] leading-snug text-muted-foreground">
+          {description}
+        </p>
+      ) : null}
+      <div className="min-h-0 flex-1">
+        {payload.kind === "timeseries" ? (
+          <TimeseriesChart payload={payload} />
+        ) : payload.kind === "rates" ? (
+          <RatesChart payload={payload} />
+        ) : payload.kind === "named" ? (
+          <NamedChart payload={payload} viz={viz as "hbar" | "vbar" | "pie"} />
+        ) : payload.kind === "table" ? (
+          <TableBodyView payload={payload} />
+        ) : payload.kind === "kpi" ? (
+          <div className="flex h-full flex-col justify-center gap-1">
+            <div className="text-3xl font-semibold tracking-tight tabular-nums">{payload.value}</div>
+            <Delta value={payload.deltaPct} compare={compare} />
+          </div>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
 export function WidgetCard({
   widget,
   data,
   compare,
+  from,
+  to,
   onChangeParams,
+  onUpdateCustom,
   onRemove,
 }: {
   widget: BoardWidget
   data: AdminStatsResponse
   compare: boolean
+  from: string
+  to: string
   onChangeParams: (params: Record<string, string>) => void
+  onUpdateCustom?: (query: CustomQuerySpec) => void
   onRemove: () => void
 }) {
-  const metric = getMetric(widget.metricId)
-  const payload = useMemo(() => {
-    if (!metric) return null
-    return metric.resolve(data, widget.params)
-  }, [metric, data, widget.params])
+  const isCustom = widget.metricId === CUSTOM_METRIC_ID && !!widget.customQuery
+  const [editOpen, setEditOpen] = useState(false)
 
-  if (!metric || !payload) {
+  const customQuery = useQuery({
+    queryKey: ["custom-stat", widget.id, widget.customQuery, from, to, compare],
+    queryFn: () =>
+      statsApi.runCustomQuery({
+        query: widget.customQuery!,
+        from,
+        to,
+        compare,
+      }),
+    enabled: isCustom,
+    staleTime: 30_000,
+  })
+
+  const metric = getMetric(widget.metricId)
+  const templatePayload = useMemo(() => {
+    if (!metric || isCustom) return null
+    return metric.resolve(data, widget.params)
+  }, [metric, data, widget.params, isCustom])
+
+  if (isCustom) {
+    const q = widget.customQuery!
+    const payload = customQuery.data ? customResultToPayload(customQuery.data) : null
+    const description = `${q.base}${q.joins.length ? ` · ${q.joins.length} join(s)` : ""}${q.union ? " · union" : ""}`
+
+    return (
+      <>
+        <Card className="group flex h-full flex-col overflow-hidden shadow-none">
+          <CardHeader className="flex flex-row items-start gap-2 space-y-0 border-b px-3 py-2">
+            <button
+              type="button"
+              className="drag-handle mt-0.5 cursor-grab opacity-0 text-muted-foreground transition-opacity active:cursor-grabbing group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100"
+              aria-label="Drag widget"
+            >
+              <GripVertical className="h-4 w-4" />
+            </button>
+            <div className="min-w-0 flex-1">
+              <CardTitle className="truncate text-sm font-semibold">{q.name}</CardTitle>
+              <p className="truncate text-[10px] uppercase tracking-wide text-muted-foreground">
+                Custom · {q.viz}
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-1">
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7 opacity-0 text-muted-foreground transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100"
+                onClick={() => setEditOpen(true)}
+                aria-label="Edit custom stat"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7 opacity-0 text-muted-foreground transition-opacity hover:text-destructive group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100"
+                onClick={onRemove}
+                aria-label="Remove widget"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="min-h-0 flex-1 p-3">
+            {customQuery.isLoading ? (
+              <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+                Loading…
+              </div>
+            ) : customQuery.isError ? (
+              <div className="text-xs text-destructive">
+                {(customQuery.error as Error)?.message || "Query failed"}
+              </div>
+            ) : payload ? (
+              <WidgetBody
+                payload={payload}
+                viz={q.viz}
+                compare={compare}
+                description={description}
+              />
+            ) : null}
+          </CardContent>
+        </Card>
+        <Dialog open={editOpen} onOpenChange={setEditOpen}>
+          <DialogContent className="max-w-xl">
+            <DialogHeader>
+              <DialogTitle>Edit custom stat</DialogTitle>
+            </DialogHeader>
+            <CustomStatWizard
+              from={from}
+              to={to}
+              compare={compare}
+              initial={q}
+              submitLabel="Save"
+              onCancel={() => setEditOpen(false)}
+              onSubmit={(next) => {
+                onUpdateCustom?.(next)
+                setEditOpen(false)
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      </>
+    )
+  }
+
+  if (!metric || !templatePayload) {
     return (
       <Card className="flex h-full flex-col shadow-none">
         <CardHeader className="pb-2">
@@ -348,8 +560,7 @@ export function WidgetCard({
     )
   }
 
-  const title = "title" in payload ? payload.title : metric.label
-  const isKpi = metric.viz === "kpi"
+  const title = "title" in templatePayload ? templatePayload.title : metric.label
 
   return (
     <Card className="group flex h-full flex-col overflow-hidden shadow-none">
@@ -399,46 +610,12 @@ export function WidgetCard({
         </div>
       </CardHeader>
       <CardContent className="min-h-0 flex-1 p-3">
-        {isKpi && payload.kind === "kpi" ? (
-          <div className="flex h-full flex-col justify-between gap-2">
-            <div className="flex items-end justify-between gap-3">
-              <div className="min-w-0">
-                <div className="text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl">
-                  {payload.value}
-                </div>
-                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                  <Delta value={payload.deltaPct} compare={compare} />
-                  {payload.hint ? <span className="truncate">{payload.hint}</span> : null}
-                </div>
-              </div>
-            </div>
-            <p className="line-clamp-3 text-[11px] leading-snug text-muted-foreground">
-              {metric.description}
-            </p>
-          </div>
-        ) : (
-          <div className="flex h-full min-h-0 flex-col gap-2">
-            <p className="shrink-0 text-[11px] leading-snug text-muted-foreground line-clamp-2">
-              {metric.description}
-            </p>
-            <div className="min-h-0 flex-1">
-              {payload.kind === "timeseries" ? (
-                <TimeseriesChart payload={payload} />
-              ) : payload.kind === "rates" ? (
-                <RatesChart payload={payload} />
-              ) : payload.kind === "named" ? (
-                <NamedChart payload={payload} viz={metric.viz as "hbar" | "vbar" | "pie"} />
-              ) : payload.kind === "table" ? (
-                <TableBodyView payload={payload} />
-              ) : payload.kind === "kpi" ? (
-                <div className="flex h-full flex-col justify-center gap-1">
-                  <div className="text-3xl font-semibold tracking-tight tabular-nums">{payload.value}</div>
-                  <Delta value={payload.deltaPct} compare={compare} />
-                </div>
-              ) : null}
-            </div>
-          </div>
-        )}
+        <WidgetBody
+          payload={templatePayload}
+          viz={metric.viz}
+          compare={compare}
+          description={metric.description}
+        />
       </CardContent>
     </Card>
   )

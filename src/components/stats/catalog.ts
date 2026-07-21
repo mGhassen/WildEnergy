@@ -893,7 +893,11 @@ export type BoardWidget = {
   id: string
   metricId: string
   params: Record<string, string>
+  /** Present when metricId === "custom.query" */
+  customQuery?: import("@/lib/stats/query-spec").CustomQuerySpec
 }
+
+export const CUSTOM_METRIC_ID = "custom.query"
 
 export type BoardLayoutItem = {
   i: string
@@ -911,7 +915,7 @@ export type BoardState = {
   layouts: BoardLayoutItem[]
 }
 
-const STORAGE_PREFIX = "wildenergy.stats.board.v2."
+const STORAGE_PREFIX = "wildenergy.stats.board.v3."
 
 export function loadBoard(tab: StatsTab): BoardState {
   if (typeof window === "undefined") return defaultBoard(tab)
