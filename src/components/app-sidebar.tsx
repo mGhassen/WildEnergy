@@ -44,11 +44,6 @@ const data = {
       isActive: true,
     },
     {
-      title: "Stats",
-      url: "/admin/stats",
-      icon: PieChart,
-    },
-    {
       title: "People",
       url: "/admin/members",
       icon: Users,
@@ -143,6 +138,11 @@ const data = {
         },
       ],
     },
+    {
+      title: "Stats",
+      url: "/admin/stats",
+      icon: PieChart,
+    }
   ],
   navSecondary: [
     {
@@ -162,7 +162,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { state } = useSidebar()
   const { user, isLoading } = useAuth()
   const collapsed = state === "collapsed"
-  
+
   // Create user object for NavUser component
   const userForNav = user ? {
     name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email?.split('@')[0] || 'User',

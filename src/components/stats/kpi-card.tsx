@@ -24,26 +24,27 @@ export function KpiCard({
   icon: Icon,
   className,
 }: KpiCardProps) {
-  const showDelta = compare && deltaPct !== undefined
-  const positive = (deltaPct ?? 0) > 0
-  const negative = (deltaPct ?? 0) < 0
+  const showDelta = compare && deltaPct !== undefined && deltaPct !== null
+  const positive = (deltaPct ?? 0) > 0.05
+  const negative = (deltaPct ?? 0) < -0.05
 
   return (
-    <Card className={cn("", className)}>
+    <Card className={cn("shadow-none", className)}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+        <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          {title}
+        </CardTitle>
         {Icon ? <Icon className="h-4 w-4 text-muted-foreground" /> : null}
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold tracking-tight">{value}</div>
-        <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+        <div className="text-2xl font-semibold tracking-tight tabular-nums">{value}</div>
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
           {showDelta ? (
             <span
               className={cn(
                 "inline-flex items-center gap-0.5 font-medium",
                 positive && "text-emerald-600",
                 negative && "text-rose-600",
-                !positive && !negative && "text-muted-foreground",
               )}
             >
               {positive ? (
@@ -53,7 +54,8 @@ export function KpiCard({
               ) : (
                 <Minus className="h-3 w-3" />
               )}
-              {deltaPct === null ? "n/a" : `${positive ? "+" : ""}${deltaPct.toFixed(1)}%`}
+              {`${positive ? "+" : ""}${(deltaPct as number).toFixed(1)}%`}
+              <span className="font-normal text-muted-foreground">vs prev</span>
             </span>
           ) : null}
           {description ? <span>{description}</span> : null}
@@ -63,29 +65,42 @@ export function KpiCard({
   )
 }
 
-export function StatsWidget({
-  title,
-  description,
-  children,
-  className,
-  empty,
-}: {
+type WidgetProps = {
   title: string
   description?: string
+  actions?: React.ReactNode
   children: React.ReactNode
   className?: string
+  contentClassName?: string
   empty?: boolean
-}) {
+  emptyLabel?: string
+}
+
+export function Widget({
+  title,
+  description,
+  actions,
+  children,
+  className,
+  contentClassName,
+  empty,
+  emptyLabel = "No data in this period",
+}: WidgetProps) {
   return (
-    <Card className={cn("flex flex-col", className)}>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-base">{title}</CardTitle>
-        {description ? <CardDescription>{description}</CardDescription> : null}
+    <Card className={cn("flex flex-col shadow-none", className)}>
+      <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 pb-3">
+        <div className="min-w-0 space-y-1">
+          <CardTitle className="text-sm font-semibold">{title}</CardTitle>
+          {description ? (
+            <CardDescription className="text-xs">{description}</CardDescription>
+          ) : null}
+        </div>
+        {actions ? <div className="shrink-0">{actions}</div> : null}
       </CardHeader>
-      <CardContent className="flex-1">
+      <CardContent className={cn("flex-1 pt-0", contentClassName)}>
         {empty ? (
           <div className="flex h-48 items-center justify-center text-sm text-muted-foreground">
-            No data in this period
+            {emptyLabel}
           </div>
         ) : (
           children
@@ -94,3 +109,6 @@ export function StatsWidget({
     </Card>
   )
 }
+
+/** @deprecated use Widget */
+export const StatsWidget = Widget
