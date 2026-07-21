@@ -24,17 +24,22 @@ export async function GET(req: NextRequest) {
     }
     
     // Fetch all subscriptions with plan data, member data, and group sessions
+    // member_id FKs to members(id), not user_profiles
     const { data: subscriptions, error } = await supabaseServer()
       .from('subscriptions')
       .select(`
         *,
-        member:user_profiles!member_id(
-          member_id,
-          first_name,
-          last_name,
-          account_email,
-          member_status,
-          credit
+        members:member_id(
+          id,
+          credit,
+          status,
+          profiles:profile_id(
+            first_name,
+            last_name
+          ),
+          accounts:account_id(
+            email
+          )
         ),
         plan:plans(
           id,
@@ -78,14 +83,26 @@ export async function GET(req: NextRequest) {
       }, { status: 500 });
     }
     
-    // Convert price from string to number for proper handling
-    const processedSubscriptions = subscriptions?.map(sub => ({
-      ...sub,
-      plan: sub.plan ? {
-        ...sub.plan,
-        price: parseFloat(sub.plan.price) || 0
-      } : null
-    })) || [];
+    // Flatten member join to the shape the admin table expects
+    const processedSubscriptions = subscriptions?.map(sub => {
+      const memberRow = Array.isArray(sub.members) ? sub.members[0] : sub.members;
+      const { members: _members, ...rest } = sub;
+      return {
+        ...rest,
+        member: memberRow ? {
+          member_id: memberRow.id,
+          first_name: memberRow.profiles?.first_name || '',
+          last_name: memberRow.profiles?.last_name || '',
+          account_email: memberRow.accounts?.email || '',
+          member_status: memberRow.status || 'active',
+          credit: parseFloat(memberRow.credit) || 0,
+        } : null,
+        plan: sub.plan ? {
+          ...sub.plan,
+          price: parseFloat(sub.plan.price) || 0
+        } : null
+      };
+    }) || [];
     
     return NextResponse.json(processedSubscriptions);
   } catch (error) {
