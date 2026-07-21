@@ -78,6 +78,7 @@ export async function GET(
             first_name,
             last_name,
             phone,
+            profile_email,
             date_of_birth,
             address,
             profession,
@@ -94,7 +95,8 @@ export async function GET(
         member = {
           member_id: unlinkedMember.id,
           account_id: null, // Unlinked member has no account
-          email: null, // No email for unlinked members
+          email: null, // No account email for unlinked members
+          profile_email: unlinkedMember.profiles.profile_email,
           account_status: null,
           last_login: null,
           first_name: unlinkedMember.profiles.first_name,
@@ -204,6 +206,7 @@ export async function GET(
         firstName: member.first_name,
         lastName: member.last_name,
         email: member.email,
+        profileEmail: member.profile_email,
         status: member.member_status,
         accountStatus: member.account_status,
         phone: member.phone,

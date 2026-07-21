@@ -66,6 +66,7 @@ interface Member {
   firstName: string;
   lastName: string;
   email: string;
+  profileEmail?: string;
   status: string;
   accountStatus: string;
   phone?: string;
@@ -230,7 +231,7 @@ export default function MemberDetailsPage() {
         firstName: member.firstName || "",
         lastName: member.lastName || "",
         phone: member.phone || "",
-        profileEmail: member.email || "",
+        profileEmail: member.profileEmail || "",
         dateOfBirth: member.dateOfBirth ? member.dateOfBirth.split('T')[0] : "",
         address: member.address || "",
         profession: member.profession || "",
@@ -306,6 +307,7 @@ export default function MemberDetailsPage() {
     firstName: memberDetails.member.firstName || '',
     lastName: memberDetails.member.lastName || '',
     email: memberDetails.member.email,
+    profileEmail: memberDetails.member.profileEmail,
     status: memberDetails.member.status || 'active',
     accountStatus: memberDetails.member.accountStatus || 'active',
     phone: memberDetails.member.phone,
@@ -382,7 +384,7 @@ export default function MemberDetailsPage() {
         firstName: member.firstName || "",
         lastName: member.lastName || "",
         phone: member.phone || "",
-        profileEmail: member.email || "",
+        profileEmail: member.profileEmail || "",
         dateOfBirth: member.dateOfBirth ? member.dateOfBirth.split('T')[0] : "",
         address: member.address || "",
         profession: member.profession || "",
@@ -782,7 +784,7 @@ export default function MemberDetailsPage() {
                       placeholder="Contact email"
                     />
                   ) : (
-                    <p className="text-sm">{member.email || 'N/A'}</p>
+                    <p className="text-sm">{member.profileEmail || 'N/A'}</p>
                   )}
                 </div>
                 <div>
