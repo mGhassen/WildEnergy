@@ -24,10 +24,75 @@ export function setAuthToken(token: string | null): void {
   }
 }
 
+function clearAuthTokens(): void {
+  setAuthToken(null);
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('refresh_token');
+  }
+}
+
+function redirectToLogin(): void {
+  if (typeof window === 'undefined') return;
+  const returnUrl = window.location.pathname + window.location.search;
+  const loginUrl =
+    returnUrl && returnUrl !== '/auth/login'
+      ? `/auth/login?returnTo=${encodeURIComponent(returnUrl)}`
+      : '/auth/login';
+  window.location.href = loginUrl;
+}
+
+let refreshInFlight: Promise<string> | null = null;
+
+/** Refresh access token. Coalesces concurrent calls. Throws if refresh fails. */
+export async function refreshAccessToken(): Promise<string> {
+  if (typeof window === 'undefined') {
+    throw new Error('Cannot refresh token on server');
+  }
+
+  if (refreshInFlight) return refreshInFlight;
+
+  refreshInFlight = (async () => {
+    const refreshToken = localStorage.getItem('refresh_token');
+    if (!refreshToken) throw new Error('No refresh token available');
+
+    const response = await fetch('/api/auth/refresh', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to refresh token');
+    }
+
+    const data = await response.json();
+    if (!data.access_token) {
+      throw new Error('No access token in refresh response');
+    }
+
+    setAuthToken(data.access_token);
+    if (data.refresh_token) {
+      localStorage.setItem('refresh_token', data.refresh_token);
+    }
+    return data.access_token as string;
+  })();
+
+  try {
+    return await refreshInFlight;
+  } catch (error) {
+    clearAuthTokens();
+    throw error;
+  } finally {
+    refreshInFlight = null;
+  }
+}
+
 // API client with auth headers
 export async function apiFetch<T = any>(
   url: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  isRetry = false,
 ): Promise<T> {
   const token = getAuthToken();
   const headers = new Headers(options.headers);
@@ -48,16 +113,20 @@ export async function apiFetch<T = any>(
     const response = await fetch(fullUrl, {
       ...options,
       headers,
-      credentials: 'include', // Important for cookies if using them
+      credentials: 'include',
     });
     
-    // Handle 401 Unauthorized
     if (response.status === 401) {
-      // Clear invalid token
-      setAuthToken(null);
-      // Redirect to login with return URL
-      const returnUrl = window.location.pathname + window.location.search;
-      window.location.href = `/auth/login?returnTo=${encodeURIComponent(returnUrl)}`;
+      if (!isRetry) {
+        try {
+          await refreshAccessToken();
+          return apiFetch<T>(url, options, true);
+        } catch {
+          // refresh failed — fall through to logout
+        }
+      }
+      clearAuthTokens();
+      redirectToLogin();
       throw new Error('Session expired. Please log in again.');
     }
     
@@ -168,49 +237,14 @@ export const authApi = {
       return data;
     } catch (error) {
       console.error('Session check failed:', error);
-      // Clear invalid token
-      setAuthToken(null);
+      clearAuthTokens();
       throw error;
     }
   },
   
   async refreshToken() {
-    const refreshToken = localStorage.getItem('refresh_token');
-    if (!refreshToken) throw new Error('No refresh token available');
-    
-    try {
-      const response = await fetch('/api/auth/refresh', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ refresh_token: refreshToken })
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to refresh token');
-      }
-      
-      const data = await response.json();
-      
-      if (data.access_token) {
-        setAuthToken(data.access_token);
-        localStorage.setItem('access_token', data.access_token);
-        
-        // Update refresh token if a new one was provided
-        if (data.refresh_token) {
-          localStorage.setItem('refresh_token', data.refresh_token);
-        }
-      }
-      
-      return data;
-    } catch (error) {
-      console.error('Token refresh failed:', error);
-      // Clear tokens on refresh failure
-      setAuthToken(null);
-      localStorage.removeItem('refresh_token');
-      throw error;
-    }
+    const access_token = await refreshAccessToken();
+    return { access_token };
   },
   
   async logout() {

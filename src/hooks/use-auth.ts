@@ -4,6 +4,7 @@ import React, { useState, useEffect, createContext, useContext, ReactNode } from
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { authApi, RegisterData, LoginCredentials, AuthResponse } from '@/lib/api/auth';
+import { refreshAccessToken } from '@/lib/api';
 import { createSupabaseClient } from '@/lib/supabase';
 import { consumePostLoginRedirect } from '@/lib/auth-return-path';
 import { normalizeAuthUser } from '@/lib/resolve-accessible-portals';
@@ -91,8 +92,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
     queryClient.clear();
   };
 
+  const clearSessionAndRedirect = (message: string) => {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    if (typeof window !== 'undefined') {
+      delete window.__authToken;
+    }
+    setUser(null);
+    const returnUrl =
+      typeof window !== 'undefined'
+        ? window.location.pathname + window.location.search
+        : '';
+    const loginUrl =
+      returnUrl && returnUrl !== '/auth/login'
+        ? `/auth/login?returnTo=${encodeURIComponent(returnUrl)}`
+        : '/auth/login';
+    router.push(loginUrl);
+    setAuthError(message);
+  };
+
   // Fetch user session
-  const fetchSession = async (token: string) => {
+  const fetchSession = async (token: string, isRetry = false) => {
     console.log('=== FETCH SESSION CALLED ===');
     try {
       console.log('Fetching session with token:', token ? 'present' : 'missing');
@@ -130,24 +150,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
         
         if (response.status === 401) {
-          console.log('401 error - clearing tokens and redirecting to login');
-          // Clear invalid token
-          localStorage.removeItem('access_token');
-          localStorage.removeItem('refresh_token');
-          if (typeof window !== 'undefined') {
-            delete window.__authToken;
+          if (!isRetry) {
+            try {
+              const newToken = await refreshAccessToken();
+              return fetchSession(newToken, true);
+            } catch {
+              // refresh failed
+            }
           }
-          setUser(null);
-          const returnUrl =
-            typeof window !== 'undefined'
-              ? window.location.pathname + window.location.search
-              : '';
-          const loginUrl =
-            returnUrl && returnUrl !== '/auth/login'
-              ? `/auth/login?returnTo=${encodeURIComponent(returnUrl)}`
-              : '/auth/login';
-          router.push(loginUrl);
-          setAuthError('Your session has expired or is invalid. Please log in again.');
+          clearSessionAndRedirect(
+            'Your session has expired or is invalid. Please log in again.',
+          );
           return null;
         }
         

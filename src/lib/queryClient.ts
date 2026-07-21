@@ -1,5 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
-import { getAuthToken, setAuthToken } from "./api";
+import { getAuthToken, refreshAccessToken } from "./api";
 
 async function fetchWithOptionalRefresh(
   method: string,
@@ -27,28 +27,11 @@ async function fetchWithOptionalRefresh(
     !isRetry &&
     typeof window !== "undefined"
   ) {
-    const refreshToken = localStorage.getItem("refresh_token");
-    if (refreshToken) {
-      try {
-        const refreshRes = await fetch("/api/auth/refresh", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ refresh_token: refreshToken }),
-          credentials: "include",
-        });
-        if (refreshRes.ok) {
-          const tokens = await refreshRes.json();
-          if (tokens.access_token) {
-            setAuthToken(tokens.access_token);
-            if (tokens.refresh_token) {
-              localStorage.setItem("refresh_token", tokens.refresh_token);
-            }
-            return fetchWithOptionalRefresh(method, url, data, true);
-          }
-        }
-      } catch {
-        /* fall through to return 401 response */
-      }
+    try {
+      await refreshAccessToken();
+      return fetchWithOptionalRefresh(method, url, data, true);
+    } catch {
+      /* fall through to return 401 response */
     }
   }
 
