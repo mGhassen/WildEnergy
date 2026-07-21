@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Menu, BarChart3, Users, Calendar, ClipboardList, CreditCard, Settings2, LifeBuoy, Send, LogOut, Dumbbell, User, Shield, GraduationCap, ChevronRight } from "lucide-react"
+import { Menu, BarChart3, PieChart, Users, Calendar, ClipboardList, CreditCard, Settings2, LifeBuoy, Send, LogOut, Dumbbell, User, Shield, GraduationCap, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { useAuth } from "@/hooks/use-auth"
@@ -36,6 +36,11 @@ const data = {
       url: "/admin",
       icon: BarChart3,
       isActive: true,
+    },
+    {
+      title: "Stats",
+      url: "/admin/stats",
+      icon: PieChart,
     },
     {
       title: "People",

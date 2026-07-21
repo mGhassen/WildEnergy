@@ -11,6 +11,7 @@ import {
   Calendar,
   CreditCard,
   BarChart3,
+  PieChart,
   ClipboardList,
   ChevronLeft,
   ChevronRight,
@@ -41,6 +42,11 @@ const data = {
       url: "/admin",
       icon: BarChart3,
       isActive: true,
+    },
+    {
+      title: "Stats",
+      url: "/admin/stats",
+      icon: PieChart,
     },
     {
       title: "People",
