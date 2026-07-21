@@ -352,11 +352,11 @@ export function WidgetCard({
   const isKpi = metric.viz === "kpi"
 
   return (
-    <Card className="flex h-full flex-col overflow-hidden shadow-none">
+    <Card className="group flex h-full flex-col overflow-hidden shadow-none">
       <CardHeader className="flex flex-row items-start gap-2 space-y-0 border-b px-3 py-2">
         <button
           type="button"
-          className="drag-handle mt-0.5 cursor-grab text-muted-foreground active:cursor-grabbing"
+          className="drag-handle mt-0.5 cursor-grab opacity-0 text-muted-foreground transition-opacity active:cursor-grabbing group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100"
           aria-label="Drag widget"
         >
           <GripVertical className="h-4 w-4" />
@@ -390,7 +390,7 @@ export function WidgetCard({
             type="button"
             size="icon"
             variant="ghost"
-            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+            className="h-7 w-7 opacity-0 text-muted-foreground transition-opacity hover:text-destructive group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100"
             onClick={onRemove}
             aria-label="Remove widget"
           >

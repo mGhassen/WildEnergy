@@ -128,6 +128,17 @@ body {
   border-radius: 0.5rem;
   opacity: 1;
 }
+/* Cell grid while dragging/resizing (6 cols, 72px row, 12px margin) */
+.react-grid-layout.stats-board-dragging {
+  background-image:
+    linear-gradient(to right, hsl(var(--border)) 1px, transparent 1px),
+    linear-gradient(to bottom, hsl(var(--border)) 1px, transparent 1px);
+  background-size:
+    calc((100% - 60px) / 6 + 12px)
+    84px;
+  background-position: 0 0;
+  border-radius: 0.5rem;
+}
 
 /* Ensure dialogs are properly contained on small screens */
 @media (max-width: 480px) {

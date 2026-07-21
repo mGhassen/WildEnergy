@@ -3,8 +3,6 @@
 import { useCallback, useEffect, useState } from "react"
 import GridLayout, { type Layout } from "react-grid-layout/legacy"
 import { useContainerWidth } from "react-grid-layout"
-import { RotateCcw } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import type { AdminStatsResponse } from "@/lib/api/stats"
 import {
   defaultBoard,
@@ -19,7 +17,12 @@ import {
 } from "@/components/stats/catalog"
 import { WidgetCard } from "@/components/stats/widget-card"
 import { AddWidgetDialog } from "@/components/stats/add-widget-dialog"
+import { cn } from "@/lib/utils"
 import "react-grid-layout/css/styles.css"
+
+const COLS = 6
+const ROW_HEIGHT = 72
+const MARGIN: [number, number] = [12, 12]
 
 export function WidgetBoard({
   tab,
@@ -33,6 +36,7 @@ export function WidgetBoard({
   const { width, containerRef, mounted } = useContainerWidth()
   const [board, setBoard] = useState<BoardState>(() => defaultBoard(tab))
   const [hydrated, setHydrated] = useState(false)
+  const [showGrid, setShowGrid] = useState(false)
 
   useEffect(() => {
     setBoard(loadBoard(tab))
@@ -104,12 +108,6 @@ export function WidgetBoard({
     }))
   }, [])
 
-  const reset = useCallback(() => {
-    const next = defaultBoard(tab)
-    setBoard(next)
-    saveBoard(tab, next)
-  }, [tab])
-
   const layout = board.layouts.map((l) => ({
     ...l,
     minW: l.minW ?? 2,
@@ -121,13 +119,6 @@ export function WidgetBoard({
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <AddWidgetDialog tab={tab} onAdd={addWidget} />
-        <Button type="button" variant="ghost" size="sm" className="gap-1.5" onClick={reset}>
-          <RotateCcw className="h-3.5 w-3.5" />
-          Reset board
-        </Button>
-        <p className="text-xs text-muted-foreground">
-          Drag · resize · params on each card · layout saved per tab
-        </p>
       </div>
 
       <div ref={containerRef} className="min-h-[320px]">
@@ -138,15 +129,19 @@ export function WidgetBoard({
           </div>
         ) : mounted && width > 0 ? (
           <GridLayout
-            className="layout"
+            className={cn("layout", showGrid && "stats-board-dragging")}
             layout={layout}
-            cols={6}
-            rowHeight={72}
+            cols={COLS}
+            rowHeight={ROW_HEIGHT}
             width={width}
             onLayoutChange={onLayoutChange}
+            onDragStart={() => setShowGrid(true)}
+            onDragStop={() => setShowGrid(false)}
+            onResizeStart={() => setShowGrid(true)}
+            onResizeStop={() => setShowGrid(false)}
             draggableHandle=".drag-handle"
             compactType="vertical"
-            margin={[12, 12]}
+            margin={MARGIN}
             containerPadding={[0, 0]}
             isResizable
             isDraggable
