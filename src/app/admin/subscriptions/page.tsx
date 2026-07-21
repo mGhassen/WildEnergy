@@ -106,6 +106,7 @@ const subscriptionFormSchema = z.object({
   memberId: z.string().min(1, "Member is required"),
   planId: z.string().min(1, "Plan is required"),
   startDate: z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/, "Invalid date"),
+  endDate: z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/, "Invalid date").optional(),
   notes: z.string().optional(),
   status: z.enum(['active', 'pending', 'expired', 'cancelled']).optional(),
 });
@@ -203,6 +204,7 @@ export default function AdminSubscriptions() {
       memberId: "",
       planId: "",
       startDate: new Date().toISOString().split('T')[0],
+      endDate: "",
       notes: "",
       status: "pending",
     },
@@ -264,6 +266,7 @@ export default function AdminSubscriptions() {
       memberId: subscription.member_id,
       planId: subscription.plan_id.toString(),
       startDate: subscription.start_date.split('T')[0],
+      endDate: subscription.end_date.split('T')[0],
       notes: subscription.notes || "",
       status: subscription.status as any,
     });
@@ -333,26 +336,30 @@ export default function AdminSubscriptions() {
       });
       return;
     }
-    
-    const selectedPlan = mappedPlans.find((plan) => plan.id === parseInt(data.planId));
-    if (!selectedPlan) {
-      toast({ 
-        title: "Error", 
-        description: "Selected plan not found",
-        variant: "destructive" 
+
+    if (!data.endDate) {
+      toast({
+        title: "Error",
+        description: "End date is required",
+        variant: "destructive",
       });
       return;
     }
-    
-    const startDateObj = new Date(data.startDate);
-    startDateObj.setDate(startDateObj.getDate() + Number(selectedPlan.duration));
-    const endDateStr = startDateObj.toISOString().split('T')[0];
+
+    if (new Date(data.endDate) <= new Date(data.startDate)) {
+      toast({
+        title: "Error",
+        description: "End date must be after start date",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const submitData = {
-      member_id: data.memberId, // Keep as string to match API expectations
+      member_id: data.memberId,
       plan_id: parseInt(data.planId),
       start_date: data.startDate,
-      end_date: endDateStr,
+      end_date: data.endDate,
       notes: data.notes,
       status: data.status || 'pending',
     };
@@ -1671,6 +1678,20 @@ export default function AdminSubscriptions() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Start Date</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <Controller
+                  name="endDate"
+                  control={subscriptionForm.control}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>End Date</FormLabel>
                       <FormControl>
                         <Input type="date" {...field} />
                       </FormControl>
