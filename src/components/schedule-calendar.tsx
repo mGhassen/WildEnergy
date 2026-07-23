@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ChevronLeft, ChevronRight, Calendar, Users, Clock, Plus, Search, X, Check, XCircle, AlertTriangle } from 'lucide-react';
-import { formatDate, formatTime, formatLongDate, getDayName, getShortDayName } from '@/lib/date';
+import { formatDate, formatTime, formatLongDate, getDayName, getShortDayName, isOnOrBeforeToday } from '@/lib/date';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useBulkRegisterMembers, useCheckInRegistration, useCheckOutRegistration, useAdminCancelRegistration } from '@/hooks/useRegistrations';
 import { toast } from 'sonner';
@@ -226,7 +226,7 @@ export default function ScheduleCalendar({
     return subscriptions.some((sub: any) =>
       sub.member_id === memberId &&
       sub.status === 'active' &&
-      new Date(sub.end_date) > new Date() &&
+      isOnOrBeforeToday(sub.end_date) &&
       sub.subscription_group_sessions &&
       sub.subscription_group_sessions.some((sgs: any) => sgs.sessions_remaining > 0)
     );

@@ -22,6 +22,7 @@ import ScheduleCalendar from '@/components/schedule-calendar';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useRouter } from 'next/navigation';
 import { CardSkeleton } from '@/components/skeletons';
+import { isOnOrBeforeToday } from '@/lib/date';
 
 interface Course {
   id: number;
@@ -109,7 +110,7 @@ export default function AdminCourses() {
       (s: any) =>
         s.member_id === member.id &&
         s.status === 'active' &&
-        new Date(s.end_date) > new Date() &&
+        isOnOrBeforeToday(s.end_date) &&
         s.subscription_group_sessions &&
         s.subscription_group_sessions.some((sgs: any) => sgs.sessions_remaining > 0)
     );
@@ -123,7 +124,7 @@ export default function AdminCourses() {
         endDate: memberSub?.end_date,
         hasGroupSessions: memberSub?.subscription_group_sessions?.length > 0,
         groupSessionsRemaining: memberSub?.subscription_group_sessions?.map((sgs: any) => sgs.sessions_remaining) || [],
-        isExpired: memberSub ? new Date(memberSub.end_date) <= new Date() : true
+        isExpired: memberSub ? !isOnOrBeforeToday(memberSub.end_date) : true
       });
     } else {
       console.log(`Member ${member.first_name} ${member.last_name} (${member.id}) included:`, {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { toDateKey } from '@/lib/date';
 
 export async function POST(req: NextRequest) {
   try {
@@ -106,7 +107,7 @@ export async function POST(req: NextRequest) {
       `)
       .eq('id', memberId)
       .eq('subscriptions.status', 'active')
-      .gt('subscriptions.end_date', 'NOW()')
+      .gte('subscriptions.end_date', toDateKey(new Date())!)
       .single();
 
     if (memberError || !memberData) {

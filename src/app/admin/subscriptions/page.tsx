@@ -24,7 +24,7 @@ import { Payment } from "@/lib/api/payments";
 import { Plus, Search, Edit, Trash2, Eye, CreditCard, MoreVertical, RefreshCw, Filter, SortAsc, SortDesc, Calendar, DollarSign, Users, TrendingUp, ChevronDown } from "lucide-react";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { getInitials } from "@/lib/auth";
-import { formatDate } from "@/lib/date";
+import { formatDateRange, calculateInclusiveEndDate, inclusiveDayCount, inclusiveDaysRemaining } from "@/lib/date";
 import { formatCurrency } from "@/lib/config";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
@@ -310,9 +310,7 @@ export default function AdminSubscriptions() {
       return;
     }
     
-    const startDateObj = new Date(data.startDate);
-    startDateObj.setDate(startDateObj.getDate() + Number(selectedPlan.duration));
-    const endDateStr = startDateObj.toISOString().split('T')[0];
+    const endDateStr = calculateInclusiveEndDate(data.startDate, Number(selectedPlan.duration));
 
     const submitData = {
       member_id: data.memberId,
@@ -350,10 +348,10 @@ export default function AdminSubscriptions() {
       return;
     }
 
-    if (new Date(data.endDate) <= new Date(data.startDate)) {
+    if (new Date(data.endDate) < new Date(data.startDate)) {
       toast({
         title: "Error",
-        description: "End date must be after start date",
+        description: "End date must be on or after start date",
         variant: "destructive",
       });
       return;
@@ -1060,19 +1058,15 @@ export default function AdminSubscriptions() {
                   <TableCell>
                     <div className="space-y-1">
                       <div className="text-sm">
-                        <span className="text-muted-foreground">From:</span> {formatDate(subscription.start_date)}
-                      </div>
-                      <div className="text-sm">
-                        <span className="text-muted-foreground">To:</span> {formatDate(subscription.end_date)}
+                        <span className="text-muted-foreground">Period:</span> {formatDateRange(subscription.start_date, subscription.end_date)}
                       </div>
                       {(() => {
-                        const startDate = new Date(subscription.start_date);
-                        const endDate = new Date(subscription.end_date);
-                        const today = new Date();
-                        const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-                        const daysRemaining = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-                        const daysElapsed = totalDays - daysRemaining;
-                        const progressPercentage = Math.max(0, Math.min(100, (daysElapsed / totalDays) * 100));
+                        const totalDays = inclusiveDayCount(subscription.start_date, subscription.end_date);
+                        const daysRemaining = inclusiveDaysRemaining(subscription.end_date);
+                        const daysElapsed = Math.max(0, totalDays - Math.max(0, daysRemaining));
+                        const progressPercentage = totalDays > 0
+                          ? Math.max(0, Math.min(100, (daysElapsed / totalDays) * 100))
+                          : 0;
                         
                         return (
                           <div className="space-y-1">
@@ -1234,11 +1228,8 @@ export default function AdminSubscriptions() {
                   .reduce((sum, p) => sum + (p.amount || 0), 0);
                 const planPrice = subscription.plan?.price || 0;
                 const remainingAmount = Math.max(0, planPrice - totalPaid);
-                const startDate = new Date(subscription.start_date);
-                const endDate = new Date(subscription.end_date);
-                const today = new Date();
-                const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-                const daysRemaining = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                const totalDays = inclusiveDayCount(subscription.start_date, subscription.end_date);
+                const daysRemaining = inclusiveDaysRemaining(subscription.end_date);
                 
                 return (
                   <Card 
@@ -1308,7 +1299,7 @@ export default function AdminSubscriptions() {
                           <p className="text-muted-foreground">Duration</p>
                           <div className="space-y-1">
                             <p className="font-medium">
-                              {formatDate(subscription.start_date)} - {formatDate(subscription.end_date)}
+                              {formatDateRange(subscription.start_date, subscription.end_date)}
                             </p>
                             <div className="flex items-center gap-2">
                               <span className="text-xs text-muted-foreground">

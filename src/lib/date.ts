@@ -5,6 +5,63 @@
 
 import { DATE_LOCALE, TIME_LOCALE, TIMEZONE } from './config';
 
+/** YYYY-MM-DD in app timezone (or from an ISO date prefix). */
+export function toDateKey(date: string | Date | null | undefined): string | null {
+  if (!date) return null;
+  if (typeof date === 'string') {
+    const match = date.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (match) return match[1];
+  }
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(dateObj.getTime())) return null;
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(dateObj);
+}
+
+/** Inclusive end: valid through the full end calendar day. */
+export function isOnOrBeforeToday(endDate: string | Date | null | undefined, from: Date = new Date()): boolean {
+  const endKey = toDateKey(endDate);
+  const fromKey = toDateKey(from);
+  if (!endKey || !fromKey) return false;
+  return endKey >= fromKey;
+}
+
+export function inclusiveDayCount(
+  startDate: string | Date | null | undefined,
+  endDate: string | Date | null | undefined,
+): number {
+  const startKey = toDateKey(startDate);
+  const endKey = toDateKey(endDate);
+  if (!startKey || !endKey) return 0;
+  const start = new Date(`${startKey}T00:00:00Z`);
+  const end = new Date(`${endKey}T00:00:00Z`);
+  return Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1;
+}
+
+/** Days left including today; 0 means expired. */
+export function inclusiveDaysRemaining(endDate: string | Date | null | undefined, from: Date = new Date()): number {
+  const endKey = toDateKey(endDate);
+  const fromKey = toDateKey(from);
+  if (!endKey || !fromKey) return 0;
+  const end = new Date(`${endKey}T00:00:00Z`);
+  const today = new Date(`${fromKey}T00:00:00Z`);
+  return Math.round((end.getTime() - today.getTime()) / 86_400_000) + 1;
+}
+
+/** end = start + durationDays - 1 (inclusive). */
+export function calculateInclusiveEndDate(startDate: string, durationDays: number): string {
+  const startKey = toDateKey(startDate);
+  if (!startKey) throw new Error('Invalid start date');
+  const days = Math.max(1, Number(durationDays) || 1);
+  const start = new Date(`${startKey}T00:00:00Z`);
+  start.setUTCDate(start.getUTCDate() + days - 1);
+  return start.toISOString().slice(0, 10);
+}
+
 /**
  * Format date in European format (DD/MM/YYYY)
  */
@@ -157,24 +214,24 @@ export function formatCalendarDate(date: string | Date | null | undefined): stri
 }
 
 /**
- * Format date range (e.g., "16 juil. - 23 juil.")
+ * Format date range; collapses to one date when start === end (inclusive 1-day).
  */
 export function formatDateRange(startDate: string | Date | null | undefined, endDate: string | Date | null | undefined): string {
   if (!startDate || !endDate) {
     return 'N/A';
   }
-  
-  const start = typeof startDate === 'string' ? new Date(startDate) : startDate;
-  const end = typeof endDate === 'string' ? new Date(endDate) : endDate;
-  
-  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+
+  const startKey = toDateKey(startDate);
+  const endKey = toDateKey(endDate);
+  if (!startKey || !endKey) {
     return 'Plage de dates invalide';
   }
-  
-  const startFormatted = formatCalendarDate(start);
-  const endFormatted = formatCalendarDate(end);
-  
-  return `${startFormatted} - ${endFormatted}`;
+
+  if (startKey === endKey) {
+    return formatDate(startDate);
+  }
+
+  return `${formatDate(startDate)} - ${formatDate(endDate)}`;
 }
 
 /**

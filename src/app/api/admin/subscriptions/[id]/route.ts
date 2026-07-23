@@ -82,6 +82,15 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Member not found' }, { status: 400 });
     }
 
+    const startDate = new Date(start_date);
+    const endDate = new Date(end_date);
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      return NextResponse.json({ error: 'Invalid start_date or end_date' }, { status: 400 });
+    }
+    if (endDate < startDate) {
+      return NextResponse.json({ error: 'end_date must be on or after start_date' }, { status: 400 });
+    }
+
     // Update subscription
     const updateData: any = {
       member_id: member_id,

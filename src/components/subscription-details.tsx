@@ -13,7 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCreatePayment } from "@/hooks/usePayments";
-import { formatDate } from "@/lib/date";
+import { formatDate, inclusiveDayCount } from "@/lib/date";
 import { formatCurrency, CURRENCY_SYMBOL } from "@/lib/config";
 import { CreditCard, Info, Calendar, Users, Plus, DollarSign, AlertTriangle } from "lucide-react";
 
@@ -316,7 +316,7 @@ export function SubscriptionDetails({
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Duration:</span>
                     <span className="font-medium">
-                      {Math.ceil((new Date(subscription.end_date).getTime() - new Date(subscription.start_date).getTime()) / (1000 * 60 * 60 * 24))} days
+                      {inclusiveDayCount(subscription.start_date, subscription.end_date)} days
                     </span>
                   </div>
                 </div>

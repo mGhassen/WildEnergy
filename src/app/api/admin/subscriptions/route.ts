@@ -196,9 +196,9 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
     
-    if (endDate <= startDate) {
+    if (endDate < startDate) {
       return NextResponse.json({ 
-        error: 'end_date must be after start_date' 
+        error: 'end_date must be on or after start_date' 
       }, { status: 400 });
     }
     
