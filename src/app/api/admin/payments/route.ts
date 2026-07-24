@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { applyPaymentCreditEffects } from '@/lib/member-credit';
+import { resolvePaymentDrivenStatus } from '@/lib/subscription-status';
 
 export async function GET(req: NextRequest) {
   try {
@@ -162,14 +163,12 @@ export async function POST(req: NextRequest) {
             );
           }
           
-          let newStatus = subscription.status;
-          if (totalPaid >= planPrice) {
-            newStatus = 'active';
-          } else if (totalPaid > 0) {
-            newStatus = 'pending';
-          } else {
-            newStatus = 'pending';
-          }
+          const newStatus = resolvePaymentDrivenStatus({
+            currentStatus: subscription.status,
+            endDate: subscription.end_date,
+            totalPaid,
+            planPrice,
+          });
           
           if (newStatus !== subscription.status) {
             const { error: updateError } = await supabaseServer()

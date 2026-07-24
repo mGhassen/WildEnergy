@@ -4,6 +4,7 @@ import {
   applyPaymentCreditEffects,
   reversePaymentCreditLedger,
 } from '@/lib/member-credit';
+import { resolvePaymentDrivenStatus } from '@/lib/subscription-status';
 
 function extractIdFromUrl(request: NextRequest): string | null {
   const match = request.nextUrl.pathname.match(/\/payments\/(.+?)(\/|$)/);
@@ -39,14 +40,12 @@ async function syncSubscriptionStatus(subscriptionId: number) {
   const totalPaid = (allPayments || []).reduce((sum, p) => sum + parseFloat(p.amount), 0);
   const planPrice = parseFloat(subscription.plan?.price || '0');
 
-  let newStatus = subscription.status;
-  if (totalPaid >= planPrice) {
-    newStatus = 'active';
-  } else if (totalPaid > 0) {
-    newStatus = 'pending';
-  } else {
-    newStatus = 'pending';
-  }
+  const newStatus = resolvePaymentDrivenStatus({
+    currentStatus: subscription.status,
+    endDate: subscription.end_date,
+    totalPaid,
+    planPrice,
+  });
 
   if (newStatus !== subscription.status) {
     const { error: updateError } = await supabaseServer()
