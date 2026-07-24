@@ -32,7 +32,7 @@ type RowBag = Record<string, any>
 type JoinedRow = Partial<Record<ObjectId, RowBag | null>>
 
 const TABLE_SELECT: Record<ObjectId, string> = {
-  members: "id, account_id, profile_id, credit, status, guest_count, created_at",
+  members: "id, account_id, profile_id, status, guest_count, created_at",
   subscriptions: "*",
   payments: "*",
   plans: "id, name, price, duration_days, is_active",
@@ -51,6 +51,15 @@ async function loadTables(
   const profilesRes = await sb.from("profiles").select("id, first_name, last_name")
   const profilesById = new Map((profilesRes.data || []).map((p: any) => [p.id, p]))
 
+  const creditEntriesRes = needed.includes("members")
+    ? await sb.from("member_credit_entries").select("member_id, amount")
+    : { data: [] as any[] }
+  const creditByMember = new Map<string, number>()
+  for (const row of creditEntriesRes.data || []) {
+    const id = String(row.member_id)
+    creditByMember.set(id, (creditByMember.get(id) || 0) + Number(row.amount || 0))
+  }
+
   const out = {} as Record<ObjectId, RowBag[]>
   await Promise.all(
     needed.map(async (id) => {
@@ -60,6 +69,7 @@ async function loadTables(
       if (id === "members" || id === "trainers") {
         rows = rows.map((r) => ({
           ...r,
+          ...(id === "members" ? { credit: creditByMember.get(String(r.id)) || 0 } : {}),
           _name: profileName(profilesById.get(r.profile_id)),
         }))
       }

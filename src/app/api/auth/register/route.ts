@@ -74,7 +74,6 @@ export async function POST(req: NextRequest) {
           account_id: authUserId,
           profile_id: profile.id, // Use profile.id instead of authUserId
           member_notes: '',
-          credit: 0,
           status: memberStatus,
         })
         .select('id')

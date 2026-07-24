@@ -1,9 +1,66 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import {
+  applyPaymentCreditEffects,
+  reversePaymentCreditLedger,
+} from '@/lib/member-credit';
 
 function extractIdFromUrl(request: NextRequest): string | null {
   const match = request.nextUrl.pathname.match(/\/payments\/(.+?)(\/|$)/);
   return match ? match[1] : null;
+}
+
+async function syncSubscriptionStatus(subscriptionId: number) {
+  const { data: subscription, error: subError } = await supabaseServer()
+    .from('subscriptions')
+    .select(`
+      *,
+      plan:plans(price)
+    `)
+    .eq('id', subscriptionId)
+    .single();
+
+  if (subError || !subscription) {
+    console.error('Error fetching subscription for status sync:', subError);
+    return;
+  }
+
+  const { data: allPayments, error: paymentsError } = await supabaseServer()
+    .from('payments')
+    .select('amount')
+    .eq('subscription_id', subscriptionId)
+    .eq('payment_status', 'paid');
+
+  if (paymentsError) {
+    console.error('Error fetching payments for status sync:', paymentsError);
+    return;
+  }
+
+  const totalPaid = (allPayments || []).reduce((sum, p) => sum + parseFloat(p.amount), 0);
+  const planPrice = parseFloat(subscription.plan?.price || '0');
+
+  let newStatus = subscription.status;
+  if (totalPaid >= planPrice) {
+    newStatus = 'active';
+  } else if (totalPaid > 0) {
+    newStatus = 'pending';
+  } else {
+    newStatus = 'pending';
+  }
+
+  if (newStatus !== subscription.status) {
+    const { error: updateError } = await supabaseServer()
+      .from('subscriptions')
+      .update({
+        status: newStatus,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', subscription.id);
+
+    if (updateError) {
+      console.error('Error updating subscription status:', updateError);
+    }
+  }
 }
 
 export async function PUT(request: NextRequest) {
@@ -12,6 +69,7 @@ export async function PUT(request: NextRequest) {
     if (!id) {
       return NextResponse.json({ error: 'Payment ID is required' }, { status: 400 });
     }
+    const paymentId = parseInt(id, 10);
 
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.split(' ')[1];
@@ -19,12 +77,11 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
 
-    // Verify admin
     const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-    
+
     const { data: adminCheck } = await supabaseServer()
       .from('user_profiles')
       .select('is_admin')
@@ -35,11 +92,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const rawPaymentData = await request.json();
-    console.log('Updating payment with data:', rawPaymentData);
-    console.log('Payment method from frontend:', rawPaymentData.payment_method);
-    console.log('Payment type from frontend:', rawPaymentData.payment_type);
 
-    // Validate required fields
     if (!rawPaymentData.subscription_id) {
       return NextResponse.json({ error: 'subscription_id is required' }, { status: 400 });
     }
@@ -50,7 +103,16 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'amount must be greater than 0' }, { status: 400 });
     }
 
-    // Transform the data to match database schema
+    const { data: existingPayment, error: existingError } = await supabaseServer()
+      .from('payments')
+      .select('*')
+      .eq('id', paymentId)
+      .single();
+
+    if (existingError || !existingPayment) {
+      return NextResponse.json({ error: 'Payment not found' }, { status: 404 });
+    }
+
     const paymentData = {
       subscription_id: parseInt(rawPaymentData.subscription_id),
       member_id: rawPaymentData.member_id,
@@ -63,22 +125,41 @@ export async function PUT(request: NextRequest) {
       updated_at: new Date().toISOString(),
     };
 
-    console.log('Transformed payment data for update:', paymentData);
+    // Undo previous wallet effects for this payment before re-applying
+    try {
+      await reversePaymentCreditLedger({
+        paymentId,
+        memberId: existingPayment.member_id,
+        entryDate: paymentData.payment_date,
+        createdBy: adminUser.email,
+        reason: `Reversal before update of payment #${paymentId}`,
+        legacyPayment: existingPayment,
+      });
+    } catch (reverseError) {
+      console.error('Error reversing payment credit before update:', reverseError);
+      return NextResponse.json(
+        {
+          error: reverseError instanceof Error
+            ? reverseError.message
+            : 'Failed to reverse previous credit effects',
+        },
+        { status: 400 }
+      );
+    }
 
-    // Update the payment
     const { data: payment, error } = await supabaseServer()
       .from('payments')
       .update(paymentData)
-      .eq('id', parseInt(id))
+      .eq('id', paymentId)
       .select('*')
       .single();
 
     if (error) {
       console.error('Payment update error:', error);
-      return NextResponse.json({ 
-        error: 'Failed to update payment', 
+      return NextResponse.json({
+        error: 'Failed to update payment',
         details: error.message,
-        code: error.code 
+        code: error.code,
       }, { status: 500 });
     }
 
@@ -86,9 +167,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Payment not found' }, { status: 404 });
     }
 
-    // Check if this payment update affects the subscription status
     if (payment.subscription_id) {
-      // Get the subscription and plan details
       const { data: subscription, error: subError } = await supabaseServer()
         .from('subscriptions')
         .select(`
@@ -97,96 +176,99 @@ export async function PUT(request: NextRequest) {
         `)
         .eq('id', payment.subscription_id)
         .single();
-        
+
       if (subError) {
         console.error('Error fetching subscription:', subError);
       } else if (subscription) {
-        // Get all payments for this subscription
         const { data: allPayments, error: paymentsError } = await supabaseServer()
           .from('payments')
-          .select('amount')
+          .select('id, amount')
           .eq('subscription_id', payment.subscription_id)
           .eq('payment_status', 'paid');
-          
+
         if (paymentsError) {
           console.error('Error fetching payments:', paymentsError);
         } else {
-          // Calculate total paid
-          const totalPaid = allPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
           const planPrice = parseFloat(subscription.plan?.price || '0');
-          
-          console.log(`Subscription ${subscription.id}: Total paid: ${totalPaid}, Plan price: ${planPrice}`);
-          
-          // Handle excess payment - add credit to member if payment exceeds subscription amount
-          if (totalPaid > planPrice && paymentData.payment_type !== 'credit') {
-            const excessAmount = totalPaid - planPrice;
-            console.log(`Payment exceeds subscription amount by ${excessAmount} TND. Adding to member credit.`);
-            
-            try {
-              // Get current member credit
-              const { data: member, error: memberError } = await supabaseServer()
-                .from('members')
-                .select('credit')
-                .eq('id', paymentData.member_id)
-                .single();
-                
-              if (memberError) {
-                console.error('Error fetching member credit for excess payment:', memberError);
-              } else if (member) {
-                const currentCredit = parseFloat(member.credit || '0');
-                const newCredit = currentCredit + excessAmount;
-                
-                // Update member credit with excess amount
-                const { error: creditUpdateError } = await supabaseServer()
-                  .from('members')
-                  .update({ 
-                    credit: newCredit.toString(),
-                    updated_at: new Date().toISOString()
-                  })
-                  .eq('id', paymentData.member_id);
-                  
-                if (creditUpdateError) {
-                  console.error('Error updating member credit with excess payment:', creditUpdateError);
-                } else {
-                  console.log(`Added ${excessAmount} TND excess payment to member ${paymentData.member_id} credit. New balance: ${newCredit} TND`);
-                }
-              }
-            } catch (error) {
-              console.error('Error processing excess payment credit:', error);
-            }
-          }
-          
-          // Determine the correct status based on payment amount
-          let newStatus = subscription.status;
-          if (totalPaid >= planPrice) {
-            // Full payment made - activate subscription
-            newStatus = 'active';
-          } else if (totalPaid > 0) {
-            // Partial payment - keep as pending
-            newStatus = 'pending';
-          } else {
-            // No payment - keep as pending
-            newStatus = 'pending';
-          }
-          
-          // Update subscription status if it changed
-          if (newStatus !== subscription.status) {
-            const { error: updateError } = await supabaseServer()
-              .from('subscriptions')
-              .update({ 
-                status: newStatus,
-                updated_at: new Date().toISOString()
+          const otherPaidTotal = (allPayments || [])
+            .filter((p) => p.id !== paymentId)
+            .reduce((sum, p) => sum + parseFloat(p.amount), 0);
+
+          try {
+            await applyPaymentCreditEffects({
+              paymentId,
+              memberId: paymentData.member_id,
+              amount: paymentData.amount,
+              paymentType: paymentData.payment_type,
+              paymentStatus: paymentData.payment_status,
+              paymentDate: paymentData.payment_date,
+              planPrice,
+              otherPaidTotal,
+              createdBy: adminUser.email,
+            });
+          } catch (creditError) {
+            console.error('Error applying payment credit after update:', creditError);
+            // Best-effort restore previous payment row
+            await supabaseServer()
+              .from('payments')
+              .update({
+                subscription_id: existingPayment.subscription_id,
+                member_id: existingPayment.member_id,
+                amount: existingPayment.amount,
+                payment_type: existingPayment.payment_type,
+                payment_status: existingPayment.payment_status,
+                payment_date: existingPayment.payment_date,
+                transaction_id: existingPayment.transaction_id,
+                notes: existingPayment.notes,
+                updated_at: new Date().toISOString(),
               })
-              .eq('id', subscription.id);
-              
-            if (updateError) {
-              console.error('Error updating subscription status:', updateError);
-            } else {
-              console.log(`Updated subscription ${subscription.id} status from '${subscription.status}' to '${newStatus}'`);
+              .eq('id', paymentId);
+
+            try {
+              const { data: restoredPayments } = await supabaseServer()
+                .from('payments')
+                .select('id, amount')
+                .eq('subscription_id', existingPayment.subscription_id)
+                .eq('payment_status', 'paid');
+              const restoredOther = (restoredPayments || [])
+                .filter((p) => p.id !== paymentId)
+                .reduce((sum, p) => sum + parseFloat(p.amount), 0);
+              await applyPaymentCreditEffects({
+                paymentId,
+                memberId: existingPayment.member_id,
+                amount: parseFloat(existingPayment.amount),
+                paymentType: existingPayment.payment_type,
+                paymentStatus: existingPayment.payment_status,
+                paymentDate: existingPayment.payment_date,
+                planPrice,
+                otherPaidTotal: restoredOther,
+                createdBy: adminUser.email,
+              });
+            } catch (restoreError) {
+              console.error('Failed to restore previous credit effects:', restoreError);
             }
+
+            return NextResponse.json(
+              {
+                error: creditError instanceof Error
+                  ? creditError.message
+                  : 'Failed to apply credit for updated payment',
+              },
+              { status: 400 }
+            );
           }
         }
+
+        await syncSubscriptionStatus(payment.subscription_id);
       }
+    }
+
+    // If subscription changed, sync old one too
+    if (
+      existingPayment.subscription_id &&
+      existingPayment.subscription_id !== payment.subscription_id
+    ) {
+      await syncSubscriptionStatus(existingPayment.subscription_id);
     }
 
     return NextResponse.json({ success: true, payment });
@@ -202,6 +284,7 @@ export async function DELETE(request: NextRequest) {
     if (!id) {
       return NextResponse.json({ error: 'Payment ID is required' }, { status: 400 });
     }
+    const paymentId = parseInt(id, 10);
 
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.split(' ')[1];
@@ -209,12 +292,11 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
 
-    // Verify admin
     const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-    
+
     const { data: adminCheck } = await supabaseServer()
       .from('user_profiles')
       .select('is_admin')
@@ -224,99 +306,59 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    // Get the payment details before deletion to check subscription
     const { data: paymentToDelete, error: fetchError } = await supabaseServer()
       .from('payments')
-      .select('subscription_id')
-      .eq('id', parseInt(id))
+      .select('*')
+      .eq('id', paymentId)
       .single();
 
-    if (fetchError) {
+    if (fetchError || !paymentToDelete) {
       console.error('Error fetching payment before deletion:', fetchError);
-      return NextResponse.json({ 
-        error: 'Payment not found', 
-        details: fetchError.message,
-        code: fetchError.code 
+      return NextResponse.json({
+        error: 'Payment not found',
+        details: fetchError?.message,
+        code: fetchError?.code,
       }, { status: 404 });
     }
 
-    // Delete the payment
+    // Reverse wallet effects before deleting (FK sets payment_id null on delete)
+    try {
+      await reversePaymentCreditLedger({
+        paymentId,
+        memberId: paymentToDelete.member_id,
+        entryDate: paymentToDelete.payment_date || undefined,
+        createdBy: adminUser.email,
+        reason: `Reversal after deleting payment #${paymentId}`,
+        legacyPayment: paymentToDelete,
+      });
+    } catch (reverseError) {
+      console.error('Error reversing payment credit on delete:', reverseError);
+      return NextResponse.json(
+        {
+          error: reverseError instanceof Error
+            ? reverseError.message
+            : 'Failed to reverse credit for deleted payment',
+        },
+        { status: 400 }
+      );
+    }
+
     const { error } = await supabaseServer()
       .from('payments')
       .delete()
-      .eq('id', parseInt(id));
+      .eq('id', paymentId);
 
     if (error) {
       console.error('Payment deletion error:', error);
-      return NextResponse.json({ 
-        error: 'Failed to delete payment', 
+      return NextResponse.json({
+        error: 'Failed to delete payment',
         details: error.message,
-        code: error.code 
+        code: error.code,
       }, { status: 500 });
     }
 
-    // Check if this payment deletion affects the subscription status
     if (paymentToDelete.subscription_id) {
-      // Get the subscription and plan details
-      const { data: subscription, error: subError } = await supabaseServer()
-        .from('subscriptions')
-        .select(`
-          *,
-          plan:plans(price)
-        `)
-        .eq('id', paymentToDelete.subscription_id)
-        .single();
-        
-      if (subError) {
-        console.error('Error fetching subscription:', subError);
-      } else if (subscription) {
-        // Get all remaining payments for this subscription
-        const { data: allPayments, error: paymentsError } = await supabaseServer()
-          .from('payments')
-          .select('amount')
-          .eq('subscription_id', paymentToDelete.subscription_id)
-          .eq('payment_status', 'paid');
-          
-        if (paymentsError) {
-          console.error('Error fetching payments:', paymentsError);
-        } else {
-          // Calculate total paid after deletion
-          const totalPaid = allPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
-          const planPrice = parseFloat(subscription.plan?.price || '0');
-          
-          console.log(`After payment deletion - Subscription ${subscription.id}: Total paid: ${totalPaid}, Plan price: ${planPrice}`);
-          
-          // Determine the correct status based on payment amount
-          let newStatus = subscription.status;
-          if (totalPaid >= planPrice) {
-            // Full payment made - activate subscription
-            newStatus = 'active';
-          } else if (totalPaid > 0) {
-            // Partial payment - keep as pending
-            newStatus = 'pending';
-          } else {
-            // No payment - keep as pending
-            newStatus = 'pending';
-          }
-          
-          // Update subscription status if it changed
-          if (newStatus !== subscription.status) {
-            const { error: updateError } = await supabaseServer()
-              .from('subscriptions')
-              .update({ 
-                status: newStatus,
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', subscription.id);
-              
-            if (updateError) {
-              console.error('Error updating subscription status:', updateError);
-            } else {
-              console.log(`Updated subscription ${subscription.id} status from '${subscription.status}' to '${newStatus}' after payment deletion`);
-            }
-          }
-        }
-      }
+      await syncSubscriptionStatus(paymentToDelete.subscription_id);
     }
 
     return NextResponse.json({ success: true, message: 'Payment deleted successfully' });
@@ -324,4 +366,4 @@ export async function DELETE(request: NextRequest) {
     console.error('Payment deletion error:', error);
     return NextResponse.json({ error: 'Failed to delete payment' }, { status: 500 });
   }
-} 
+}

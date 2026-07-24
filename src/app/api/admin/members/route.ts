@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { applyMemberCreditChange, getMemberCreditBalance, getMemberCreditBalancesMap } from '@/lib/member-credit';
 
 async function verifyAdminAuth(req: NextRequest) {
   const authHeader = req.headers.get('authorization');
@@ -56,13 +57,13 @@ export async function POST(req: NextRequest) {
     }
 
     const memberStatus = status || 'active';
-    const { data: member, error: memberError } = await supabaseServer()
+    const initialCredit = Number(credit) || 0;
+      const { data: member, error: memberError } = await supabaseServer()
       .from('members')
       .insert({
         account_id: null,
         profile_id: profile.id,
         member_notes: memberNotes || '',
-        credit: credit ?? 0,
         status: memberStatus,
       })
       .select()
@@ -76,6 +77,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (initialCredit > 0) {
+      try {
+        await applyMemberCreditChange({
+          memberId: member.id,
+          delta: initialCredit,
+          entryType: 'initial',
+          notes: 'Initial credit on member creation',
+          createdBy: authResult.adminUser?.email || null,
+        });
+      } catch (creditError) {
+        console.error('Failed to apply initial credit:', creditError);
+      }
+    }
+
+    const creditBalance = await getMemberCreditBalance(member.id);
+
     return NextResponse.json(
       {
         id: member.id,
@@ -85,7 +102,7 @@ export async function POST(req: NextRequest) {
         email: null,
         profile_email: profile.profile_email,
         phone: profile.phone,
-        credit: member.credit,
+        credit: creditBalance,
         member_notes: member.member_notes,
         member_status: member.status,
         created_at: member.created_at,
@@ -231,7 +248,7 @@ export async function GET(req: NextRequest) {
       profile_email: m.profiles?.profile_email || null,
       phone: m.profiles?.phone,
       is_member: true,
-      credit: m.credit ?? 0,
+      credit: 0,
       member_notes: m.member_notes,
       member_status: m.status,
       user_type: 'member',
@@ -243,6 +260,12 @@ export async function GET(req: NextRequest) {
 
     // Combine both lists
     const allMembers = [...linkedMembersFormatted, ...unlinkedMembersFormatted];
+
+    // Credit from ledger SUM (not members.credit)
+    const creditByMember = await getMemberCreditBalancesMap(allMembers.map((m) => m.id));
+    for (const member of allMembers) {
+      member.credit = creditByMember.get(member.id) ?? 0;
+    }
     
     // Sort by first name
     allMembers.sort((a, b) => a.first_name.localeCompare(b.first_name));

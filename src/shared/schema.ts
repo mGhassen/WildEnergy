@@ -37,8 +37,8 @@ export const members = pgTable("members", {
   accountId: uuid("account_id").notNull().references(() => accounts.id, { onDelete: "cascade" }),
   profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
   memberNotes: text("member_notes"),
-  credit: numeric("credit").default("0"),
   status: text("status", { enum: ['active', 'inactive', 'suspended'] }).notNull().default("active"),
+  // credit lives in member_credit_entries (SUM), not on members
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -200,11 +200,47 @@ export const checkins = pgTable("checkins", {
   notes: text("notes"),
 });
 
+// Member credit ledger — append-only history of wallet changes
+export const memberCreditEntries = pgTable("member_credit_entries", {
+  id: serial("id").primaryKey(),
+  memberId: uuid("member_id").references(() => members.id, { onDelete: "cascade" }).notNull(),
+  amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
+  entryType: text("entry_type", {
+    enum: [
+      'manual_add',
+      'manual_remove',
+      'payment_use',
+      'payment_excess',
+      'payment_reversal',
+      'initial',
+      'opening_balance',
+    ],
+  }).notNull(),
+  entryDate: date("entry_date").notNull(),
+  notes: text("notes"),
+  balanceAfter: numeric("balance_after", { precision: 10, scale: 2 }).notNull(),
+  paymentId: integer("payment_id").references(() => payments.id, { onDelete: "set null" }),
+  createdBy: text("created_by"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
 // Relations
 export const membersRelations = relations(members, ({ many }) => ({
   subscriptions: many(subscriptions),
   registrations: many(classRegistrations),
   checkins: many(checkins),
+  creditEntries: many(memberCreditEntries),
+}));
+
+export const memberCreditEntriesRelations = relations(memberCreditEntries, ({ one }) => ({
+  member: one(members, {
+    fields: [memberCreditEntries.memberId],
+    references: [members.id],
+  }),
+  payment: one(payments, {
+    fields: [memberCreditEntries.paymentId],
+    references: [payments.id],
+  }),
 }));
 
 export const trainersRelations = relations(trainers, ({ many }) => ({

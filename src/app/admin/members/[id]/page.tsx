@@ -18,6 +18,7 @@ import { AccountLinkingDialog } from "@/components/account-linking-dialog";
 import { UnlinkAccountDialog } from "@/components/unlink-account-dialog";
 import { CreateAccountDialog } from "@/components/create-account-dialog";
 import { ConfirmationDialog } from "@/components/confirmation-dialog";
+import { ManageCreditDialog } from "@/components/manage-credit-dialog";
 import { 
   ArrowLeft,
   MoreHorizontal,
@@ -47,7 +48,8 @@ import {
   Link,
   Unlink,
   UserPlus,
-  AlertCircle
+  AlertCircle,
+  Wallet
 } from "lucide-react";
 import { formatDate, formatDateRange, isOnOrBeforeToday } from "@/lib/date";
 import { formatCurrency } from "@/lib/config";
@@ -198,6 +200,7 @@ export default function MemberDetailsPage() {
   const [showUnlinkDialog, setShowUnlinkDialog] = useState(false);
   const [showCreateAccountDialog, setShowCreateAccountDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showManageCreditDialog, setShowManageCreditDialog] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
   // Fetch member details
@@ -342,8 +345,20 @@ export default function MemberDetailsPage() {
 
   const relevantSubscription = getRelevantSubscription(subscriptions);
 
+  const outstandingDebit = subscriptions.reduce((sum, sub) => {
+    const planPrice = Number(sub.plan?.price) || 0;
+    const paid = payments
+      .filter((p) => p.subscription_id === sub.id && p.payment_status === 'paid')
+      .reduce((paidSum, p) => paidSum + (Number(p.amount) || 0), 0);
+    return sum + Math.max(0, planPrice - paid);
+  }, 0);
+
   const handleEditMember = () => {
     setIsEditing(true);
+  };
+
+  const handleManageCredit = () => {
+    setShowManageCreditDialog(true);
   };
 
   const handleSaveMember = async () => {
@@ -367,9 +382,10 @@ export default function MemberDetailsPage() {
     }
 
     try {
+      const { credit: _credit, ...memberData } = editForm;
       await updateMemberMutation.mutateAsync({
         memberId: member.id,
-        data: editForm
+        data: memberData
       });
       setIsEditing(false);
     } catch (error) {
@@ -553,6 +569,10 @@ export default function MemberDetailsPage() {
                     <Edit className="w-4 h-4 mr-2" />
                     Edit Member
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleManageCredit}>
+                    <Wallet className="w-4 h-4 mr-2" />
+                    Manage Credit
+                  </DropdownMenuItem>
               <DropdownMenuSeparator />
               {member.account_id ? (
                 <DropdownMenuItem onClick={handleUnlinkAccount} disabled={unlinkAccountMutation.isPending}>
@@ -675,18 +695,36 @@ export default function MemberDetailsPage() {
           </CardContent>
         </Card>
 
-        {member.credit > 0 && (
-          <Card className="border-l-4 border-l-emerald-500">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Account Credit</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-emerald-600">
-                {formatCurrency(member.credit)}
+        <Card
+          className="border-l-4 border-l-emerald-500 cursor-pointer hover:shadow-md transition-shadow"
+          onClick={handleManageCredit}
+        >
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+              <Wallet className="w-3.5 h-3.5" />
+              Balance
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <p className="text-xs text-muted-foreground">Credit</p>
+                <p className="text-xl font-bold tabular-nums text-emerald-600">
+                  {formatCurrency(member.credit)}
+                </p>
               </div>
-            </CardContent>
-          </Card>
-        )}
+              <div className="border-l pl-3">
+                <p className="text-xs text-muted-foreground">Debit</p>
+                <p className="text-xl font-bold tabular-nums text-red-600">
+                  {formatCurrency(outstandingDebit)}
+                </p>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Click to manage credit →
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Main Content Tabs */}
@@ -884,16 +922,29 @@ export default function MemberDetailsPage() {
                 </div>
                 
                 
-                {/* Credit Balance */}
+                {/* Credit Balance — managed via Manage Credit dialog */}
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Credit Balance</Label>
                   {isEditing ? (
-                    <Input
-                      type="number"
-                      value={editForm.credit}
-                      onChange={(e) => setEditForm({...editForm, credit: parseFloat(e.target.value) || 0})}
-                      className="mt-1"
-                    />
+                    <div className="mt-1 space-y-2">
+                      <Input
+                        type="number"
+                        value={editForm.credit}
+                        disabled
+                        className="bg-muted cursor-not-allowed"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Use{" "}
+                        <button
+                          type="button"
+                          className="text-primary underline-offset-2 hover:underline"
+                          onClick={handleManageCredit}
+                        >
+                          Manage Credit
+                        </button>{" "}
+                        from the Actions menu to add or remove credit.
+                      </p>
+                    </div>
                   ) : (
                     <p className="text-sm font-medium">{formatCurrency(member.credit)}</p>
                   )}
@@ -1204,6 +1255,13 @@ export default function MemberDetailsPage() {
         isOpen={showCreateAccountDialog}
         onClose={() => setShowCreateAccountDialog(false)}
         memberId={memberId}
+        memberName={`${member.firstName} ${member.lastName}`}
+      />
+
+      <ManageCreditDialog
+        open={showManageCreditDialog}
+        onOpenChange={setShowManageCreditDialog}
+        memberId={member.id}
         memberName={`${member.firstName} ${member.lastName}`}
       />
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { mapMemberStatusToAccountStatus } from '@/lib/status-mapping';
+import { applyMemberCreditChange } from '@/lib/member-credit';
 
 async function verifyAdminAuth(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
@@ -64,13 +65,13 @@ export async function POST(request: NextRequest) {
 
     // Create member record
     const memberStatus = status || 'active';
+    const initialCredit = Number(credit) || 0;
     const { data: member, error: memberError } = await supabaseServer()
       .from('members')
       .insert({
         account_id: accountId,
         profile_id: account.profile_id, // Use the account's profile_id
         member_notes: memberNotes || '',
-        credit: credit || 0,
         status: memberStatus,
       })
       .select()
@@ -78,6 +79,20 @@ export async function POST(request: NextRequest) {
 
     if (memberError) {
       return NextResponse.json({ error: memberError.message || 'Failed to create member record' }, { status: 500 });
+    }
+
+    if (initialCredit > 0) {
+      try {
+        await applyMemberCreditChange({
+          memberId: member.id,
+          delta: initialCredit,
+          entryType: 'initial',
+          notes: 'Initial credit on member creation',
+          createdBy: authResult.adminUser?.email || null,
+        });
+      } catch (creditError) {
+        console.error('Failed to apply initial credit:', creditError);
+      }
     }
 
     // Update account status to match member status

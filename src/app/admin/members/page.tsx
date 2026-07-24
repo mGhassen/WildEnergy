@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useMembers, useDeleteMember, useCreateMember } from "@/hooks/useMembers";
 import { ConfirmationDialog } from "@/components/confirmation-dialog";
+import { ManageCreditDialog } from "@/components/manage-credit-dialog";
 import { 
   Search, 
   User, 
@@ -46,7 +47,8 @@ import {
   DollarSign,
   Link,
   Unlink,
-  Loader2
+  Loader2,
+  Wallet
 } from "lucide-react";
 import { formatDate } from "@/lib/date";
 import { formatCurrency } from "@/lib/config";
@@ -213,6 +215,7 @@ export default function MembersPage() {
   const [viewMode, setViewMode] = useState<"grid" | "table">("table");
   const [showFilters, setShowFilters] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Member | null>(null);
+  const [creditManageTarget, setCreditManageTarget] = useState<Member | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [createForm, setCreateForm] = useState({
     firstName: "",
@@ -459,6 +462,13 @@ export default function MembersPage() {
                 >
                   <Edit className="w-4 h-4 mr-2" />
                   Edit Member
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onPointerDown={(e) => e.preventDefault()}
+                  onSelect={() => setCreditManageTarget(member)}
+                >
+                  <Wallet className="w-4 h-4 mr-2" />
+                  Manage Credit
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onPointerDown={(e) => e.preventDefault()}>
@@ -892,6 +902,13 @@ export default function MembersPage() {
                               <Edit className="w-4 h-4 mr-2" />
                               Edit Member
                             </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onPointerDown={(e) => e.preventDefault()}
+                              onSelect={() => setCreditManageTarget(member)}
+                            >
+                              <Wallet className="w-4 h-4 mr-2" />
+                              Manage Credit
+                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onPointerDown={(e) => e.preventDefault()}>
                               <Mail className="w-4 h-4 mr-2" />
@@ -988,6 +1005,13 @@ export default function MembersPage() {
                             >
                               <Edit className="w-4 h-4 mr-2" />
                               Edit Member
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onPointerDown={(e) => e.preventDefault()}
+                              onSelect={() => setCreditManageTarget(member)}
+                            >
+                              <Wallet className="w-4 h-4 mr-2" />
+                              Manage Credit
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onPointerDown={(e) => e.preventDefault()}>
@@ -1110,6 +1134,17 @@ export default function MembersPage() {
         variant="destructive"
         isPending={deleteMemberMutation.isPending}
       />
+
+      {creditManageTarget && (
+        <ManageCreditDialog
+          open={!!creditManageTarget}
+          onOpenChange={(open) => {
+            if (!open) setCreditManageTarget(null);
+          }}
+          memberId={creditManageTarget.id}
+          memberName={`${creditManageTarget.first_name} ${creditManageTarget.last_name}`}
+        />
+      )}
 
       <Dialog
         open={isCreateDialogOpen}

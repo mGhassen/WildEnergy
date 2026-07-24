@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { mapMemberStatusToAccountStatus } from '@/lib/status-mapping';
 import { resolveProfileIdForAccount } from '@/lib/resolve-account-profile';
+import { applyMemberCreditChange } from '@/lib/member-credit';
 
 export async function GET(req: NextRequest) {
   try {
@@ -132,13 +133,13 @@ export async function POST(req: NextRequest) {
     // Create member record if member data is provided
     if (memberData) {
       const memberStatus = memberData.status || 'active';
+      const initialCredit = Number(memberData.credit) || 0;
       const { data: member, error: memberError } = await supabaseServer()
         .from('members')
         .insert([{
           account_id: account.id,
           profile_id: profile.id, // Use profile.id instead of account.id
           member_notes: memberData.memberNotes || '',
-          credit: memberData.credit || 0,
           status: memberStatus,
         }])
         .select()
@@ -146,6 +147,19 @@ export async function POST(req: NextRequest) {
       
       if (memberError) {
         return NextResponse.json({ error: memberError.message || 'Failed to create member record' }, { status: 500 });
+      }
+
+      if (initialCredit > 0) {
+        try {
+          await applyMemberCreditChange({
+            memberId: member.id,
+            delta: initialCredit,
+            entryType: 'initial',
+            notes: 'Initial credit on member creation',
+          });
+        } catch (creditError) {
+          console.error('Failed to apply initial credit:', creditError);
+        }
       }
 
       // Note: Account status is already set correctly from user selection
@@ -288,7 +302,7 @@ export async function PUT(req: NextRequest) {
     if (memberData) {
       const memberUpdates: Record<string, unknown> = {};
       if (memberData.memberNotes !== undefined) memberUpdates.member_notes = memberData.memberNotes;
-      if (memberData.credit !== undefined) memberUpdates.credit = memberData.credit;
+      // Credit is ledger-only (member_credit_entries)
       if (memberData.status !== undefined) memberUpdates.status = memberData.status;
       
       // Check if member record exists
@@ -330,18 +344,33 @@ export async function PUT(req: NextRequest) {
           return NextResponse.json({ error: 'Account not found' }, { status: 404 });
         }
         const memberStatus = memberData.status || 'active';
-        const { error: memberError } = await supabaseServer()
+        const initialCredit = Number(memberData.credit) || 0;
+        const { data: createdMember, error: memberError } = await supabaseServer()
           .from('members')
           .insert([{
             account_id: accountId,
             profile_id: profileId,
             member_notes: memberData.memberNotes || '',
-            credit: memberData.credit || 0,
             status: memberStatus,
-          }]);
+          }])
+          .select('id')
+          .single();
         
-        if (memberError) {
+        if (memberError || !createdMember) {
           return NextResponse.json({ error: 'Failed to create member record' }, { status: 500 });
+        }
+
+        if (initialCredit > 0) {
+          try {
+            await applyMemberCreditChange({
+              memberId: createdMember.id,
+              delta: initialCredit,
+              entryType: 'initial',
+              notes: 'Initial credit on member creation',
+            });
+          } catch (creditError) {
+            console.error('Failed to apply initial credit:', creditError);
+          }
         }
 
         // Update account status to match member status

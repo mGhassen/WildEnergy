@@ -609,6 +609,7 @@ export async function GET(req: NextRequest) {
 
     const [
       membersRes,
+      creditEntriesRes,
       paymentsRes,
       coursesRes,
       regsRes,
@@ -624,7 +625,8 @@ export async function GET(req: NextRequest) {
       accountsRes,
       profilesRes,
     ] = await Promise.all([
-      sb.from('members').select('id, account_id, profile_id, credit, status, guest_count, created_at'),
+      sb.from('members').select('id, account_id, profile_id, status, guest_count, created_at'),
+      sb.from('member_credit_entries').select('member_id, amount'),
       sb.from('payments').select('*'),
       sb.from('courses').select('*'),
       sb.from('class_registrations').select('*'),
@@ -641,9 +643,16 @@ export async function GET(req: NextRequest) {
       sb.from('profiles').select('id, first_name, last_name, profession, date_of_birth'),
     ]);
 
+    const creditByMember = new Map<string, number>();
+    for (const row of creditEntriesRes.data || []) {
+      const id = String(row.member_id);
+      creditByMember.set(id, (creditByMember.get(id) || 0) + num(row.amount));
+    }
+
     const profilesById = new Map((profilesRes.data || []).map((p: any) => [p.id, p]));
     const members = (membersRes.data || []).map((m: any) => ({
       ...m,
+      credit: creditByMember.get(String(m.id)) || 0,
       profile: profilesById.get(m.profile_id) || null,
     }));
 

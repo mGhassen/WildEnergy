@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { mapMemberStatusToAccountStatus } from '@/lib/status-mapping';
+import { getMemberCreditBalance } from '@/lib/member-credit';
 
 export async function GET(
   request: NextRequest,
@@ -109,7 +110,7 @@ export async function GET(
           emergency_contact_phone: unlinkedMember.profiles.emergency_contact_phone,
           profile_image_url: unlinkedMember.profiles.profile_image_url,
           member_notes: unlinkedMember.member_notes,
-          credit: unlinkedMember.credit,
+          credit: 0,
           member_status: unlinkedMember.status,
           created_at: unlinkedMember.created_at,
           trainer_id: null,
@@ -207,6 +208,8 @@ export async function GET(
       .eq('member_id', id)
       .order('payment_date', { ascending: false });
 
+    const credit = await getMemberCreditBalance(member.member_id || id);
+
     // Format the response
     const memberDetails = {
       member: {
@@ -223,7 +226,7 @@ export async function GET(
         address: member.address,
         profession: member.profession,
         memberNotes: member.member_notes,
-        credit: member.credit,
+        credit,
         userType: member.user_type,
         accessiblePortals: member.accessible_portals,
         createdAt: memberCreatedAt,
@@ -498,7 +501,7 @@ export async function PUT(
       memberUpdates.member_notes = body.memberNotes === "" ? null : body.memberNotes;
     }
     if (body.status !== undefined) memberUpdates.status = body.status;
-    if (body.credit !== undefined) memberUpdates.credit = body.credit;
+    // Credit is managed exclusively via /api/admin/members/[id]/credit
     if (body.createdAt) {
       memberUpdates.created_at = body.createdAt;
     }

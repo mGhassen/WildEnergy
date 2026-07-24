@@ -130,7 +130,6 @@ export async function POST(req: NextRequest) {
         profile_id: profile.id,
         member_notes: '',
         status: 'inactive',
-        credit: 0,
       });
 
       if (memberError) {

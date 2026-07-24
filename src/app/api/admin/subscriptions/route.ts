@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { deleteSubscriptionWithDependents } from '@/lib/subscription-delete-cleanup';
+import { getMemberCreditBalancesMap } from '@/lib/member-credit';
 
 export async function GET(req: NextRequest) {
   try {
@@ -31,7 +32,6 @@ export async function GET(req: NextRequest) {
         *,
         members:member_id(
           id,
-          credit,
           status,
           profiles:profile_id(
             first_name,
@@ -84,6 +84,14 @@ export async function GET(req: NextRequest) {
     }
     
     // Flatten member join to the shape the admin table expects
+    const memberIds = (subscriptions || [])
+      .map((sub) => {
+        const memberRow = Array.isArray(sub.members) ? sub.members[0] : sub.members;
+        return memberRow?.id as string | undefined;
+      })
+      .filter((id): id is string => !!id);
+    const creditByMember = await getMemberCreditBalancesMap([...new Set(memberIds)]);
+
     const processedSubscriptions = subscriptions?.map(sub => {
       const memberRow = Array.isArray(sub.members) ? sub.members[0] : sub.members;
       const { members: _members, ...rest } = sub;
@@ -95,7 +103,7 @@ export async function GET(req: NextRequest) {
           last_name: memberRow.profiles?.last_name || '',
           account_email: memberRow.accounts?.email || '',
           member_status: memberRow.status || 'active',
-          credit: parseFloat(memberRow.credit) || 0,
+          credit: creditByMember.get(memberRow.id) ?? 0,
         } : null,
         plan: sub.plan ? {
           ...sub.plan,
