@@ -13,7 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCreatePayment } from "@/hooks/usePayments";
-import { formatDate, formatSubscriptionPeriod, subscriptionDurationDays, subscriptionLastValidDate } from "@/lib/date";
+import { formatDate, subscriptionDurationDays } from "@/lib/date";
 import { formatCurrency, CURRENCY_SYMBOL } from "@/lib/config";
 import { CreditCard, Info, Calendar, Users, Plus, DollarSign, AlertTriangle } from "lucide-react";
 
@@ -265,7 +265,7 @@ export function SubscriptionDetails({
                 <Badge variant={subscription.status === 'active' ? 'default' : 'secondary'} className="text-sm">
                   {subscription.status}
                 </Badge>
-                <p className="text-xs text-muted-foreground mt-1">Until {formatDate(subscriptionLastValidDate(subscription.end_date))}</p>
+                <p className="text-xs text-muted-foreground mt-1">Until {formatDate(subscription.end_date)}</p>
               </div>
             </div>
 
@@ -306,12 +306,12 @@ export function SubscriptionDetails({
                 </h4>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Period:</span>
-                    <span className="font-medium">{formatSubscriptionPeriod(subscription.start_date, subscription.end_date)}</span>
+                    <span className="text-muted-foreground">Start Date:</span>
+                    <span className="font-medium">{formatDate(subscription.start_date)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Valid until:</span>
-                    <span className="font-medium">{formatDate(subscriptionLastValidDate(subscription.end_date))}</span>
+                    <span className="text-muted-foreground">End Date:</span>
+                    <span className="font-medium">{formatDate(subscription.end_date)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Duration:</span>

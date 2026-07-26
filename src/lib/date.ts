@@ -49,15 +49,6 @@ export function isSubscriptionActiveByEndDate(
   return endKey > fromKey;
 }
 
-/** Last calendar day covered (day before exclusive end). */
-export function subscriptionLastValidDate(
-  endDate: string | Date | null | undefined,
-): string | null {
-  const endKey = toDateKey(endDate);
-  if (!endKey) return null;
-  return addUtcDays(endKey, -1);
-}
-
 /** Sold duration in days (exclusive end − start). */
 export function subscriptionDurationDays(
   startDate: string | Date | null | undefined,
@@ -88,17 +79,17 @@ export function calculateSubscriptionEndDate(startDate: string, durationDays: nu
   return addUtcDays(startKey, days);
 }
 
-/** Display period using last valid day; one date when duration is 1 day. */
+/** Display stored start/end as-is (same values as DB / edit form). */
 export function formatSubscriptionPeriod(
   startDate: string | Date | null | undefined,
   endDate: string | Date | null | undefined,
 ): string {
   if (!startDate || !endDate) return 'N/A';
   const startKey = toDateKey(startDate);
-  const lastKey = subscriptionLastValidDate(endDate);
-  if (!startKey || !lastKey) return 'Plage de dates invalide';
-  if (startKey === lastKey) return formatDate(startDate);
-  return `${formatDate(startDate)} - ${formatDate(lastKey)}`;
+  const endKey = toDateKey(endDate);
+  if (!startKey || !endKey) return 'Plage de dates invalide';
+  if (startKey === endKey) return formatDate(startDate);
+  return `${formatDate(startDate)} - ${formatDate(endDate)}`;
 }
 
 /**
@@ -253,8 +244,7 @@ export function formatCalendarDate(date: string | Date | null | undefined): stri
 }
 
 /**
- * Format date range (generic). Prefer formatSubscriptionPeriod for subscriptions
- * (exclusive midnight end).
+ * Format date range (generic).
  */
 export function formatDateRange(startDate: string | Date | null | undefined, endDate: string | Date | null | undefined): string {
   if (!startDate || !endDate) {
