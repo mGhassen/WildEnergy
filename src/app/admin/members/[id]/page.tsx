@@ -706,14 +706,14 @@ export default function MemberDetailsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
+            <div className="space-y-2">
+              <div className="flex items-baseline justify-between gap-3">
                 <p className="text-xs text-muted-foreground">Credit</p>
                 <p className="text-xl font-bold tabular-nums text-emerald-600">
                   {formatCurrency(member.credit)}
                 </p>
               </div>
-              <div className="border-l pl-3">
+              <div className="flex items-baseline justify-between gap-3">
                 <p className="text-xs text-muted-foreground">Debit</p>
                 <p className="text-xl font-bold tabular-nums text-red-600">
                   {formatCurrency(outstandingDebit)}
