@@ -195,20 +195,20 @@ export function ManageCreditDialog({
         </DialogHeader>
 
         <div className="px-6 pb-4">
-          <div className="grid grid-cols-2 gap-3 rounded-lg border bg-muted/40 p-4">
-            <div>
+          <div className="space-y-3 rounded-lg border bg-muted/40 p-4">
+            <div className="flex items-baseline justify-between gap-3">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Credit
               </p>
-              <p className="mt-1 text-2xl font-bold tabular-nums text-emerald-600">
+              <p className="text-2xl font-bold tabular-nums text-emerald-600">
                 {isLoading ? "—" : formatCurrency(credit)}
               </p>
             </div>
-            <div className="border-l pl-3">
+            <div className="flex items-baseline justify-between gap-3 border-t pt-3">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Debit due
               </p>
-              <p className="mt-1 text-2xl font-bold tabular-nums text-red-600">
+              <p className="text-2xl font-bold tabular-nums text-red-600">
                 {isLoading ? "—" : formatCurrency(debit)}
               </p>
             </div>
