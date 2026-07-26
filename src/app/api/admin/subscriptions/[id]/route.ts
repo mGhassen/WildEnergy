@@ -87,8 +87,8 @@ export async function PUT(request: NextRequest) {
     if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
       return NextResponse.json({ error: 'Invalid start_date or end_date' }, { status: 400 });
     }
-    if (endDate < startDate) {
-      return NextResponse.json({ error: 'end_date must be on or after start_date' }, { status: 400 });
+    if (endDate <= startDate) {
+      return NextResponse.json({ error: 'end_date must be after start_date' }, { status: 400 });
     }
 
     // Update subscription

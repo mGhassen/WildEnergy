@@ -51,7 +51,7 @@ import {
   AlertCircle,
   Wallet
 } from "lucide-react";
-import { formatDate, formatDateRange, isOnOrBeforeToday } from "@/lib/date";
+import { formatDate, formatSubscriptionPeriod, isSubscriptionActiveByEndDate } from "@/lib/date";
 import { formatCurrency } from "@/lib/config";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { TableSkeleton } from "@/components/skeletons";
@@ -334,7 +334,7 @@ export default function MemberDetailsPage() {
   // Get the most relevant subscription
   const getRelevantSubscription = (subscriptions: Subscription[]) => {
     if (!subscriptions || subscriptions.length === 0) return null;
-    const active = subscriptions.find(sub => sub.status === 'active' && isOnOrBeforeToday(sub.endDate));
+    const active = subscriptions.find(sub => sub.status === 'active' && isSubscriptionActiveByEndDate(sub.endDate));
     if (active) return active;
     return subscriptions.slice().sort((a, b) => {
       const aDate = a.endDate ? new Date(a.endDate).getTime() : 0;
@@ -1030,7 +1030,7 @@ export default function MemberDetailsPage() {
                         <div className="space-y-2">
                           <h4 className="font-medium">{subscription.plan?.name || 'Unknown Plan'}</h4>
                           <p className="text-sm text-muted-foreground">
-                            {formatDateRange(subscription.startDate, subscription.endDate)}
+                            {formatSubscriptionPeriod(subscription.startDate, subscription.endDate)}
                           </p>
                           {subscription.plan && (
                             <p className="text-sm text-muted-foreground">

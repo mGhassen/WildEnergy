@@ -52,7 +52,8 @@ export function overlapsRange(
 ): boolean {
   if (!startStr || !endStr) return false;
   const start = startOfDay(parseISO(startStr.slice(0, 10)));
-  const end = endOfDay(parseISO(endStr.slice(0, 10)));
+  // Subscription end is exclusive midnight: coverage through end of previous day.
+  const end = endOfDay(addDays(parseISO(endStr.slice(0, 10)), -1));
   return start <= range.to && end >= range.from;
 }
 

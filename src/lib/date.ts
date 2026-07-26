@@ -22,44 +22,83 @@ export function toDateKey(date: string | Date | null | undefined): string | null
   }).format(dateObj);
 }
 
-/** Inclusive end: valid through the full end calendar day. */
-export function isOnOrBeforeToday(endDate: string | Date | null | undefined, from: Date = new Date()): boolean {
+function addUtcDays(dateKey: string, days: number): string {
+  const d = new Date(`${dateKey}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function diffUtcDays(startKey: string, endKey: string): number {
+  const start = new Date(`${startKey}T00:00:00Z`);
+  const end = new Date(`${endKey}T00:00:00Z`);
+  return Math.round((end.getTime() - start.getTime()) / 86_400_000);
+}
+
+/**
+ * Subscription end is exclusive midnight: end = start + duration.
+ * Active while calendar today < end_date (dies at that midnight).
+ * 1-day plan: start=D, end=D+1 → valid only on D.
+ */
+export function isSubscriptionActiveByEndDate(
+  endDate: string | Date | null | undefined,
+  from: Date = new Date(),
+): boolean {
   const endKey = toDateKey(endDate);
   const fromKey = toDateKey(from);
   if (!endKey || !fromKey) return false;
-  return endKey >= fromKey;
+  return endKey > fromKey;
 }
 
-export function inclusiveDayCount(
+/** Last calendar day covered (day before exclusive end). */
+export function subscriptionLastValidDate(
+  endDate: string | Date | null | undefined,
+): string | null {
+  const endKey = toDateKey(endDate);
+  if (!endKey) return null;
+  return addUtcDays(endKey, -1);
+}
+
+/** Sold duration in days (exclusive end − start). */
+export function subscriptionDurationDays(
   startDate: string | Date | null | undefined,
   endDate: string | Date | null | undefined,
 ): number {
   const startKey = toDateKey(startDate);
   const endKey = toDateKey(endDate);
   if (!startKey || !endKey) return 0;
-  const start = new Date(`${startKey}T00:00:00Z`);
-  const end = new Date(`${endKey}T00:00:00Z`);
-  return Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1;
+  return Math.max(0, diffUtcDays(startKey, endKey));
 }
 
-/** Days left including today; 0 means expired. */
-export function inclusiveDaysRemaining(endDate: string | Date | null | undefined, from: Date = new Date()): number {
+/** Days left including today; 0 = expired (at/after exclusive end midnight). */
+export function subscriptionDaysRemaining(
+  endDate: string | Date | null | undefined,
+  from: Date = new Date(),
+): number {
   const endKey = toDateKey(endDate);
   const fromKey = toDateKey(from);
   if (!endKey || !fromKey) return 0;
-  const end = new Date(`${endKey}T00:00:00Z`);
-  const today = new Date(`${fromKey}T00:00:00Z`);
-  return Math.round((end.getTime() - today.getTime()) / 86_400_000) + 1;
+  return Math.max(0, diffUtcDays(fromKey, endKey));
 }
 
-/** end = start + durationDays - 1 (inclusive). */
-export function calculateInclusiveEndDate(startDate: string, durationDays: number): string {
+/** end = start + durationDays (exclusive midnight). */
+export function calculateSubscriptionEndDate(startDate: string, durationDays: number): string {
   const startKey = toDateKey(startDate);
   if (!startKey) throw new Error('Invalid start date');
   const days = Math.max(1, Number(durationDays) || 1);
-  const start = new Date(`${startKey}T00:00:00Z`);
-  start.setUTCDate(start.getUTCDate() + days - 1);
-  return start.toISOString().slice(0, 10);
+  return addUtcDays(startKey, days);
+}
+
+/** Display period using last valid day; one date when duration is 1 day. */
+export function formatSubscriptionPeriod(
+  startDate: string | Date | null | undefined,
+  endDate: string | Date | null | undefined,
+): string {
+  if (!startDate || !endDate) return 'N/A';
+  const startKey = toDateKey(startDate);
+  const lastKey = subscriptionLastValidDate(endDate);
+  if (!startKey || !lastKey) return 'Plage de dates invalide';
+  if (startKey === lastKey) return formatDate(startDate);
+  return `${formatDate(startDate)} - ${formatDate(lastKey)}`;
 }
 
 /**
@@ -214,7 +253,8 @@ export function formatCalendarDate(date: string | Date | null | undefined): stri
 }
 
 /**
- * Format date range; collapses to one date when start === end (inclusive 1-day).
+ * Format date range (generic). Prefer formatSubscriptionPeriod for subscriptions
+ * (exclusive midnight end).
  */
 export function formatDateRange(startDate: string | Date | null | undefined, endDate: string | Date | null | undefined): string {
   if (!startDate || !endDate) {

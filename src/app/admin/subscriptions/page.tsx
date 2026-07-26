@@ -24,7 +24,7 @@ import { Payment } from "@/lib/api/payments";
 import { Plus, Search, Edit, Trash2, Eye, CreditCard, MoreVertical, RefreshCw, Filter, SortAsc, SortDesc, Calendar, DollarSign, Users, TrendingUp, ChevronDown } from "lucide-react";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { getInitials } from "@/lib/auth";
-import { formatDateRange, calculateInclusiveEndDate, inclusiveDayCount, inclusiveDaysRemaining } from "@/lib/date";
+import { formatSubscriptionPeriod, calculateSubscriptionEndDate, subscriptionDurationDays, subscriptionDaysRemaining } from "@/lib/date";
 import { formatCurrency } from "@/lib/config";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
@@ -310,7 +310,7 @@ export default function AdminSubscriptions() {
       return;
     }
     
-    const endDateStr = calculateInclusiveEndDate(data.startDate, Number(selectedPlan.duration));
+    const endDateStr = calculateSubscriptionEndDate(data.startDate, Number(selectedPlan.duration));
 
     const submitData = {
       member_id: data.memberId,
@@ -348,10 +348,10 @@ export default function AdminSubscriptions() {
       return;
     }
 
-    if (new Date(data.endDate) < new Date(data.startDate)) {
+    if (new Date(data.endDate) <= new Date(data.startDate)) {
       toast({
         title: "Error",
-        description: "End date must be on or after start date",
+        description: "End date must be after start date",
         variant: "destructive",
       });
       return;
@@ -1058,12 +1058,15 @@ export default function AdminSubscriptions() {
                   <TableCell>
                     <div className="space-y-1">
                       <div className="text-sm">
-                        <span className="text-muted-foreground">Period:</span> {formatDateRange(subscription.start_date, subscription.end_date)}
+                        <span className="text-muted-foreground">Period:</span> {formatSubscriptionPeriod(subscription.start_date, subscription.end_date)}
+                        {subscriptionDurationDays(subscription.start_date, subscription.end_date) > 0
+                          ? ` · ${subscriptionDurationDays(subscription.start_date, subscription.end_date)} days`
+                          : ''}
                       </div>
                       {(() => {
-                        const totalDays = inclusiveDayCount(subscription.start_date, subscription.end_date);
-                        const daysRemaining = inclusiveDaysRemaining(subscription.end_date);
-                        const daysElapsed = Math.max(0, totalDays - Math.max(0, daysRemaining));
+                        const totalDays = subscriptionDurationDays(subscription.start_date, subscription.end_date);
+                        const daysRemaining = subscriptionDaysRemaining(subscription.end_date);
+                        const daysElapsed = Math.max(0, totalDays - daysRemaining);
                         const progressPercentage = totalDays > 0
                           ? Math.max(0, Math.min(100, (daysElapsed / totalDays) * 100))
                           : 0;
@@ -1228,8 +1231,8 @@ export default function AdminSubscriptions() {
                   .reduce((sum, p) => sum + (p.amount || 0), 0);
                 const planPrice = subscription.plan?.price || 0;
                 const remainingAmount = Math.max(0, planPrice - totalPaid);
-                const totalDays = inclusiveDayCount(subscription.start_date, subscription.end_date);
-                const daysRemaining = inclusiveDaysRemaining(subscription.end_date);
+                const totalDays = subscriptionDurationDays(subscription.start_date, subscription.end_date);
+                const daysRemaining = subscriptionDaysRemaining(subscription.end_date);
                 
                 return (
                   <Card 
@@ -1299,7 +1302,8 @@ export default function AdminSubscriptions() {
                           <p className="text-muted-foreground">Duration</p>
                           <div className="space-y-1">
                             <p className="font-medium">
-                              {formatDateRange(subscription.start_date, subscription.end_date)}
+                              {formatSubscriptionPeriod(subscription.start_date, subscription.end_date)}
+                              {totalDays > 0 ? ` · ${totalDays} days` : ''}
                             </p>
                             <div className="flex items-center gap-2">
                               <span className="text-xs text-muted-foreground">

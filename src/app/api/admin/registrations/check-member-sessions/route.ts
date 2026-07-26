@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
       `)
       .eq('id', memberId)
       .eq('subscriptions.status', 'active')
-      .gte('subscriptions.end_date', toDateKey(new Date())!)
+      .gt('subscriptions.end_date', toDateKey(new Date())!)
       .single();
 
     if (memberError || !memberData) {

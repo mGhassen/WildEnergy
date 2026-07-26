@@ -1,5 +1,5 @@
 import { apiRequest } from '@/lib/queryClient';
-import { isOnOrBeforeToday } from '@/lib/date';
+import { isSubscriptionActiveByEndDate } from '@/lib/date';
 
 export interface Subscription {
   id: number;
@@ -93,7 +93,7 @@ export function getCurrentSubscriptionStatus(subscriptions: Subscription[]): str
   if (!subscriptions?.length) return 'inactive';
   
   const active = subscriptions.find(sub => 
-    sub.status === 'active' && isOnOrBeforeToday(sub.end_date)
+    sub.status === 'active' && isSubscriptionActiveByEndDate(sub.end_date)
   );
   
   return active ? 'active' : 'inactive';
@@ -103,6 +103,6 @@ export function getActiveSubscriptions(subscriptions: Subscription[]): Subscript
   if (!subscriptions?.length) return [];
   
   return subscriptions.filter(sub => 
-    sub.status === 'active' && isOnOrBeforeToday(sub.end_date)
+    sub.status === 'active' && isSubscriptionActiveByEndDate(sub.end_date)
   );
 }

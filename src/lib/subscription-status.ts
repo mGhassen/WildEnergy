@@ -1,10 +1,10 @@
-import { isOnOrBeforeToday } from '@/lib/date';
+import { isSubscriptionActiveByEndDate } from '@/lib/date';
 
 type PaymentDrivenStatus = 'pending' | 'active' | 'expired';
 
 /**
  * Resolve status from payments, without overriding cancelled.
- * Past inclusive end_date → expired (even if fully paid).
+ * Past exclusive end midnight → expired (even if fully paid).
  */
 export function resolvePaymentDrivenStatus(params: {
   currentStatus: string;
@@ -16,7 +16,7 @@ export function resolvePaymentDrivenStatus(params: {
     return 'cancelled';
   }
 
-  if (!isOnOrBeforeToday(params.endDate)) {
+  if (!isSubscriptionActiveByEndDate(params.endDate)) {
     return 'expired';
   }
 

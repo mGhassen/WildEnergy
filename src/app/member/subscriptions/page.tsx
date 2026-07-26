@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatDate, formatDateRange } from "@/lib/date";
+import { formatDate, formatSubscriptionPeriod, subscriptionDurationDays } from "@/lib/date";
 import { formatCurrency, CURRENCY_SYMBOL } from "@/lib/config";
 import { useAuth } from "@/hooks/use-auth";
 import React, { useState, useEffect } from "react";
@@ -282,7 +282,11 @@ export default function MemberSubscriptions() {
                           <div className="space-y-1 min-w-0 flex-1">
                             <h3 className="text-lg sm:text-xl font-bold text-foreground truncate">{sub.plan?.name || 'Unknown Plan'}</h3>
                             <p className="text-xs sm:text-sm text-muted-foreground">
-                              {formatDateRange(sub.start_date, sub.end_date)}
+                              {(() => {
+                                const days = subscriptionDurationDays(sub.start_date, sub.end_date);
+                                const period = formatSubscriptionPeriod(sub.start_date, sub.end_date);
+                                return days > 0 ? `${period} · ${days} days` : period;
+                              })()}
                             </p>
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
