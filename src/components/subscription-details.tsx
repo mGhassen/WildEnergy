@@ -370,9 +370,11 @@ export function SubscriptionDetails({
                   <div className="space-y-4">
                     {planGroups.map((planGroup: any) => {
                       const groupSession = groupSessions.find((gs: any) => gs.group_id === planGroup.groups.id);
-                      const sessionsRemaining = groupSession?.sessions_remaining || 0;
-                      const totalSessions = groupSession?.total_sessions || planGroup.session_count || 0;
-                      const sessionsUsed = totalSessions - sessionsRemaining;
+                      const totalSessions = groupSession?.total_sessions ?? planGroup.session_count ?? 0;
+                      // Missing tracking row must not look like "all used" (remaining || 0 was the bug)
+                      const sessionsRemaining =
+                        groupSession != null ? groupSession.sessions_remaining : totalSessions;
+                      const sessionsUsed = Math.max(0, totalSessions - sessionsRemaining);
                       const progressPercentage = totalSessions > 0 ? (sessionsUsed / totalSessions) * 100 : 0;
 
                       return (

@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { deleteSubscriptionWithDependents } from '@/lib/subscription-delete-cleanup';
+import {
+  ensureSubscriptionGroupSessions,
+  resetSubscriptionGroupSessionsForPlan,
+} from '@/lib/subscription-group-sessions';
 
 function extractIdFromUrl(request: NextRequest): string | null {
   const match = request.nextUrl.pathname.match(/\/subscriptions\/(.+?)(\/|$)/);
@@ -141,6 +145,15 @@ export async function PUT(request: NextRequest) {
         error: 'Failed to update subscription', 
         details: updateError 
       }, { status: 500 });
+    }
+
+    const planChanged = existingSubscription.plan_id !== parseInt(plan_id, 10);
+    const { error: groupSessionsError } = planChanged
+      ? await resetSubscriptionGroupSessionsForPlan(supabaseServer(), subscriptionId)
+      : await ensureSubscriptionGroupSessions(supabaseServer(), subscriptionId);
+
+    if (groupSessionsError) {
+      console.error('Error ensuring subscription group sessions:', groupSessionsError);
     }
 
     // Flatten the response for frontend compatibility

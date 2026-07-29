@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { ensureGroupSessionsForPlanSubscriptions } from '@/lib/subscription-group-sessions';
 
 export async function GET(req: NextRequest) {
   try {
@@ -207,6 +208,14 @@ export async function PUT(req: NextRequest) {
         if (groupsError) {
           return NextResponse.json({ error: 'Failed to update plan groups' }, { status: 500 });
         }
+      }
+
+      const { error: syncError } = await ensureGroupSessionsForPlanSubscriptions(
+        supabaseServer(),
+        id
+      );
+      if (syncError) {
+        console.error('Error syncing subscription group sessions after plan update:', syncError);
       }
     }
 

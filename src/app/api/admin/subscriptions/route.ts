@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { deleteSubscriptionWithDependents } from '@/lib/subscription-delete-cleanup';
 import { getMemberCreditBalancesMap } from '@/lib/member-credit';
+import {
+  ensureSubscriptionGroupSessions,
+  resetSubscriptionGroupSessionsForPlan,
+} from '@/lib/subscription-group-sessions';
 
 export async function GET(req: NextRequest) {
   try {
@@ -224,11 +228,10 @@ export async function POST(req: NextRequest) {
       }, { status: 500 });
     }
     
-    // Initialize group sessions for this subscription
+    // Initialize group sessions for this subscription (missing rows only; safe to re-run)
     const { error: groupSessionsError } = await supabaseServer()
-      .rpc('initialize_subscription_group_sessions', {
+      .rpc('ensure_subscription_group_sessions', {
         p_subscription_id: subscription.id,
-        p_plan_id: subscription.plan_id
       });
     
     if (groupSessionsError) {
@@ -268,6 +271,12 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
     const { id, ...updates } = await req.json();
+    const { data: existing } = await supabaseServer()
+      .from('subscriptions')
+      .select('id, plan_id')
+      .eq('id', id)
+      .single();
+
     const { data: subscription, error } = await supabaseServer()
       .from('subscriptions')
       .update(updates)
@@ -277,6 +286,20 @@ export async function PUT(req: NextRequest) {
     if (error) {
       return NextResponse.json({ error: 'Failed to update subscription' }, { status: 500 });
     }
+
+    const planChanged =
+      updates.plan_id != null &&
+      existing?.plan_id != null &&
+      Number(existing.plan_id) !== Number(updates.plan_id);
+
+    const { error: groupSessionsError } = planChanged
+      ? await resetSubscriptionGroupSessionsForPlan(supabaseServer(), subscription.id)
+      : await ensureSubscriptionGroupSessions(supabaseServer(), subscription.id);
+
+    if (groupSessionsError) {
+      console.error('Error ensuring subscription group sessions:', groupSessionsError);
+    }
+
     return NextResponse.json({ success: true, subscription });
   } catch {
     return NextResponse.json({ error: 'Failed to update subscription' }, { status: 500 });
