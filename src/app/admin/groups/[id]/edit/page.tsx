@@ -40,7 +40,7 @@ export default function AdminEditGroupPage() {
   const handleSubmit = (data: GroupFormData) => {
     updateGroupMutation.mutate(
       { groupId, data: toApiGroupPayload(data) },
-      { onSuccess: () => router.push(CLOSE_HREF) },
+      { onSuccess: () => router.replace(CLOSE_HREF) },
     );
   };
 

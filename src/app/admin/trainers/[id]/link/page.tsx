@@ -77,7 +77,7 @@ export default function AdminTrainerLinkPage() {
           onClick={() => {
             linkAccountMutation.mutate(
               { trainerId, accountId: selectedAccountId },
-              { onSuccess: () => router.push(closeHref) },
+              { onSuccess: () => router.replace(closeHref) },
             );
           }}
         >

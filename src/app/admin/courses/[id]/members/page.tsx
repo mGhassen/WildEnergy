@@ -27,7 +27,7 @@ export default function AdminCourseMembersPage() {
       <p className="text-sm text-muted-foreground mb-4">
         Opening member management…
       </p>
-      <Button variant="outline" onClick={() => router.push(closeHref)}>
+      <Button variant="outline" onClick={() => router.replace(closeHref)}>
         Back to course
       </Button>
     </RouteDialog>

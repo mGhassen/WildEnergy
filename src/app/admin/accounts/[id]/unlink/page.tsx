@@ -15,11 +15,11 @@ export default function AdminAccountUnlinkPage() {
     <ConfirmationDialog
       open
       onOpenChange={(open) => {
-        if (!open) router.push(closeHref);
+        if (!open) router.replace(closeHref);
       }}
       onConfirm={() => {
         unlinkTrainerMutation.mutate(accountId, {
-          onSuccess: () => router.push(closeHref),
+          onSuccess: () => router.replace(closeHref),
         });
       }}
       title="Unlink Trainer"

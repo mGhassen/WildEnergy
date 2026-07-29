@@ -26,7 +26,7 @@ export default function AdminNewTrainerPage() {
   const handleSubmit = (data: TrainerFormData) => {
     createTrainerMutation.mutate(toCreateTrainerPayload(data), {
       onSuccess: (trainer: any) => {
-        router.push(
+        router.replace(
           trainer?.id ? `/admin/trainers/${trainer.id}` : CLOSE_HREF,
         );
       },

@@ -71,7 +71,7 @@ export default function AdminEditSchedulePage() {
               scheduleId,
               data: mapScheduleToApi(data, classes as any[]),
             },
-            { onSuccess: () => router.push(closeHref) },
+            { onSuccess: () => router.replace(closeHref) },
           );
         }}
       />

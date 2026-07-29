@@ -28,7 +28,7 @@ export default function AdminDeleteCategoryPage() {
 
   const confirmDelete = () => {
     deleteMutation.mutate(categoryId, {
-      onSuccess: () => router.push(CLOSE_HREF),
+      onSuccess: () => router.replace(CLOSE_HREF),
       onError: (err: any) => {
         if (err.status === 400 && err.classes && err.classes.length > 0) {
           const classNames = err.classes.map((cls: any) => cls.name).join(", ");

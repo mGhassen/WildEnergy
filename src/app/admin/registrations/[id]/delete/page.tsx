@@ -27,7 +27,7 @@ export default function AdminDeleteRegistrationPage() {
 
   const handleConfirm = () => {
     deleteRegistrationMutation.mutate(registrationId, {
-      onSuccess: () => router.push(CLOSE_HREF),
+      onSuccess: () => router.replace(CLOSE_HREF),
     });
   };
 

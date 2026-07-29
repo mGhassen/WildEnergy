@@ -34,11 +34,11 @@ export default function AdminMemberLinkPage() {
     <AccountLinkingDialog
       open
       onOpenChange={(open) => {
-        if (!open) router.push(closeHref);
+        if (!open) router.replace(closeHref);
       }}
       memberId={memberId}
       memberName={`${member.firstName} ${member.lastName}`}
-      onSuccess={() => router.push(closeHref)}
+      onSuccess={() => router.replace(closeHref)}
     />
   );
 }

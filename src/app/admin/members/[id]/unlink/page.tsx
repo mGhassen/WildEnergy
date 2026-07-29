@@ -36,13 +36,13 @@ export default function AdminMemberUnlinkPage() {
     <UnlinkAccountDialog
       open
       onOpenChange={(open) => {
-        if (!open) router.push(closeHref);
+        if (!open) router.replace(closeHref);
       }}
       onConfirm={async () => {
         if (!member.account_id) return;
         try {
           await unlinkAccountMutation.mutateAsync(member.account_id);
-          router.push(closeHref);
+          router.replace(closeHref);
         } catch {
           /* toast from hook */
         }

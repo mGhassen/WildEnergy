@@ -28,7 +28,7 @@ export default function AdminDeleteSubscriptionPage() {
     if (!subscription) return;
     deleteSubscriptionMutation.mutate(subscriptionId, {
       onSuccess: () => {
-        router.push("/admin/subscriptions");
+        router.replace("/admin/subscriptions");
       },
     });
   };
@@ -70,7 +70,7 @@ export default function AdminDeleteSubscriptionPage() {
           This subscription may have been deleted or the link is invalid.
         </p>
         <DialogFooter>
-          <Button variant="outline" onClick={() => router.push("/admin/subscriptions")}>
+          <Button variant="outline" onClick={() => router.replace("/admin/subscriptions")}>
             Back to subscriptions
           </Button>
         </DialogFooter>

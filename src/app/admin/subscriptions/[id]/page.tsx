@@ -161,11 +161,11 @@ export default function AdminSubscriptionDetails() {
   };
 
   const handleEditPayment = (payment: Payment) => {
-    router.push(`/admin/payments/${payment.id}/edit`);
+    router.push(`/admin/payments/${payment.id}/edit?from=${encodeURIComponent(`/admin/subscriptions/${subscriptionId}`)}`);
   };
 
   const handleDeletePayment = (payment: Payment) => {
-    router.push(`/admin/payments/${payment.id}/delete`);
+    router.push(`/admin/payments/${payment.id}/delete?from=${encodeURIComponent(`/admin/subscriptions/${subscriptionId}`)}`);
   };
 
   const formatPrice = (price: string | number) => {

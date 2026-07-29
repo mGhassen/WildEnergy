@@ -72,7 +72,7 @@ export default function MemberCourseCancelPage() {
           disabled={cancelMutation.isPending}
           onClick={() => {
             cancelMutation.mutate(registration.id, {
-              onSuccess: () => router.push(closeHref),
+              onSuccess: () => router.replace(closeHref),
             });
           }}
         >

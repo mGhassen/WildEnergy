@@ -28,7 +28,7 @@ export default function AdminNewCategoryPage() {
 
   const handleSubmit = (data: CategoryFormData) => {
     createMutation.mutate(data, {
-      onSuccess: () => router.push(CLOSE_HREF),
+      onSuccess: () => router.replace(CLOSE_HREF),
     });
   };
 

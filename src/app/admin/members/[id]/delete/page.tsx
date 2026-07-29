@@ -37,12 +37,12 @@ export default function AdminMemberDeletePage() {
     <ConfirmationDialog
       open
       onOpenChange={(open) => {
-        if (!open) router.push(cancelHref);
+        if (!open) router.replace(cancelHref);
       }}
       onConfirm={async () => {
         try {
           await deleteMemberMutation.mutateAsync(memberId);
-          router.push("/admin/members");
+          router.replace("/admin/members");
         } catch {
           /* toast from hook */
         }

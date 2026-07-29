@@ -66,7 +66,7 @@ export default function AdminEditTermsPage() {
     try {
       await updateTermsMutation.mutateAsync({ id: termId, data: formData });
       toast({ title: "Success", description: "Terms updated successfully" });
-      router.push(CLOSE_HREF);
+      router.replace(CLOSE_HREF);
     } catch {
       /* toast from hook */
     }

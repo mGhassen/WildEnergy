@@ -45,7 +45,7 @@ export default function AdminEditCategoryPage() {
   const handleSubmit = (data: CategoryFormData) => {
     updateMutation.mutate(
       { categoryId, data },
-      { onSuccess: () => router.push(CLOSE_HREF) },
+      { onSuccess: () => router.replace(CLOSE_HREF) },
     );
   };
 

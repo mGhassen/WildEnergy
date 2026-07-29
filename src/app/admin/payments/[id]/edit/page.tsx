@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { RouteDialog, useCloseHref } from "@/components/route-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,17 +16,36 @@ import {
 } from "@/components/ui/select";
 import { DialogFooter } from "@/components/ui/dialog";
 import { FormSkeleton } from "@/components/skeletons";
-import { usePayment, useUpdatePayment } from "@/hooks/usePayments";
+import { usePayment, usePayments, useUpdatePayment } from "@/hooks/usePayments";
+import { Suspense } from "react";
 
-const CLOSE_HREF = "/admin/payments";
+function safeFrom(from: string | null, fallback: string) {
+  return from && from.startsWith("/") && !from.startsWith("//") ? from : fallback;
+}
 
-export default function EditPaymentPage() {
+function EditPaymentContent() {
   const params = useParams();
   const router = useRouter();
-  const close = useCloseHref(CLOSE_HREF);
+  const searchParams = useSearchParams();
   const paymentId = Number(params.id);
 
-  const { data: payment, isLoading, isError } = usePayment(paymentId);
+  const { data: paymentById, isLoading: isLoadingOne, isError } =
+    usePayment(paymentId);
+  const { data: payments = [], isLoading: isLoadingList } = usePayments();
+  const payment =
+    paymentById ??
+    payments.find((p) => Number(p.id) === paymentId) ??
+    undefined;
+  const isLoading = (isLoadingOne || isLoadingList) && !payment;
+
+  const defaultClose = useMemo(() => {
+    const subId = payment?.subscription_id;
+    if (subId) return `/admin/subscriptions/${subId}`;
+    return "/admin/payments";
+  }, [payment?.subscription_id]);
+
+  const closeHref = safeFrom(searchParams.get("from"), defaultClose);
+  const close = useCloseHref(closeHref);
   const updatePaymentMutation = useUpdatePayment();
 
   const [formData, setFormData] = useState({
@@ -75,7 +94,7 @@ export default function EditPaymentPage() {
       },
       {
         onSuccess: () => {
-          router.push(CLOSE_HREF);
+          router.replace(closeHref);
         },
       },
     );
@@ -83,35 +102,43 @@ export default function EditPaymentPage() {
 
   if (isLoading) {
     return (
-      <RouteDialog title="Edit Payment" closeHref={CLOSE_HREF}>
+      <RouteDialog title="Edit Payment" closeHref={closeHref}>
         <FormSkeleton fields={6} />
       </RouteDialog>
     );
   }
 
-  if (isError || !payment || Number.isNaN(paymentId)) {
+  if ((isError && !payment) || !payment || Number.isNaN(paymentId)) {
     return (
-      <RouteDialog title="Edit Payment" closeHref={CLOSE_HREF}>
+      <RouteDialog title="Edit Payment" closeHref={closeHref}>
         <p className="text-sm text-muted-foreground py-4">
           Payment not found.
         </p>
         <DialogFooter>
           <Button variant="outline" onClick={close}>
-            Back to payments
+            Back
           </Button>
         </DialogFooter>
       </RouteDialog>
     );
   }
 
-  const memberName =
-    payment.subscription?.member?.full_name ?? "this payment";
+  const memberFromSub = (payment as any).subscription?.member?.full_name;
+  const memberDirect =
+    (payment as any).member?.full_name ||
+    [
+      (payment as any).member?.firstName || (payment as any).member?.first_name,
+      (payment as any).member?.lastName || (payment as any).member?.last_name,
+    ]
+      .filter(Boolean)
+      .join(" ");
+  const memberName = memberFromSub || memberDirect || "this payment";
 
   return (
     <RouteDialog
       title="Edit Payment"
       description={`Update payment details for ${memberName}`}
-      closeHref={CLOSE_HREF}
+      closeHref={closeHref}
     >
       <div className="grid gap-4 py-4">
         <div className="grid grid-cols-4 items-center gap-4">
@@ -233,5 +260,19 @@ export default function EditPaymentPage() {
         </Button>
       </DialogFooter>
     </RouteDialog>
+  );
+}
+
+export default function EditPaymentPage() {
+  return (
+    <Suspense
+      fallback={
+        <RouteDialog title="Edit Payment" closeHref="/admin/payments">
+          <FormSkeleton fields={6} />
+        </RouteDialog>
+      }
+    >
+      <EditPaymentContent />
+    </Suspense>
   );
 }

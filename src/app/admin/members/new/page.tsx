@@ -48,7 +48,7 @@ export default function AdminNewMemberPage() {
       },
       {
         onSuccess: (member) => {
-          router.push(`/admin/members/${member.id}`);
+          router.replace(`/admin/members/${member.id}`);
         },
       },
     );

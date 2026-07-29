@@ -82,7 +82,7 @@ export default function AdminAccountPasswordPage() {
             setPasswordMutation.mutate(
               { accountId, password: setPasswordValue },
               {
-                onSuccess: () => router.push(closeHref),
+                onSuccess: () => router.replace(closeHref),
               },
             );
           }}

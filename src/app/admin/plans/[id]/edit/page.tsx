@@ -83,7 +83,7 @@ export default function AdminEditPlanPage() {
       { planId, data: toApiPlanPayload(data) },
       {
         onSuccess: () => {
-          router.push(`/admin/plans/${planId}`);
+          router.replace(`/admin/plans/${planId}`);
         },
       },
     );

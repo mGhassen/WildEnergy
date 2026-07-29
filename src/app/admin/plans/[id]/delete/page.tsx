@@ -44,7 +44,7 @@ export default function AdminDeletePlanPage() {
   const confirmDelete = () => {
     deletePlanMutation.mutate(planId, {
       onSuccess: () => {
-        router.push("/admin/plans");
+        router.replace("/admin/plans");
       },
     });
   };

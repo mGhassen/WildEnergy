@@ -102,7 +102,7 @@ export default function AdminNewSubscriptionPage() {
       },
       {
         onSuccess: () => {
-          router.push(CLOSE_HREF);
+          router.replace(CLOSE_HREF);
         },
       },
     );

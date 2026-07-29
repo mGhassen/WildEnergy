@@ -15,13 +15,13 @@ export default function AdminDeleteSchedulePage() {
     ? `/admin/schedules/${scheduleId}`
     : "/admin/schedules";
   const listHref = "/admin/schedules";
-  const onCancel = useCloseHref(listHref);
+  const onCancel = useCloseHref(closeHref);
   const { data: schedule, isLoading, error } = useSchedule(scheduleId);
   const deleteMutation = useDeleteScheduleWithCourses();
 
   if (isLoading) {
     return (
-      <RouteDialog title="Delete Schedule" closeHref={listHref}>
+      <RouteDialog title="Delete Schedule" closeHref={closeHref}>
         <FormSkeleton fields={2} showSubmit={false} />
       </RouteDialog>
     );
@@ -44,7 +44,7 @@ export default function AdminDeleteSchedulePage() {
     <RouteDialog
       title="Delete Schedule"
       description={`Are you sure you want to delete the schedule for "${name}"? Related generated courses will also be deleted when allowed.`}
-      closeHref={listHref}
+      closeHref={closeHref}
     >
       <div className="flex gap-3 justify-end pt-2">
         <Button variant="outline" onClick={onCancel}>
@@ -55,7 +55,7 @@ export default function AdminDeleteSchedulePage() {
           disabled={deleteMutation.isPending}
           onClick={() => {
             deleteMutation.mutate(scheduleId, {
-              onSuccess: () => router.push(listHref),
+              onSuccess: () => router.replace(listHref),
             });
           }}
         >

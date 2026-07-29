@@ -56,7 +56,7 @@ export default function AdminBulkDeleteTermsPage() {
                 title: "Success",
                 description: `Deleted ${deletableIds.length} terms version(s)`,
               });
-              router.push(CLOSE_HREF);
+              router.replace(CLOSE_HREF);
             } catch {
               /* toast from hook */
             }

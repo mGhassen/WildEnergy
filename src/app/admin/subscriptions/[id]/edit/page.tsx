@@ -117,7 +117,7 @@ export default function AdminEditSubscriptionPage() {
       },
       {
         onSuccess: () => {
-          router.push(closeHref);
+          router.replace(closeHref);
         },
       },
     );

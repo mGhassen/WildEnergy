@@ -88,7 +88,7 @@ export default function AdminAccountCreateMemberPage() {
           onClick={() => {
             createMemberMutation.mutate(
               { accountId, data: form },
-              { onSuccess: () => router.push(closeHref) },
+              { onSuccess: () => router.replace(closeHref) },
             );
           }}
         >

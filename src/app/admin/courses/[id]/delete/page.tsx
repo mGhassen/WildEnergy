@@ -87,7 +87,7 @@ export default function AdminCourseDeletePage() {
                   title: "Course deleted",
                   description: "The course has been successfully deleted.",
                 });
-                router.push("/admin/courses");
+                router.replace("/admin/courses");
               },
             });
           }}

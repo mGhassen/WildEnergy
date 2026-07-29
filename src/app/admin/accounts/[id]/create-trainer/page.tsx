@@ -125,7 +125,7 @@ export default function AdminAccountCreateTrainerPage() {
           onClick={() => {
             createTrainerMutation.mutate(
               { accountId, data: form },
-              { onSuccess: () => router.push(closeHref) },
+              { onSuccess: () => router.replace(closeHref) },
             );
           }}
         >

@@ -51,7 +51,7 @@ export default function AdminDeleteTermsPage() {
             try {
               await deleteTermsMutation.mutateAsync(termId);
               toast({ title: "Success", description: "Terms deleted" });
-              router.push(CLOSE_HREF);
+              router.replace(CLOSE_HREF);
             } catch {
               /* toast from hook */
             }

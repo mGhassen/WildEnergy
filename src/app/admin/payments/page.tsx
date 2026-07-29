@@ -227,11 +227,11 @@ export default function AdminPayments() {
   };
 
   const handleEditPayment = (payment: Payment) => {
-    router.push(`/admin/payments/${payment.id}/edit`);
+    router.push(`/admin/payments/${payment.id}/edit?from=${encodeURIComponent("/admin/payments")}`);
   };
 
   const handleDeletePayment = (payment: Payment) => {
-    router.push(`/admin/payments/${payment.id}/delete`);
+    router.push(`/admin/payments/${payment.id}/delete?from=${encodeURIComponent("/admin/payments")}`);
   };
 
   if (isLoading) {

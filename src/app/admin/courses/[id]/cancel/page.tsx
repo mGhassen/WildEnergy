@@ -35,7 +35,7 @@ export default function AdminCourseCancelRegistrationPage() {
           onClick={() => {
             cancelRegistrationMutation.mutate(
               { registrationId, refundSession: true },
-              { onSuccess: () => router.push(closeHref) },
+              { onSuccess: () => router.replace(closeHref) },
             );
           }}
         >

@@ -29,7 +29,7 @@ export default function AdminNewClassPage() {
 
   const handleSubmit = (data: ClassFormData) => {
     createClassMutation.mutate(mapClassToApi(data), {
-      onSuccess: () => router.push(CLOSE_HREF),
+      onSuccess: () => router.replace(CLOSE_HREF),
     });
   };
 

@@ -27,7 +27,7 @@ export default function AdminNewPlanPage() {
   const handleSubmit = (data: PlanFormData) => {
     createPlanMutation.mutate(toApiPlanPayload(data), {
       onSuccess: (plan) => {
-        router.push(plan?.id ? `/admin/plans/${plan.id}` : "/admin/plans");
+        router.replace(plan?.id ? `/admin/plans/${plan.id}` : "/admin/plans");
       },
     });
   };

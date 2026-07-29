@@ -38,7 +38,7 @@ export default function AdminDeleteClassPage() {
 
   const handleDelete = () => {
     deleteClassMutation.mutate(classId, {
-      onSuccess: () => router.push(CLOSE_HREF),
+      onSuccess: () => router.replace(CLOSE_HREF),
     });
   };
 

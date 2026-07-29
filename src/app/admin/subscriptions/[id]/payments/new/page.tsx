@@ -93,7 +93,7 @@ export default function AdminNewSubscriptionPaymentPage() {
       },
       {
         onSuccess: () => {
-          router.push(closeHref);
+          router.replace(closeHref);
         },
       },
     );

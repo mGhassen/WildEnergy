@@ -26,7 +26,7 @@ export default function AdminNewGroupPage() {
 
   const handleSubmit = (data: GroupFormData) => {
     createGroupMutation.mutate(toApiGroupPayload(data), {
-      onSuccess: () => router.push("/admin/groups"),
+      onSuccess: () => router.replace("/admin/groups"),
     });
   };
 

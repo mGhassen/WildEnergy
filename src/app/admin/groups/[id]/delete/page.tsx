@@ -38,7 +38,7 @@ export default function AdminDeleteGroupPage() {
 
   const confirmDelete = () => {
     deleteGroupMutation.mutate(groupId, {
-      onSuccess: () => router.push(CLOSE_HREF),
+      onSuccess: () => router.replace(CLOSE_HREF),
     });
   };
 

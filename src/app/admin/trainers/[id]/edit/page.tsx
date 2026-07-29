@@ -41,7 +41,7 @@ export default function AdminEditTrainerPage() {
         id: trainer.id,
         account_id: trainer.account_id || "",
       }),
-      { onSuccess: () => router.push(closeHref) },
+      { onSuccess: () => router.replace(closeHref) },
     );
   };
 

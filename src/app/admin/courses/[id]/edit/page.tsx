@@ -33,7 +33,7 @@ export default function AdminCourseEditPage() {
     <CourseEditDialog
       course={course}
       isOpen
-      onClose={() => router.push(closeHref)}
+      onClose={() => router.replace(closeHref)}
     />
   );
 }

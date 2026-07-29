@@ -38,7 +38,7 @@ export default function AdminNewTermsPage() {
     try {
       await createTermsMutation.mutateAsync(formData);
       toast({ title: "Success", description: "Terms created successfully" });
-      router.push(CLOSE_HREF);
+      router.replace(CLOSE_HREF);
     } catch {
       /* toast from hook */
     }

@@ -35,7 +35,7 @@ export default function AdminConsumeSessionPage() {
       { subscriptionId, groupId: selectedGroupId },
       {
         onSuccess: () => {
-          router.push(closeHref);
+          router.replace(closeHref);
         },
       },
     );

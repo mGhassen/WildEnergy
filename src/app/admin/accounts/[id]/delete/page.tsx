@@ -47,7 +47,7 @@ export default function AdminAccountDeletePage() {
           disabled={deleteAccountMutation.isPending}
           onClick={() => {
             deleteAccountMutation.mutate(accountId, {
-              onSuccess: () => router.push(listCloseHref),
+              onSuccess: () => router.replace(listCloseHref),
             });
           }}
         >

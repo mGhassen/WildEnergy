@@ -33,7 +33,7 @@ export default function AdminMemberCreateAccountPage() {
   return (
     <CreateAccountDialog
       isOpen
-      onClose={() => router.push(closeHref)}
+      onClose={() => router.replace(closeHref)}
       memberId={memberId}
       memberName={`${member.firstName} ${member.lastName}`}
     />

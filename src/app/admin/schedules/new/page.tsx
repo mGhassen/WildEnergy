@@ -40,7 +40,7 @@ export default function AdminNewSchedulePage() {
         onSubmit={(data) => {
           createMutation.mutate(mapScheduleToApi(data, classes as any[]), {
             onSuccess: (schedule: any) => {
-              router.push(
+              router.replace(
                 schedule?.id
                   ? `/admin/schedules/${schedule.id}`
                   : CLOSE_HREF,

@@ -14,14 +14,15 @@ type RouteDialogProps = {
   children: React.ReactNode;
   title: string;
   description?: string;
-  /** Path to navigate to when the dialog closes */
+  /** Destination when the dialog closes (list or detail — never another dialog). */
   closeHref: string;
   className?: string;
 };
 
 /**
- * Dialog driven by a real route. The page mounts with the dialog open;
- * closing navigates to `closeHref` (no query-param scheme).
+ * Dialog driven by a real route.
+ * Closing uses replace() so the dialog URL is dropped from history
+ * (browser Back must not reopen the dialog).
  */
 export function RouteDialog({
   children,
@@ -34,7 +35,7 @@ export function RouteDialog({
 
   const handleOpenChange = useCallback(
     (open: boolean) => {
-      if (!open) router.push(closeHref);
+      if (!open) router.replace(closeHref);
     },
     [closeHref, router],
   );
@@ -54,7 +55,8 @@ export function RouteDialog({
   );
 }
 
+/** Navigate to closeHref with replace (drops dialog from history). */
 export function useCloseHref(closeHref: string) {
   const router = useRouter();
-  return useCallback(() => router.push(closeHref), [closeHref, router]);
+  return useCallback(() => router.replace(closeHref), [closeHref, router]);
 }

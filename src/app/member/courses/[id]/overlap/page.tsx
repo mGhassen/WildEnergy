@@ -115,7 +115,7 @@ function MemberCourseOverlapContent() {
           onClick={() => {
             if (!Number.isFinite(courseId)) return;
             forceRegistrationMutation.mutate(courseId, {
-              onSuccess: () => router.push(closeHref),
+              onSuccess: () => router.replace(closeHref),
             });
           }}
           disabled={

@@ -60,7 +60,7 @@ export default function AdminTrainerDeletePage() {
                     title: "Trainer deleted",
                     description: `${trainer.first_name} ${trainer.last_name} has been removed.`,
                   });
-                  router.push("/admin/trainers");
+                  router.replace("/admin/trainers");
                 },
               });
             }}

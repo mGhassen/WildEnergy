@@ -46,7 +46,7 @@ export default function AdminTrainerUnlinkPage() {
           disabled={unlinkAccountMutation.isPending}
           onClick={() => {
             unlinkAccountMutation.mutate(trainerId, {
-              onSuccess: () => router.push(closeHref),
+              onSuccess: () => router.replace(closeHref),
             });
           }}
         >

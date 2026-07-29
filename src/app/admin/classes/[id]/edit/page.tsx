@@ -45,7 +45,7 @@ export default function AdminEditClassPage() {
   const handleSubmit = (data: ClassFormData) => {
     updateClassMutation.mutate(
       { classId, data: mapClassToApi(data) },
-      { onSuccess: () => router.push(CLOSE_HREF) },
+      { onSuccess: () => router.replace(CLOSE_HREF) },
     );
   };
 

@@ -62,6 +62,117 @@ async function syncSubscriptionStatus(subscriptionId: number) {
   }
 }
 
+async function requireAdmin(request: NextRequest) {
+  const authHeader = request.headers.get('authorization');
+  const token = authHeader?.split(' ')[1];
+  if (!token) {
+    return { error: NextResponse.json({ error: 'No token provided' }, { status: 401 }) };
+  }
+
+  const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
+  if (authError || !adminUser) {
+    return { error: NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 }) };
+  }
+
+  const { data: adminCheck } = await supabaseServer()
+    .from('user_profiles')
+    .select('is_admin')
+    .eq('email', adminUser.email)
+    .single();
+  if (!adminCheck?.is_admin) {
+    return { error: NextResponse.json({ error: 'Admin access required' }, { status: 403 }) };
+  }
+
+  return { adminUser };
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const id = extractIdFromUrl(request);
+    if (!id) {
+      return NextResponse.json({ error: 'Payment ID is required' }, { status: 400 });
+    }
+    const paymentId = parseInt(id, 10);
+    if (!Number.isFinite(paymentId)) {
+      return NextResponse.json({ error: 'Invalid payment ID' }, { status: 400 });
+    }
+
+    const auth = await requireAdmin(request);
+    if (auth.error) return auth.error;
+
+    const { data: payment, error } = await supabaseServer()
+      .from('payments')
+      .select('*')
+      .eq('id', paymentId)
+      .single();
+
+    if (error || !payment) {
+      return NextResponse.json(
+        { error: 'Payment not found', details: error?.message },
+        { status: 404 },
+      );
+    }
+
+    let memberName = 'this payment';
+    let memberEmail = '';
+    let planName: string | undefined;
+
+    if (payment.member_id) {
+      const { data: member } = await supabaseServer()
+        .from('members')
+        .select(`
+          id,
+          profiles:profile_id(first_name, last_name),
+          accounts:account_id(email)
+        `)
+        .eq('id', payment.member_id)
+        .maybeSingle();
+      if (member) {
+        const profiles = Array.isArray(member.profiles)
+          ? member.profiles[0]
+          : member.profiles;
+        const accounts = Array.isArray(member.accounts)
+          ? member.accounts[0]
+          : member.accounts;
+        memberName =
+          `${profiles?.first_name || ''} ${profiles?.last_name || ''}`.trim() ||
+          memberName;
+        memberEmail = accounts?.email || '';
+      }
+    }
+
+    if (payment.subscription_id) {
+      const { data: subscription } = await supabaseServer()
+        .from('subscriptions')
+        .select('id, plan:plans(name)')
+        .eq('id', payment.subscription_id)
+        .maybeSingle();
+      const plan = Array.isArray(subscription?.plan)
+        ? subscription?.plan[0]
+        : subscription?.plan;
+      planName = plan?.name;
+    }
+
+    return NextResponse.json({
+      ...payment,
+      amount: parseFloat(payment.amount) || 0,
+      subscription: payment.subscription_id
+        ? {
+            id: payment.subscription_id,
+            plan: planName ? { name: planName } : undefined,
+            member: {
+              full_name: memberName,
+              email: memberEmail,
+            },
+          }
+        : undefined,
+    });
+  } catch (error) {
+    console.error('Payment fetch error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
 export async function PUT(request: NextRequest) {
   try {
     const id = extractIdFromUrl(request);
@@ -70,25 +181,9 @@ export async function PUT(request: NextRequest) {
     }
     const paymentId = parseInt(id, 10);
 
-    const authHeader = request.headers.get('authorization');
-    const token = authHeader?.split(' ')[1];
-    if (!token) {
-      return NextResponse.json({ error: 'No token provided' }, { status: 401 });
-    }
-
-    const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
-    if (authError || !adminUser) {
-      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
-    }
-
-    const { data: adminCheck } = await supabaseServer()
-      .from('user_profiles')
-      .select('is_admin')
-      .eq('email', adminUser.email)
-      .single();
-    if (!adminCheck?.is_admin) {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
-    }
+    const auth = await requireAdmin(request);
+    if (auth.error) return auth.error;
+    const adminUser = auth.adminUser!;
 
     const rawPaymentData = await request.json();
 
