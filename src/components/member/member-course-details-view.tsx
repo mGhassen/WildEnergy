@@ -16,7 +16,6 @@ import {
   UserCheck,
   Check,
   ArrowLeft,
-  X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -27,12 +26,8 @@ import { useMemberCourse } from "@/hooks/useMemberCourses";
 import { useMemberCourseRegistration } from "@/hooks/useMemberRegistration";
 import { useMemberRegistrations } from "@/hooks/useMemberRegistrations";
 import { useMemberSubscriptions } from "@/hooks/useMemberSubscriptions";
-import { useCancelRegistration } from "@/hooks/useRegistrations";
 import { Skeleton } from "@/components/ui/skeleton";
-import QRGenerator from "@/components/qr-generator";
 import { useToast } from "@/hooks/use-toast";
-import { ConfirmationDialog } from "@/components/confirmation-dialog";
-import { useDialogParams } from "@/hooks/use-dialog-params";
 import { DashboardSkeleton } from "@/components/skeletons";
 
 function combineDateAndTime(dateStr: string, timeStr: string): Date {
@@ -52,14 +47,11 @@ export function MemberCourseDetailsView({
   showBack = true,
 }: MemberCourseDetailsViewProps) {
   const router = useRouter();
-  const { isOpen, openDialog, closeDialog, onOpenChange, dialogId } =
-    useDialogParams();
   const { data: courseDetails, isLoading: courseLoading, error } =
     useMemberCourse(courseId);
   const { data: registrations } = useMemberRegistrations();
   const { data: subscriptionsRaw } = useMemberSubscriptions();
   const registrationMutation = useMemberCourseRegistration();
-  const cancelMutation = useCancelRegistration();
   const { toast } = useToast();
 
   const subscriptions = Array.isArray(subscriptionsRaw) ? subscriptionsRaw : [];
@@ -149,28 +141,6 @@ export function MemberCourseDetailsView({
     }
   };
 
-  const handleCancel = () => {
-    if (!userRegistration) return;
-    openDialog("cancel", { id: userRegistration.id });
-  };
-
-  const handleConfirmCancel = () => {
-    const regId =
-      typeof dialogId === "number"
-        ? dialogId
-        : dialogId != null
-          ? Number(dialogId)
-          : userRegistration?.id;
-    if (regId) {
-      cancelMutation.mutate(regId, {
-        onSuccess: () => closeDialog(),
-      });
-    }
-  };
-
-  const showQR = isOpen("qr");
-  const showCancel = isOpen("cancel");
-
   if (courseLoading) return <DashboardSkeleton />;
 
   if (error || !courseData || !startDate || !endDate) {
@@ -216,42 +186,6 @@ export function MemberCourseDetailsView({
           icon: Clock,
         };
   const StatusIcon = statusInfo.icon;
-
-  const cancelMessage = isWithin24Hours()
-    ? "Cancelling within 24 hours will forfeit your session. Continue?"
-    : "Are you sure you want to cancel this class registration?";
-
-  if (showQR && userRegistration?.qr_code) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={closeDialog}
-            className="h-8 w-8 p-0"
-          >
-            <X className="w-4 h-4" />
-          </Button>
-          <h1 className="text-2xl font-bold">Your QR Code</h1>
-        </div>
-        <div className="flex flex-col items-center space-y-6 py-8">
-          <div className="p-4 bg-muted/30 rounded-lg border">
-            <QRGenerator value={userRegistration.qr_code} size={250} />
-          </div>
-          <p className="text-xs font-mono bg-muted p-3 rounded break-all max-w-md">
-            {userRegistration.qr_code}
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Show this QR code to the trainer for check-in
-          </p>
-          <Button variant="outline" onClick={closeDialog} className="w-full max-w-md">
-            Back to Course Details
-          </Button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -376,21 +310,21 @@ export function MemberCourseDetailsView({
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={handleCancel}
-                    disabled={
-                      cancelMutation.isPending || !canCancelRegistration()
+                    onClick={() =>
+                      router.push(`/member/courses/${courseId}/cancel`)
                     }
+                    disabled={!canCancelRegistration()}
                   >
-                    {cancelMutation.isPending
-                      ? "Cancelling..."
-                      : isWithin24Hours()
-                        ? "Cancel (Forfeit Session)"
-                        : "Cancel Registration"}
+                    {isWithin24Hours()
+                      ? "Cancel (Forfeit Session)"
+                      : "Cancel Registration"}
                   </Button>
                   <Button
                     variant="default"
                     size="sm"
-                    onClick={() => openDialog("qr")}
+                    onClick={() =>
+                      router.push(`/member/courses/${courseId}/qr`)
+                    }
                     className="flex-1"
                     disabled={!userRegistration?.qr_code}
                   >
@@ -427,17 +361,6 @@ export function MemberCourseDetailsView({
           </div>
         </CardContent>
       </Card>
-
-      <ConfirmationDialog
-        open={showCancel}
-        onOpenChange={onOpenChange}
-        onConfirm={handleConfirmCancel}
-        title="Cancel Registration"
-        description={cancelMessage}
-        confirmText="Cancel Registration"
-        variant="destructive"
-        isPending={cancelMutation.isPending}
-      />
     </div>
   );
 }

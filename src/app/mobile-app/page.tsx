@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,7 +37,6 @@ import { MobileAppSkeleton } from "@/components/skeletons";
 import { formatTime, formatDateTime } from "@/lib/date";
 import QRGenerator from "@/components/qr-generator";
 import { useToast } from "@/hooks/use-toast";
-import { useDialogParams } from "@/hooks/use-dialog-params";
 import { formatDate } from "@/lib/date";
 import { MobileAppSidebar } from "@/components/mobile-app-sidebar";
 
@@ -65,11 +65,11 @@ interface Subscription {
 
 function MobileAppContent() {
   const { user } = useAuth();
+  const router = useRouter();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("home");
   const [selectedCourse, setSelectedCourse] = useState<any | null>(null);
   const [historyFilter, setHistoryFilter] = useState("all");
-  const { isOpen, openDialog, onOpenChange, dialogId } = useDialogParams();
 
   // Listen for tab changes from sidebar
   useEffect(() => {
@@ -87,12 +87,6 @@ function MobileAppContent() {
   const { data: courses = [], isLoading: coursesLoading } = useMemberCourses();
   const { data: registrations = [], isLoading: registrationsLoading } = useMemberRegistrations();
   const { data: subscription, isLoading: subscriptionLoading } = useMemberSubscription();
-
-  const isQROpen = isOpen("qr");
-  const selectedQRRegistration = isQROpen && dialogId != null
-    ? (registrations as any[]).find((r: any) => String(r.id) === String(dialogId)) ?? null
-    : null;
-  const showQRCode = selectedQRRegistration?.qr_code ?? null;
 
   // Mutations
   const registerMutation = useMutation({
@@ -141,7 +135,7 @@ function MobileAppContent() {
   const openQRForCourse = (courseId: number) => {
     const reg = getRegistrationForCourse(courseId);
     if (reg?.id) {
-      openDialog("qr", { id: reg.id });
+      router.push(`/member/registrations/${reg.id}/qr?from=/mobile-app`);
     }
   };
 
@@ -454,7 +448,11 @@ function MobileAppContent() {
               <Button 
                 variant="outline" 
                 className="w-full"
-                onClick={() => openDialog("qr", { id: (registration as any).id })}
+                onClick={() =>
+                  router.push(
+                    `/member/registrations/${(registration as any).id}/qr?from=/mobile-app`,
+                  )
+                }
               >
                 <QrCode className="w-4 h-4 mr-2" />
                 Show QR Code for Check-in
@@ -589,7 +587,11 @@ function MobileAppContent() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => openDialog("qr", { id: registration.id })}
+                            onClick={() =>
+                              router.push(
+                                `/member/registrations/${registration.id}/qr?from=/mobile-app`,
+                              )
+                            }
                             className="h-7"
                           >
                             <QrCode className="w-3 h-3 mr-1" />
@@ -778,24 +780,6 @@ function MobileAppContent() {
           </DialogContent>
         </Dialog>
       )}
-
-      {/* QR Code Dialog */}
-      <Dialog open={isQROpen} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-sm mx-4">
-          <DialogHeader>
-            <DialogTitle>Check-in QR Code</DialogTitle>
-          </DialogHeader>
-          
-          {showQRCode && (
-            <div className="flex flex-col items-center space-y-4">
-              <QRGenerator value={showQRCode} size={200} />
-              <p className="text-sm text-muted-foreground text-center">
-                Show this QR code to the trainer for check-in
-              </p>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

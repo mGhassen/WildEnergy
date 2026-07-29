@@ -41,7 +41,6 @@ const formatEuropeanDate = (dateString: string) => {
   });
 };
 import { useToast } from "@/hooks/use-toast";
-import { useDialogParams } from "@/hooks/use-dialog-params";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 interface ScheduleFormData {
@@ -107,9 +106,6 @@ export default function AdminSchedules() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const isMobile = useIsMobile();
-  const { isOpen, openDialog, closeDialog, onOpenChange, dialogId } = useDialogParams();
-  const isModalOpen = isOpen("create") || isOpen("edit");
-  const deleteDialogOpen = isOpen("delete");
 
 
   // Data table columns configuration
@@ -414,38 +410,6 @@ export default function AdminSchedules() {
     },
   }));
 
-  useEffect(() => {
-    if (isOpen("edit") && dialogId != null && !isLoading) {
-      const schedule = schedules.find((s: any) => String(s.id) === String(dialogId));
-      if (schedule && editingSchedule?.id !== schedule.id) {
-        setEditingSchedule(schedule);
-        form.reset({
-          classId: schedule.classId || 0,
-          trainerId: schedule.trainerId || "",
-          dayOfWeek: schedule.dayOfWeek || 1,
-          startTime: schedule.startTime || "",
-          endTime: schedule.endTime || "",
-          maxParticipants: schedule.maxParticipants || 10,
-          repetitionType: schedule.repetitionType || "once",
-          scheduleDate: schedule.scheduleDate || "",
-          startDate: schedule.startDate || "",
-          endDate: schedule.endDate || "",
-          isActive: Boolean(schedule.isActive),
-        });
-      }
-    } else if (isOpen("create")) {
-      if (editingSchedule) setEditingSchedule(null);
-    } else if (isOpen("delete") && dialogId != null && !isLoading) {
-      const schedule = schedules.find((s: any) => String(s.id) === String(dialogId));
-      if (schedule && scheduleToDelete?.id !== schedule.id) {
-        setScheduleToDelete(schedule);
-      }
-    } else if (!isModalOpen && !deleteDialogOpen) {
-      setEditingSchedule(null);
-      setScheduleToDelete(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dialogId, isLoading, schedules, isModalOpen, deleteDialogOpen]);
   
   // Debug category data
   console.log('Schedules after transformation:', schedules);
@@ -536,7 +500,7 @@ export default function AdminSchedules() {
   // Handle successful mutations
   useEffect(() => {
     if (createScheduleMutation.isSuccess) {
-      closeDialog();
+      
       setEditingSchedule(null);
       form.reset({
         classId: 0,
@@ -556,7 +520,7 @@ export default function AdminSchedules() {
 
   useEffect(() => {
     if (updateScheduleMutation.isSuccess) {
-      closeDialog();
+      
       setEditingSchedule(null);
       form.reset({
         classId: 0,
@@ -700,19 +664,19 @@ export default function AdminSchedules() {
       endDate: schedule.endDate || "",
       isActive: Boolean(schedule.isActive),
     });
-    openDialog("edit", { id: schedule.id });
+    router.push(`/admin/schedules/${schedule.id}/edit`);
   };
 
   const handleDelete = (schedule: any) => {
     setScheduleToDelete(schedule);
-    openDialog("delete", { id: schedule.id });
+    router.push(`/admin/schedules/${schedule.id}/delete`);
   };
 
   const confirmDelete = () => {
     if (scheduleToDelete) {
       deleteScheduleMutation.mutate(scheduleToDelete.id, {
         onSuccess: () => {
-          closeDialog();
+          
           setScheduleToDelete(null);
         },
       });
@@ -720,21 +684,7 @@ export default function AdminSchedules() {
   };
 
   const openCreateModal = () => {
-    setEditingSchedule(null);
-    form.reset({
-      classId: 0,
-      trainerId: "",
-      dayOfWeek: 1,
-      startTime: "",
-      endTime: "",
-      maxParticipants: 10,
-      repetitionType: "once",
-      scheduleDate: new Date().toISOString().split('T')[0],
-      startDate: new Date().toISOString().split('T')[0],
-      endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      isActive: true,
-    });
-    openDialog("create");
+    router.push("/admin/schedules/new");
   };
 
   // --- Mobile Schedule Card ---
@@ -877,332 +827,11 @@ export default function AdminSchedules() {
           <h1 className="text-3xl font-bold text-foreground mb-2">Schedules</h1>
           <p className="text-muted-foreground">Manage class schedule templates</p>
         </div>
-        <Dialog open={isModalOpen} onOpenChange={onOpenChange}>
-          <Button onClick={openCreateModal}>
+        <Button onClick={openCreateModal}>
               <Plus className="w-4 h-4 mr-2" />
               Add Schedule
             </Button>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle>{editingSchedule ? "Edit Schedule" : "Add New Schedule"}</DialogTitle>
-              <DialogDescription>
-                {editingSchedule ? "Update schedule information" : "Add a new schedule template"}
-              </DialogDescription>
-            </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="classId"
-                  render={({ field }) => {
-                    const selectedClass = classes ? (classes as any[]).find((cls: any) => cls.id === field.value) : null;
-                    
-                    return (
-                      <FormItem>
-                        <FormLabel>Class</FormLabel>
-                        <Select onValueChange={value => field.onChange(Number(value))} value={field.value !== undefined ? String(field.value) : ""}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select class" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {((classes as any[]) || []).map((classItem: any) => (
-                              <SelectItem key={classItem.id} value={String(classItem.id)}>
-                                {classItem.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                        
-                        {/* Enhanced Class Info Display */}
-                        {selectedClass && (
-                          <div className="mt-2 p-4 bg-muted/30 rounded-md border space-y-3">
 
-                            {/* Category & Group Combined */}
-                            <div className="flex items-start gap-2 justify-between">
-                              <div className="flex items-start gap-2">
-                                <div 
-                                  className="w-1 h-8 mt-0.5" 
-                                style={{ backgroundColor: selectedClass.category?.color || '#6B7280' }}
-                              />
-                                <div className="flex flex-col">
-                                  {selectedClass.category?.group && (
-                                    <span 
-                                      className="text-xs font-medium"
-                                      style={{ color: selectedClass.category.group.color }}
-                                    >
-                                      {selectedClass.category.group.name}
-                                    </span>
-                                  )}
-                                  <span className="text-sm text-foreground">
-                                {selectedClass.category?.name || 'No Category'}
-                              </span>
-                            </div>
-                            </div>
-                              {/* Status Pin - Same Line */}
-                              <div 
-                                className={`w-3 h-3 rounded-full mt-1 ${selectedClass.is_active ? 'bg-green-500' : 'bg-red-500'}`}
-                                title={selectedClass.is_active ? 'Active' : 'Inactive'}
-                              />
-                            </div>
-
-                            {/* Basic Info Grid */}
-                            <div className="grid grid-cols-2 gap-3 text-sm">
-                              <div className="flex flex-col">
-                                <span className="text-xs text-muted-foreground">Duration</span>
-                                <span className="font-medium">{selectedClass.duration || 0} min</span>
-                              </div>
-                              <div className="flex flex-col">
-                                <span className="text-xs text-muted-foreground">Capacity</span>
-                                <span className="font-medium">{selectedClass.max_capacity || 0} members</span>
-                              </div>
-                            </div>
-
-                            {/* Description */}
-                            {selectedClass.description && (
-                              <div className="space-y-1">
-                                <span className="text-xs text-muted-foreground font-medium">Description</span>
-                                <p className="text-sm text-foreground leading-relaxed">
-                                {selectedClass.description}
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </FormItem>
-                    );
-                  }}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="trainerId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Trainer</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value ?? ""}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select trainer" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {trainersList.map((trainer: any) => (
-                            <SelectItem key={trainer.id} value={trainer.id}>
-                              {trainer.firstName} {trainer.lastName}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="repetitionType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Repetition Type</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value ?? ""}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select repetition" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="once">Once (Single session)</SelectItem>
-                          <SelectItem value="daily">Daily</SelectItem>
-                          <SelectItem value="weekly">Weekly</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="startTime"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Start Time</FormLabel>
-                        <FormControl>
-                          <Input type="time" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="endTime"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>End Time</FormLabel>
-                        <FormControl>
-                          <Input type="time" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                {/* Max Participants */}
-                <FormField
-                  control={form.control}
-                  name="maxParticipants"
-                  render={({ field }) => {
-                    const selectedClassId = form.watch("classId");
-                    const selectedClass = classes?.find((cls: any) => cls.id === selectedClassId);
-                    const classCapacity = selectedClass?.max_capacity || 0;
-                    
-                    return (
-                      <FormItem>
-                        <FormLabel>Max Participants</FormLabel>
-                        <FormControl>
-                          <div className="space-y-2">
-                            <Input 
-                              type="number" 
-                              min="1" 
-                              max="100" 
-                              {...field} 
-                              value={field.value || ""}
-                              onChange={(e) => {
-                                const value = e.target.value;
-                                field.onChange(value === "" ? 0 : parseInt(value, 10) || 0);
-                              }}
-                            />
-                            {classCapacity > 0 && (
-                              <p className="text-xs text-muted-foreground">
-                                Class capacity: {classCapacity} participants
-                              </p>
-                            )}
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    );
-                  }}
-                />
-
-                {/* Date fields based on repetition type */}
-                {form.watch("repetitionType") === "once" && (
-                  <FormField
-                    control={form.control}
-                    name="scheduleDate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Schedule Date</FormLabel>
-                        <FormControl>
-                          <Input type="date" {...field}  />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
-
-                {(form.watch("repetitionType") === "daily" || form.watch("repetitionType") === "weekly" || form.watch("repetitionType") === "monthly") && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="startDate"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Start Date</FormLabel>
-                          <FormControl>
-                            <Input type="date" {...field}  />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="endDate"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>End Date</FormLabel>
-                          <FormControl>
-                            <Input type="date" {...field}  />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                )}
-
-                {form.watch("repetitionType") === "weekly" && (
-                  <FormField
-                    control={form.control}
-                    name="dayOfWeek"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Day of Week</FormLabel>
-                        <Select onValueChange={value => field.onChange(Number(value))} value={field.value !== undefined ? String(field.value) : ""}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select day of week" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="0">Sunday</SelectItem>
-                            <SelectItem value="1">Monday</SelectItem>
-                            <SelectItem value="2">Tuesday</SelectItem>
-                            <SelectItem value="3">Wednesday</SelectItem>
-                            <SelectItem value="4">Thursday</SelectItem>
-                            <SelectItem value="5">Friday</SelectItem>
-                            <SelectItem value="6">Saturday</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
-
-                {/* Active Status Toggle */}
-                <FormField
-                  control={form.control}
-                  name="isActive"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                      <div className="space-y-0.5">
-                        <FormLabel className="text-base">
-                          Active Status
-                        </FormLabel>
-                        <div className="text-sm text-muted-foreground">
-                          {field.value ? "Schedule is active and courses can be created" : "Schedule is inactive and courses will be deactivated"}
-                        </div>
-                      </div>
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-
-                <DialogFooter>
-                  <Button type="submit" disabled={createScheduleMutation.isPending || updateScheduleMutation.isPending}>
-                    {editingSchedule ? "Update Schedule" : "Create Schedule"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
       </div>
 
       {/* Main Content - Enhanced Data Table */}
@@ -1222,45 +851,7 @@ export default function AdminSchedules() {
       </div>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={onOpenChange}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Schedule</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this schedule? This action will permanently delete all related courses.
-            </AlertDialogDescription>
-            {scheduleToDelete && (
-              <div className="mt-4 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
-                <div className="font-medium text-destructive">
-                  {scheduleToDelete.class?.name} - {scheduleToDelete.trainer?.firstName} {scheduleToDelete.trainer?.lastName}
-                </div>
-                <div className="text-sm text-destructive/80 mt-1">
-                  {scheduleToDelete.scheduleDate ? formatEuropeanDate(scheduleToDelete.scheduleDate) : getDayName(scheduleToDelete.dayOfWeek)} • {formatTime(scheduleToDelete.startTime)} - {formatTime(scheduleToDelete.endTime)}
-                </div>
-                <div className="text-sm text-destructive/80 mt-3 space-y-1">
-                  <div>⚠️ <strong>This will delete:</strong></div>
-                  <div>• All courses generated from this schedule</div>
-                  <div>• Schedule configuration and timing</div>
-                  <div className="font-semibold mt-2">This action cannot be undone!</div>
-                  <div className="text-xs text-muted-foreground mt-2">
-                    Note: You cannot delete if anyone is still registered or attended, or if there are check-ins. Cancelled/absent-only history does not block.
-                  </div>
-                </div>
-              </div>
-            )}
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={confirmDelete}
-              className="bg-destructive hover:bg-destructive/90"
-              disabled={deleteScheduleMutation.isPending}
-            >
-              {deleteScheduleMutation.isPending ? "Deleting..." : "Delete Schedule"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      
     </div>
   );
 }

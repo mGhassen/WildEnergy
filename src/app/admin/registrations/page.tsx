@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -12,19 +11,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Loader2, AlertTriangle, Check, Eye, MoreHorizontal, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useRegistrations, useDeleteRegistration, useCheckInRegistration } from "@/hooks/useRegistrations";
-import { useDialogParams } from "@/hooks/use-dialog-params";
+import {
+  useRegistrations,
+  useCheckInRegistration,
+} from "@/hooks/useRegistrations";
 
 const formatEuropeanDate = (dateString: string) => {
   const date = new Date(dateString);
@@ -39,29 +31,7 @@ export default function AdminRegistrations() {
   const router = useRouter();
   const { toast } = useToast();
   const { data: registrations = [], isLoading, error } = useRegistrations();
-  const deleteRegistrationMutation = useDeleteRegistration();
   const checkInMutation = useCheckInRegistration();
-  const { isOpen, openDialog, closeDialog, onOpenChange, dialogId } = useDialogParams();
-  const isDeleteDialogOpen = isOpen("delete");
-  const [deleteTarget, setDeleteTarget] = useState<{
-    id: number;
-    label: string;
-  } | null>(null);
-
-  useEffect(() => {
-    if (isOpen("delete") && dialogId != null && !isLoading) {
-      const row = (registrations as any[]).find((r: any) => String(r.id) === String(dialogId));
-      if (row && deleteTarget?.id !== row.id) {
-        setDeleteTarget({
-          id: row.id,
-          label: `${row.member?.first_name ?? ""} ${row.member?.last_name ?? ""} · REG-${String(row.id).padStart(5, "0")}`.trim(),
-        });
-      }
-    } else if (!isDeleteDialogOpen) {
-      setDeleteTarget(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dialogId, isLoading, registrations, isDeleteDialogOpen]);
 
   const handleView = (registration: any) => {
     const qrCode = registration.qr_code;
@@ -80,13 +50,19 @@ export default function AdminRegistrations() {
     switch (status) {
       case "registered":
         return (
-          <Badge variant="default" className="bg-primary/10 text-primary border-primary/20">
+          <Badge
+            variant="default"
+            className="bg-primary/10 text-primary border-primary/20"
+          >
             Registered
           </Badge>
         );
       case "attended":
         return (
-          <Badge variant="default" className="bg-green-500/10 text-green-600 border-green-500/20">
+          <Badge
+            variant="default"
+            className="bg-green-500/10 text-green-600 border-green-500/20"
+          >
             Attended
           </Badge>
         );
@@ -105,7 +81,9 @@ export default function AdminRegistrations() {
       label: "ID",
       width: "100px",
       render: (value: any) => (
-        <span className="font-mono text-xs">REG-{String(value).padStart(5, "0")}</span>
+        <span className="font-mono text-xs">
+          REG-{String(value).padStart(5, "0")}
+        </span>
       ),
     },
     {
@@ -118,7 +96,9 @@ export default function AdminRegistrations() {
             <div className="font-medium truncate">
               {value?.first_name} {value?.last_name}
             </div>
-            <div className="text-sm text-muted-foreground truncate">{value?.email}</div>
+            <div className="text-sm text-muted-foreground truncate">
+              {value?.email}
+            </div>
           </div>
         </div>
       ),
@@ -129,7 +109,9 @@ export default function AdminRegistrations() {
       width: "250px",
       render: (_value: any, row: any) => (
         <div className="min-w-0">
-          <div className="font-medium truncate">{row.course?.class?.name || "Unknown Class"}</div>
+          <div className="font-medium truncate">
+            {row.course?.class?.name || "Unknown Class"}
+          </div>
           <div className="text-sm text-muted-foreground truncate">
             {row.course?.class?.category?.name || "No category"}
           </div>
@@ -142,7 +124,9 @@ export default function AdminRegistrations() {
       width: "200px",
       render: (_value: any, row: any) => (
         <div className="min-w-0">
-          <div className="font-medium text-sm">{formatEuropeanDate(row.course?.course_date || "")}</div>
+          <div className="font-medium text-sm">
+            {formatEuropeanDate(row.course?.course_date || "")}
+          </div>
           <div className="text-sm text-muted-foreground">
             {row.course?.start_time?.split(":").slice(0, 2).join(":")} -{" "}
             {row.course?.end_time?.split(":").slice(0, 2).join(":")}
@@ -187,13 +171,9 @@ export default function AdminRegistrations() {
             )}
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"
-              onClick={() => {
-                setDeleteTarget({
-                  id: row.id,
-                  label: `${row.member?.first_name ?? ""} ${row.member?.last_name ?? ""} · REG-${String(row.id).padStart(5, "0")}`.trim(),
-                });
-                openDialog("delete", { id: row.id });
-              }}
+              onClick={() =>
+                router.push(`/admin/registrations/${row.id}/delete`)
+              }
             >
               <Trash2 className="mr-2 h-4 w-4" />
               Delete
@@ -216,7 +196,9 @@ export default function AdminRegistrations() {
     return (
       <Alert variant="destructive">
         <AlertTriangle className="h-4 w-4" />
-        <AlertDescription>Failed to load registrations. Please try again.</AlertDescription>
+        <AlertDescription>
+          Failed to load registrations. Please try again.
+        </AlertDescription>
       </Alert>
     );
   }
@@ -225,7 +207,9 @@ export default function AdminRegistrations() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Registrations</h1>
-        <p className="text-muted-foreground">Manage member registrations and view details</p>
+        <p className="text-muted-foreground">
+          Manage member registrations and view details
+        </p>
       </div>
       <DataTable
         columns={columns}
@@ -240,33 +224,6 @@ export default function AdminRegistrations() {
         description=""
         onRowClick={handleView}
       />
-
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={onOpenChange}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete registration?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This permanently removes {deleteTarget?.label || "this registration"} from the course. This cannot be
-              undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteRegistrationMutation.isPending}>Cancel</AlertDialogCancel>
-            <Button
-              variant="destructive"
-              disabled={deleteRegistrationMutation.isPending}
-              onClick={() => {
-                const id = deleteTarget?.id;
-                if (id == null) return;
-                closeDialog();
-                deleteRegistrationMutation.mutate(id);
-              }}
-            >
-              {deleteRegistrationMutation.isPending ? "Deleting…" : "Delete"}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

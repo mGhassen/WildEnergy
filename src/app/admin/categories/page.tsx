@@ -1,20 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory } from "@/hooks/useCategories";
-import { useGroups } from "@/hooks/useGroups";
+import { useCategories } from "@/hooks/useCategories";
 import { useAdminClasses } from "@/hooks/useAdmin";
-import { TableSkeleton, FormSkeleton } from "@/components/skeletons";
+import { TableSkeleton } from "@/components/skeletons";
 import { Category } from "@/lib/api/categories";
 import { AdminClass } from "@/lib/api/admin";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -24,216 +15,38 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Edit, Trash2, X } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { useDialogParams } from "@/hooks/use-dialog-params";
-
-const categoryFormSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  description: z.string().optional(),
-  color: z.string().optional(),
-  isActive: z.boolean(),
-  groupIds: z.array(z.number()).optional(),
-});
-
-type CategoryFormData = z.infer<typeof categoryFormSchema>;
+import { Plus, Edit, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface CategoryWithUI extends Category {
   isActive: boolean;
 }
 
-
 export default function AdminCategories() {
-  const [editingCategory, setEditingCategory] = useState<CategoryWithUI | null>(null);
-  const [deletingCategory, setDeletingCategory] = useState<CategoryWithUI | null>(null);
-  const [linkedClasses, setLinkedClasses] = useState<any[]>([]);
-  const { toast } = useToast();
-  const { isOpen, openDialog, closeDialog, onOpenChange, dialogId } = useDialogParams();
-  const isModalOpen = isOpen("create") || isOpen("edit");
-  const isDeleteDialogOpen = isOpen("delete");
-
-  const { data: rawCategories = [], isLoading, refetch } = useCategories();
-
-  console.log('Raw categories from API:', rawCategories);
-  console.log('Query loading state:', isLoading);
-
-  // Map is_active (from API) to isActive (for UI)
-  const categories: CategoryWithUI[] = (rawCategories || []).map((cat: Category) => ({
-    ...cat,
-    isActive: cat.is_active,
-  }));
-
-  console.log('Transformed categories:', categories);
-
+  const router = useRouter();
+  const { data: rawCategories = [], isLoading } = useCategories();
   const { data: classes = [] } = useAdminClasses();
 
-  const { data: groups = [] } = useGroups();
+  const categories: CategoryWithUI[] = (rawCategories || []).map(
+    (cat: Category) => ({
+      ...cat,
+      isActive: cat.is_active,
+    }),
+  );
 
   const getClassCount = (categoryId: number) =>
     classes.filter((cls: AdminClass) => cls.category_id === categoryId).length;
-
-  const form = useForm<CategoryFormData>({
-    resolver: zodResolver(categoryFormSchema),
-    defaultValues: {
-      name: "",
-      description: "",
-      color: "#4ECDC4",
-      isActive: true,
-      groupIds: [],
-    },
-  });
-
-  const createMutation = useCreateCategory();
-
-  const updateMutation = useUpdateCategory();
-
-  const deleteMutation = useDeleteCategory();
-
-  useEffect(() => {
-    if (isOpen("edit") && dialogId != null && !isLoading) {
-      const category = categories.find((c) => String(c.id) === String(dialogId));
-      if (category && editingCategory?.id !== category.id) {
-        setEditingCategory(category);
-        form.reset({
-          name: category.name,
-          description: category.description || "",
-          color: category.color || "",
-          isActive: category.isActive,
-          groupIds: category.groups?.map(g => g.id) || [],
-        });
-      }
-    } else if (isOpen("create")) {
-      if (editingCategory) setEditingCategory(null);
-    } else if (isOpen("delete") && dialogId != null && !isLoading) {
-      const category = categories.find((c) => String(c.id) === String(dialogId));
-      if (category && deletingCategory?.id !== category.id) {
-        setDeletingCategory(category);
-        setLinkedClasses(classes.filter((cls: AdminClass) => cls.category_id === category.id));
-      }
-    } else if (!isModalOpen && !isDeleteDialogOpen) {
-      setEditingCategory(null);
-      setDeletingCategory(null);
-      setLinkedClasses([]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dialogId, isLoading, categories, classes, isModalOpen, isDeleteDialogOpen]);
-
-  const onSubmit = (data: CategoryFormData) => {
-    if (editingCategory) {
-      updateMutation.mutate({ categoryId: editingCategory.id, data }, {
-        onSuccess: () => {
-          closeDialog();
-          setEditingCategory(null);
-          form.reset();
-        },
-        onError: (error) => {
-          console.error('Update error:', error);
-        }
-      });
-    } else {
-      createMutation.mutate(data, {
-        onSuccess: () => {
-          closeDialog();
-          setEditingCategory(null);
-          form.reset();
-        }
-      });
-    }
-  };
-
-  const handleEdit = (category: CategoryWithUI) => {
-    setEditingCategory(category);
-    form.reset({
-      name: category.name,
-      description: category.description || "",
-      color: category.color || "",
-      isActive: category.isActive,
-      groupIds: category.groups?.map(g => g.id) || [],
-    });
-    openDialog("edit", { id: category.id });
-  };
-
-  const handleDelete = (category: CategoryWithUI) => {
-    setDeletingCategory(category);
-    const linkedClassesForCategory = classes.filter((cls: AdminClass) => cls.category_id === category.id);
-    setLinkedClasses(linkedClassesForCategory);
-    openDialog("delete", { id: category.id });
-  };
-
-  const confirmDelete = () => {
-    if (deletingCategory) {
-      deleteMutation.mutate(deletingCategory.id, {
-        onSuccess: () => {
-          closeDialog();
-          setDeletingCategory(null);
-          setLinkedClasses([]);
-        },
-        onError: (error: any) => {
-          if (error.status === 400 && error.classes && error.classes.length > 0) {
-            const classNames = error.classes.map((cls: any) => cls.name).join(', ');
-            toast({
-              title: "Cannot delete category",
-              description: `This category is being used by the following classes: ${classNames}. Please reassign or delete these classes first.`,
-              variant: "destructive",
-            });
-          } else {
-            toast({
-              title: "Error",
-              description: error.message || "Failed to delete category",
-              variant: "destructive",
-            });
-          }
-        }
-      });
-    }
-  };
-
-  const openCreateDialog = () => {
-    setEditingCategory(null);
-    form.reset({
-      name: "",
-      description: "",
-      color: "#4ECDC4",
-      isActive: true,
-      groupIds: [],
-    });
-    openDialog("create");
-  };
 
   if (isLoading) {
     return (
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <div className="h-8 w-48 bg-muted rounded animate-pulse mb-2"></div>
-            <div className="h-4 w-64 bg-muted rounded animate-pulse"></div>
+            <div className="h-8 w-48 bg-muted rounded animate-pulse mb-2" />
+            <div className="h-4 w-64 bg-muted rounded animate-pulse" />
           </div>
-          <div className="h-10 w-32 bg-muted rounded animate-pulse"></div>
+          <div className="h-10 w-32 bg-muted rounded animate-pulse" />
         </div>
         <TableSkeleton rows={8} columns={6} />
       </div>
@@ -244,239 +57,17 @@ export default function AdminCategories() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Categories</h1>
-          <p className="text-muted-foreground">Manage categories for your gym classes</p>
+          <h1 className="text-3xl font-bold text-foreground mb-2">
+            Categories
+          </h1>
+          <p className="text-muted-foreground">
+            Manage categories for your gym classes
+          </p>
         </div>
-        <Dialog open={isModalOpen} onOpenChange={onOpenChange}>
-          <Button onClick={openCreateDialog}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Category
-          </Button>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                {editingCategory ? "Edit Category" : "Create New Category"}
-              </DialogTitle>
-            </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Enter category name" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Description</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Enter category description"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="color"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Color</FormLabel>
-                      <FormControl>
-                        <div className="flex space-x-2">
-                          <Input
-                            type="color"
-                            className="w-12 h-10 p-1 rounded border"
-                            {...field}
-                          />
-                          <Input
-                            placeholder="#3b82f6"
-                            {...field}
-                            className="flex-1"
-                          />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="groupIds"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Groups</FormLabel>
-                      <Select 
-                        onValueChange={(value) => {
-                          const groupId = Number(value);
-                          const currentIds = field.value || [];
-                          if (currentIds.includes(groupId)) {
-                            // Remove if already selected
-                            field.onChange(currentIds.filter(id => id !== groupId));
-                          } else {
-                            // Add if not selected
-                            field.onChange([...currentIds, groupId]);
-                          }
-                        }} 
-                        value=""
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select groups (optional)" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {groups.map((group: any) => (
-                            <SelectItem key={group.id} value={group.id.toString()}>
-                              <div className="flex items-center gap-2">
-                                <div 
-                                  className="w-3 h-3 rounded-full" 
-                                  style={{ backgroundColor: group.color }}
-                                />
-                                {group.name}
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {field.value && field.value.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mt-2">
-                          {field.value.map((groupId: number) => {
-                            const group = groups.find((g: any) => g.id === groupId);
-                            return (
-                              <div key={groupId} className="flex items-center gap-1 bg-muted px-2 py-1 rounded-full text-sm">
-                                <div 
-                                  className="w-2 h-2 rounded-full" 
-                                  style={{ backgroundColor: group?.color }}
-                                />
-                                {group?.name}
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-4 w-4 p-0"
-                                  onClick={() => {
-                                    field.onChange(field.value?.filter((id: number) => id !== groupId));
-                                  }}
-                                >
-                                  <X className="w-3 h-3" />
-                                </Button>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="isActive"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                      <div className="space-y-0.5">
-                        <FormLabel className="text-base">Active</FormLabel>
-                        <div className="text-sm text-muted-foreground">
-                          Category is available for use
-                        </div>
-                      </div>
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-
-                <div className="flex justify-end space-x-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      closeDialog();
-                      setEditingCategory(null);
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={createMutation.isPending || updateMutation.isPending}
-                  >
-                    {editingCategory ? "Update" : "Create"}
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
-
-        {/* Delete Confirmation Dialog */}
-        <AlertDialog open={isDeleteDialogOpen} onOpenChange={onOpenChange}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete Category</AlertDialogTitle>
-              <AlertDialogDescription>
-                Are you sure you want to delete the category &quot;{deletingCategory?.name}&quot;?
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            
-            {linkedClasses.length > 0 && (
-              <div className="my-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md">
-                <div className="text-amber-800 dark:text-amber-200 font-medium">
-                  ⚠️ This category is currently used by {linkedClasses.length} class{linkedClasses.length !== 1 ? 'es' : ''}:
-                </div>
-                <ul className="mt-2 text-sm text-amber-700 dark:text-amber-300">
-                  {linkedClasses.map((cls: AdminClass) => (
-                    <li key={cls.id}>• {cls.name}</li>
-                  ))}
-                </ul>
-                <div className="mt-2 text-sm text-amber-700 dark:text-amber-300">
-                  <strong>Deletion will be blocked</strong> to maintain data integrity. Please reassign or delete these classes first.
-                </div>
-              </div>
-            )}
-            <AlertDialogDescription className="mt-4">
-              This action cannot be undone.
-            </AlertDialogDescription>
-            <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => {
-                closeDialog();
-                setDeletingCategory(null);
-                setLinkedClasses([]);
-              }}>
-                Cancel
-              </AlertDialogCancel>
-              <AlertDialogAction
-                onClick={confirmDelete}
-                className={linkedClasses.length > 0 ? "bg-amber-600 hover:bg-amber-700" : "bg-red-600 hover:bg-red-700"}
-                disabled={linkedClasses.length > 0}
-              >
-                {linkedClasses.length > 0 ? "Cannot Delete (Has Classes)" : "Delete Category"}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <Button onClick={() => router.push("/admin/categories/new")}>
+          <Plus className="h-4 w-4 mr-2" />
+          Add Category
+        </Button>
       </div>
 
       <Card>
@@ -494,29 +85,30 @@ export default function AdminCategories() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {categories.map((category: CategoryWithUI) => (
+              {categories.map((category) => (
                 <TableRow key={category.id}>
                   <TableCell>
                     <div className="flex items-center space-x-3">
-                      <div 
+                      <div
                         className="w-12 h-12 rounded-lg flex items-center justify-center"
-                        style={{ backgroundColor: category.color || '#94a3b8' }}
+                        style={{
+                          backgroundColor: category.color || "#94a3b8",
+                        }}
                       >
                         <span className="text-xs font-medium text-white">
-                          {category.name?.charAt(0)?.toUpperCase() || 'C'}
+                          {category.name?.charAt(0)?.toUpperCase() || "C"}
                         </span>
                       </div>
                       <div className="flex-1">
-                        {/* Groups with colored text */}
                         {category.groups && category.groups.length > 0 && (
                           <div className="mb-1 flex flex-wrap gap-1">
                             {category.groups.map((group: any) => (
-                              <span 
+                              <span
                                 key={group.id}
                                 className="text-xs font-medium px-2 py-1 rounded-full"
-                                style={{ 
-                                  backgroundColor: group.color + '20',
-                                  color: group.color || '#94a3b8' 
+                                style={{
+                                  backgroundColor: group.color + "20",
+                                  color: group.color || "#94a3b8",
                                 }}
                               >
                                 {group.name}
@@ -524,15 +116,19 @@ export default function AdminCategories() {
                             ))}
                           </div>
                         )}
-                        <p className="font-medium text-foreground">{category.name}</p>
+                        <p className="font-medium text-foreground">
+                          {category.name}
+                        </p>
                         <p className="text-sm text-muted-foreground line-clamp-1">
-                          {category.description || 'No description'}
+                          {category.description || "No description"}
                         </p>
                       </div>
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={category.isActive ? "default" : "secondary"}>
+                    <Badge
+                      variant={category.isActive ? "default" : "secondary"}
+                    >
                       {category.isActive ? "Active" : "Inactive"}
                     </Badge>
                   </TableCell>
@@ -546,14 +142,20 @@ export default function AdminCategories() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleEdit(category)}
+                        onClick={() =>
+                          router.push(`/admin/categories/${category.id}/edit`)
+                        }
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         size="sm"
-                        onClick={() => handleDelete(category)}
+                        onClick={() =>
+                          router.push(
+                            `/admin/categories/${category.id}/delete`,
+                          )
+                        }
                       >
                         <Trash2 className="h-4 w-4 text-red-500" />
                       </Button>

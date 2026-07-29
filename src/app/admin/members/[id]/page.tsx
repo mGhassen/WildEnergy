@@ -9,17 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { useMemberDetails } from "@/hooks/useMemberDetails";
-import { useUnlinkAccountFromMember } from "@/hooks/useAccountLinking";
 import { useUpdateMemberDetails } from "@/hooks/useUpdateMemberDetails";
-import { useDeleteMember } from "@/hooks/useMembers";
 import { useCreateAccountFromMember } from "@/hooks/useCreateAccountFromMember";
 import { useToast } from "@/hooks/use-toast";
-import { AccountLinkingDialog } from "@/components/account-linking-dialog";
-import { UnlinkAccountDialog } from "@/components/unlink-account-dialog";
-import { CreateAccountDialog } from "@/components/create-account-dialog";
-import { ConfirmationDialog } from "@/components/confirmation-dialog";
-import { ManageCreditDialog } from "@/components/manage-credit-dialog";
-import { useDialogParams } from "@/hooks/use-dialog-params";
 import { 
   ArrowLeft,
   MoreHorizontal,
@@ -198,20 +190,12 @@ export default function MemberDetailsPage() {
 
   const [activeTab, setActiveTab] = useState("overview");
   const [isEditing, setIsEditing] = useState(false);
-  const { isOpen, openDialog, closeDialog, onOpenChange } = useDialogParams();
-  const showLinkDialog = isOpen("link");
-  const showUnlinkDialog = isOpen("unlink");
-  const showCreateAccountDialog = isOpen("create-account");
-  const showDeleteDialog = isOpen("delete");
-  const showManageCreditDialog = isOpen("credit");
 
   // Fetch member details
   const { data: memberDetails, isLoading, error } = useMemberDetails(memberId);
   
   // Account linking hooks
-  const unlinkAccountMutation = useUnlinkAccountFromMember();
   const updateMemberMutation = useUpdateMemberDetails();
-  const deleteMemberMutation = useDeleteMember();
   const { toast } = useToast();
 
   // Edit form state
@@ -360,7 +344,7 @@ export default function MemberDetailsPage() {
   };
 
   const handleManageCredit = () => {
-    openDialog("credit");
+    router.push(`/admin/members/${memberId}/credit`);
   };
 
   const handleSaveMember = async () => {
@@ -427,20 +411,9 @@ export default function MemberDetailsPage() {
   };
 
   const handleDeleteMember = () => {
-    openDialog("delete");
+    router.push(`/admin/members/${memberId}/delete`);
   };
 
-  const handleConfirmDelete = async () => {
-    try {
-      await deleteMemberMutation.mutateAsync(member.id);
-      closeDialog();
-      // Navigate back to members list after successful deletion
-      router.push('/admin/members');
-    } catch (error) {
-      console.error('Failed to delete member:', error);
-      // Error handling is done in the hook
-    }
-  };
 
   const handleSendEmail = () => {
     if (!member.email) {
@@ -466,35 +439,18 @@ export default function MemberDetailsPage() {
   };
 
   const handleLinkAccount = () => {
-    openDialog("link");
+    router.push(`/admin/members/${memberId}/link`);
   };
 
   const handleCreateAccount = () => {
-    openDialog("create-account");
+    router.push(`/admin/members/${memberId}/create-account`);
   };
 
   const handleUnlinkAccount = () => {
-    openDialog("unlink");
+    router.push(`/admin/members/${memberId}/unlink`);
   };
 
-  const handleConfirmUnlink = async () => {
-    if (!member.account_id) {
-      console.error('No account linked to this member');
-      return;
-    }
 
-    try {
-      await unlinkAccountMutation.mutateAsync(member.account_id);
-      closeDialog();
-    } catch (error) {
-      console.error('Failed to unlink account:', error);
-    }
-  };
-
-  const handleLinkSuccess = () => {
-    // The query will automatically refetch due to invalidation
-    closeDialog();
-  };
 
   return (
     <div className="space-y-6">
@@ -577,9 +533,9 @@ export default function MemberDetailsPage() {
                   </DropdownMenuItem>
               <DropdownMenuSeparator />
               {member.account_id ? (
-                <DropdownMenuItem onClick={handleUnlinkAccount} disabled={unlinkAccountMutation.isPending}>
+                <DropdownMenuItem onClick={handleUnlinkAccount}>
                   <Unlink className="w-4 h-4 mr-2" />
-                  {unlinkAccountMutation.isPending ? 'Unlinking...' : 'Unlink Account'}
+                  'Unlink Account'
                 </DropdownMenuItem>
               ) : (
                 <>
@@ -1234,51 +1190,6 @@ export default function MemberDetailsPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Account Linking Dialog */}
-      <AccountLinkingDialog
-        open={showLinkDialog}
-        onOpenChange={onOpenChange}
-        memberId={memberId}
-        memberName={`${member.firstName} ${member.lastName}`}
-        onSuccess={handleLinkSuccess}
-      />
-
-      {/* Unlink Account Dialog */}
-      <UnlinkAccountDialog
-        open={showUnlinkDialog}
-        onOpenChange={onOpenChange}
-        onConfirm={handleConfirmUnlink}
-        memberName={`${member.firstName} ${member.lastName}`}
-        isPending={unlinkAccountMutation.isPending}
-      />
-
-      {/* Create Account Dialog */}
-      <CreateAccountDialog
-        isOpen={showCreateAccountDialog}
-        onClose={closeDialog}
-        memberId={memberId}
-        memberName={`${member.firstName} ${member.lastName}`}
-      />
-
-      <ManageCreditDialog
-        open={showManageCreditDialog}
-        onOpenChange={onOpenChange}
-        memberId={member.id}
-        memberName={`${member.firstName} ${member.lastName}`}
-      />
-
-      {/* Delete Member Confirmation Dialog */}
-      <ConfirmationDialog
-        open={showDeleteDialog}
-        onOpenChange={onOpenChange}
-        onConfirm={handleConfirmDelete}
-        title="Delete Member"
-        description={`Are you sure you want to delete ${member.firstName} ${member.lastName}? This action cannot be undone and will permanently remove all member data.`}
-        confirmText="Delete Member"
-        cancelText="Cancel"
-        variant="destructive"
-        isPending={deleteMemberMutation.isPending}
-      />
     </div>
   );
 }

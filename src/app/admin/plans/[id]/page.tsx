@@ -2,7 +2,13 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   ArrowLeft,
@@ -13,47 +19,15 @@ import {
   DollarSign,
   Calendar,
 } from "lucide-react";
-import { usePlan, useCheckPlanDeletion, useDeletePlan } from "@/hooks/usePlans";
+import { usePlan } from "@/hooks/usePlans";
 import { formatCurrency } from "@/lib/config";
 import { DashboardSkeleton } from "@/components/skeletons";
-import { useDialogParams } from "@/hooks/use-dialog-params";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { useEffect, useState } from "react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertTriangle } from "lucide-react";
 
 export default function AdminPlanDetailPage() {
   const params = useParams();
   const router = useRouter();
   const planId = Number(params.id);
   const { data: plan, isLoading, error } = usePlan(planId);
-  const { isOpen, openDialog, closeDialog, onOpenChange } = useDialogParams();
-  const checkDeletionMutation = useCheckPlanDeletion();
-  const deletePlanMutation = useDeletePlan();
-  const [linkedSubscriptions, setLinkedSubscriptions] = useState<any[]>([]);
-  const isDeleteOpen = isOpen("delete");
-
-  useEffect(() => {
-    if (!isDeleteOpen || !planId) return;
-    checkDeletionMutation.mutate(planId, {
-      onSuccess: (response) => {
-        setLinkedSubscriptions(
-          response.canDelete ? [] : response.linkedSubscriptions || [],
-        );
-      },
-      onError: () => setLinkedSubscriptions([]),
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDeleteOpen, planId]);
 
   const getDurationText = (days: number) => {
     if (days === 30) return "Monthly";
@@ -63,14 +37,24 @@ export default function AdminPlanDetailPage() {
     return `${days} days`;
   };
 
-  const confirmDelete = () => {
-    deletePlanMutation.mutate(planId, {
-      onSuccess: () => {
-        closeDialog();
-        router.push("/admin/plans");
-      },
-    });
-  };
+  if (!Number.isFinite(planId) || planId <= 0) {
+    return (
+      <div className="space-y-4">
+        <Button variant="ghost" onClick={() => router.push("/admin/plans")}>
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back to Plans
+        </Button>
+        <Card>
+          <CardHeader>
+            <CardTitle>Invalid plan</CardTitle>
+            <CardDescription>
+              The plan ID in this URL is not valid.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
 
   if (isLoading) return <DashboardSkeleton />;
 
@@ -101,7 +85,11 @@ export default function AdminPlanDetailPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => router.push("/admin/plans")}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => router.push("/admin/plans")}
+          >
             <ArrowLeft className="w-4 h-4" />
           </Button>
           <div>
@@ -114,9 +102,7 @@ export default function AdminPlanDetailPage() {
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
-            onClick={() =>
-              router.push(`/admin/plans?dialog=edit&id=${plan.id}`)
-            }
+            onClick={() => router.push(`/admin/plans/${plan.id}/edit`)}
           >
             <Edit className="w-4 h-4 mr-2" />
             Edit
@@ -124,7 +110,7 @@ export default function AdminPlanDetailPage() {
           <Button
             variant="outline"
             className="hover:bg-destructive/5 hover:border-destructive/20 hover:text-destructive"
-            onClick={() => openDialog("delete")}
+            onClick={() => router.push(`/admin/plans/${plan.id}/delete`)}
           >
             <Trash2 className="w-4 h-4 mr-2" />
             Delete
@@ -234,48 +220,6 @@ export default function AdminPlanDetailPage() {
           )}
         </CardContent>
       </Card>
-
-      <AlertDialog open={isDeleteOpen} onOpenChange={onOpenChange}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete plan?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete <strong>{plan.name}</strong>.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          {linkedSubscriptions.length > 0 && (
-            <Alert variant="destructive">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>Cannot delete</AlertTitle>
-              <AlertDescription>
-                This plan has {linkedSubscriptions.length} linked subscription
-                {linkedSubscriptions.length === 1 ? "" : "s"}. Cancel or
-                transfer them first.
-              </AlertDescription>
-            </Alert>
-          )}
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={closeDialog}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDelete}
-              disabled={
-                linkedSubscriptions.length > 0 || deletePlanMutation.isPending
-              }
-              className={
-                linkedSubscriptions.length > 0
-                  ? "bg-muted text-muted-foreground cursor-not-allowed"
-                  : "bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              }
-            >
-              {linkedSubscriptions.length > 0
-                ? "Cannot Delete"
-                : deletePlanMutation.isPending
-                  ? "Deleting..."
-                  : "Delete Plan"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

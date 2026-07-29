@@ -1,18 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useDialogParams } from "@/hooks/use-dialog-params";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { 
   DropdownMenu, 
@@ -21,10 +17,7 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { insertTrainerSchema } from "@/shared/zod-schemas";
-import { useTrainers, useCreateTrainer, useUpdateTrainer, useDeleteTrainer } from "@/hooks/useTrainers";
+import { useTrainers, useDeleteTrainer } from "@/hooks/useTrainers";
 import { 
   Plus, 
   Search, 
@@ -45,35 +38,17 @@ import {
 } from "lucide-react";
 import { getInitials } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
-import { z } from "zod";
-import { TableSkeleton, FormSkeleton } from "@/components/skeletons";
+import { TableSkeleton } from "@/components/skeletons";
 
-const trainerFormSchema = z.object({
-  firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().min(1, 'Last name is required'),
-  email: z.string().email('Invalid email format'),
-  phone: z.string().optional(),
-  specialties: z.array(z.string()).optional(),
-  bio: z.string().optional(),
-  status: z.string().optional(),
-  specialization: z.string().optional(),
-  experience_years: z.number().optional(),
-  certification: z.string().optional(),
-});
-
-type TrainerFormData = z.infer<typeof trainerFormSchema>;
 
 export default function AdminTrainers() {
-  const [editingTrainer, setEditingTrainer] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [specializationFilter, setSpecializationFilter] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
   const queryClient = useQueryClient();
   const router = useRouter();
-  const { isOpen, openDialog, closeDialog, onOpenChange, dialogId } = useDialogParams();
   const { toast } = useToast();
-  const isModalOpen = isOpen("create") || isOpen("edit");
 
   const { data: trainersData = [], isLoading } = useTrainers();
 
@@ -110,109 +85,11 @@ export default function AdminTrainers() {
     return true;
   });
 
-  const form = useForm<TrainerFormData>({
-    resolver: zodResolver(trainerFormSchema),
-    defaultValues: {
-      firstName: "",
-      lastName: "",
-      email: "",
-      phone: "",
-      bio: "",
-      status: "active",
-    },
-  });
-
-  useEffect(() => {
-    if (isOpen("edit") && dialogId != null && !isLoading) {
-      const t = trainersData.find((x: any) => String(x.id) === String(dialogId));
-      if (t) {
-        setEditingTrainer(t);
-        form.reset({
-          firstName: t.first_name,
-          lastName: t.last_name,
-          email: t.email ?? "",
-          phone: t.phone,
-          bio: t.bio,
-          status: t.status,
-          specialization: t.specialization,
-          experience_years: t.experience_years,
-          certification: t.certification,
-        });
-      }
-    } else if (isOpen("create")) {
-      setEditingTrainer(null);
-    } else if (!isModalOpen) {
-      setEditingTrainer(null);
-    }
-  }, [dialogId, isLoading, trainersData, isModalOpen]);
-
-  const createTrainerMutation = useCreateTrainer();
-
-  const updateTrainerMutation = useUpdateTrainer();
-
   const deleteTrainerMutation = useDeleteTrainer();
 
   // Filtering is now handled above with the transformed data
 
-  const handleSubmit = (data: TrainerFormData) => {
-    if (editingTrainer) {
-      updateTrainerMutation.mutate({ 
-        trainerId: editingTrainer.id,
-        accountId: editingTrainer.account_id,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        email: data.email,
-        phone: data.phone,
-        specialization: data.specialization,
-        experienceYears: data.experience_years,
-        bio: data.bio,
-        certification: data.certification,
-        status: data.status
-      }, {
-        onSuccess: () => {
-          closeDialog();
-          setEditingTrainer(null);
-          form.reset();
-        }
-      });
-    } else {
-      createTrainerMutation.mutate(
-        {
-          firstName: data.firstName,
-          lastName: data.lastName,
-          email: data.email,
-          phone: data.phone,
-          bio: data.bio,
-          specialization: data.specialization,
-          experienceYears: data.experience_years,
-          certification: data.certification,
-        },
-        {
-          onSuccess: () => {
-            closeDialog();
-            setEditingTrainer(null);
-            form.reset();
-          },
-        },
-      );
-    }
-  };
 
-  const handleEdit = (trainer: any) => {
-    setEditingTrainer(trainer);
-    form.reset({
-      firstName: trainer.first_name,
-      lastName: trainer.last_name,
-      email: trainer.email,
-      phone: trainer.phone,
-      bio: trainer.bio,
-      status: trainer.status,
-      specialization: trainer.specialization,
-      experience_years: trainer.experience_years,
-      certification: trainer.certification,
-    });
-    openDialog("edit", { id: trainer.id });
-  };
 
   const handleDelete = (trainer: any) => {
     deleteTrainerMutation.mutate(trainer.account_id, {
@@ -244,16 +121,7 @@ export default function AdminTrainers() {
   };
 
   const openCreateModal = () => {
-    setEditingTrainer(null);
-    form.reset({
-      firstName: "",
-      lastName: "",
-      email: "",
-      phone: "",
-      bio: "",
-      status: "active",
-    });
-    openDialog("create");
+    router.push("/admin/trainers/new");
   };
 
   return (
@@ -263,117 +131,12 @@ export default function AdminTrainers() {
           <h1 className="text-3xl font-bold text-foreground mb-2">Trainers</h1>
           <p className="text-muted-foreground">Manage gym trainers and their information</p>
         </div>
-        <Dialog open={isModalOpen} onOpenChange={onOpenChange}>
-          <Button onClick={openCreateModal}>
+        <Button onClick={openCreateModal}>
             <Plus className="w-4 h-4 mr-2" />
             Add Trainer
           </Button>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle>{editingTrainer ? "Edit Trainer" : "Add New Trainer"}</DialogTitle>
-              <DialogDescription>
-                {editingTrainer ? "Update trainer information" : "Add a new trainer to the gym"}
-              </DialogDescription>
-            </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="firstName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>First Name</FormLabel>
-                        <FormControl>
-                          <Input {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="lastName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Last Name</FormLabel>
-                        <FormControl>
-                          <Input {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input type="email" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="phone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Phone</FormLabel>
-                      <FormControl>
-                        <Input type="tel" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="bio"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Bio</FormLabel>
-                      <FormControl>
-                        <Textarea {...field} placeholder="Brief description of the trainer..." />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="status"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Status</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select status" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="active">Active</SelectItem>
-                          <SelectItem value="inactive">Inactive</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <DialogFooter>
-                  <Button type="submit" disabled={createTrainerMutation.isPending || updateTrainerMutation.isPending}>
-                    {editingTrainer ? "Update Trainer" : "Create Trainer"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+
+
       </div>
 
       {/* Search and Filters */}
@@ -625,7 +388,7 @@ export default function AdminTrainers() {
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={(e) => {
                             e.stopPropagation();
-                            handleEdit(trainer);
+                            router.push(`/admin/trainers/${trainer.id}/edit`);
                           }}>
                             <Edit className="w-4 h-4 mr-2" />
                             Edit

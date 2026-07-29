@@ -1,13 +1,13 @@
 "use client";
 import { useState, useMemo, Suspense, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useCancelRegistration, useForceRegistration } from "@/hooks/useRegistrations";
+import { useCancelRegistration } from "@/hooks/useRegistrations";
 import { useMemberCourses, useMemberSubscriptions, useMemberCategories } from "@/hooks/useMember";
 import { useMemberCourseRegistration } from "@/hooks/useMemberRegistration";
 import { useMemberRegistrations } from "@/hooks/useMemberRegistrations";
@@ -16,14 +16,11 @@ import { apiFetch } from "@/lib/api";
 import { Registration } from "@/lib/api/registrations";
 import { CardSkeleton, ListSkeleton } from "@/components/skeletons";
 import { useToast } from "@/hooks/use-toast";
-import { useDialogParams } from "@/hooks/use-dialog-params";
 import { Search, Clock, Users, Calendar, Star, Check, AlertTriangle, QrCode, List, CalendarRange } from "lucide-react";
 import { formatTime, getDayName } from "@/lib/date";
 import { formatDate } from "@/lib/date";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ConfirmationDialog } from "@/components/confirmation-dialog";
-import QRGenerator from "@/components/qr-generator";
 import { CalendarProvider } from "@/calendar/contexts/calendar-context";
 import { ClientContainer } from "@/calendar/components/client-container";
 import { MobileClientContainer } from "@/components/mobile-client-container";
@@ -86,25 +83,17 @@ interface Subscription {
 
 
 function MemberClassesContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const view = searchParams.get('view') || 'day';
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [dayFilter, setDayFilter] = useState("");
-  const [overlappingCourses, setOverlappingCourses] = useState<Array<{
-    courseId: number;
-    courseName: string;
-    date: string;
-    startTime: string;
-    endTime: string;
-    trainer: string;
-  }>>([]);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [registrationToCancel, setRegistrationToCancel] = useState<{ id: number; message: string } | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { user } = useAuth();
-  const { isOpen, openDialog, closeDialog, onOpenChange, dialogId, getParam } = useDialogParams();
 
   const { data: courses, isLoading } = useMemberCourses();
   const { data: categories, isLoading: categoriesLoading } = useMemberCategories();
@@ -129,29 +118,29 @@ function MemberClassesContent() {
 
   const registerMutation = useMemberCourseRegistration();
   const cancelMutation = useCancelRegistration();
-  const forceRegistrationMutation = useForceRegistration();
-
-  const isOverlapOpen = isOpen("overlap");
-  const isQROpen = isOpen("qr");
-  const overlapCourseId = getParam("courseId") ? Number(getParam("courseId")) : null;
 
   // Handle overlap errors from registration
   useEffect(() => {
     const err = registerMutation.error;
     if (err && typeof err === "object" && "type" in err && (err as any).type === "OVERLAP") {
       const overlapData = err as any;
-      setOverlappingCourses(overlapData.overlappingCourses || []);
-      openDialog("overlap", { courseId: registerMutation.variables || 0 });
+      const courseId = registerMutation.variables || 0;
+      const overlapping =
+        overlapData.overlappingCourses ||
+        (overlapData.conflictingCourse ? [overlapData.conflictingCourse] : []);
+      try {
+        sessionStorage.setItem(
+          `member-course-overlap:${courseId}`,
+          JSON.stringify(overlapping),
+        );
+      } catch {
+        // ignore storage errors
+      }
       registerMutation.reset();
+      router.push(`/member/courses/${courseId}/overlap?from=/member/classes`);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [registerMutation.error]);
-
-  useEffect(() => {
-    if (!isOverlapOpen) {
-      setOverlappingCourses([]);
-    }
-  }, [isOverlapOpen]);
 
   // Create a set of course IDs that the user is registered for (only active registrations)
   const registrationsArray = Array.isArray(registrations) ? registrations : [];
@@ -160,11 +149,6 @@ function MemberClassesContent() {
       .filter((reg: Registration) => reg.status === 'registered' && reg.course_id)
       .map((reg: Registration) => reg.course_id!)
   );
-
-  const selectedQRRegistration = isQROpen && dialogId != null
-    ? registrationsArray.find((reg: Registration) => String(reg.id) === String(dialogId)) ?? null
-    : null;
-  const selectedQR = selectedQRRegistration?.qr_code ?? null;
 
   // Helper function to get registration for a course
   const getRegistrationForCourse = (courseId: number) => {
@@ -588,7 +572,9 @@ function MemberClassesContent() {
                           onClick={() => {
                             const registration = getRegistrationForCourse(course.id);
                             if (registration?.id) {
-                              openDialog("qr", { id: registration.id });
+                              router.push(
+                                `/member/registrations/${registration.id}/qr?from=/member/classes`,
+                              );
                             }
                           }}
                           className="px-3"
@@ -635,82 +621,6 @@ function MemberClassesContent() {
       </div>
       </TooltipProvider>
       </div>
-
-      {/* Overlap Confirmation Dialog */}
-      <Dialog open={isOverlapOpen} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-orange-500" />
-              Course Time Conflict
-            </DialogTitle>
-            <DialogDescription>
-              This course overlaps with other courses you're already registered for. Are you sure you want to register anyway?
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-3">
-            <div className="text-sm font-medium text-foreground">Overlapping courses:</div>
-            {overlappingCourses.map((course, index) => (
-              <div key={index} className="p-3 bg-muted rounded-lg">
-                <div className="font-medium text-sm">{course.courseName}</div>
-                <div className="text-xs text-muted-foreground">
-                  {formatDate(course.date)} • {formatTime(course.startTime)} - {formatTime(course.endTime)}
-                </div>
-                <div className="text-xs text-muted-foreground">with {course.trainer}</div>
-              </div>
-            ))}
-          </div>
-          
-          <DialogFooter className="gap-2">
-            <Button
-              variant="outline"
-              onClick={closeDialog}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={() => {
-                if (overlapCourseId) {
-                  forceRegistrationMutation.mutate(overlapCourseId, {
-                    onSuccess: () => {
-                      closeDialog();
-                    }
-                  });
-                }
-              }}
-              disabled={forceRegistrationMutation.isPending || !overlapCourseId}
-            >
-              {forceRegistrationMutation.isPending ? "Registering..." : "Register Anyway"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* QR Code Modal */}
-      <Dialog open={isQROpen} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-[90vw] sm:max-w-md max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-lg sm:text-xl font-bold text-center text-foreground">Your QR Code</DialogTitle>
-          </DialogHeader>
-          {selectedQR && (
-            <div className="space-y-4">
-              <div className="flex justify-center">
-                <div className="p-2 sm:p-3 bg-white rounded-xl shadow-lg border-2 border-border">
-                  <QRGenerator value={selectedQR} size={200} />
-                </div>
-              </div>
-              <div className="text-center space-y-2">
-                <p className="text-sm text-muted-foreground">QR Code Value:</p>
-                <p className="text-xs font-mono bg-muted p-3 rounded break-all text-foreground">{selectedQR}</p>
-              </div>
-              <Button onClick={closeDialog} className="w-full">
-                Close
-              </Button>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
 
       {/* Cancel Registration Confirmation Dialog */}
       <ConfirmationDialog

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,13 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { useMembers, useDeleteMember, useCreateMember } from "@/hooks/useMembers";
-import { ConfirmationDialog } from "@/components/confirmation-dialog";
-import { ManageCreditDialog } from "@/components/manage-credit-dialog";
-import { useDialogParams } from "@/hooks/use-dialog-params";
+import { useMembers } from "@/hooks/useMembers";
 import { 
   Search, 
   User, 
@@ -215,27 +209,8 @@ export default function MembersPage() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [viewMode, setViewMode] = useState<"grid" | "table">("table");
   const [showFilters, setShowFilters] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<Member | null>(null);
-  const [creditManageTarget, setCreditManageTarget] = useState<Member | null>(null);
-  const [createForm, setCreateForm] = useState({
-    firstName: "",
-    lastName: "",
-    phone: "",
-    profileEmail: "",
-    memberNotes: "",
-    credit: 0,
-    status: "active",
-  });
-
-  const { isOpen, openDialog, closeDialog, onOpenChange, dialogId } = useDialogParams();
-  const isCreateDialogOpen = isOpen("create");
-  const isDeleteDialogOpen = isOpen("delete");
-  const isCreditDialogOpen = isOpen("credit");
-
   // Fetch members with related data
   const { data: members = [], isLoading, refetch } = useMembers();
-  const deleteMemberMutation = useDeleteMember();
-  const createMemberMutation = useCreateMember();
 
   // Process and filter members with proper data handling
   const processedMembers = useMemo(() => {
@@ -262,19 +237,6 @@ export default function MembersPage() {
     }));
   }, [members]);
 
-  useEffect(() => {
-    if (isOpen("delete") && dialogId != null && !isLoading) {
-      const m = processedMembers.find((x: any) => String(x.id) === String(dialogId));
-      if (m && deleteTarget?.id !== m.id) setDeleteTarget(m);
-    } else if (isOpen("credit") && dialogId != null && !isLoading) {
-      const m = processedMembers.find((x: any) => String(x.id) === String(dialogId));
-      if (m && creditManageTarget?.id !== m.id) setCreditManageTarget(m);
-    } else if (!isCreateDialogOpen && !isDeleteDialogOpen && !isCreditDialogOpen) {
-      setDeleteTarget(null);
-      setCreditManageTarget(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dialogId, isLoading, processedMembers, isCreateDialogOpen, isDeleteDialogOpen, isCreditDialogOpen]);
 
   // Calculate statistics with proper data
   const stats = useMemo(() => {
@@ -369,56 +331,10 @@ export default function MembersPage() {
     }
   };
 
-  const resetCreateForm = () => {
-    setCreateForm({
-      firstName: "",
-      lastName: "",
-      phone: "",
-      profileEmail: "",
-      memberNotes: "",
-      credit: 0,
-      status: "active",
-    });
-  };
-
-  const handleCreateMember = () => {
-    if (!createForm.firstName.trim() || !createForm.lastName.trim()) return;
-
-    createMemberMutation.mutate(
-      {
-        firstName: createForm.firstName.trim(),
-        lastName: createForm.lastName.trim(),
-        phone: createForm.phone.trim() || undefined,
-        profileEmail: createForm.profileEmail.trim() || undefined,
-        memberNotes: createForm.memberNotes.trim() || undefined,
-        credit: createForm.credit,
-        status: createForm.status,
-      },
-      {
-        onSuccess: (member) => {
-          closeDialog();
-          resetCreateForm();
-          router.push(`/admin/members/${member.id}`);
-        },
-      }
-    );
-  };
-
   const clearFilters = () => {
     setSearchTerm("");
     setStatusFilter("all");
     setSubscriptionFilter("all");
-  };
-
-  const handleConfirmDeleteFromList = async () => {
-    if (!deleteTarget) return;
-    try {
-      await deleteMemberMutation.mutateAsync(deleteTarget.id);
-      closeDialog();
-      setDeleteTarget(null);
-    } catch {
-      /* toast from useDeleteMember */
-    }
   };
 
   if (isLoading) {
@@ -485,7 +401,7 @@ export default function MembersPage() {
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onPointerDown={(e) => e.preventDefault()}
-                  onSelect={() => { setCreditManageTarget(member); openDialog("credit", { id: member.id }); }}
+                  onSelect={() => router.push(`/admin/members/${member.id}/credit`)}
                 >
                   <Wallet className="w-4 h-4 mr-2" />
                   Manage Credit
@@ -575,7 +491,7 @@ export default function MembersPage() {
           </Button>
           <Button 
             size="sm"
-            onClick={() => openDialog("create")}
+            onClick={() => router.push("/admin/members/new")}
           >
             <UserPlus className="w-4 h-4 mr-2" />
             Add Member
@@ -924,7 +840,7 @@ export default function MembersPage() {
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onPointerDown={(e) => e.preventDefault()}
-                              onSelect={() => { setCreditManageTarget(member); openDialog("credit", { id: member.id }); }}
+                              onSelect={() => router.push(`/admin/members/${member.id}/credit`)}
                             >
                               <Wallet className="w-4 h-4 mr-2" />
                               Manage Credit
@@ -946,7 +862,7 @@ export default function MembersPage() {
                             <DropdownMenuItem
                               className="text-destructive"
                               onPointerDown={(e) => e.preventDefault()}
-                              onSelect={() => { setDeleteTarget(member); openDialog("delete", { id: member.id }); }}
+                              onSelect={() => router.push(`/admin/members/${member.id}/delete`)}
                             >
                               <Trash2 className="w-4 h-4 mr-2" />
                               Delete Member
@@ -1028,7 +944,7 @@ export default function MembersPage() {
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onPointerDown={(e) => e.preventDefault()}
-                              onSelect={() => { setCreditManageTarget(member); openDialog("credit", { id: member.id }); }}
+                              onSelect={() => router.push(`/admin/members/${member.id}/credit`)}
                             >
                               <Wallet className="w-4 h-4 mr-2" />
                               Manage Credit
@@ -1050,7 +966,7 @@ export default function MembersPage() {
                             <DropdownMenuItem
                               className="text-destructive"
                               onPointerDown={(e) => e.preventDefault()}
-                              onSelect={() => { setDeleteTarget(member); openDialog("delete", { id: member.id }); }}
+                              onSelect={() => router.push(`/admin/members/${member.id}/delete`)}
                             >
                               <Trash2 className="w-4 h-4 mr-2" />
                               Delete Member
@@ -1137,155 +1053,6 @@ export default function MembersPage() {
         </CardContent>
       </Card>
 
-      <ConfirmationDialog
-        open={isDeleteDialogOpen}
-        onOpenChange={onOpenChange}
-        onConfirm={handleConfirmDeleteFromList}
-        title="Delete Member"
-        description={
-          deleteTarget
-            ? `Are you sure you want to delete ${deleteTarget.first_name} ${deleteTarget.last_name}? This action cannot be undone and will permanently remove all member data.`
-            : ""
-        }
-        confirmText="Delete Member"
-        cancelText="Cancel"
-        variant="destructive"
-        isPending={deleteMemberMutation.isPending}
-      />
-
-      {creditManageTarget && (
-        <ManageCreditDialog
-          open={isCreditDialogOpen}
-          onOpenChange={onOpenChange}
-          memberId={creditManageTarget.id}
-          memberName={`${creditManageTarget.first_name} ${creditManageTarget.last_name}`}
-        />
-      )}
-
-      <Dialog
-        open={isCreateDialogOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            closeDialog();
-            resetCreateForm();
-          }
-        }}
-      >
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Add Member</DialogTitle>
-            <DialogDescription>
-              Create a member without an account. You can create or link an account later from the member page.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="firstName">First Name *</Label>
-                <Input
-                  id="firstName"
-                  value={createForm.firstName}
-                  onChange={(e) => setCreateForm({ ...createForm, firstName: e.target.value })}
-                  placeholder="First name"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lastName">Last Name *</Label>
-                <Input
-                  id="lastName"
-                  value={createForm.lastName}
-                  onChange={(e) => setCreateForm({ ...createForm, lastName: e.target.value })}
-                  placeholder="Last name"
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone</Label>
-              <Input
-                id="phone"
-                type="tel"
-                value={createForm.phone}
-                onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })}
-                placeholder="Phone number"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="profileEmail">Contact Email</Label>
-              <Input
-                id="profileEmail"
-                type="email"
-                value={createForm.profileEmail}
-                onChange={(e) => setCreateForm({ ...createForm, profileEmail: e.target.value })}
-                placeholder="Optional contact email (not for login)"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="credit">Credit</Label>
-                <Input
-                  id="credit"
-                  type="number"
-                  min={0}
-                  value={createForm.credit}
-                  onChange={(e) => setCreateForm({ ...createForm, credit: Number(e.target.value) || 0 })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
-                <Select
-                  value={createForm.status}
-                  onValueChange={(value) => setCreateForm({ ...createForm, status: value })}
-                >
-                  <SelectTrigger id="status">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                    <SelectItem value="suspended">Suspended</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="memberNotes">Notes</Label>
-              <Textarea
-                id="memberNotes"
-                value={createForm.memberNotes}
-                onChange={(e) => setCreateForm({ ...createForm, memberNotes: e.target.value })}
-                placeholder="Optional notes"
-                rows={3}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => closeDialog()}
-              disabled={createMemberMutation.isPending}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleCreateMember}
-              disabled={
-                createMemberMutation.isPending ||
-                !createForm.firstName.trim() ||
-                !createForm.lastName.trim()
-              }
-            >
-              {createMemberMutation.isPending ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                "Create Member"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

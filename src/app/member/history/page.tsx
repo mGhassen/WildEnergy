@@ -1,20 +1,19 @@
 "use client";
 
 import { useState, useMemo, Suspense } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Calendar, Clock, User, Search, CheckCircle, XCircle, AlertCircle, QrCode, Filter, Download, TrendingUp, BarChart3, Calendar as CalendarIcon, Copy } from "lucide-react";
 import { formatTime, getDayName, formatDateTime } from "@/lib/date";
 import QRGenerator from "@/components/qr-generator";
 import { formatDate } from "@/lib/date";
 import { useRegistrations } from "@/hooks/useRegistrations";
 import { useCheckins } from "@/hooks/useCheckins";
-import { useDialogParams } from "@/hooks/use-dialog-params";
 import { CardSkeleton, ListSkeleton } from "@/components/skeletons";
 
 // Types for member history page
@@ -83,25 +82,19 @@ function mapRegistration(reg: unknown): Registration {
 }
 
 function MemberHistoryContent() {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
   const [dateFilter, setDateFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [trainerFilter, setTrainerFilter] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
   const [classTypeFilter, setClassTypeFilter] = useState("all");
-  const { isOpen, openDialog, closeDialog, onOpenChange, dialogId } = useDialogParams();
 
   const { data: registrations = [], isLoading: registrationsLoading } = useRegistrations();
   const { data: checkins = [], isLoading: checkinsLoading } = useCheckins();
 
   // Get all registrations and map them properly
   const allRegistrations = (registrations || []).map(mapRegistration);
-
-  const isQROpen = isOpen("qr");
-  const selectedQRRegistration = isQROpen && dialogId != null
-    ? allRegistrations.find((r) => String(r.id) === String(dialogId)) ?? null
-    : null;
-  const selectedQR = selectedQRRegistration?.qr_code ?? null;
 
   // Create a set of registration IDs that have check-ins (attended)
   const attendedRegistrationIds = new Set(
@@ -333,7 +326,11 @@ function MemberHistoryContent() {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => openDialog("qr", { id: classData.id })}
+                  onClick={() =>
+                    router.push(
+                      `/member/registrations/${classData.id}/qr?from=/member/history`,
+                    )
+                  }
                   className="h-8"
                 >
                   <QrCode className="w-3 h-3 mr-1" />
@@ -585,50 +582,6 @@ function MemberHistoryContent() {
           )}
         </div>
       </div>
-
-      {/* QR Code Modal */}
-      <Dialog open={isQROpen} onOpenChange={onOpenChange}>
-          <DialogContent className="max-w-[90vw] sm:max-w-md max-h-[85vh] overflow-y-auto">
-            <DialogHeader className="text-center pb-3 sm:pb-4">
-              <DialogTitle className="text-lg sm:text-xl font-bold text-foreground">Your QR Code</DialogTitle>
-            </DialogHeader>
-            
-            {selectedQR && (
-            <div className="flex flex-col items-center space-y-4 sm:space-y-6">
-              <div className="relative p-2 sm:p-3 bg-muted/30 rounded-lg">
-                <QRGenerator value={selectedQR} size={200} />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    navigator.clipboard.writeText(selectedQR);
-                    // You could add a toast notification here
-                  }}
-                  className="absolute top-2 right-2 h-8 w-8 p-0"
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
-              </div>
-              
-              <div className="w-full text-center space-y-2">
-                <p className="text-sm text-muted-foreground">QR Code Value:</p>
-                <div className="bg-muted p-3 rounded-lg">
-                  <p className="text-xs font-mono break-all text-foreground">{selectedQR}</p>
-                </div>
-              </div>
-              
-              <div className="w-full">
-                <Button
-                  onClick={closeDialog}
-                  className="w-full"
-                >
-                  Close
-                </Button>
-              </div>
-            </div>
-            )}
-          </DialogContent>
-        </Dialog>
     </div>
   );
 }

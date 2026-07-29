@@ -8,7 +8,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   ArrowLeft, 
@@ -44,17 +43,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { formatDate } from "@/lib/date";
 import { ConfirmationDialog } from "@/components/confirmation-dialog";
-import { useDialogParams } from "@/hooks/use-dialog-params";
 
 export default function TrainerDetailsPage() {
   const params = useParams();
   const router = useRouter();
   const trainerId = params.id as string;
-  const [selectedAccountId, setSelectedAccountId] = useState("");
-  const { isOpen, openDialog, closeDialog, onOpenChange } = useDialogParams();
-  const isLinkDialogOpen = isOpen("link");
-  const isUnlinkDialogOpen = isOpen("unlink");
-  const isDeleteDialogOpen = isOpen("delete");
 
   const { data: trainer, isLoading, error } = useTrainer(trainerId);
   const { data: accounts = [] } = useAccounts();
@@ -64,7 +57,7 @@ export default function TrainerDetailsPage() {
   const { toast } = useToast();
 
   const goToEditTrainer = () => {
-    router.push(`/admin/trainers?dialog=edit&id=${encodeURIComponent(trainerId)}`);
+    router.push(`/admin/trainers/${trainerId}/edit`);
   };
 
   const goToAccountSettings = () => {
@@ -97,58 +90,18 @@ export default function TrainerDetailsPage() {
     }
   };
 
-  const confirmDeleteTrainer = () => {
-    if (!trainer?.account_id) return;
-    deleteTrainerMutation.mutate(trainer.account_id, {
-      onSuccess: () => {
-        closeDialog();
-        toast({ title: "Trainer deleted", description: `${trainer.first_name} ${trainer.last_name} has been removed.` });
-        router.push("/admin/trainers");
-      },
-      onError: (e: Error) => {
-        toast({
-          title: "Delete failed",
-          description: e.message || "Could not delete trainer.",
-          variant: "destructive",
-        });
-      },
-    });
-  };
 
   const scrollToProfile = () => {
     document.getElementById("trainer-personal-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   // Filter accounts that are not already linked to trainers
-  const availableAccounts = accounts.filter(account => 
-    !account.trainer_id && account.account_id !== trainer?.account_id
-  );
 
-  const handleLinkAccount = () => {
-    if (!selectedAccountId) return;
-    
-    linkAccountMutation.mutate(
-      { trainerId, accountId: selectedAccountId },
-      {
-        onSuccess: () => {
-          closeDialog();
-          setSelectedAccountId("");
-        }
-      }
-    );
-  };
 
   const handleUnlinkAccount = () => {
-    openDialog("unlink");
+    router.push(`/admin/trainers/${trainerId}/unlink`);
   };
 
-  const confirmUnlinkAccount = () => {
-    unlinkAccountMutation.mutate(trainerId, {
-      onSuccess: () => {
-        closeDialog();
-      }
-    });
-  };
 
   if (isLoading) {
     return <DashboardSkeleton />;
@@ -247,7 +200,7 @@ export default function TrainerDetailsPage() {
                 Unlink Account
               </DropdownMenuItem>
             ) : (
-              <DropdownMenuItem onClick={() => openDialog("link")}>
+              <DropdownMenuItem onClick={() => router.push(`/admin/trainers/${trainerId}/link`)}>
                 <Link className="w-4 h-4 mr-2" />
                 Link Account
               </DropdownMenuItem>
@@ -269,7 +222,7 @@ export default function TrainerDetailsPage() {
                   });
                   return;
                 }
-                openDialog("delete");
+                router.push(`/admin/trainers/${trainerId}/delete`);
               }}
             >
               <Trash2 className="w-4 h-4 mr-2" />
@@ -369,7 +322,7 @@ export default function TrainerDetailsPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => openDialog("link")}
+                        onClick={() => router.push(`/admin/trainers/${trainerId}/link`)}
                       >
                         <Link className="w-3 h-3 mr-1" />
                         Link Account
@@ -520,108 +473,6 @@ export default function TrainerDetailsPage() {
       </div>
 
       {/* Link Account Dialog */}
-      <Dialog open={isLinkDialogOpen} onOpenChange={(open) => { if (!open) { closeDialog(); setSelectedAccountId(""); } }}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Link className="w-5 h-5" />
-              Link Account to Trainer
-            </DialogTitle>
-            <DialogDescription>
-              Select an account to link to this trainer. Only accounts without existing trainer links are available.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Available Accounts</label>
-              <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select an account to link" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableAccounts.length === 0 ? (
-                    <SelectItem value="" disabled>
-                      No available accounts
-                    </SelectItem>
-                  ) : (
-                    availableAccounts.map((account) => (
-                      <SelectItem key={account.account_id} value={account.account_id}>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">
-                            {account.first_name} {account.last_name}
-                          </span>
-                          <span className="text-muted-foreground">({account.email})</span>
-                        </div>
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {availableAccounts.length === 0 && (
-              <div className="text-center py-4 text-muted-foreground">
-                <UserMinus className="w-8 h-8 mx-auto mb-2" />
-                <p>No available accounts to link</p>
-                <p className="text-sm">All accounts are already linked to trainers</p>
-              </div>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                closeDialog();
-                setSelectedAccountId("");
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleLinkAccount}
-              disabled={!selectedAccountId || linkAccountMutation.isPending}
-            >
-              {linkAccountMutation.isPending ? (
-                <>
-                  <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-background border-t-foreground" />
-                  Linking...
-                </>
-              ) : (
-                <>
-                  <Link className="w-4 h-4 mr-2" />
-                  Link Account
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <ConfirmationDialog
-        open={isUnlinkDialogOpen}
-        onOpenChange={onOpenChange}
-        onConfirm={confirmUnlinkAccount}
-        title="Unlink Account"
-        description="Are you sure you want to unlink this account from the trainer? This action cannot be undone."
-        confirmText="Unlink"
-        cancelText="Cancel"
-        isPending={unlinkAccountMutation.isPending}
-        variant="destructive"
-      />
-
-      <ConfirmationDialog
-        open={isDeleteDialogOpen}
-        onOpenChange={onOpenChange}
-        onConfirm={confirmDeleteTrainer}
-        title="Delete trainer"
-        description="This removes the login account and related trainer data. This cannot be undone."
-        confirmText="Delete"
-        cancelText="Cancel"
-        isPending={deleteTrainerMutation.isPending}
-        variant="destructive"
-      />
     </div>
   );
 }

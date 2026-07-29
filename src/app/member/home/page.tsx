@@ -4,18 +4,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/use-auth";
-import QRGenerator from "@/components/qr-generator";
 import { Calendar, Clock, Users, MapPin, QrCode, ArrowRight, Sparkles, Crown, Star, Zap, ChevronLeft, ChevronRight } from "lucide-react";
 import { formatTime, getDayName, formatDate } from "@/lib/date";
 import { formatCurrency } from "@/lib/config";
 import { useState, useEffect, Suspense } from "react";
+import { useRouter } from "next/navigation";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useMemberRegistrations } from "@/hooks/useMemberRegistrations";
 import { useMemberCourses } from "@/hooks/useMemberCourses";
 import { useMemberSubscriptions } from "@/hooks/useSubscriptions";
 import { usePlans } from "@/hooks/usePlans";
-import { useDialogParams } from "@/hooks/use-dialog-params";
 import { CardSkeleton, ListSkeleton } from "@/components/skeletons";
 import { Registration } from "@/lib/api/registrations";
 import { Subscription } from "@/lib/api/subscriptions";
@@ -53,9 +51,9 @@ interface Course {
 
 function MemberHomeContent() {
   const { user } = useAuth();
+  const router = useRouter();
   const isMobile = useIsMobile();
   const [currentPlanIndex, setCurrentPlanIndex] = useState(0);
-  const { isOpen, openDialog, onOpenChange, dialogId } = useDialogParams();
 
   const { data: registrations, isLoading: registrationsLoading } = useMemberRegistrations();
   const { data: courses, isLoading: coursesLoading } = useMemberCourses();
@@ -75,10 +73,9 @@ function MemberHomeContent() {
   const plansArr = Array.isArray(plans) ? plans : [];
   const currentPlan = plansArr[currentPlanIndex];
 
-  const isQROpen = isOpen("qr");
-  const selectedQR = isQROpen && dialogId != null
-    ? registrationsArr.find((r: any) => String(r.id) === String(dialogId)) ?? null
-    : null;
+  const openQr = (registrationId: number) => {
+    router.push(`/member/registrations/${registrationId}/qr?from=/member/home`);
+  };
 
   // Debug logging
   console.log('Registrations data:', registrationsArr);
@@ -254,7 +251,7 @@ function MemberHomeContent() {
                           </div>
                           <Button
                             size="lg"
-                            onClick={() => openDialog("qr", { id: reg.id })}
+                            onClick={() => openQr(reg.id)}
                             className="bg-white text-orange-600 hover:bg-white/90 font-semibold px-6 py-3 rounded-xl"
                           >
                             <QrCode className="w-5 h-5 mr-2" />
@@ -318,7 +315,7 @@ function MemberHomeContent() {
                         <Button
                           variant="outline"
                           size="lg"
-                          onClick={() => openDialog("qr", { id: registration.id })}
+                          onClick={() => openQr(registration.id)}
                           className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl px-6 py-3"
                         >
                           <QrCode className="w-4 h-4 mr-2" />
@@ -534,73 +531,7 @@ function MemberHomeContent() {
           </div>
       </div>
 
-      {/* QR Code Modal */}
-      <Dialog open={isQROpen} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-[90vw] sm:max-w-md max-h-[85vh] overflow-y-auto">
-          <DialogHeader className="text-center pb-3 sm:pb-4">
-            <DialogTitle className="text-lg sm:text-xl font-bold text-foreground">Class QR Code</DialogTitle>
-            <DialogDescription className="text-sm sm:text-base">
-              Show this code at the gym to check in
-            </DialogDescription>
-          </DialogHeader>
-          {selectedQR && (
-            <div className="space-y-4 sm:space-y-6">
-              {/* Class Information */}
-              <div className="text-center space-y-2 sm:space-y-3">
-                <div className="inline-flex items-center gap-2 px-3 py-2 bg-primary/10 rounded-full">
-                  <span className="text-primary font-semibold text-sm">
-                    {selectedQR.course?.class?.category?.name?.charAt(0).toUpperCase()}
-                  </span>
-                </div>
-                <h4 className="text-base sm:text-lg font-semibold text-foreground">
-                  {selectedQR.course?.class?.name}
-                </h4>
-                <div className="space-y-1 text-xs sm:text-sm text-muted-foreground">
-                  <p className="flex items-center justify-center gap-2">
-                    <Calendar className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-                    {selectedQR.course?.course_date ? formatDate(selectedQR.course.course_date) : 'Date TBD'}
-                  </p>
-                  <p className="flex items-center justify-center gap-2">
-                    <Clock className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-                    {formatTime(selectedQR.course?.start_time)} - {formatTime(selectedQR.course?.end_time || selectedQR.course?.start_time)}
-                  </p>
-                  <p className="flex items-center justify-center gap-2">
-                    <Users className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-                    {selectedQR.course?.trainer?.user?.first_name} {selectedQR.course?.trainer?.user?.last_name}
-                  </p>
-                </div>
-              </div>
-
-              {/* QR Code */}
-              <div className="flex flex-col items-center space-y-3 sm:space-y-4">
-                <div className="p-2 sm:p-3 bg-white rounded-xl shadow-lg border-2 border-border">
-                  <QRGenerator value={selectedQR.qr_code || ''} size={200} />
-                </div>
-                <div className="text-center space-y-2 w-full">
-                  <p className="text-xs sm:text-sm font-medium text-foreground">QR Code</p>
-                  <p className="text-xs text-muted-foreground font-mono bg-muted px-2 py-1 rounded break-all">
-                    {selectedQR.qr_code || 'N/A'}
-                  </p>
-                </div>
-              </div>
-
-              {/* Instructions */}
-              <div className="text-center space-y-2">
-                <p className="text-xs sm:text-sm text-muted-foreground">
-                  Present this QR code to the instructor when you arrive for your class
-                </p>
-                <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-                  <QrCode className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-                  <span>Scan at the gym entrance</span>
-                </div>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Gentle CSS Animations */}
-      <style jsx>{`
+      {/* Gentle CSS Animations */}      <style jsx>{`
         @keyframes fadeIn {
           0% {
             opacity: 0;

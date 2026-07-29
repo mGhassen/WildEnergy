@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useDialogParams } from '@/hooks/use-dialog-params';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -159,28 +159,32 @@ export default function ScheduleCalendar({
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const isMobile = useIsMobile();
-  const { isOpen, openDialog, closeDialog, onOpenChange, dialogId } = useDialogParams();
-  const isDetailsOpen = isOpen("details");
-  const isRegistrationModalOpen = isOpen("register");
-  const isUnregisterOpen = isOpen("unregister");
-  const isUnvalidateOpen = isOpen("unvalidate");
-  const confirmUnregisterId = isUnregisterOpen ? dialogId : null;
-  const confirmUnvalidateId = isUnvalidateOpen ? dialogId : null;
+  const router = useRouter();
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [isRegistrationModalOpen, setIsRegistrationModalOpen] = useState(false);
+  const [isUnregisterOpen, setIsUnregisterOpen] = useState(false);
+  const [isUnvalidateOpen, setIsUnvalidateOpen] = useState(false);
+  const [confirmUnregisterId, setConfirmUnregisterId] = useState<string | number | null>(null);
+  const [confirmUnvalidateId, setConfirmUnvalidateId] = useState<string | number | null>(null);
+  const onOpenChange = (open: boolean) => {
+    if (!open) {
+      setIsDetailsOpen(false);
+      setIsRegistrationModalOpen(false);
+      setIsUnregisterOpen(false);
+      setIsUnvalidateOpen(false);
+      setConfirmUnregisterId(null);
+      setConfirmUnvalidateId(null);
+    }
+  };
+  const closeDialog = () => onOpenChange(false);
   const [adminRefundSession, setAdminRefundSession] = useState(true);
 
   useEffect(() => {
-    if ((isDetailsOpen || isRegistrationModalOpen) && dialogId != null) {
-      const schedule = schedules.find((s) => String(s.id) === String(dialogId));
-      if (schedule && selectedSchedule?.id !== schedule.id) {
-        setSelectedSchedule(schedule);
-      }
-    } else if (!isDetailsOpen && !isRegistrationModalOpen && !isUnregisterOpen && !isUnvalidateOpen) {
-      setSelectedSchedule(null);
+    if (!isDetailsOpen && !isRegistrationModalOpen && !isUnregisterOpen && !isUnvalidateOpen) {
       setSelectedMembers([]);
       setMemberSearchTerm('');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dialogId, isDetailsOpen, isRegistrationModalOpen, isUnregisterOpen, isUnvalidateOpen, schedules]);
+  }, [isDetailsOpen, isRegistrationModalOpen, isUnregisterOpen, isUnvalidateOpen]);
 
   // Calculate if cancellation is late (within 24h of course start)
   const isLateCancellation = (registrationId: number) => {
@@ -477,7 +481,7 @@ export default function ScheduleCalendar({
             
             return (
               <Card key={schedule.id} className={`cursor-pointer hover:shadow-md transition-shadow ${isPast ? 'opacity-60 bg-gray-50' : ''}`}
-                    onClick={() => onCourseClick ? onCourseClick(schedule.id) : (setSelectedSchedule(schedule), openDialog('details', { id: schedule.id }))}>
+                    onClick={() => onCourseClick ? onCourseClick(schedule.id) : router.push(`/admin/courses/${schedule.id}`)}>
                 <CardContent className={isMobile ? 'p-2' : 'p-4'}>
                   <div className={isMobile ? 'flex flex-col gap-2' : 'flex items-center justify-between'}>
                     <div className={isMobile ? '' : 'flex-1'}>
@@ -576,7 +580,7 @@ export default function ScheduleCalendar({
                              ? 'bg-gray-100 text-gray-500 hover:bg-gray-200' 
                              : 'bg-primary/10 hover:bg-primary/20'
                          }`}
-                         onClick={() => onCourseClick ? onCourseClick(schedule.id) : (setSelectedSchedule(schedule), openDialog('details', { id: schedule.id }))}>
+                         onClick={() => onCourseClick ? onCourseClick(schedule.id) : router.push(`/admin/courses/${schedule.id}`)}>
                       <div className={`font-medium truncate ${isPast ? 'text-gray-500' : ''}`}>{schedule.class?.name || 'Unknown Class'}</div>
                       <div className={isPast ? 'text-gray-400' : 'text-muted-foreground'}>{formatTime(schedule.startTime)}</div>
                       <div className="flex justify-between mt-1">
@@ -665,7 +669,7 @@ export default function ScheduleCalendar({
                                  ? 'bg-gray-100 text-gray-500 hover:bg-gray-200' 
                                  : 'bg-primary/10 hover:bg-primary/20'
                              }`}
-                             onClick={() => onCourseClick ? onCourseClick(schedule.id) : (setSelectedSchedule(schedule), openDialog('details', { id: schedule.id }))}>
+                             onClick={() => onCourseClick ? onCourseClick(schedule.id) : router.push(`/admin/courses/${schedule.id}`)}>
                           <div className={`truncate font-medium ${isPast ? 'text-gray-500' : ''}`}>{schedule.class?.name || 'Unknown Class'}</div>
                           <div className="flex justify-between">
                             <span className={isPast ? 'text-gray-400' : ''}>{formatTime(schedule.startTime)}</span>
@@ -705,7 +709,7 @@ export default function ScheduleCalendar({
   const handleUnregisterClick = (registrationId: number) => {
     const isLate = isLateCancellation(registrationId);
     setAdminRefundSession(!isLate); // Default: refund if not late, forfeit if late
-    openDialog("unregister", { id: registrationId });
+    setConfirmUnregisterId(registrationId); setIsUnregisterOpen(true);
   };
 
   return (
@@ -813,7 +817,7 @@ export default function ScheduleCalendar({
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => selectedSchedule && openDialog('register', { id: selectedSchedule.id })}
+                    onClick={() => selectedSchedule && setIsRegistrationModalOpen(true)}
                     className="h-8 w-8 p-0"
                   >
                     <Plus className="w-4 h-4" />
@@ -856,7 +860,7 @@ export default function ScheduleCalendar({
                                 </DropdownMenuItem>
                               )}
                               {isCheckedIn && (
-                                <DropdownMenuItem onClick={() => openDialog('unvalidate', { id: registration.id })}>
+                                <DropdownMenuItem onClick={() => { setConfirmUnvalidateId(registration.id); setIsUnvalidateOpen(true); }}>
                                   <XCircle className="w-3 h-3 mr-2" /> Unvalidate
                                 </DropdownMenuItem>
                               )}

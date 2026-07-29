@@ -10,8 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import Link from "next/link";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { useRouter } from "next/navigation";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
@@ -40,18 +39,10 @@ import {
 import { formatDate } from "@/lib/date";
 import DataTable from "@/components/data-table";
 import { termIsDeletable, versionForDuplicate } from "@/lib/terms-admin";
-import { useDialogParams } from "@/hooks/use-dialog-params";
 
-interface TermsFormData {
-  version: string;
-  title: string;
-  content: string;
-  is_active: boolean;
-  term_type: 'terms' | 'interior_regulation';
-}
 
 export default function AdminTerms() {
-  const [editingTerms, setEditingTerms] = useState<any>(null);
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -65,9 +56,6 @@ export default function AdminTerms() {
     version: string;
   } | null>(null);
   const { toast } = useToast();
-  const { isOpen, openDialog, closeDialog, onOpenChange, dialogId } = useDialogParams();
-  const isModalOpen = isOpen("create") || isOpen("edit");
-  const isDeleteDialogOpen = isOpen("delete");
 
   const { data: terms = [], isLoading } = useAdminTerms();
   const createTermsMutation = useCreateTerms();
@@ -75,40 +63,7 @@ export default function AdminTerms() {
   const deleteTermsMutation = useDeleteTerms();
   const activateTermsMutation = useActivateTerms();
 
-  const [formData, setFormData] = useState<TermsFormData>({
-    version: "",
-    title: "",
-    content: "",
-    is_active: false,
-    term_type: 'terms',
-  });
 
-  useEffect(() => {
-    if (isOpen("edit") && dialogId != null && !isLoading) {
-      const term = terms.find((t: any) => String(t.id) === String(dialogId));
-      if (term && editingTerms?.id !== term.id) {
-        setEditingTerms(term);
-        setFormData({
-          version: term.version,
-          title: term.title,
-          content: term.content,
-          is_active: term.is_active,
-          term_type: term.term_type || (term.title.toLowerCase().includes('interior regulation') ? 'interior_regulation' : 'terms'),
-        });
-      }
-    } else if (isOpen("create")) {
-      if (editingTerms) setEditingTerms(null);
-    } else if (isOpen("delete") && dialogId != null && !isLoading) {
-      const term = terms.find((t: any) => String(t.id) === String(dialogId));
-      if (term && deleteTermTarget?.id !== term.id) {
-        setDeleteTermTarget({ id: term.id, version: term.version });
-      }
-    } else if (!isModalOpen && !isDeleteDialogOpen) {
-      setEditingTerms(null);
-      setDeleteTermTarget(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dialogId, isLoading, terms, isModalOpen, isDeleteDialogOpen]);
 
   const filteredAndSortedTerms = useMemo(() => {
     let filtered = terms.filter((term) => {
@@ -165,78 +120,13 @@ export default function AdminTerms() {
     selectedTerms.length > 0 && selectedDeletableIds.length < selectedTerms.length;
 
   const handleCreate = () => {
-    setFormData({
-      version: "",
-      title: "",
-      content: "",
-      is_active: false,
-      term_type: 'terms',
-    });
-    setEditingTerms(null);
-    openDialog("create");
+    router.push("/admin/terms/new");
   };
 
   const handleEdit = (term: any) => {
-    setEditingTerms(term);
-    setFormData({
-      version: term.version,
-      title: term.title,
-      content: term.content,
-      is_active: term.is_active,
-      term_type: term.term_type || (term.title.toLowerCase().includes('interior regulation') ? 'interior_regulation' : 'terms'),
-    });
-    openDialog("edit", { id: term.id });
+    router.push(`/admin/terms/${term.id}/edit`);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (editingTerms?.is_active) {
-      toast({
-        title: "Cannot edit",
-        description: "Active terms versions cannot be edited.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!formData.version || !formData.title || !formData.content) {
-      toast({
-        title: "Error",
-        description: "Please fill in all required fields",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      if (editingTerms) {
-        await updateTermsMutation.mutateAsync({
-          id: editingTerms.id,
-          data: formData,
-        });
-        toast({
-          title: "Success",
-          description: "Terms updated successfully",
-        });
-        closeDialog();
-        setEditingTerms(null);
-      } else {
-        await createTermsMutation.mutateAsync(formData);
-        toast({
-          title: "Success",
-          description: "Terms created successfully",
-        });
-        closeDialog();
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to save terms",
-        variant: "destructive",
-      });
-    }
-  };
 
   const handleDeleteTerm = async (termId: string) => {
     try {
@@ -245,7 +135,6 @@ export default function AdminTerms() {
         title: "Success",
         description: "Terms deleted successfully",
       });
-      closeDialog();
       setDeleteTermTarget(null);
     } catch (error) {
       toast({
@@ -295,16 +184,6 @@ export default function AdminTerms() {
     }
   };
 
-  const resetForm = () => {
-    setFormData({
-      version: "",
-      title: "",
-      content: "",
-      is_active: false,
-      term_type: 'terms',
-    });
-    setEditingTerms(null);
-  };
 
   const handleSort = (field: string) => {
     if (sortBy === field) {
@@ -609,7 +488,7 @@ export default function AdminTerms() {
                       ? "Selection includes active terms or versions members accepted — remove those rows from the selection"
                       : undefined
                   }
-                  onClick={() => openDialog("bulk-delete")}
+                  onClick={() => router.push(`/admin/terms/bulk-delete?ids=${selectedDeletableIds.join(",")}`)}
                 >
                   <Trash2 className="w-4 h-4 mr-1" />
                   Delete Selected
@@ -792,7 +671,7 @@ export default function AdminTerms() {
                                           id: term.id,
                                           version: term.version,
                                         });
-                                        openDialog("delete", { id: term.id });
+                                        router.push(`/admin/terms/${term.id}/delete`);
                                       }}
                                     >
                                       <Trash2 className="mr-2 h-4 w-4" />
@@ -813,145 +692,6 @@ export default function AdminTerms() {
           )}
         </CardContent>
       </Card>
-
-      <AlertDialog open={isOpen("bulk-delete")} onOpenChange={onOpenChange}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Selected Terms</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete {selectedDeletableIds.length} selected terms? This
-              action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => { handleBulkDelete(); closeDialog(); }}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Delete {selectedDeletableIds.length} Terms
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog
-        open={isDeleteDialogOpen}
-        onOpenChange={onOpenChange}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Terms Version</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete terms version &quot;
-              {deleteTermTarget?.version}&quot;? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                const id = deleteTermTarget?.id;
-                if (id) void handleDeleteTerm(id);
-              }}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Create/Edit Dialog */}
-      <Dialog open={isModalOpen} onOpenChange={(open) => {
-        if (!open) {
-          closeDialog();
-          resetForm();
-        }
-      }}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {editingTerms ? "Edit Terms" : "Create New Terms"}
-            </DialogTitle>
-            <DialogDescription>
-              {editingTerms ? "Update the terms and conditions" : "Create a new version of terms and conditions"}
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="version">Version *</Label>
-                <Input
-                  id="version"
-                  value={formData.version}
-                  onChange={(e) => setFormData({ ...formData, version: e.target.value })}
-                  placeholder="e.g., 1.0, 2.0"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="title">Title *</Label>
-                <Input
-                  id="title"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  placeholder="e.g., Terms of Service v2.0 or Interior Regulation v1.0"
-                  required
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="term_type">Type *</Label>
-              <select
-                id="term_type"
-                value={formData.term_type}
-                onChange={(e) => setFormData({ ...formData, term_type: e.target.value as 'terms' | 'interior_regulation' })}
-                className="w-full p-2 border border-input rounded-md bg-background"
-              >
-                <option value="terms">Terms & Conditions (Requires Acceptance)</option>
-                <option value="interior_regulation">Interior Regulation (Display Only)</option>
-              </select>
-              <p className="text-xs text-muted-foreground">
-                Terms & Conditions require member acceptance. Interior Regulations are for display only.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="content">Content *</Label>
-              <Textarea
-                id="content"
-                value={formData.content}
-                onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                placeholder="Enter the terms and conditions content (Markdown supported)"
-                rows={15}
-                className="font-mono text-sm"
-                required
-              />
-              <p className="text-xs text-muted-foreground">
-                You can use Markdown formatting for the content
-              </p>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  closeDialog();
-                  resetForm();
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={createTermsMutation.isPending || updateTermsMutation.isPending}
-              >
-                {createTermsMutation.isPending || updateTermsMutation.isPending ? "Saving..." : editingTerms ? "Update" : "Create"}
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
 
     </div>
   );

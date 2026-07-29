@@ -1,48 +1,33 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { useForm, useFieldArray } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { insertPlanSchema, insertPlanGroupSchema } from "@/shared/zod-schemas";
-import { Plus, Search, Edit, Trash2, Clock, X, Star, Users, Calendar, DollarSign, Zap, Grid3X3, Table, ChevronDown, ChevronRight, AlertTriangle, Eye } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { z } from "zod";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Plus,
+  Search,
+  Edit,
+  Trash2,
+  Star,
+  Users,
+  Grid3X3,
+  Table,
+  ChevronDown,
+  ChevronRight,
+  Eye,
+} from "lucide-react";
 import { formatCurrency } from "@/lib/config";
-import { usePlans, useCreatePlan, useUpdatePlan, useDeletePlan, useCheckPlanDeletion } from "@/hooks/usePlans";
-import { useGroups } from "@/hooks/useGroups";
-import { planApi } from "@/lib/api/plans";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { useDialogParams } from "@/hooks/use-dialog-params";
-
-const planFormSchema = z.object({
-  name: z.string().min(1, 'Plan name is required'),
-  description: z.string().optional(),
-  price: z.number().min(0, 'Price must be a positive number'),
-  durationDays: z.number().min(1, 'Duration must be at least 1 day'),
-  isActive: z.boolean(),
-  planGroups: z.array(z.object({
-    groupId: z.number().min(1, 'Group is required'),
-    sessionCount: z.number().min(1, 'Session count must be at least 1'),
-    isFree: z.boolean(),
-  })),
-});
-
-type PlanFormData = z.infer<typeof planFormSchema>;
-
-// Use the inferred type from schema
-type PlanFormUi = PlanFormData;
+import { usePlans } from "@/hooks/usePlans";
 
 type AdminPlanSort =
   | "default"
@@ -72,11 +57,14 @@ const ADMIN_PLAN_SORT_VALUES: readonly AdminPlanSort[] = [
 ];
 
 function parseStoredAdminPlanSort(raw: string | null): AdminPlanSort | null {
-  if (!raw || !(ADMIN_PLAN_SORT_VALUES as readonly string[]).includes(raw)) return null;
+  if (!raw || !(ADMIN_PLAN_SORT_VALUES as readonly string[]).includes(raw))
+    return null;
   return raw as AdminPlanSort;
 }
 
-function totalPlanSessions(plan: { plan_groups?: Array<{ session_count?: number }> }) {
+function totalPlanSessions(plan: {
+  plan_groups?: Array<{ session_count?: number }>;
+}) {
   if (!plan.plan_groups?.length) return 0;
   return plan.plan_groups.reduce((t, g) => t + (g.session_count ?? 0), 0);
 }
@@ -112,24 +100,17 @@ function sortMappedPlans(list: any[], sort: AdminPlanSort) {
 }
 
 export default function AdminPlans() {
-  const [editingPlan, setEditingPlan] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [deletingPlan, setDeletingPlan] = useState<any>(null);
-  const [linkedSubscriptions, setLinkedSubscriptions] = useState<any[]>([]);
-  const [viewType, setViewType] = useState<'cards' | 'table'>('cards');
+  const [viewType, setViewType] = useState<"cards" | "table">("cards");
   const [planSort, setPlanSort] = useState<AdminPlanSort>("default");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
-  const [editPlanSubscriptionCount, setEditPlanSubscriptionCount] = useState<number | null>(null);
-  const [editPlanSubscriptionLoading, setEditPlanSubscriptionLoading] = useState(false);
-  const queryClient = useQueryClient();
   const router = useRouter();
-  const { isOpen, openDialog, closeDialog, onOpenChange, dialogId } = useDialogParams();
-  const isModalOpen = isOpen("create") || isOpen("edit");
-  const isDeleteDialogOpen = isOpen("delete");
 
   useEffect(() => {
     try {
-      const v = parseStoredAdminPlanSort(localStorage.getItem(ADMIN_PLANS_SORT_STORAGE_KEY));
+      const v = parseStoredAdminPlanSort(
+        localStorage.getItem(ADMIN_PLANS_SORT_STORAGE_KEY),
+      );
       if (v) setPlanSort(v);
     } catch {
       /* ignore */
@@ -144,123 +125,17 @@ export default function AdminPlans() {
       /* ignore */
     }
   }, []);
-  const { toast } = useToast();
 
   const { data: plans, isLoading } = usePlans();
-  const { data: groups } = useGroups();
 
-  const form = useForm<PlanFormUi>({
-    resolver: zodResolver(planFormSchema),
-    defaultValues: {
-      name: "",
-      description: "",
-      price: 0,
-      durationDays: 30,
-      isActive: true,
-      planGroups: [],
-    },
-  });
-
-  const { fields, append, remove } = useFieldArray({
-    control: form.control,
-    name: "planGroups",
-  });
-
-  const createPlanMutation = useCreatePlan();
-  const updatePlanMutation = useUpdatePlan();
-  const deletePlanMutation = useDeletePlan();
-  const checkDeletionMutation = useCheckPlanDeletion();
-
-  // Sync form state when dialog opens from URL
-  useEffect(() => {
-    if (isOpen("edit") && dialogId != null && plans) {
-      const plan = (Array.isArray(plans) ? plans : []).find(
-        (p: any) => String(p.id) === String(dialogId),
-      );
-      if (plan && editingPlan?.id !== plan.id) {
-        void hydrateEditPlan(plan);
-      }
-    } else if (isOpen("create") && editingPlan) {
-      setEditingPlan(null);
-      setEditPlanSubscriptionCount(null);
-      setEditPlanSubscriptionLoading(false);
-    } else if (isOpen("delete") && dialogId != null && plans) {
-      const plan = (Array.isArray(plans) ? plans : []).find(
-        (p: any) => String(p.id) === String(dialogId),
-      );
-      if (plan && deletingPlan?.id !== plan.id) {
-        void hydrateDeletePlan(plan);
-      }
-    } else if (!isModalOpen && !isDeleteDialogOpen) {
-      setEditingPlan(null);
-      setDeletingPlan(null);
-      setLinkedSubscriptions([]);
-      setEditPlanSubscriptionCount(null);
-      setEditPlanSubscriptionLoading(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dialogId, isModalOpen, isDeleteDialogOpen, plans]);
-
-  const hydrateEditPlan = async (plan: any) => {
-    setEditingPlan(plan);
-    setEditPlanSubscriptionCount(null);
-    setEditPlanSubscriptionLoading(true);
-    form.reset({
-      name: plan.name,
-      description: plan.description,
-      price: plan.price,
-      durationDays: plan.duration_days ?? plan.durationDays,
-      isActive: plan.is_active ?? plan.isActive,
-      planGroups: plan.plan_groups?.map((group: any) => ({
-        groupId: group.group_id,
-        sessionCount: group.session_count,
-        isFree: group.is_free || false,
-      })) || [],
-    });
-    try {
-      const res = await planApi.checkPlanDeletion(plan.id);
-      const n = res.subscriptionCount ?? res.linkedSubscriptions?.length ?? 0;
-      setEditPlanSubscriptionCount(n);
-    } catch (e) {
-      console.error('checkPlanDeletion (edit dialog):', e);
-      setEditPlanSubscriptionCount(null);
-      toast({
-        title: 'Could not load subscription info',
-        description: e instanceof Error ? e.message : 'Try again or refresh the page.',
-        variant: 'destructive',
-      });
-    } finally {
-      setEditPlanSubscriptionLoading(false);
-    }
-  };
-
-  const hydrateDeletePlan = async (plan: any) => {
-    setDeletingPlan(plan);
-    setLinkedSubscriptions([]);
-    checkDeletionMutation.mutate(plan.id, {
-      onSuccess: (response) => {
-        if (response.canDelete) {
-          setLinkedSubscriptions([]);
-        } else {
-          setLinkedSubscriptions(response.linkedSubscriptions || []);
-        }
-      },
-      onError: () => {
-        setLinkedSubscriptions([]);
-      },
-    });
-  };
-
-  // Helper function to get categories from a group (admin structure)
   const getGroupCategories = (group: any) => {
     if (!group.groups?.category_groups) return [];
     return group.groups.category_groups.map((cg: any) => cg.categories);
   };
 
-  // Toggle group expansion
   const toggleGroup = (planId: number, groupIndex: number) => {
     const groupKey = `${planId}-${groupIndex}`;
-    setExpandedGroups(prev => {
+    setExpandedGroups((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(groupKey)) {
         newSet.delete(groupKey);
@@ -271,13 +146,12 @@ export default function AdminPlans() {
     });
   };
 
-
   const mappedPlans = useMemo(() => {
     const raw = Array.isArray(plans)
       ? plans.filter((plan: any) =>
           `${plan.name} ${plan.description}`
             .toLowerCase()
-            .includes(searchTerm.toLowerCase())
+            .includes(searchTerm.toLowerCase()),
         )
       : [];
     const mapped = raw.map((plan: any) => ({
@@ -287,67 +161,6 @@ export default function AdminPlans() {
     }));
     return sortMappedPlans(mapped, planSort);
   }, [plans, searchTerm, planSort]);
-
-  const handleSubmit = (data: PlanFormUi) => {
-    // Map camelCase to snake_case for API
-    const submitData = {
-      name: data.name,
-      description: data.description,
-      price: Number(data.price),
-      duration_days: data.durationDays,
-      is_active: data.isActive,
-      planGroups: data.planGroups?.map(group => ({
-        groupId: group.groupId,
-        sessionCount: group.sessionCount,
-        isFree: group.isFree || false,
-      })) || [],
-    };
-    if (editingPlan) {
-      updatePlanMutation.mutate({ planId: editingPlan.id, data: submitData }, {
-        onSuccess: () => {
-          closeDialog();
-          setEditingPlan(null);
-          form.reset();
-        }
-      });
-    } else {
-      createPlanMutation.mutate(submitData, {
-        onSuccess: () => {
-          closeDialog();
-          setEditingPlan(null);
-          form.reset();
-        }
-      });
-    }
-  };
-
-  const handleEdit = (plan: any) => {
-    openDialog("edit", { id: plan.id });
-  };
-
-  const handleDelete = (plan: any) => {
-    openDialog("delete", { id: plan.id });
-  };
-
-  const confirmDelete = () => {
-    if (deletingPlan) {
-      deletePlanMutation.mutate(deletingPlan.id, {
-        onSuccess: () => {
-          closeDialog();
-          setDeletingPlan(null);
-          setLinkedSubscriptions([]);
-        }
-      });
-    }
-  };
-
-  const openCreateModal = () => {
-    setEditingPlan(null);
-    setEditPlanSubscriptionCount(null);
-    setEditPlanSubscriptionLoading(false);
-    form.reset();
-    openDialog("create");
-  };
 
   const formatPrice = (price: string | number) => {
     return formatCurrency(Number(price));
@@ -366,285 +179,16 @@ export default function AdminPlans() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-foreground mb-2">Plans</h1>
-          <p className="text-muted-foreground">Manage membership plans and subscriptions</p>
+          <p className="text-muted-foreground">
+            Manage membership plans and subscriptions
+          </p>
         </div>
-        <Dialog
-          open={isModalOpen}
-          onOpenChange={(open) => {
-            onOpenChange(open);
-            if (!open) {
-              setEditingPlan(null);
-              setEditPlanSubscriptionCount(null);
-              setEditPlanSubscriptionLoading(false);
-            }
-          }}
-        >
-          <Button onClick={openCreateModal}>
-            <Plus className="w-4 h-4 mr-2" />
-            Add Plan
-          </Button>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle>{editingPlan ? "Edit Plan" : "Add New Plan"}</DialogTitle>
-              <DialogDescription>
-                {editingPlan ? "Update plan information" : "Add a new membership plan"}
-              </DialogDescription>
-            </DialogHeader>
-            {editingPlan && editPlanSubscriptionLoading && (
-              <p className="text-sm text-muted-foreground">Checking linked subscriptions…</p>
-            )}
-            {editingPlan &&
-              !editPlanSubscriptionLoading &&
-              editPlanSubscriptionCount !== null &&
-              editPlanSubscriptionCount > 0 && (
-                <Alert className="border-amber-500/50 bg-amber-50/80 text-amber-950 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-100 [&>svg]:text-amber-700 dark:[&>svg]:text-amber-400">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertTitle>Subscribed members</AlertTitle>
-                  <AlertDescription>
-                    Editing this plan can impact existing subscriptions.{" "}
-                    {editPlanSubscriptionCount === 1
-                      ? "One member already has a subscription on this plan."
-                      : `${editPlanSubscriptionCount} subscriptions are linked to this plan.`}
-                  </AlertDescription>
-                </Alert>
-              )}
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Plan Name</FormLabel>
-                      <FormControl>
-                        <Input {...field} placeholder="e.g., Premium Monthly" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Description</FormLabel>
-                      <FormControl>
-                        <Textarea {...field} placeholder="Brief description..." rows={2} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="price"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Price (TND)</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            {...field}
-                            onChange={e => field.onChange(Number(e.target.value))}
-                            placeholder="49.99"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="isActive"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col justify-end">
-                        <FormLabel className="text-sm font-medium">Plan Status</FormLabel>
-                        <div className="flex items-center space-x-2 mt-2">
-                          <FormControl>
-                            <Checkbox
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                          <FormLabel className="text-sm">
-                            Active plan
-                          </FormLabel>
-                        </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <FormField
-                  control={form.control}
-                  name="durationDays"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Plan Duration</FormLabel>
-                      <div className="space-y-3">
-                        <div className="flex gap-2">
-                          {[
-                            { label: "1 Month", value: 30, description: "30 days" },
-                            { label: "3 Months", value: 90, description: "90 days" },
-                            { label: "6 Months", value: 180, description: "180 days" },
-                            { label: "1 Year", value: 365, description: "365 days" }
-                          ].map(({ label, value, description }) => (
-                            <Button
-                              key={value}
-                              type="button"
-                              variant={field.value === value ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => field.onChange(value)}
-                              className="flex-1 flex-col h-auto py-3"
-                            >
-                              <span className="font-medium">{label}</span>
-                              <span className="text-xs opacity-70">{description}</span>
-                            </Button>
-                          ))}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-muted-foreground">Custom:</span>
-                          <Input
-                            type="number"
-                            value={field.value}
-                            onChange={e => field.onChange(Number(e.target.value))}
-                            placeholder="Enter days"
-                            className="w-24"
-                            min="1"
-                          />
-                          <span className="text-sm text-muted-foreground">days</span>
-                        </div>
-                      </div>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <FormLabel className="text-base font-semibold">Plan Groups</FormLabel>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => append({ groupId: 0, sessionCount: 1, isFree: false })}
-                    >
-                      <Plus className="w-4 h-4 mr-1" />
-                      Add Group
-                    </Button>
-                  </div>
-                  
-                  {fields.map((field, index) => (
-                    <div key={field.id} className="p-4 border rounded-lg space-y-3">
-                      <div className="flex items-center gap-3">
-                        <FormField
-                          control={form.control}
-                          name={`planGroups.${index}.groupId`}
-                          render={({ field }) => (
-                            <FormItem className="flex-1">
-                              <Select onValueChange={(value) => field.onChange(Number(value))} value={field.value?.toString()}>
-                                <FormControl>
-                                  <SelectTrigger className="h-10">
-                                    <SelectValue placeholder="Select group" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {groups?.map((group: any) => (
-                                    <SelectItem key={group.id} value={group.id.toString()}>
-                                      <div className="flex items-center gap-2">
-                                        <div 
-                                          className="w-2.5 h-2.5 rounded-full shadow-sm border border-white/20" 
-                                          style={{ backgroundColor: group.color }}
-                                        />
-                                        <span className="font-medium">{group.name}</span>
-                                      </div>
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={form.control}
-                          name={`planGroups.${index}.sessionCount`}
-                          render={({ field }) => (
-                            <FormItem className="w-24">
-                              <FormControl>
-                                <Input
-                                  type="number"
-                                  min={1}
-                                  placeholder="Sessions"
-                                  className="h-10 text-center font-medium"
-                                  {...field}
-                                  onChange={e => field.onChange(Number(e.target.value))}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={form.control}
-                          name={`planGroups.${index}.isFree`}
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-center space-x-2 space-y-0">
-                              <FormControl>
-                                <Checkbox
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                  className="data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
-                                />
-                              </FormControl>
-                              <FormLabel className="text-sm font-medium text-foreground">
-                                Free
-                              </FormLabel>
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => remove(index)}
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {fields.length === 0 && (
-                    <div className="text-center py-8 text-muted-foreground">
-                      No groups added yet. Click "Add Group" to include groups in this plan.
-                    </div>
-                  )}
-                </div>
-
-
-                <DialogFooter>
-                  <Button type="submit" disabled={createPlanMutation.isPending || updatePlanMutation.isPending}>
-                    {editingPlan ? "Update Plan" : "Create Plan"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+        <Button onClick={() => router.push("/admin/plans/new")}>
+          <Plus className="w-4 h-4 mr-2" />
+          Add Plan
+        </Button>
       </div>
 
-      {/* Search, Sort, View Toggle */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:space-x-4">
         <div className="relative flex-1 min-w-0">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
@@ -657,7 +201,10 @@ export default function AdminPlans() {
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3 shrink-0">
-          <Select value={planSort} onValueChange={(v) => setPersistedPlanSort(v as AdminPlanSort)}>
+          <Select
+            value={planSort}
+            onValueChange={(v) => setPersistedPlanSort(v as AdminPlanSort)}
+          >
             <SelectTrigger className="w-full sm:w-[200px]">
               <SelectValue placeholder="Sort" />
             </SelectTrigger>
@@ -667,51 +214,58 @@ export default function AdminPlans() {
               <SelectItem value="name-desc">Name (Z–A)</SelectItem>
               <SelectItem value="price-asc">Price (low to high)</SelectItem>
               <SelectItem value="price-desc">Price (high to low)</SelectItem>
-              <SelectItem value="duration-asc">Duration (shortest first)</SelectItem>
-              <SelectItem value="duration-desc">Duration (longest first)</SelectItem>
-              <SelectItem value="sessions-desc">Sessions (most first)</SelectItem>
-              <SelectItem value="sessions-asc">Sessions (fewest first)</SelectItem>
+              <SelectItem value="duration-asc">
+                Duration (shortest first)
+              </SelectItem>
+              <SelectItem value="duration-desc">
+                Duration (longest first)
+              </SelectItem>
+              <SelectItem value="sessions-desc">
+                Sessions (most first)
+              </SelectItem>
+              <SelectItem value="sessions-asc">
+                Sessions (fewest first)
+              </SelectItem>
               <SelectItem value="active-first">Active first</SelectItem>
             </SelectContent>
           </Select>
 
-        {/* View Toggle */}
-        <div className="flex items-center gap-2 bg-muted p-1 rounded-lg">
-          <Button
-            variant={viewType === 'cards' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setViewType('cards')}
-            className="flex items-center gap-2"
-          >
-            <Grid3X3 className="w-4 h-4" />
-            Cards
-          </Button>
-          <Button
-            variant={viewType === 'table' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setViewType('table')}
-            className="flex items-center gap-2"
-          >
-            <Table className="w-4 h-4" />
-            Table
-          </Button>
-        </div>
+          <div className="flex items-center gap-2 bg-muted p-1 rounded-lg">
+            <Button
+              variant={viewType === "cards" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setViewType("cards")}
+              className="flex items-center gap-2"
+            >
+              <Grid3X3 className="w-4 h-4" />
+              Cards
+            </Button>
+            <Button
+              variant={viewType === "table" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setViewType("table")}
+              className="flex items-center gap-2"
+            >
+              <Table className="w-4 h-4" />
+              Table
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Plans Grid */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold">All Plans</h2>
             <p className="text-sm text-muted-foreground">
-              {mappedPlans.length} of {Array.isArray(plans) ? plans.length : 0} plans
+              {mappedPlans.length} of {Array.isArray(plans) ? plans.length : 0}{" "}
+              plans
             </p>
           </div>
         </div>
 
         {isLoading ? (
-          viewType === 'cards' ? (
+          viewType === "cards" ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {[...Array(6)].map((_, i) => (
                 <Card key={i} className="animate-pulse">
@@ -761,17 +315,19 @@ export default function AdminPlans() {
             <p className="text-muted-foreground mb-4">
               Create your first membership plan to start offering subscriptions.
             </p>
-            <Button onClick={openCreateModal}>
+            <Button onClick={() => router.push("/admin/plans/new")}>
               <Plus className="w-4 h-4 mr-2" />
               Create Your First Plan
             </Button>
           </div>
-        ) : viewType === 'cards' ? (
+        ) : viewType === "cards" ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {mappedPlans.map((plan: any) => (
-              <Card key={plan.id} className="group hover:shadow-lg transition-all duration-200 border-border/50 hover:border-primary/20 h-full flex flex-col">
+              <Card
+                key={plan.id}
+                className="group hover:shadow-lg transition-all duration-200 border-border/50 hover:border-primary/20 h-full flex flex-col"
+              >
                 <CardContent className="p-6 flex flex-col h-full">
-                  {/* Header with Status */}
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center space-x-3 min-w-0 flex-1">
                       <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
@@ -784,19 +340,18 @@ export default function AdminPlans() {
                           {plan.name}
                         </h3>
                         <p className="text-sm text-muted-foreground line-clamp-2 min-h-[2.5rem]">
-                          {plan.description || 'No description provided'}
+                          {plan.description || "No description provided"}
                         </p>
                       </div>
                     </div>
-                    <Badge 
-                      variant={plan.isActive ? 'default' : 'secondary'}
-                      className={`${plan.isActive ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : ''} flex-shrink-0 ml-2`}
+                    <Badge
+                      variant={plan.isActive ? "default" : "secondary"}
+                      className={`${plan.isActive ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" : ""} flex-shrink-0 ml-2`}
                     >
-                      {plan.isActive ? 'Active' : 'Inactive'}
+                      {plan.isActive ? "Active" : "Inactive"}
                     </Badge>
                   </div>
 
-                  {/* Price Section */}
                   <div className="mb-4 p-4 bg-primary/5 rounded-lg border border-primary/10">
                     <div className="flex items-center justify-between">
                       <div>
@@ -818,7 +373,6 @@ export default function AdminPlans() {
                     </div>
                   </div>
 
-                  {/* Groups Section - Fixed Height */}
                   <div className="mb-4 flex-1">
                     <div className="flex items-center gap-2 mb-2">
                       <Users className="w-4 h-4 text-muted-foreground" />
@@ -829,33 +383,44 @@ export default function AdminPlans() {
                         {plan.plan_groups?.length || 0}
                       </Badge>
                     </div>
-                    
+
                     <div className="max-h-32 overflow-y-auto">
                       {plan.plan_groups && plan.plan_groups.length > 0 ? (
                         <div className="space-y-1">
-                          {plan.plan_groups.map((group: any, index: number) => (
-                            <div key={index} className="flex items-center justify-between p-2 bg-muted/30 rounded-md border text-xs">
-                              <div className="flex items-center gap-2 min-w-0 flex-1">
-                                <div 
-                                  className="w-2.5 h-2.5 rounded-full border border-white/20 flex-shrink-0" 
-                                  style={{ backgroundColor: group.groups?.color || '#6B7280' }}
-                                />
-                                <span className="text-sm font-medium text-foreground truncate">
-                                  {group.groups?.name || 'Unknown Group'}
-                                </span>
+                          {plan.plan_groups.map(
+                            (group: any, index: number) => (
+                              <div
+                                key={index}
+                                className="flex items-center justify-between p-2 bg-muted/30 rounded-md border text-xs"
+                              >
+                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                  <div
+                                    className="w-2.5 h-2.5 rounded-full border border-white/20 flex-shrink-0"
+                                    style={{
+                                      backgroundColor:
+                                        group.groups?.color || "#6B7280",
+                                    }}
+                                  />
+                                  <span className="text-sm font-medium text-foreground truncate">
+                                    {group.groups?.name || "Unknown Group"}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                                  <span className="text-xs text-muted-foreground">
+                                    {group.session_count}s
+                                  </span>
+                                  {group.is_free && (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-xs bg-green-100 text-green-700 border-green-200 px-1 py-0"
+                                    >
+                                      FREE
+                                    </Badge>
+                                  )}
+                                </div>
                               </div>
-                              <div className="flex items-center gap-1 flex-shrink-0 ml-2">
-                                <span className="text-xs text-muted-foreground">
-                                  {group.session_count}s
-                                </span>
-                                {group.is_free && (
-                                  <Badge variant="outline" className="text-xs bg-green-100 text-green-700 border-green-200 px-1 py-0">
-                                    FREE
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                          ))}
+                            ),
+                          )}
                         </div>
                       ) : (
                         <div className="text-center py-4 text-sm text-muted-foreground bg-muted/20 rounded-md border border-dashed">
@@ -865,7 +430,6 @@ export default function AdminPlans() {
                     </div>
                   </div>
 
-                  {/* Actions - Always at bottom */}
                   <div className="flex space-x-2 pt-2 border-t mt-auto">
                     <Button
                       variant="outline"
@@ -879,14 +443,18 @@ export default function AdminPlans() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleEdit(plan)}
+                      onClick={() =>
+                        router.push(`/admin/plans/${plan.id}/edit`)
+                      }
                     >
                       <Edit className="w-4 h-4" />
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleDelete(plan)}
+                      onClick={() =>
+                        router.push(`/admin/plans/${plan.id}/delete`)
+                      }
                       className="hover:bg-destructive/5 hover:border-destructive/20 hover:text-destructive"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -898,7 +466,6 @@ export default function AdminPlans() {
           </div>
         ) : (
           <div className="border rounded-lg overflow-hidden">
-            {/* Table Header */}
             <div className="border-b bg-muted/30 p-4">
               <div className="grid grid-cols-6 gap-4 text-sm font-medium text-muted-foreground">
                 <div>Plan Name</div>
@@ -909,13 +476,14 @@ export default function AdminPlans() {
                 <div>Actions</div>
               </div>
             </div>
-            
-            {/* Table Body */}
+
             <div className="divide-y">
               {mappedPlans.map((plan: any) => (
-                <div key={plan.id} className="p-4 hover:bg-muted/20 transition-colors">
+                <div
+                  key={plan.id}
+                  className="p-4 hover:bg-muted/20 transition-colors"
+                >
                   <div className="grid grid-cols-6 gap-4 items-center">
-                    {/* Plan Name */}
                     <div className="min-w-0">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
@@ -928,13 +496,12 @@ export default function AdminPlans() {
                             {plan.name}
                           </div>
                           <div className="text-xs text-muted-foreground truncate">
-                            {plan.description || 'No description'}
+                            {plan.description || "No description"}
                           </div>
                         </div>
                       </div>
                     </div>
-                    
-                    {/* Price */}
+
                     <div>
                       <div className="text-lg font-bold text-primary">
                         {formatPrice(plan.price)}
@@ -943,8 +510,7 @@ export default function AdminPlans() {
                         per {getDurationText(plan.durationDays).toLowerCase()}
                       </div>
                     </div>
-                    
-                    {/* Duration */}
+
                     <div>
                       <div className="text-sm font-medium text-foreground">
                         {plan.durationDays} days
@@ -953,8 +519,7 @@ export default function AdminPlans() {
                         {getDurationText(plan.durationDays)}
                       </div>
                     </div>
-                    
-                    {/* Groups */}
+
                     <div>
                       <div className="flex items-center gap-2">
                         <Users className="w-4 h-4 text-muted-foreground" />
@@ -963,24 +528,21 @@ export default function AdminPlans() {
                         </span>
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        {plan.plan_groups?.length > 0 
+                        {plan.plan_groups?.length > 0
                           ? `${plan.plan_groups.reduce((total: number, group: any) => total + group.session_count, 0)} sessions`
-                          : 'No groups'
-                        }
+                          : "No groups"}
                       </div>
                     </div>
-                    
-                    {/* Status */}
+
                     <div>
-                      <Badge 
-                        variant={plan.isActive ? 'default' : 'secondary'}
-                        className={`${plan.isActive ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : ''}`}
+                      <Badge
+                        variant={plan.isActive ? "default" : "secondary"}
+                        className={`${plan.isActive ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" : ""}`}
                       >
-                        {plan.isActive ? 'Active' : 'Inactive'}
+                        {plan.isActive ? "Active" : "Inactive"}
                       </Badge>
                     </div>
-                    
-                    {/* Actions */}
+
                     <div className="flex items-center gap-2">
                       <Button
                         variant="outline"
@@ -994,7 +556,9 @@ export default function AdminPlans() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleEdit(plan)}
+                        onClick={() =>
+                          router.push(`/admin/plans/${plan.id}/edit`)
+                        }
                         className="flex items-center gap-1"
                       >
                         <Edit className="w-3 h-3" />
@@ -1003,15 +567,16 @@ export default function AdminPlans() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleDelete(plan)}
+                        onClick={() =>
+                          router.push(`/admin/plans/${plan.id}/delete`)
+                        }
                         className="hover:bg-destructive/5 hover:border-destructive/20 hover:text-destructive"
                       >
                         <Trash2 className="w-3 h-3" />
                       </Button>
                     </div>
                   </div>
-                  
-                  {/* Plan Groups Details - Collapsible */}
+
                   {plan.plan_groups && plan.plan_groups.length > 0 && (
                     <div className="mt-3 pt-3 border-t border-border/50">
                       <div className="space-y-2">
@@ -1019,25 +584,31 @@ export default function AdminPlans() {
                           const categories = getGroupCategories(group);
                           const groupKey = `${plan.id}-${index}`;
                           const isExpanded = expandedGroups.has(groupKey);
-                          
+
                           return (
                             <div key={index} className="space-y-1">
-                              <div 
+                              <div
                                 className="flex items-center gap-2 px-2 py-1 bg-muted/30 rounded-md text-xs cursor-pointer hover:bg-muted/50 transition-colors"
                                 onClick={() => toggleGroup(plan.id, index)}
                               >
-                                <div 
-                                  className="w-2 h-2 rounded-full border border-white/20" 
-                                  style={{ backgroundColor: group.groups?.color || '#6B7280' }}
+                                <div
+                                  className="w-2 h-2 rounded-full border border-white/20"
+                                  style={{
+                                    backgroundColor:
+                                      group.groups?.color || "#6B7280",
+                                  }}
                                 />
                                 <span className="font-medium text-foreground">
-                                  {group.groups?.name || 'Unknown Group'}
+                                  {group.groups?.name || "Unknown Group"}
                                 </span>
                                 <span className="text-muted-foreground">
                                   ({group.session_count}s)
                                 </span>
                                 {group.is_free && (
-                                  <Badge variant="outline" className="text-xs bg-green-100 text-green-700 border-green-200 px-1 py-0">
+                                  <Badge
+                                    variant="outline"
+                                    className="text-xs bg-green-100 text-green-700 border-green-200 px-1 py-0"
+                                  >
                                     FREE
                                   </Badge>
                                 )}
@@ -1054,15 +625,23 @@ export default function AdminPlans() {
                               {categories.length > 0 && isExpanded && (
                                 <div className="ml-4 text-xs text-muted-foreground animate-in slide-in-from-top-1 duration-200">
                                   <div className="space-y-1">
-                                    {categories.map((cat: any, catIndex: number) => (
-                                      <div key={catIndex} className="flex items-center gap-2">
-                                        <div 
-                                          className="w-1.5 h-1.5 rounded-full flex-shrink-0" 
-                                          style={{ backgroundColor: cat.color || '#6B7280' }}
-                                        />
-                                        <span>{cat.name}</span>
-                                      </div>
-                                    ))}
+                                    {categories.map(
+                                      (cat: any, catIndex: number) => (
+                                        <div
+                                          key={catIndex}
+                                          className="flex items-center gap-2"
+                                        >
+                                          <div
+                                            className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                                            style={{
+                                              backgroundColor:
+                                                cat.color || "#6B7280",
+                                            }}
+                                          />
+                                          <span>{cat.name}</span>
+                                        </div>
+                                      ),
+                                    )}
                                   </div>
                                 </div>
                               )}
@@ -1078,89 +657,6 @@ export default function AdminPlans() {
           </div>
         )}
       </div>
-
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={onOpenChange}>
-        <AlertDialogContent className="sm:max-w-md">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-lg font-semibold">
-              {linkedSubscriptions.length > 0 ? "Cannot Delete Plan" : "Delete Plan"}
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-muted-foreground">
-              {linkedSubscriptions.length > 0 ? (
-                <>
-                  The plan <span className="font-medium text-foreground">"{deletingPlan?.name}"</span> cannot be deleted because it has active subscriptions.
-                </>
-              ) : (
-                <>
-                  Are you sure you want to delete the plan <span className="font-medium text-foreground">"{deletingPlan?.name}"</span>? 
-                  This action cannot be undone.
-                </>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          
-          {linkedSubscriptions.length > 0 && (
-            <div className="mt-6 p-5 bg-destructive/50 border-l-4 border-destructive rounded-lg shadow-sm">
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 w-5 h-5 rounded-full bg-destructive/20 flex items-center justify-center mt-0.5">
-                  <div className="w-2 h-2 rounded-full bg-destructive"></div>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-semibold text-sm text-foreground mb-2">
-                    Cannot Delete Plan
-                  </h4>
-                  <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
-                    This plan is currently being used by the following subscriptions and cannot be deleted:
-                  </p>
-                  
-                  <div className="space-y-2 mb-4">
-                    {linkedSubscriptions.map((sub, index) => (
-                      <div key={sub.id} className="flex items-center gap-3 p-2 bg-background/80 rounded-md border border-destructive/20">
-                        <div className="w-1.5 h-1.5 rounded-full bg-destructive flex-shrink-0"></div>
-                        <span className="text-sm font-medium text-foreground">
-                          {sub.member?.first_name} {sub.member?.last_name}
-                        </span>
-                        <span className="text-sm text-muted-foreground">
-                          {sub.member?.account_email}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                  
-                  <div className="text-xs text-muted-foreground flex items-center">
-                    <span className="inline-block w-1 h-1 rounded-full bg-muted-foreground mr-2"></span>
-                    Cancel or transfer these subscriptions first
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-          <AlertDialogFooter className="gap-3">
-            <AlertDialogCancel 
-              onClick={() => {
-                closeDialog();
-                setDeletingPlan(null);
-                setLinkedSubscriptions([]);
-              }}
-              className="flex-1"
-            >
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDelete}
-              className={`flex-1 ${
-                linkedSubscriptions.length > 0 
-                  ? 'bg-muted text-muted-foreground cursor-not-allowed' 
-                  : 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
-              }`}
-              disabled={linkedSubscriptions.length > 0 || deletePlanMutation.isPending}
-            >
-              {linkedSubscriptions.length > 0 ? 'Cannot Delete' : (deletePlanMutation.isPending ? 'Deleting...' : 'Delete Plan')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

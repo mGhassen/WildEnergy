@@ -9,9 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { ConfirmationDialog } from "@/components/confirmation-dialog";
-import { useDialogParams } from "@/hooks/use-dialog-params";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
@@ -73,13 +70,6 @@ export default function AccountDetailPage() {
     const [setPasswordValue, setSetPasswordValue] = useState("");
     const [selectedTrainerId, setSelectedTrainerId] = useState("");
     const { toast } = useToast();
-    const { isOpen, openDialog, closeDialog, onOpenChange } = useDialogParams();
-    const isLinkDialogOpen = isOpen("link");
-    const isUnlinkTrainerDialogOpen = isOpen("unlink");
-    const isCreateMemberDialogOpen = isOpen("create-member");
-    const isCreateTrainerDialogOpen = isOpen("create-trainer");
-    const isPasswordDialogOpen = isOpen("password");
-    const isDeleteDialogOpen = isOpen("delete");
 
     // Fetch account data
     const { data: account, isLoading, error } = useAccount(accountId);
@@ -181,96 +171,17 @@ export default function AccountDetailPage() {
     };
 
     // Delete account
-    const handleDeleteAccount = async () => {
-        if (!account) return;
-        
-        deleteAccountMutation.mutate(account.account_id, {
-            onSuccess: () => {
-                router.push('/admin/accounts');
-            }
-        });
-    };
 
     // Link trainer to account
-    const handleLinkTrainer = () => {
-        if (!selectedTrainerId) return;
-        
-        linkTrainerMutation.mutate(
-            { accountId, trainerId: selectedTrainerId },
-            {
-                onSuccess: () => {
-                    closeDialog();
-                    setSelectedTrainerId("");
-                }
-            }
-        );
-    };
 
     // Unlink trainer from account
-    const handleUnlinkTrainer = () => {
-        openDialog("unlink");
-    };
 
-    const confirmUnlinkTrainer = () => {
-        unlinkTrainerMutation.mutate(accountId, {
-            onSuccess: () => {
-                closeDialog();
-            }
-        });
-    };
 
     // Create member
-    const handleCreateMember = () => {
-        createMemberMutation.mutate({
-            accountId,
-            data: createMemberForm
-        }, {
-            onSuccess: () => {
-                closeDialog();
-                setCreateMemberForm({
-                    memberNotes: "",
-                    credit: 0,
-                    status: "active",
-                });
-            }
-        });
-    };
 
     // Create trainer
-    const handleCreateTrainer = () => {
-        createTrainerMutation.mutate({
-            accountId,
-            data: createTrainerForm
-        }, {
-            onSuccess: () => {
-                closeDialog();
-                setCreateTrainerForm({
-                    specialization: "",
-                    experienceYears: 0,
-                    bio: "",
-                    certification: "",
-                    hourlyRate: 0,
-                    status: "active",
-                });
-            }
-        });
-    };
 
     // Set password
-    const handleSetPassword = async () => {
-        if (!settingPasswordAccount || !setPasswordValue) return;
-        
-        setPasswordMutation.mutate({ 
-            accountId: settingPasswordAccount.account_id, 
-            password: setPasswordValue 
-        }, {
-            onSuccess: () => {
-                closeDialog();
-                setSettingPasswordAccount(null);
-                setSetPasswordValue("");
-            }
-        });
-    };
 
     // Helper functions
     const getInitials = (firstName: string, lastName: string): string => {
@@ -304,6 +215,10 @@ export default function AccountDetailPage() {
             password += chars.charAt(Math.floor(Math.random() * chars.length));
         }
         return password;
+    };
+
+    const handleUnlinkTrainer = () => {
+        router.push(`/admin/accounts/${accountId}/unlink`);
     };
 
     if (isLoading) {
@@ -385,7 +300,7 @@ export default function AccountDetailPage() {
                                     <Edit className="w-4 h-4 mr-2" />
                                     Edit Account
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => { setSettingPasswordAccount(account); openDialog("password"); }}>
+                                <DropdownMenuItem onClick={() => router.push(`/admin/accounts/${accountId}/password`)}>
                                     <Key className="w-4 h-4 mr-2" />
                                     Set Password
                                 </DropdownMenuItem>
@@ -395,7 +310,7 @@ export default function AccountDetailPage() {
                                         Unlink Trainer
                                     </DropdownMenuItem>
                                 ) : (
-                                    <DropdownMenuItem onClick={() => openDialog("link")}>
+                                    <DropdownMenuItem onClick={() => router.push(`/admin/accounts/${accountId}/link`)}>
                                         <Link className="w-4 h-4 mr-2" />
                                         Link Trainer
                                     </DropdownMenuItem>
@@ -461,7 +376,7 @@ export default function AccountDetailPage() {
                                     </DropdownMenuItem>
                                 )}
                                 <DropdownMenuItem
-                                    onClick={() => { setDeletingAccount(account); openDialog("delete"); }}
+                                    onClick={() => router.push(`/admin/accounts/${accountId}/delete`)}
                                     className="text-red-600"
                                 >
                                     <Trash2 className="w-4 h-4 mr-2" />
@@ -825,7 +740,7 @@ export default function AccountDetailPage() {
                                                     variant="outline"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        openDialog("create-member");
+                                                        router.push(`/admin/accounts/${accountId}/create-member`);
                                                     }}
                                                 >
                                                     <UserPlus className="w-4 h-4 mr-1" />
@@ -872,7 +787,7 @@ export default function AccountDetailPage() {
                                                     variant="outline"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        openDialog("create-trainer");
+                                                        router.push(`/admin/accounts/${accountId}/create-trainer`);
                                                     }}
                                                 >
                                                     <UserPlus className="w-4 h-4 mr-1" />
@@ -939,343 +854,6 @@ export default function AccountDetailPage() {
                 </div>
             </div>
 
-            {/* Set Password Dialog */}
-            <Dialog open={isPasswordDialogOpen} onOpenChange={(open) => { if (!open) { closeDialog(); setSettingPasswordAccount(null); setSetPasswordValue(""); } }}>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle>Set Password</DialogTitle>
-                        <DialogDescription>
-                            Set a new password for {settingPasswordAccount?.first_name} {settingPasswordAccount?.last_name}. 
-                            You can enter a password or generate a strong one.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-2">
-                            <Input
-                                type="text"
-                                placeholder="Enter new password"
-                                value={setPasswordValue}
-                                onChange={e => setSetPasswordValue(e.target.value)}
-                                autoFocus
-                            />
-                            <Button type="button" variant="outline" onClick={() => setSetPasswordValue(generatePassword())}>
-                                Generate
-                            </Button>
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => { closeDialog(); setSettingPasswordAccount(null); setSetPasswordValue(""); }}>
-                            Cancel
-                        </Button>
-                        <Button type="button" disabled={!setPasswordValue} onClick={handleSetPassword}>
-                            Set Password
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* Delete Confirmation Dialog */}
-            <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => { if (!open) { closeDialog(); setDeletingAccount(null); } }}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Account</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Are you sure you want to permanently delete {deletingAccount?.first_name} {deletingAccount?.last_name}?
-                            This action cannot be undone and will remove all associated data.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                            onClick={handleDeleteAccount}
-                            className="bg-red-600 hover:bg-red-700"
-                        >
-                            Delete Account
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-
-            {/* Link Trainer Dialog */}
-            <Dialog open={isLinkDialogOpen} onOpenChange={(open) => { if (!open) { closeDialog(); setSelectedTrainerId(""); } }}>
-                <DialogContent className="sm:max-w-[500px]">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <Link className="w-5 h-5" />
-                            Link Trainer to Account
-                        </DialogTitle>
-                        <DialogDescription>
-                            Select a trainer to link to this account. Only trainers without existing account links are available.
-                        </DialogDescription>
-                    </DialogHeader>
-                    
-                    <div className="space-y-4">
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Available Trainers</label>
-                            <Select value={selectedTrainerId} onValueChange={setSelectedTrainerId}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select a trainer to link" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {availableTrainers.length === 0 ? (
-                                        <SelectItem value="" disabled>
-                                            No available trainers
-                                        </SelectItem>
-                                    ) : (
-                                        availableTrainers.map((trainer) => (
-                                            <SelectItem key={trainer.id} value={trainer.id}>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="font-medium">
-                                                        {trainer.first_name} {trainer.last_name}
-                                                    </span>
-                                                    <span className="text-muted-foreground">({trainer.specialization})</span>
-                                                </div>
-                                            </SelectItem>
-                                        ))
-                                    )}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        {availableTrainers.length === 0 && (
-                            <div className="text-center py-4 text-muted-foreground">
-                                <UserMinus className="w-8 h-8 mx-auto mb-2" />
-                                <p>No available trainers to link</p>
-                                <p className="text-sm">All trainers are already linked to accounts</p>
-                            </div>
-                        )}
-                    </div>
-
-                    <DialogFooter>
-                        <Button
-                            variant="outline"
-                            onClick={() => {
-                                closeDialog();
-                                setSelectedTrainerId("");
-                            }}
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            onClick={handleLinkTrainer}
-                            disabled={!selectedTrainerId || linkTrainerMutation.isPending}
-                        >
-                            {linkTrainerMutation.isPending ? (
-                                <>
-                                    <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-background border-t-foreground" />
-                                    Linking...
-                                </>
-                            ) : (
-                                <>
-                                    <Link className="w-4 h-4 mr-2" />
-                                    Link Trainer
-                                </>
-                            )}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            <ConfirmationDialog
-                open={isUnlinkTrainerDialogOpen}
-                onOpenChange={onOpenChange}
-                onConfirm={confirmUnlinkTrainer}
-                title="Unlink Trainer"
-                description="Are you sure you want to unlink this trainer from the account? This action cannot be undone."
-                confirmText="Unlink"
-                cancelText="Cancel"
-                isPending={unlinkTrainerMutation.isPending}
-                variant="destructive"
-            />
-
-            {/* Create Member Dialog */}
-            <Dialog open={isCreateMemberDialogOpen} onOpenChange={onOpenChange}>
-                <DialogContent className="sm:max-w-[500px]">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <UserPlus className="w-5 h-5" />
-                            Create Member
-                        </DialogTitle>
-                        <DialogDescription>
-                            Create a member record for this account. This will give the account access to member features.
-                        </DialogDescription>
-                    </DialogHeader>
-                    
-                    <div className="space-y-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="memberNotes">Member Notes</Label>
-                            <Textarea
-                                id="memberNotes"
-                                placeholder="Optional notes about this member..."
-                                value={createMemberForm.memberNotes}
-                                onChange={(e) => setCreateMemberForm({...createMemberForm, memberNotes: e.target.value})}
-                                rows={3}
-                            />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="credit">Credit</Label>
-                                <Input
-                                    id="credit"
-                                    type="number"
-                                    placeholder="0"
-                                    value={createMemberForm.credit}
-                                    onChange={(e) => setCreateMemberForm({...createMemberForm, credit: Number(e.target.value)})}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="memberStatus">Status</Label>
-                                <Select value={createMemberForm.status} onValueChange={(value) => setCreateMemberForm({...createMemberForm, status: value})}>
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="active">Active</SelectItem>
-                                        <SelectItem value="inactive">Inactive</SelectItem>
-                                        <SelectItem value="suspended">Suspended</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-                    </div>
-
-                    <DialogFooter>
-                        <Button
-                            variant="outline"
-                            onClick={() => closeDialog()}
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            onClick={handleCreateMember}
-                            disabled={createMemberMutation.isPending}
-                        >
-                            {createMemberMutation.isPending ? (
-                                <>
-                                    <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-background border-t-foreground" />
-                                    Creating...
-                                </>
-                            ) : (
-                                <>
-                                    <UserPlus className="w-4 h-4 mr-2" />
-                                    Create Member
-                                </>
-                            )}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* Create Trainer Dialog */}
-            <Dialog open={isCreateTrainerDialogOpen} onOpenChange={onOpenChange}>
-                <DialogContent className="sm:max-w-[500px]">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <UserPlus className="w-5 h-5" />
-                            Create Trainer
-                        </DialogTitle>
-                        <DialogDescription>
-                            Create a trainer record for this account. This will give the account access to trainer features.
-                        </DialogDescription>
-                    </DialogHeader>
-                    
-                    <div className="space-y-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="specialization">Specialization</Label>
-                            <Input
-                                id="specialization"
-                                placeholder="e.g., Personal Training, Yoga, Pilates"
-                                value={createTrainerForm.specialization}
-                                onChange={(e) => setCreateTrainerForm({...createTrainerForm, specialization: e.target.value})}
-                            />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="experienceYears">Experience (Years)</Label>
-                                <Input
-                                    id="experienceYears"
-                                    type="number"
-                                    placeholder="0"
-                                    value={createTrainerForm.experienceYears}
-                                    onChange={(e) => setCreateTrainerForm({...createTrainerForm, experienceYears: Number(e.target.value)})}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="hourlyRate">Hourly Rate</Label>
-                                <Input
-                                    id="hourlyRate"
-                                    type="number"
-                                    placeholder="0"
-                                    value={createTrainerForm.hourlyRate}
-                                    onChange={(e) => setCreateTrainerForm({...createTrainerForm, hourlyRate: Number(e.target.value)})}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="certification">Certification</Label>
-                            <Input
-                                id="certification"
-                                placeholder="e.g., NASM, ACE, ACSM"
-                                value={createTrainerForm.certification}
-                                onChange={(e) => setCreateTrainerForm({...createTrainerForm, certification: e.target.value})}
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="bio">Bio</Label>
-                            <Textarea
-                                id="bio"
-                                placeholder="Brief description of the trainer's background and expertise..."
-                                value={createTrainerForm.bio}
-                                onChange={(e) => setCreateTrainerForm({...createTrainerForm, bio: e.target.value})}
-                                rows={3}
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="trainerStatus">Status</Label>
-                            <Select value={createTrainerForm.status} onValueChange={(value) => setCreateTrainerForm({...createTrainerForm, status: value})}>
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="active">Active</SelectItem>
-                                    <SelectItem value="inactive">Inactive</SelectItem>
-                                    <SelectItem value="suspended">Suspended</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
-
-                    <DialogFooter>
-                        <Button
-                            variant="outline"
-                            onClick={() => closeDialog()}
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            onClick={handleCreateTrainer}
-                            disabled={createTrainerMutation.isPending}
-                        >
-                            {createTrainerMutation.isPending ? (
-                                <>
-                                    <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-background border-t-foreground" />
-                                    Creating...
-                                </>
-                            ) : (
-                                <>
-                                    <UserPlus className="w-4 h-4 mr-2" />
-                                    Create Trainer
-                                </>
-                            )}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
         </div>
     );
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,17 +9,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Search, Plus, Edit, Trash2, User, Shield, MoreHorizontal, Key, Archive, CheckCircle, XCircle, Mail, Star, X, Phone, Calendar, Clock, Activity, FileText, Loader2, Eye, Users, UserCheck, UserX, Crown, GraduationCap, CreditCard, MapPin, Briefcase, Heart, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useDialogParams } from "@/hooks/use-dialog-params";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { formatDate } from "@/lib/date";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { useAccounts, useUpdateAccount, useDeleteAccount, useSetAccountPassword, useResetAccountPassword, useResendAccountInvitation } from "@/hooks/useAccounts";
+import { useAccounts, useUpdateAccount, useResetAccountPassword, useResendAccountInvitation } from "@/hooks/useAccounts";
 import { Account } from "@/lib/api/accounts";
 import { useMutation } from "@tanstack/react-query";
 import { TableSkeleton, FormSkeleton } from "@/components/skeletons";
@@ -69,41 +68,20 @@ const getRoleColor = (role: string) => {
 // Updated Account interface for new system
 
 export default function AccountsPage() {
+    const router = useRouter();
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
     const [roleFilter, setRoleFilter] = useState("all");
-    const [deletingUser, setDeletingUser] = useState<Account | null>(null);
-    const [settingPasswordUser, setSettingPasswordUser] = useState<Account | null>(null);
-    const [setPasswordValue, setSetPasswordValue] = useState("");
     const { toast } = useToast();
     const isMobile = useIsMobile();
-    const { isOpen, openDialog, closeDialog, onOpenChange, dialogId } = useDialogParams();
-    const isPasswordDialogOpen = isOpen("password");
-    const isDeleteDialogOpen = isOpen("delete");
 
     // Fetch accounts
     const { data: accounts = [], isLoading, error } = useAccounts();
 
-    useEffect(() => {
-        if (isOpen("password") && dialogId != null && !isLoading) {
-            const a = accounts.find((x: Account) => String(x.account_id) === String(dialogId));
-            if (a && settingPasswordUser?.account_id !== a.account_id) setSettingPasswordUser(a);
-        } else if (isOpen("delete") && dialogId != null && !isLoading) {
-            const a = accounts.find((x: Account) => String(x.account_id) === String(dialogId));
-            if (a && deletingUser?.account_id !== a.account_id) setDeletingUser(a);
-        } else if (!isPasswordDialogOpen && !isDeleteDialogOpen) {
-            setSettingPasswordUser(null);
-            setDeletingUser(null);
-            setSetPasswordValue("");
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [dialogId, isLoading, accounts, isPasswordDialogOpen, isDeleteDialogOpen]);
 
 
     // Delete account mutation
-    const deleteAccountMutation = useDeleteAccount();
     const updateAccountMutation = useUpdateAccount();
-    const setPasswordMutation = useSetAccountPassword();
     const resetPasswordMutation = useResetAccountPassword();
     const resendInvitationMutation = useResendAccountInvitation();
 
@@ -517,7 +495,7 @@ export default function AccountsPage() {
                                                             <Eye className="w-4 h-4 mr-2" />
                                                             View Details
                                                         </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => { setSettingPasswordUser(account); openDialog("password", { id: account.account_id }); }}>
+                                                        <DropdownMenuItem onClick={() => router.push(`/admin/accounts/${account.account_id}/password`)}>
                                                             <Key className="w-4 h-4 mr-2" />
                                                             Set Password
                                                         </DropdownMenuItem>
@@ -548,7 +526,7 @@ export default function AccountsPage() {
                                                             </DropdownMenuItem>
                                                         )}
                                                         <DropdownMenuItem
-                                                            onClick={() => { setDeletingUser(account); openDialog("delete", { id: account.account_id }); }}
+                                                            onClick={() => router.push(`/admin/accounts/${account.account_id}/delete`)}
                                                             className="text-red-600"
                                                         >
                                                             <Trash2 className="w-4 h-4 mr-2" />
@@ -693,7 +671,7 @@ export default function AccountsPage() {
                                                             <Eye className="w-4 h-4 mr-2" />
                                                             View Details
                                                         </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => { setSettingPasswordUser(account); openDialog("password", { id: account.account_id }); }}>
+                                                        <DropdownMenuItem onClick={() => router.push(`/admin/accounts/${account.account_id}/password`)}>
                                                             <Key className="w-4 h-4 mr-2" />
                                                             Set Password
                                                         </DropdownMenuItem>
@@ -724,7 +702,7 @@ export default function AccountsPage() {
                                                             </DropdownMenuItem>
                                                         )}
                                                         <DropdownMenuItem
-                                                            onClick={() => { setDeletingUser(account); openDialog("delete", { id: account.account_id }); }}
+                                                            onClick={() => router.push(`/admin/accounts/${account.account_id}/delete`)}
                                                             className="text-red-600"
                                                         >
                                                             <Trash2 className="w-4 h-4 mr-2" />
@@ -749,78 +727,6 @@ export default function AccountsPage() {
                 </CardContent>
             </Card>
 
-            {/* Set Password Dialog */}
-            <Dialog open={isPasswordDialogOpen} onOpenChange={(open) => { if (!open) { closeDialog(); setSetPasswordValue(""); } }}>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle>Set Password</DialogTitle>
-                        <DialogDescription>
-                            Set a new password for {settingPasswordUser?.first_name} {settingPasswordUser?.last_name}. You can enter a password or generate a strong one.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-2">
-                            <Input
-                                type="text"
-                                placeholder="Enter new password"
-                                value={setPasswordValue}
-                                onChange={e => setSetPasswordValue(e.target.value)}
-                                autoFocus
-                            />
-                            <Button type="button" variant="outline" onClick={() => setSetPasswordValue(generatePassword())}>
-                                Generate
-                            </Button>
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => { closeDialog(); setSetPasswordValue(""); }}>
-                            Cancel
-                        </Button>
-                        <Button type="button" disabled={!setPasswordValue} onClick={() => {
-    if (!settingPasswordUser) return;
-    setPasswordMutation.mutate({ 
-        accountId: settingPasswordUser.account_id, 
-        password: setPasswordValue 
-    }, {
-        onSuccess: () => {
-            closeDialog();
-            setSettingPasswordUser(null);
-            setSetPasswordValue("");
-        }
-    });
-}}>
-                            Set Password
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* Delete Confirmation Dialog */}
-            <AlertDialog open={isDeleteDialogOpen} onOpenChange={onOpenChange}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Account</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Are you sure you want to permanently delete {deletingUser?.first_name} {deletingUser?.last_name}?
-                            This action cannot be undone.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                            onClick={() => deletingUser && deleteAccountMutation.mutate(deletingUser.account_id, {
-                                onSuccess: () => {
-                                    closeDialog();
-                                    setDeletingUser(null);
-                                }
-                            })}
-                            className="bg-red-600 hover:bg-red-700"
-                        >
-                            Delete Account
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
         </div>
     );
 }

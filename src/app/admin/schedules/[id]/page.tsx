@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useDialogParams } from "@/hooks/use-dialog-params";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -155,10 +154,8 @@ export default function ScheduleDetailsPage() {
   
   const [showTrainerDetails, setShowTrainerDetails] = useState(false);
   const [selectedCourseIds, setSelectedCourseIds] = useState<number[]>([]);
-  const { isOpen, openDialog, closeDialog, onOpenChange } = useDialogParams();
-  const deleteDialogOpen = isOpen("delete");
-  const bulkDeleteDialogOpen = isOpen("bulk-delete");
-  const bulkEditDialogOpen = isOpen("bulk-edit");
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
+  const [bulkEditDialogOpen, setBulkEditDialogOpen] = useState(false);
   const [bulkCourseOverrides, setBulkCourseOverrides] = useState<{
     status: BulkCourseStatus;
   }>({ status: "" });
@@ -322,7 +319,7 @@ export default function ScheduleDetailsPage() {
     setBulkCourseOverrides({
       status: inferBulkStatusFromSelection(ids, scheduleCourses),
     });
-    openDialog("bulk-edit");
+    setBulkEditDialogOpen(true);
   };
 
   const handleUnifiedSubmit = async (data: ScheduleFormData) => {
@@ -341,7 +338,7 @@ export default function ScheduleDetailsPage() {
           changes: { status: bulkCourseOverrides.status },
         });
       }
-      closeDialog();
+      
       clearSelection();
     } catch {
       // useUpdateSchedule / mutation hooks surface errors
@@ -358,7 +355,7 @@ export default function ScheduleDetailsPage() {
           title: res.message,
           variant: res.failed?.length ? "destructive" : "default",
         });
-        closeDialog();
+        
         clearSelection();
       },
       onError: (err: any) => {
@@ -371,7 +368,7 @@ export default function ScheduleDetailsPage() {
   };
 
   const handleDelete = () => {
-    openDialog("delete");
+    router.push(`/admin/schedules/${scheduleId}/delete`);
   };
 
   const deleteScheduleMutation = useDeleteSchedule();
@@ -822,7 +819,7 @@ export default function ScheduleDetailsPage() {
                       ? "All selected courses must have zero registrations and check-ins"
                       : undefined
                   }
-                  onClick={() => openDialog("bulk-delete")}
+                  onClick={() => setBulkDeleteDialogOpen(true)}
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
                   Delete selected
@@ -1107,7 +1104,7 @@ export default function ScheduleDetailsPage() {
         </Card>
       )}
 
-      <Dialog open={bulkEditDialogOpen} onOpenChange={onOpenChange}>
+      <Dialog open={bulkEditDialogOpen} onOpenChange={(open) => { if (!open) { setBulkEditDialogOpen(false); setBulkDeleteDialogOpen(false); } }}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit schedule &amp; selected courses</DialogTitle>
@@ -1411,7 +1408,7 @@ export default function ScheduleDetailsPage() {
               )}
 
               <DialogFooter className="gap-2 sm:gap-0">
-                <Button type="button" variant="outline" onClick={() => closeDialog()}>
+                <Button type="button" variant="outline" onClick={() => setBulkEditDialogOpen(false)}>
                   Cancel
                 </Button>
                 <Button
@@ -1428,7 +1425,7 @@ export default function ScheduleDetailsPage() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={bulkDeleteDialogOpen} onOpenChange={onOpenChange}>
+      <AlertDialog open={bulkDeleteDialogOpen} onOpenChange={(open) => { if (!open) { setBulkEditDialogOpen(false); setBulkDeleteDialogOpen(false); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete {selectedDeletableIds.length} course(s)?</AlertDialogTitle>
@@ -1453,25 +1450,7 @@ export default function ScheduleDetailsPage() {
       </AlertDialog>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={onOpenChange}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Schedule</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this schedule? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={confirmDelete}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              Delete Schedule
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      
     </div>
   );
 }

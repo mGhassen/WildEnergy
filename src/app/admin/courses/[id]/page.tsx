@@ -1,16 +1,14 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { useDialogParams } from '@/hooks/use-dialog-params';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { 
   useCourse, 
   useDeleteCourse, 
   useAddMembersToCourse 
 } from '@/hooks/useCourse';
 import { useAdminCancelRegistration } from '@/hooks/useRegistrations';
-import { CourseEditDialog } from '@/components/course-edit-dialog';
 import { useMembers, useCheckMemberSessions } from '@/hooks/useMembers';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -252,14 +250,17 @@ export default function CourseDetailsPage() {
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [expandedMembers, setExpandedMembers] = useState<Set<string>>(new Set());
   const [memberGroupSelections, setMemberGroupSelections] = useState<Record<string, number>>({});
-  const [registrationToCancel, setRegistrationToCancel] = useState<{ id: number; memberName: string } | null>(null);
-  const { isOpen, openDialog, closeDialog, onOpenChange, dialogId } = useDialogParams();
-  const deleteDialogOpen = isOpen("delete");
-  const memberManagementOpen = isOpen("members");
-  const isEditModalOpen = isOpen("edit");
-  const cancelDialogOpen = isOpen("cancel");
-
+  const [memberManagementOpen, setMemberManagementOpen] = useState(false);
   const courseId = params.id as string;
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get("manageMembers") === "1") {
+      setMemberManagementOpen(true);
+      router.replace(`/admin/courses/${courseId}`);
+    }
+  }, [searchParams, courseId, router]);
+
+  const [registrationToCancel, setRegistrationToCancel] = useState<{ id: number; memberName: string } | null>(null);
 
   const { data: course, isLoading, error } = useCourse(parseInt(courseId));
 
@@ -331,7 +332,7 @@ export default function CourseDetailsPage() {
           title: 'Members Added',
           description: result.message,
         });
-        closeDialog();
+        setMemberManagementOpen(false);
         setSelectedMembers([]);
         setMemberGroupSelections({});
       },
@@ -347,26 +348,10 @@ export default function CourseDetailsPage() {
   };
 
   const handleCancelRegistration = (registration: any) => {
-    setRegistrationToCancel({
-      id: registration.id,
-      memberName: `${registration.member?.first_name || 'Unknown'} ${registration.member?.last_name || 'Member'}`
-    });
-    openDialog("cancel", { id: registration.id });
+    const memberName = `${registration.member?.first_name || 'Unknown'} ${registration.member?.last_name || 'Member'}`;
+    router.push(`/admin/courses/${courseId}/cancel?registrationId=${registration.id}&memberName=${encodeURIComponent(memberName)}`);
   };
 
-  const confirmCancelRegistration = () => {
-    if (!registrationToCancel) return;
-    
-    cancelRegistrationMutation.mutate({
-      registrationId: registrationToCancel.id,
-      refundSession: true // Admin can choose to refund session
-    }, {
-      onSuccess: () => {
-        closeDialog();
-        setRegistrationToCancel(null);
-      }
-    });
-  };
 
   // Function to check if a member has remaining sessions for this course's group
   const checkMemberSessionsMutation = useCheckMemberSessions();
@@ -506,7 +491,7 @@ export default function CourseDetailsPage() {
           <Button 
             variant="outline" 
             size="sm"
-            onClick={() => openDialog("edit")}
+            onClick={() => router.push(`/admin/courses/${courseId}/edit`)}
           >
             <Edit className="w-4 h-4 mr-2" />
             Edit
@@ -514,7 +499,7 @@ export default function CourseDetailsPage() {
           <Button 
             variant="outline" 
             size="sm"
-            onClick={() => openDialog("delete")}
+            onClick={() => router.push(`/admin/courses/${courseId}/delete`)}
             className="text-red-600 hover:text-red-700"
             disabled={!canDeleteThisCourse}
             title={
@@ -839,7 +824,7 @@ export default function CourseDetailsPage() {
             <Button 
               variant="outline" 
               size="sm"
-              onClick={() => openDialog("members")}
+              onClick={() => router.push(`/admin/courses/${courseId}/members`)}
             >
               <UserPlus className="w-4 h-4 mr-2" />
               Add Members
@@ -947,7 +932,7 @@ export default function CourseDetailsPage() {
       </Card>
 
       {/* Member Management Dialog */}
-      <Dialog open={memberManagementOpen} onOpenChange={onOpenChange}>
+      <Dialog open={memberManagementOpen} onOpenChange={setMemberManagementOpen}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -1222,7 +1207,7 @@ export default function CourseDetailsPage() {
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => closeDialog()}
+              onClick={() => setMemberManagementOpen(false)}
             >
               Cancel
             </Button>
@@ -1238,88 +1223,6 @@ export default function CourseDetailsPage() {
       </Dialog>
 
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={onOpenChange}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Course</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this course? This action cannot be undone.
-              {canDeleteThisCourse &&
-                courseData.registrations.some((r) => r.status === "registered") && (
-                  <span className="block mt-2 text-amber-700 font-medium">
-                    Active registrations will be cancelled, sessions refunded where applicable, then removed with the course.
-                  </span>
-                )}
-              {!canDeleteThisCourse && courseDeleteBlockReason && (
-                <span className="block mt-2 text-red-600 font-medium">
-                  {describeCourseDeleteBlockReason(courseDeleteBlockReason)}
-                </span>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                deleteCourseMutation.mutate(parseInt(courseId), {
-                  onSuccess: () => {
-                    toast({
-                      title: 'Course deleted',
-                      description: 'The course has been successfully deleted.',
-                    });
-                    router.push('/admin/courses');
-                  },
-                  onError: (error: any) => {
-                    toast({
-                      title: 'Error',
-                      description: error.message || 'Failed to delete course',
-                      variant: 'destructive',
-                    });
-                  },
-                });
-                closeDialog();
-              }}
-              disabled={!canDeleteThisCourse}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Cancel Registration Confirmation Dialog */}
-      <AlertDialog open={cancelDialogOpen} onOpenChange={onOpenChange}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Cancel Registration</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to cancel the registration for {registrationToCancel?.memberName}? 
-              This will remove them from the course and refund their session if they have an active subscription.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmCancelRegistration}
-              disabled={cancelRegistrationMutation.isPending}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              {cancelRegistrationMutation.isPending ? 'Cancelling...' : 'Cancel Registration'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Course Edit Dialog */}
-      {course && (
-        <CourseEditDialog
-          course={course}
-          isOpen={isEditModalOpen}
-          onClose={() => closeDialog()}
-        />
-      )}
     </div>
   );
 }
