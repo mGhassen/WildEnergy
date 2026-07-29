@@ -16,6 +16,7 @@ import { useMembers } from "@/hooks/useMembers";
 import { usePlans } from "@/hooks/usePlans";
 import { calculateSubscriptionEndDate } from "@/lib/date";
 import { formatCurrency } from "@/lib/config";
+import { totalPlanSessionCount } from "@/lib/session-eligibility";
 import { useToast } from "@/hooks/use-toast";
 import { FormSkeleton } from "@/components/skeletons";
 
@@ -52,15 +53,7 @@ export default function AdminNewSubscriptionPage() {
   const mappedPlans = Array.isArray(plans)
     ? plans.map((plan: any) => ({
         ...plan,
-        sessionsIncluded:
-          (plan.plan_groups?.reduce(
-            (sum: number, group: any) => sum + (group.session_count || 0),
-            0,
-          ) ?? 0) +
-          (plan.plan_session_pools?.reduce(
-            (sum: number, pool: any) => sum + (pool.session_count || 0),
-            0,
-          ) ?? 0),
+        sessionsIncluded: totalPlanSessionCount(plan),
         duration: plan.duration_days ?? plan.duration ?? 0,
         isActive: plan.is_active ?? plan.isActive ?? true,
       }))
