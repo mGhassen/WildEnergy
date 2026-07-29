@@ -68,6 +68,12 @@ type Subscription = {
       color: string;
     };
   }[];
+  subscription_pool_sessions?: {
+    id: number;
+    pool_id: number;
+    sessions_remaining: number;
+    total_sessions: number;
+  }[];
 };
 
 export default function AdminSubscriptionDetails() {
@@ -105,8 +111,9 @@ export default function AdminSubscriptionDetails() {
       ? subscriptions.map((sub: any) => ({
           ...sub,
           member: mappedMembers.find((m: any) => m.id === sub.member_id) || null,
-          plan: plans.find((p: any) => p.id === sub.plan_id) || null,
+          plan: plans.find((p: any) => p.id === sub.plan_id) || sub.plan || null,
           subscription_group_sessions: sub.subscription_group_sessions || [],
+          subscription_pool_sessions: sub.subscription_pool_sessions || [],
         }))
       : [];
   }, [subscriptions, mappedMembers, plans]);
@@ -138,22 +145,32 @@ export default function AdminSubscriptionDetails() {
       subscription.subscription_group_sessions?.filter(
         (gs: any) => gs.sessions_remaining < gs.total_sessions,
       ) || [];
+    const refundablePools =
+      (subscription as any).subscription_pool_sessions?.filter(
+        (ps: any) => ps.sessions_remaining < ps.total_sessions,
+      ) || [];
 
-    if (refundableGroups.length === 0) {
+    if (refundableGroups.length === 0 && refundablePools.length === 0) {
       toast({
         title: "Cannot refund sessions",
         description:
-          "All group sessions are already at maximum capacity. No sessions can be refunded.",
+          "All sessions are already at maximum capacity. No sessions can be refunded.",
         variant: "destructive",
       });
       return;
     }
 
-    if (refundableGroups.length === 1) {
+    if (refundableGroups.length === 1 && refundablePools.length === 0) {
       manualRefundMutation.mutate({
         subscriptionId: subscription.id,
         sessionsToRefund: 1,
         groupId: refundableGroups[0].group_id,
+      });
+    } else if (refundablePools.length === 1 && refundableGroups.length === 0) {
+      manualRefundMutation.mutate({
+        subscriptionId: subscription.id,
+        sessionsToRefund: 1,
+        poolId: refundablePools[0].pool_id,
       });
     } else {
       router.push(`/admin/subscriptions/${subscriptionId}/refund-session`);

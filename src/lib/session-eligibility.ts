@@ -96,18 +96,46 @@ export function totalPlanSessionCount(plan: {
 }
 
 export function totalRemainingSessions(subscription: {
-  subscription_group_sessions?: Array<{ sessions_remaining?: number }>;
-  subscription_pool_sessions?: Array<{ sessions_remaining?: number }>;
+  subscription_group_sessions?: Array<{
+    group_id?: number;
+    sessions_remaining?: number;
+  }>;
+  subscription_pool_sessions?: Array<{
+    pool_id?: number;
+    sessions_remaining?: number;
+  }>;
+  plan?: {
+    plan_groups?: Array<{ group_id?: number }> | null;
+    plan_session_pools?: Array<{ id?: number }> | null;
+  } | null;
 }): number {
+  const hasPlan = !!subscription.plan;
+  const planGroupIds = new Set(
+    (subscription.plan?.plan_groups || [])
+      .map((g) => g.group_id)
+      .filter((id): id is number => typeof id === "number"),
+  );
+  const planPoolIds = new Set(
+    (subscription.plan?.plan_session_pools || [])
+      .map((p) => p.id)
+      .filter((id): id is number => typeof id === "number"),
+  );
+
   const dedicated =
-    subscription.subscription_group_sessions?.reduce(
-      (sum, g) => sum + (g.sessions_remaining || 0),
-      0
-    ) || 0;
+    subscription.subscription_group_sessions
+      ?.filter((g) => {
+        if (!hasPlan) return true;
+        return g.group_id != null && planGroupIds.has(g.group_id);
+      })
+      .reduce((sum, g) => sum + (g.sessions_remaining || 0), 0) || 0;
+
   const pooled =
-    subscription.subscription_pool_sessions?.reduce(
-      (sum, p) => sum + (p.sessions_remaining || 0),
-      0
-    ) || 0;
+    subscription.subscription_pool_sessions
+      ?.filter((p) => {
+        if (!hasPlan) return true;
+        return p.pool_id != null && planPoolIds.has(p.pool_id);
+      })
+      .reduce((sum, p) => sum + (p.sessions_remaining || 0), 0) || 0;
+
   return dedicated + pooled;
 }
