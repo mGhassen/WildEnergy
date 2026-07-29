@@ -1,14 +1,11 @@
-type SupabaseLike = {
-  from: (table: string) => any;
-  rpc: (fn: string, args?: Record<string, unknown>) => Promise<{ error: unknown }>;
-};
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
  * Ensure subscription_group_sessions rows exist for the subscription's current plan.
  * Missing rows only — never overwrites existing remaining balances.
  */
 export async function ensureSubscriptionGroupSessions(
-  supabase: SupabaseLike,
+  supabase: SupabaseClient,
   subscriptionId: number
 ): Promise<{ error: unknown }> {
   const { error } = await supabase.rpc('ensure_subscription_group_sessions', {
@@ -22,7 +19,7 @@ export async function ensureSubscriptionGroupSessions(
  * (accounting for registrations already charged to this subscription).
  */
 export async function resetSubscriptionGroupSessionsForPlan(
-  supabase: SupabaseLike,
+  supabase: SupabaseClient,
   subscriptionId: number
 ): Promise<{ error: unknown }> {
   const { error: deleteError } = await supabase
@@ -41,7 +38,7 @@ export async function resetSubscriptionGroupSessionsForPlan(
  * Ensure every subscription on a plan has group-session rows for current plan_groups.
  */
 export async function ensureGroupSessionsForPlanSubscriptions(
-  supabase: SupabaseLike,
+  supabase: SupabaseClient,
   planId: number | string
 ): Promise<{ error: unknown }> {
   const { data: subscriptions, error: fetchError } = await supabase
