@@ -22,6 +22,7 @@ import {
 import { usePlan } from "@/hooks/usePlans";
 import { formatCurrency } from "@/lib/config";
 import { DashboardSkeleton } from "@/components/skeletons";
+import { totalPlanSessionCount } from "@/lib/session-eligibility";
 
 export default function AdminPlanDetailPage() {
   const params = useParams();
@@ -78,8 +79,11 @@ export default function AdminPlanDetailPage() {
   }
 
   const isActive = plan.is_active;
-  const totalSessions =
-    plan.plan_groups?.reduce((t, g) => t + (g.session_count ?? 0), 0) ?? 0;
+  const totalSessions = totalPlanSessionCount(plan);
+  const dedicatedGroups = plan.plan_groups || [];
+  const sharedPools = plan.plan_session_pools || [];
+  const hasAllocations =
+    dedicatedGroups.length > 0 || sharedPools.length > 0;
 
   return (
     <div className="space-y-6">
@@ -176,45 +180,104 @@ export default function AdminPlanDetailPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
-          {plan.plan_groups && plan.plan_groups.length > 0 ? (
-            plan.plan_groups.map((group) => (
-              <div
-                key={group.id}
-                className="flex items-center justify-between rounded-md border p-3"
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className="h-3 w-3 rounded-full"
-                    style={{
-                      backgroundColor: group.groups?.color || "#6B7280",
-                    }}
-                  />
-                  <div>
-                    <div className="font-medium">
-                      {group.groups?.name || "Unknown Group"}
-                    </div>
-                    {group.groups?.description && (
-                      <div className="text-sm text-muted-foreground">
-                        {group.groups.description}
+          {hasAllocations ? (
+            <>
+              {dedicatedGroups.map((group) => (
+                <div
+                  key={group.id}
+                  className="flex items-center justify-between rounded-md border p-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="h-3 w-3 rounded-full"
+                      style={{
+                        backgroundColor: group.groups?.color || "#6B7280",
+                      }}
+                    />
+                    <div>
+                      <div className="font-medium">
+                        {group.groups?.name || "Unknown Group"}
                       </div>
+                      {group.groups?.description && (
+                        <div className="text-sm text-muted-foreground">
+                          {group.groups.description}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">
+                      {group.session_count} sessions
+                    </span>
+                    {group.is_free && (
+                      <Badge
+                        variant="outline"
+                        className="bg-green-100 text-green-700 border-green-200"
+                      >
+                        FREE
+                      </Badge>
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">
-                    {group.session_count} sessions
-                  </span>
-                  {group.is_free && (
-                    <Badge
-                      variant="outline"
-                      className="bg-green-100 text-green-700 border-green-200"
-                    >
-                      FREE
-                    </Badge>
-                  )}
-                </div>
-              </div>
-            ))
+              ))}
+
+              {sharedPools.map((pool) => {
+                const memberships = pool.plan_session_pool_groups || [];
+                const names = memberships
+                  .map((m) => m.groups?.name)
+                  .filter(Boolean)
+                  .join(" / ");
+
+                return (
+                  <div
+                    key={`pool-${pool.id}`}
+                    className="flex items-center justify-between rounded-md border border-dashed p-3"
+                  >
+                    <div className="min-w-0">
+                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                        Shared pool
+                      </div>
+                      <div className="font-medium">
+                        {names || "Shared sessions"}
+                      </div>
+                      {memberships.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {memberships.map((m) => (
+                            <span
+                              key={m.group_id}
+                              className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs"
+                            >
+                              <span
+                                className="h-2 w-2 rounded-full"
+                                style={{
+                                  backgroundColor:
+                                    m.groups?.color || "#6B7280",
+                                }}
+                              />
+                              {m.groups?.name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 ml-3">
+                      <span className="text-sm text-muted-foreground">
+                        {pool.session_count} shared session
+                        {pool.session_count !== 1 ? "s" : ""}
+                      </span>
+                      {pool.is_free && (
+                        <Badge
+                          variant="outline"
+                          className="bg-green-100 text-green-700 border-green-200"
+                        >
+                          FREE
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </>
           ) : (
             <p className="text-sm text-muted-foreground">No groups included</p>
           )}
