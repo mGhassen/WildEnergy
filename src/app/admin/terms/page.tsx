@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useAdminTerms, useCreateTerms, useUpdateTerms, useDeleteTerms, useActivateTerms } from "@/hooks/useAdminTerms";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import Link from "next/link";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
@@ -40,6 +40,7 @@ import {
 import { formatDate } from "@/lib/date";
 import DataTable from "@/components/data-table";
 import { termIsDeletable, versionForDuplicate } from "@/lib/terms-admin";
+import { useDialogParams } from "@/hooks/use-dialog-params";
 
 interface TermsFormData {
   version: string;
@@ -50,8 +51,6 @@ interface TermsFormData {
 }
 
 export default function AdminTerms() {
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingTerms, setEditingTerms] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -66,6 +65,9 @@ export default function AdminTerms() {
     version: string;
   } | null>(null);
   const { toast } = useToast();
+  const { isOpen, openDialog, closeDialog, onOpenChange, dialogId } = useDialogParams();
+  const isModalOpen = isOpen("create") || isOpen("edit");
+  const isDeleteDialogOpen = isOpen("delete");
 
   const { data: terms = [], isLoading } = useAdminTerms();
   const createTermsMutation = useCreateTerms();
@@ -80,6 +82,33 @@ export default function AdminTerms() {
     is_active: false,
     term_type: 'terms',
   });
+
+  useEffect(() => {
+    if (isOpen("edit") && dialogId != null && !isLoading) {
+      const term = terms.find((t: any) => String(t.id) === String(dialogId));
+      if (term && editingTerms?.id !== term.id) {
+        setEditingTerms(term);
+        setFormData({
+          version: term.version,
+          title: term.title,
+          content: term.content,
+          is_active: term.is_active,
+          term_type: term.term_type || (term.title.toLowerCase().includes('interior regulation') ? 'interior_regulation' : 'terms'),
+        });
+      }
+    } else if (isOpen("create")) {
+      if (editingTerms) setEditingTerms(null);
+    } else if (isOpen("delete") && dialogId != null && !isLoading) {
+      const term = terms.find((t: any) => String(t.id) === String(dialogId));
+      if (term && deleteTermTarget?.id !== term.id) {
+        setDeleteTermTarget({ id: term.id, version: term.version });
+      }
+    } else if (!isModalOpen && !isDeleteDialogOpen) {
+      setEditingTerms(null);
+      setDeleteTermTarget(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dialogId, isLoading, terms, isModalOpen, isDeleteDialogOpen]);
 
   const filteredAndSortedTerms = useMemo(() => {
     let filtered = terms.filter((term) => {
@@ -143,7 +172,8 @@ export default function AdminTerms() {
       is_active: false,
       term_type: 'terms',
     });
-    setIsCreateDialogOpen(true);
+    setEditingTerms(null);
+    openDialog("create");
   };
 
   const handleEdit = (term: any) => {
@@ -155,7 +185,7 @@ export default function AdminTerms() {
       is_active: term.is_active,
       term_type: term.term_type || (term.title.toLowerCase().includes('interior regulation') ? 'interior_regulation' : 'terms'),
     });
-    setIsEditDialogOpen(true);
+    openDialog("edit", { id: term.id });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -189,7 +219,7 @@ export default function AdminTerms() {
           title: "Success",
           description: "Terms updated successfully",
         });
-        setIsEditDialogOpen(false);
+        closeDialog();
         setEditingTerms(null);
       } else {
         await createTermsMutation.mutateAsync(formData);
@@ -197,7 +227,7 @@ export default function AdminTerms() {
           title: "Success",
           description: "Terms created successfully",
         });
-        setIsCreateDialogOpen(false);
+        closeDialog();
       }
     } catch (error) {
       toast({
@@ -215,6 +245,8 @@ export default function AdminTerms() {
         title: "Success",
         description: "Terms deleted successfully",
       });
+      closeDialog();
+      setDeleteTermTarget(null);
     } catch (error) {
       toast({
         title: "Error",
@@ -567,42 +599,21 @@ export default function AdminTerms() {
                   <CheckCircle className="w-4 h-4 mr-1" />
                   Activate Selected
                 </Button>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                      disabled={selectionIncludesUndeletable}
-                      title={
-                        selectionIncludesUndeletable
-                          ? "Selection includes active terms or versions members accepted — remove those rows from the selection"
-                          : undefined
-                      }
-                    >
-                      <Trash2 className="w-4 h-4 mr-1" />
-                      Delete Selected
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Delete Selected Terms</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Are you sure you want to delete {selectedDeletableIds.length} selected terms? This
-                        action cannot be undone.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={handleBulkDelete}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                      >
-                        Delete {selectedDeletableIds.length} Terms
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                  disabled={selectionIncludesUndeletable}
+                  title={
+                    selectionIncludesUndeletable
+                      ? "Selection includes active terms or versions members accepted — remove those rows from the selection"
+                      : undefined
+                  }
+                  onClick={() => openDialog("bulk-delete")}
+                >
+                  <Trash2 className="w-4 h-4 mr-1" />
+                  Delete Selected
+                </Button>
               </div>
             </div>
           </CardContent>
@@ -776,12 +787,13 @@ export default function AdminTerms() {
                                   {termIsDeletable(term) && (
                                     <DropdownMenuItem
                                       className="text-destructive focus:text-destructive"
-                                      onSelect={() =>
+                                      onSelect={() => {
                                         setDeleteTermTarget({
                                           id: term.id,
                                           version: term.version,
-                                        })
-                                      }
+                                        });
+                                        openDialog("delete", { id: term.id });
+                                      }}
                                     >
                                       <Trash2 className="mr-2 h-4 w-4" />
                                       Delete
@@ -802,11 +814,30 @@ export default function AdminTerms() {
         </CardContent>
       </Card>
 
+      <AlertDialog open={isOpen("bulk-delete")} onOpenChange={onOpenChange}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Selected Terms</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {selectedDeletableIds.length} selected terms? This
+              action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { handleBulkDelete(); closeDialog(); }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete {selectedDeletableIds.length} Terms
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AlertDialog
-        open={deleteTermTarget !== null}
-        onOpenChange={(open) => {
-          if (!open) setDeleteTermTarget(null);
-        }}
+        open={isDeleteDialogOpen}
+        onOpenChange={onOpenChange}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -832,10 +863,9 @@ export default function AdminTerms() {
       </AlertDialog>
 
       {/* Create/Edit Dialog */}
-      <Dialog open={isCreateDialogOpen || isEditDialogOpen} onOpenChange={(open) => {
+      <Dialog open={isModalOpen} onOpenChange={(open) => {
         if (!open) {
-          setIsCreateDialogOpen(false);
-          setIsEditDialogOpen(false);
+          closeDialog();
           resetForm();
         }
       }}>
@@ -906,8 +936,7 @@ export default function AdminTerms() {
                 type="button"
                 variant="outline"
                 onClick={() => {
-                  setIsCreateDialogOpen(false);
-                  setIsEditDialogOpen(false);
+                  closeDialog();
                   resetForm();
                 }}
               >

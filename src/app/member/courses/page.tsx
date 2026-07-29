@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState, Suspense } from 'react';
+import React, { useMemo, useState, Suspense, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import { apiFetch } from "@/lib/api";
 import { Registration } from "@/lib/api/registrations";
 import { CardSkeleton, ListSkeleton } from "@/components/skeletons";
 import { useToast } from "@/hooks/use-toast";
+import { useDialogParams } from "@/hooks/use-dialog-params";
 import type { IEvent } from "@/calendar/interfaces";
 import { Search, Clock, Users, Calendar, Star, Check, AlertTriangle, QrCode } from "lucide-react";
 import { formatTime, getDayName } from "@/lib/date";
@@ -97,28 +98,20 @@ function MemberCourses() {
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [dayFilter, setDayFilter] = useState("");
-  const [overlapDialog, setOverlapDialog] = useState<{
-    isOpen: boolean;
-    courseId: number | null;
-    overlappingCourses: Array<{
-      courseId: number;
-      courseName: string;
-      date: string;
-      startTime: string;
-      endTime: string;
-      trainer: string;
-    }>;
-  }>({
-    isOpen: false,
-    courseId: null,
-    overlappingCourses: []
-  });
-  const [selectedQR, setSelectedQR] = useState<string | null>(null);
+  const [overlappingCourses, setOverlappingCourses] = useState<Array<{
+    courseId: number;
+    courseName: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+    trainer: string;
+  }>>([]);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [registrationToCancel, setRegistrationToCancel] = useState<{ id: number; message: string } | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { user } = useAuth();
+  const { isOpen, openDialog, closeDialog, onOpenChange, dialogId, getParam } = useDialogParams();
 
   const { data: courses, isLoading: coursesLoading, error: coursesError } = useMemberCourses();
   const { data: categories, isLoading: categoriesLoading } = useMemberCategories();
@@ -133,20 +126,30 @@ function MemberCourses() {
   }, 0);
 
   const registerMutation = useMemberCourseRegistration();
-  
-  // Handle overlap errors from registration
-  if (registerMutation.error && typeof registerMutation.error === 'object' && registerMutation.error && 'type' in registerMutation.error && registerMutation.error.type === 'OVERLAP') {
-    const overlapData = registerMutation.error as any;
-    console.log('Overlap detected:', overlapData);
-    setOverlapDialog({
-      isOpen: true,
-      courseId: registerMutation.variables || 0,
-      overlappingCourses: overlapData.overlappingCourses || []
-    });
-  }
-
   const cancelMutation = useCancelRegistration();
   const forceRegistrationMutation = useForceRegistration();
+
+  const isOverlapOpen = isOpen("overlap");
+  const isQROpen = isOpen("qr");
+  const overlapCourseId = getParam("courseId") ? Number(getParam("courseId")) : null;
+
+  // Handle overlap errors from registration
+  useEffect(() => {
+    const err = registerMutation.error;
+    if (err && typeof err === "object" && "type" in err && (err as any).type === "OVERLAP") {
+      const overlapData = err as any;
+      setOverlappingCourses(overlapData.overlappingCourses || []);
+      openDialog("overlap", { courseId: registerMutation.variables || 0 });
+      registerMutation.reset();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [registerMutation.error]);
+
+  useEffect(() => {
+    if (!isOverlapOpen) {
+      setOverlappingCourses([]);
+    }
+  }, [isOverlapOpen]);
 
   // Convert courses to events for calendar
   const events = useMemo(() => {
@@ -169,6 +172,11 @@ function MemberCourses() {
       .filter((reg: Registration) => reg.status === 'registered')
       .map((reg: Registration) => reg.course_id)
   );
+
+  const selectedQRRegistration = isQROpen && dialogId != null
+    ? registrationsArray.find((reg: Registration) => String(reg.id) === String(dialogId)) ?? null
+    : null;
+  const selectedQR = selectedQRRegistration?.qr_code ?? null;
 
   // Helper function to get registration for a course
   const getRegistrationForCourse = (courseId: number) => {
@@ -407,10 +415,14 @@ function MemberCourses() {
 
       {/* Mobile Calendar - Hidden on desktop */}
       <div className="block md:hidden">
-        <CalendarProvider users={users} events={events} registrations={registrations || []}>
-          <div className="mx-auto flex max-w-screen-2xl flex-col gap-4">
-            <MobileClientContainer view={view as any} />
-          </div>
+        <CalendarProvider
+          users={users}
+          events={events}
+          registrations={registrations || []}
+          eventMode="navigation"
+          eventBasePath="/member/courses"
+        >
+          <MobileClientContainer view={view as any} />
         </CalendarProvider>
       </div>
 
@@ -424,7 +436,13 @@ function MemberCourses() {
           
           {/* Calendar View Tab */}
           <TabsContent value="calendar" className="space-y-6">
-            <CalendarProvider users={users} events={events} registrations={registrations || []}>
+            <CalendarProvider
+              users={users}
+              events={events}
+              registrations={registrations || []}
+              eventMode="navigation"
+              eventBasePath="/member/courses"
+            >
               <div className="mx-auto flex max-w-screen-2xl flex-col gap-4">
                 <ClientContainer view={view as any} />
               </div>
@@ -613,8 +631,8 @@ function MemberCourses() {
                                 size="sm"
                                 onClick={() => {
                                   const registration = getRegistrationForCourse(course.id);
-                                  if (registration?.qr_code) {
-                                    setSelectedQR(registration.qr_code);
+                                  if (registration?.id) {
+                                    openDialog("qr", { id: registration.id });
                                   }
                                 }}
                                 className="px-3"
@@ -665,7 +683,7 @@ function MemberCourses() {
       </div>
 
       {/* Overlap Confirmation Dialog */}
-      <Dialog open={overlapDialog.isOpen} onOpenChange={(open) => setOverlapDialog(prev => ({ ...prev, isOpen: open }))}>
+      <Dialog open={isOverlapOpen} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -679,7 +697,7 @@ function MemberCourses() {
           
           <div className="space-y-3">
             <div className="text-sm font-medium text-foreground">Overlapping courses:</div>
-            {overlapDialog.overlappingCourses.map((course, index) => (
+            {overlappingCourses.map((course, index) => (
               <div key={index} className="p-3 bg-muted rounded-lg">
                 <div className="font-medium text-sm">{course.courseName}</div>
                 <div className="text-xs text-muted-foreground">
@@ -693,21 +711,21 @@ function MemberCourses() {
           <DialogFooter className="gap-2">
             <Button
               variant="outline"
-              onClick={() => setOverlapDialog(prev => ({ ...prev, isOpen: false }))}
+              onClick={closeDialog}
             >
               Cancel
             </Button>
             <Button
               onClick={() => {
-                if (overlapDialog.courseId) {
-                  forceRegistrationMutation.mutate(overlapDialog.courseId, {
+                if (overlapCourseId) {
+                  forceRegistrationMutation.mutate(overlapCourseId, {
                     onSuccess: () => {
-                      setOverlapDialog(prev => ({ ...prev, isOpen: false }));
+                      closeDialog();
                     }
                   });
                 }
               }}
-              disabled={forceRegistrationMutation.isPending}
+              disabled={forceRegistrationMutation.isPending || !overlapCourseId}
             >
               {forceRegistrationMutation.isPending ? "Registering..." : "Register Anyway"}
             </Button>
@@ -716,28 +734,29 @@ function MemberCourses() {
       </Dialog>
 
       {/* QR Code Modal */}
-      {selectedQR && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setSelectedQR(null)}>
-          <div className="bg-background border border-border p-4 sm:p-6 rounded-lg shadow-xl max-w-[90vw] sm:max-w-md w-full max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg sm:text-xl font-bold mb-4 text-center text-foreground">Your QR Code</h3>
-            <div className="mb-4 flex justify-center">
-              <div className="p-2 sm:p-3 bg-white rounded-xl shadow-lg border-2 border-border">
-                <QRGenerator value={selectedQR} size={200} />
+      <Dialog open={isQROpen} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-[90vw] sm:max-w-md max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-lg sm:text-xl font-bold text-center text-foreground">Your QR Code</DialogTitle>
+          </DialogHeader>
+          {selectedQR && (
+            <div className="space-y-4">
+              <div className="flex justify-center">
+                <div className="p-2 sm:p-3 bg-white rounded-xl shadow-lg border-2 border-border">
+                  <QRGenerator value={selectedQR} size={200} />
+                </div>
               </div>
+              <div className="text-center space-y-2">
+                <p className="text-sm text-muted-foreground">QR Code Value:</p>
+                <p className="text-xs font-mono bg-muted p-3 rounded break-all text-foreground">{selectedQR}</p>
+              </div>
+              <Button onClick={closeDialog} className="w-full">
+                Close
+              </Button>
             </div>
-            <div className="text-center space-y-2">
-              <p className="text-sm text-muted-foreground">QR Code Value:</p>
-              <p className="text-xs font-mono bg-muted p-3 rounded break-all text-foreground">{selectedQR}</p>
-            </div>
-            <Button
-              onClick={() => setSelectedQR(null)}
-              className="mt-4 w-full"
-            >
-              Close
-            </Button>
-          </div>
-        </div>
-      )}
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Cancel Registration Confirmation Dialog */}
       <ConfirmationDialog

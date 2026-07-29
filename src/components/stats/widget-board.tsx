@@ -19,6 +19,7 @@ import {
 } from "@/components/stats/catalog"
 import { WidgetCard } from "@/components/stats/widget-card"
 import { AddWidgetDialog } from "@/components/stats/add-widget-dialog"
+import { useDialogParams } from "@/hooks/use-dialog-params"
 import { cn } from "@/lib/utils"
 import "react-grid-layout/css/styles.css"
 
@@ -49,6 +50,8 @@ export function WidgetBoard({
   const [board, setBoard] = useState<BoardState>(() => defaultBoard(tab))
   const [hydrated, setHydrated] = useState(false)
   const [showGrid, setShowGrid] = useState(false)
+  const { isOpen, openDialog, onOpenChange } = useDialogParams()
+  const isAddWidgetOpen = isOpen("create")
 
   useEffect(() => {
     setBoard(loadBoard(tab))
@@ -167,14 +170,18 @@ export function WidgetBoard({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <AddWidgetDialog
-          tab={tab}
-          from={from}
-          to={to}
-          compare={compare}
-          onAddTemplate={addTemplate}
-          onAddCustom={addCustom}
-        />
+        {board.widgets.length > 0 && (
+          <AddWidgetDialog
+            tab={tab}
+            from={from}
+            to={to}
+            compare={compare}
+            open={isAddWidgetOpen}
+            onOpenChange={(open) => (open ? openDialog("create") : onOpenChange(false))}
+            onAddTemplate={addTemplate}
+            onAddCustom={addCustom}
+          />
+        )}
       </div>
 
       <div ref={containerRef} className="min-h-[320px]">
@@ -186,6 +193,8 @@ export function WidgetBoard({
               from={from}
               to={to}
               compare={compare}
+              open={isAddWidgetOpen}
+              onOpenChange={(open) => (open ? openDialog("create") : onOpenChange(false))}
               onAddTemplate={addTemplate}
               onAddCustom={addCustom}
             />

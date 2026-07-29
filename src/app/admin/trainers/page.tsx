@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { useDialogParams } from "@/hooks/use-dialog-params";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -63,7 +64,6 @@ const trainerFormSchema = z.object({
 type TrainerFormData = z.infer<typeof trainerFormSchema>;
 
 export default function AdminTrainers() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTrainer, setEditingTrainer] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -71,8 +71,9 @@ export default function AdminTrainers() {
   const [showFilters, setShowFilters] = useState(false);
   const queryClient = useQueryClient();
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const { isOpen, openDialog, closeDialog, onOpenChange, dialogId } = useDialogParams();
   const { toast } = useToast();
+  const isModalOpen = isOpen("create") || isOpen("edit");
 
   const { data: trainersData = [], isLoading } = useTrainers();
 
@@ -121,27 +122,29 @@ export default function AdminTrainers() {
     },
   });
 
-  const editIdFromUrl = searchParams.get("edit");
   useEffect(() => {
-    if (!editIdFromUrl || isLoading) return;
-    const t = trainersData.find((x: any) => x.id === editIdFromUrl);
-    if (t) {
-      setEditingTrainer(t);
-      form.reset({
-        firstName: t.first_name,
-        lastName: t.last_name,
-        email: t.email ?? "",
-        phone: t.phone,
-        bio: t.bio,
-        status: t.status,
-        specialization: t.specialization,
-        experience_years: t.experience_years,
-        certification: t.certification,
-      });
-      setIsModalOpen(true);
+    if (isOpen("edit") && dialogId != null && !isLoading) {
+      const t = trainersData.find((x: any) => String(x.id) === String(dialogId));
+      if (t) {
+        setEditingTrainer(t);
+        form.reset({
+          firstName: t.first_name,
+          lastName: t.last_name,
+          email: t.email ?? "",
+          phone: t.phone,
+          bio: t.bio,
+          status: t.status,
+          specialization: t.specialization,
+          experience_years: t.experience_years,
+          certification: t.certification,
+        });
+      }
+    } else if (isOpen("create")) {
+      setEditingTrainer(null);
+    } else if (!isModalOpen) {
+      setEditingTrainer(null);
     }
-    router.replace("/admin/trainers", { scroll: false });
-  }, [editIdFromUrl, isLoading, trainersData, router]);
+  }, [dialogId, isLoading, trainersData, isModalOpen]);
 
   const createTrainerMutation = useCreateTrainer();
 
@@ -167,7 +170,7 @@ export default function AdminTrainers() {
         status: data.status
       }, {
         onSuccess: () => {
-          setIsModalOpen(false);
+          closeDialog();
           setEditingTrainer(null);
           form.reset();
         }
@@ -186,7 +189,7 @@ export default function AdminTrainers() {
         },
         {
           onSuccess: () => {
-            setIsModalOpen(false);
+            closeDialog();
             setEditingTrainer(null);
             form.reset();
           },
@@ -208,7 +211,7 @@ export default function AdminTrainers() {
       experience_years: trainer.experience_years,
       certification: trainer.certification,
     });
-    setIsModalOpen(true);
+    openDialog("edit", { id: trainer.id });
   };
 
   const handleDelete = (trainer: any) => {
@@ -250,7 +253,7 @@ export default function AdminTrainers() {
       bio: "",
       status: "active",
     });
-    setIsModalOpen(true);
+    openDialog("create");
   };
 
   return (
@@ -260,13 +263,11 @@ export default function AdminTrainers() {
           <h1 className="text-3xl font-bold text-foreground mb-2">Trainers</h1>
           <p className="text-muted-foreground">Manage gym trainers and their information</p>
         </div>
-        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={openCreateModal}>
-              <Plus className="w-4 h-4 mr-2" />
-              Add Trainer
-            </Button>
-          </DialogTrigger>
+        <Dialog open={isModalOpen} onOpenChange={onOpenChange}>
+          <Button onClick={openCreateModal}>
+            <Plus className="w-4 h-4 mr-2" />
+            Add Trainer
+          </Button>
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
               <DialogTitle>{editingTrainer ? "Edit Trainer" : "Add New Trainer"}</DialogTitle>

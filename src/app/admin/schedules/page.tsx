@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -41,6 +41,7 @@ const formatEuropeanDate = (dateString: string) => {
   });
 };
 import { useToast } from "@/hooks/use-toast";
+import { useDialogParams } from "@/hooks/use-dialog-params";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 interface ScheduleFormData {
@@ -100,14 +101,15 @@ function calculateEndTime(startTime: string, durationMinutes: number): string {
 
 export default function AdminSchedules() {
   const router = useRouter();
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [scheduleToDelete, setScheduleToDelete] = useState<any>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const { isOpen, openDialog, closeDialog, onOpenChange, dialogId } = useDialogParams();
+  const isModalOpen = isOpen("create") || isOpen("edit");
+  const deleteDialogOpen = isOpen("delete");
 
 
   // Data table columns configuration
@@ -411,6 +413,39 @@ export default function AdminSchedules() {
       lastName: "",
     },
   }));
+
+  useEffect(() => {
+    if (isOpen("edit") && dialogId != null && !isLoading) {
+      const schedule = schedules.find((s: any) => String(s.id) === String(dialogId));
+      if (schedule && editingSchedule?.id !== schedule.id) {
+        setEditingSchedule(schedule);
+        form.reset({
+          classId: schedule.classId || 0,
+          trainerId: schedule.trainerId || "",
+          dayOfWeek: schedule.dayOfWeek || 1,
+          startTime: schedule.startTime || "",
+          endTime: schedule.endTime || "",
+          maxParticipants: schedule.maxParticipants || 10,
+          repetitionType: schedule.repetitionType || "once",
+          scheduleDate: schedule.scheduleDate || "",
+          startDate: schedule.startDate || "",
+          endDate: schedule.endDate || "",
+          isActive: Boolean(schedule.isActive),
+        });
+      }
+    } else if (isOpen("create")) {
+      if (editingSchedule) setEditingSchedule(null);
+    } else if (isOpen("delete") && dialogId != null && !isLoading) {
+      const schedule = schedules.find((s: any) => String(s.id) === String(dialogId));
+      if (schedule && scheduleToDelete?.id !== schedule.id) {
+        setScheduleToDelete(schedule);
+      }
+    } else if (!isModalOpen && !deleteDialogOpen) {
+      setEditingSchedule(null);
+      setScheduleToDelete(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dialogId, isLoading, schedules, isModalOpen, deleteDialogOpen]);
   
   // Debug category data
   console.log('Schedules after transformation:', schedules);
@@ -501,7 +536,7 @@ export default function AdminSchedules() {
   // Handle successful mutations
   useEffect(() => {
     if (createScheduleMutation.isSuccess) {
-      setIsModalOpen(false);
+      closeDialog();
       setEditingSchedule(null);
       form.reset({
         classId: 0,
@@ -521,7 +556,7 @@ export default function AdminSchedules() {
 
   useEffect(() => {
     if (updateScheduleMutation.isSuccess) {
-      setIsModalOpen(false);
+      closeDialog();
       setEditingSchedule(null);
       form.reset({
         classId: 0,
@@ -665,17 +700,22 @@ export default function AdminSchedules() {
       endDate: schedule.endDate || "",
       isActive: Boolean(schedule.isActive),
     });
-    setIsModalOpen(true);
+    openDialog("edit", { id: schedule.id });
   };
 
   const handleDelete = (schedule: any) => {
     setScheduleToDelete(schedule);
-    setDeleteDialogOpen(true);
+    openDialog("delete", { id: schedule.id });
   };
 
   const confirmDelete = () => {
     if (scheduleToDelete) {
-      deleteScheduleMutation.mutate(scheduleToDelete.id);
+      deleteScheduleMutation.mutate(scheduleToDelete.id, {
+        onSuccess: () => {
+          closeDialog();
+          setScheduleToDelete(null);
+        },
+      });
     }
   };
 
@@ -694,7 +734,7 @@ export default function AdminSchedules() {
       endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       isActive: true,
     });
-    setIsModalOpen(true);
+    openDialog("create");
   };
 
   // --- Mobile Schedule Card ---
@@ -837,13 +877,11 @@ export default function AdminSchedules() {
           <h1 className="text-3xl font-bold text-foreground mb-2">Schedules</h1>
           <p className="text-muted-foreground">Manage class schedule templates</p>
         </div>
-        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={openCreateModal}>
+        <Dialog open={isModalOpen} onOpenChange={onOpenChange}>
+          <Button onClick={openCreateModal}>
               <Plus className="w-4 h-4 mr-2" />
               Add Schedule
             </Button>
-          </DialogTrigger>
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
               <DialogTitle>{editingSchedule ? "Edit Schedule" : "Add New Schedule"}</DialogTitle>
@@ -1184,7 +1222,7 @@ export default function AdminSchedules() {
       </div>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AlertDialog open={deleteDialogOpen} onOpenChange={onOpenChange}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Schedule</AlertDialogTitle>

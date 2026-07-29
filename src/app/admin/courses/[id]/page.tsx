@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useDialogParams } from '@/hooks/use-dialog-params';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useParams, useRouter } from 'next/navigation';
 import { 
@@ -247,15 +248,16 @@ export default function CourseDetailsPage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [memberManagementOpen, setMemberManagementOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [expandedMembers, setExpandedMembers] = useState<Set<string>>(new Set());
   const [memberGroupSelections, setMemberGroupSelections] = useState<Record<string, number>>({});
-  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [registrationToCancel, setRegistrationToCancel] = useState<{ id: number; memberName: string } | null>(null);
+  const { isOpen, openDialog, closeDialog, onOpenChange, dialogId } = useDialogParams();
+  const deleteDialogOpen = isOpen("delete");
+  const memberManagementOpen = isOpen("members");
+  const isEditModalOpen = isOpen("edit");
+  const cancelDialogOpen = isOpen("cancel");
 
   const courseId = params.id as string;
 
@@ -329,7 +331,7 @@ export default function CourseDetailsPage() {
           title: 'Members Added',
           description: result.message,
         });
-        setMemberManagementOpen(false);
+        closeDialog();
         setSelectedMembers([]);
         setMemberGroupSelections({});
       },
@@ -349,7 +351,7 @@ export default function CourseDetailsPage() {
       id: registration.id,
       memberName: `${registration.member?.first_name || 'Unknown'} ${registration.member?.last_name || 'Member'}`
     });
-    setCancelDialogOpen(true);
+    openDialog("cancel", { id: registration.id });
   };
 
   const confirmCancelRegistration = () => {
@@ -360,7 +362,7 @@ export default function CourseDetailsPage() {
       refundSession: true // Admin can choose to refund session
     }, {
       onSuccess: () => {
-        setCancelDialogOpen(false);
+        closeDialog();
         setRegistrationToCancel(null);
       }
     });
@@ -504,7 +506,7 @@ export default function CourseDetailsPage() {
           <Button 
             variant="outline" 
             size="sm"
-            onClick={() => setIsEditModalOpen(true)}
+            onClick={() => openDialog("edit")}
           >
             <Edit className="w-4 h-4 mr-2" />
             Edit
@@ -512,7 +514,7 @@ export default function CourseDetailsPage() {
           <Button 
             variant="outline" 
             size="sm"
-            onClick={() => setDeleteDialogOpen(true)}
+            onClick={() => openDialog("delete")}
             className="text-red-600 hover:text-red-700"
             disabled={!canDeleteThisCourse}
             title={
@@ -837,7 +839,7 @@ export default function CourseDetailsPage() {
             <Button 
               variant="outline" 
               size="sm"
-              onClick={() => setMemberManagementOpen(true)}
+              onClick={() => openDialog("members")}
             >
               <UserPlus className="w-4 h-4 mr-2" />
               Add Members
@@ -945,7 +947,7 @@ export default function CourseDetailsPage() {
       </Card>
 
       {/* Member Management Dialog */}
-      <Dialog open={memberManagementOpen} onOpenChange={setMemberManagementOpen}>
+      <Dialog open={memberManagementOpen} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -1220,7 +1222,7 @@ export default function CourseDetailsPage() {
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setMemberManagementOpen(false)}
+              onClick={() => closeDialog()}
             >
               Cancel
             </Button>
@@ -1237,7 +1239,7 @@ export default function CourseDetailsPage() {
 
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AlertDialog open={deleteDialogOpen} onOpenChange={onOpenChange}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Course</AlertDialogTitle>
@@ -1276,7 +1278,7 @@ export default function CourseDetailsPage() {
                     });
                   },
                 });
-                setDeleteDialogOpen(false);
+                closeDialog();
               }}
               disabled={!canDeleteThisCourse}
               className="bg-red-600 hover:bg-red-700"
@@ -1288,7 +1290,7 @@ export default function CourseDetailsPage() {
       </AlertDialog>
 
       {/* Cancel Registration Confirmation Dialog */}
-      <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+      <AlertDialog open={cancelDialogOpen} onOpenChange={onOpenChange}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Cancel Registration</AlertDialogTitle>
@@ -1315,7 +1317,7 @@ export default function CourseDetailsPage() {
         <CourseEditDialog
           course={course}
           isOpen={isEditModalOpen}
-          onClose={() => setIsEditModalOpen(false)}
+          onClose={() => closeDialog()}
         />
       )}
     </div>

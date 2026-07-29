@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useMembers, useDeleteMember, useCreateMember } from "@/hooks/useMembers";
 import { ConfirmationDialog } from "@/components/confirmation-dialog";
 import { ManageCreditDialog } from "@/components/manage-credit-dialog";
+import { useDialogParams } from "@/hooks/use-dialog-params";
 import { 
   Search, 
   User, 
@@ -216,7 +217,6 @@ export default function MembersPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Member | null>(null);
   const [creditManageTarget, setCreditManageTarget] = useState<Member | null>(null);
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [createForm, setCreateForm] = useState({
     firstName: "",
     lastName: "",
@@ -226,6 +226,11 @@ export default function MembersPage() {
     credit: 0,
     status: "active",
   });
+
+  const { isOpen, openDialog, closeDialog, onOpenChange, dialogId } = useDialogParams();
+  const isCreateDialogOpen = isOpen("create");
+  const isDeleteDialogOpen = isOpen("delete");
+  const isCreditDialogOpen = isOpen("credit");
 
   // Fetch members with related data
   const { data: members = [], isLoading, refetch } = useMembers();
@@ -256,6 +261,20 @@ export default function MembersPage() {
       subscription_status: getCurrentSubscriptionStatus(member.subscriptions || [])
     }));
   }, [members]);
+
+  useEffect(() => {
+    if (isOpen("delete") && dialogId != null && !isLoading) {
+      const m = processedMembers.find((x: any) => String(x.id) === String(dialogId));
+      if (m && deleteTarget?.id !== m.id) setDeleteTarget(m);
+    } else if (isOpen("credit") && dialogId != null && !isLoading) {
+      const m = processedMembers.find((x: any) => String(x.id) === String(dialogId));
+      if (m && creditManageTarget?.id !== m.id) setCreditManageTarget(m);
+    } else if (!isCreateDialogOpen && !isDeleteDialogOpen && !isCreditDialogOpen) {
+      setDeleteTarget(null);
+      setCreditManageTarget(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dialogId, isLoading, processedMembers, isCreateDialogOpen, isDeleteDialogOpen, isCreditDialogOpen]);
 
   // Calculate statistics with proper data
   const stats = useMemo(() => {
@@ -377,7 +396,7 @@ export default function MembersPage() {
       },
       {
         onSuccess: (member) => {
-          setIsCreateDialogOpen(false);
+          closeDialog();
           resetCreateForm();
           router.push(`/admin/members/${member.id}`);
         },
@@ -395,6 +414,7 @@ export default function MembersPage() {
     if (!deleteTarget) return;
     try {
       await deleteMemberMutation.mutateAsync(deleteTarget.id);
+      closeDialog();
       setDeleteTarget(null);
     } catch {
       /* toast from useDeleteMember */
@@ -465,7 +485,7 @@ export default function MembersPage() {
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onPointerDown={(e) => e.preventDefault()}
-                  onSelect={() => setCreditManageTarget(member)}
+                  onSelect={() => { setCreditManageTarget(member); openDialog("credit", { id: member.id }); }}
                 >
                   <Wallet className="w-4 h-4 mr-2" />
                   Manage Credit
@@ -555,7 +575,7 @@ export default function MembersPage() {
           </Button>
           <Button 
             size="sm"
-            onClick={() => setIsCreateDialogOpen(true)}
+            onClick={() => openDialog("create")}
           >
             <UserPlus className="w-4 h-4 mr-2" />
             Add Member
@@ -904,7 +924,7 @@ export default function MembersPage() {
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onPointerDown={(e) => e.preventDefault()}
-                              onSelect={() => setCreditManageTarget(member)}
+                              onSelect={() => { setCreditManageTarget(member); openDialog("credit", { id: member.id }); }}
                             >
                               <Wallet className="w-4 h-4 mr-2" />
                               Manage Credit
@@ -926,7 +946,7 @@ export default function MembersPage() {
                             <DropdownMenuItem
                               className="text-destructive"
                               onPointerDown={(e) => e.preventDefault()}
-                              onSelect={() => setDeleteTarget(member)}
+                              onSelect={() => { setDeleteTarget(member); openDialog("delete", { id: member.id }); }}
                             >
                               <Trash2 className="w-4 h-4 mr-2" />
                               Delete Member
@@ -1008,7 +1028,7 @@ export default function MembersPage() {
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onPointerDown={(e) => e.preventDefault()}
-                              onSelect={() => setCreditManageTarget(member)}
+                              onSelect={() => { setCreditManageTarget(member); openDialog("credit", { id: member.id }); }}
                             >
                               <Wallet className="w-4 h-4 mr-2" />
                               Manage Credit
@@ -1030,7 +1050,7 @@ export default function MembersPage() {
                             <DropdownMenuItem
                               className="text-destructive"
                               onPointerDown={(e) => e.preventDefault()}
-                              onSelect={() => setDeleteTarget(member)}
+                              onSelect={() => { setDeleteTarget(member); openDialog("delete", { id: member.id }); }}
                             >
                               <Trash2 className="w-4 h-4 mr-2" />
                               Delete Member
@@ -1118,10 +1138,8 @@ export default function MembersPage() {
       </Card>
 
       <ConfirmationDialog
-        open={deleteTarget !== null}
-        onOpenChange={(open) => {
-          if (!open) setDeleteTarget(null);
-        }}
+        open={isDeleteDialogOpen}
+        onOpenChange={onOpenChange}
         onConfirm={handleConfirmDeleteFromList}
         title="Delete Member"
         description={
@@ -1137,10 +1155,8 @@ export default function MembersPage() {
 
       {creditManageTarget && (
         <ManageCreditDialog
-          open={!!creditManageTarget}
-          onOpenChange={(open) => {
-            if (!open) setCreditManageTarget(null);
-          }}
+          open={isCreditDialogOpen}
+          onOpenChange={onOpenChange}
           memberId={creditManageTarget.id}
           memberName={`${creditManageTarget.first_name} ${creditManageTarget.last_name}`}
         />
@@ -1149,8 +1165,10 @@ export default function MembersPage() {
       <Dialog
         open={isCreateDialogOpen}
         onOpenChange={(open) => {
-          setIsCreateDialogOpen(open);
-          if (!open) resetCreateForm();
+          if (!open) {
+            closeDialog();
+            resetCreateForm();
+          }
         }}
       >
         <DialogContent className="sm:max-w-[500px]">
@@ -1243,7 +1261,7 @@ export default function MembersPage() {
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setIsCreateDialogOpen(false)}
+              onClick={() => closeDialog()}
               disabled={createMemberMutation.isPending}
             >
               Cancel

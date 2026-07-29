@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ConfirmationDialog } from "@/components/confirmation-dialog";
+import { useDialogParams } from "@/hooks/use-dialog-params";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
@@ -70,12 +71,15 @@ export default function AccountDetailPage() {
     const [deletingAccount, setDeletingAccount] = useState<Account | null>(null);
     const [settingPasswordAccount, setSettingPasswordAccount] = useState<Account | null>(null);
     const [setPasswordValue, setSetPasswordValue] = useState("");
-    const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
     const [selectedTrainerId, setSelectedTrainerId] = useState("");
-    const [isUnlinkTrainerDialogOpen, setIsUnlinkTrainerDialogOpen] = useState(false);
-    const [isCreateMemberDialogOpen, setIsCreateMemberDialogOpen] = useState(false);
-    const [isCreateTrainerDialogOpen, setIsCreateTrainerDialogOpen] = useState(false);
     const { toast } = useToast();
+    const { isOpen, openDialog, closeDialog, onOpenChange } = useDialogParams();
+    const isLinkDialogOpen = isOpen("link");
+    const isUnlinkTrainerDialogOpen = isOpen("unlink");
+    const isCreateMemberDialogOpen = isOpen("create-member");
+    const isCreateTrainerDialogOpen = isOpen("create-trainer");
+    const isPasswordDialogOpen = isOpen("password");
+    const isDeleteDialogOpen = isOpen("delete");
 
     // Fetch account data
     const { data: account, isLoading, error } = useAccount(accountId);
@@ -195,7 +199,7 @@ export default function AccountDetailPage() {
             { accountId, trainerId: selectedTrainerId },
             {
                 onSuccess: () => {
-                    setIsLinkDialogOpen(false);
+                    closeDialog();
                     setSelectedTrainerId("");
                 }
             }
@@ -204,13 +208,13 @@ export default function AccountDetailPage() {
 
     // Unlink trainer from account
     const handleUnlinkTrainer = () => {
-        setIsUnlinkTrainerDialogOpen(true);
+        openDialog("unlink");
     };
 
     const confirmUnlinkTrainer = () => {
         unlinkTrainerMutation.mutate(accountId, {
             onSuccess: () => {
-                setIsUnlinkTrainerDialogOpen(false);
+                closeDialog();
             }
         });
     };
@@ -222,7 +226,7 @@ export default function AccountDetailPage() {
             data: createMemberForm
         }, {
             onSuccess: () => {
-                setIsCreateMemberDialogOpen(false);
+                closeDialog();
                 setCreateMemberForm({
                     memberNotes: "",
                     credit: 0,
@@ -239,7 +243,7 @@ export default function AccountDetailPage() {
             data: createTrainerForm
         }, {
             onSuccess: () => {
-                setIsCreateTrainerDialogOpen(false);
+                closeDialog();
                 setCreateTrainerForm({
                     specialization: "",
                     experienceYears: 0,
@@ -261,6 +265,7 @@ export default function AccountDetailPage() {
             password: setPasswordValue 
         }, {
             onSuccess: () => {
+                closeDialog();
                 setSettingPasswordAccount(null);
                 setSetPasswordValue("");
             }
@@ -380,7 +385,7 @@ export default function AccountDetailPage() {
                                     <Edit className="w-4 h-4 mr-2" />
                                     Edit Account
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setSettingPasswordAccount(account)}>
+                                <DropdownMenuItem onClick={() => { setSettingPasswordAccount(account); openDialog("password"); }}>
                                     <Key className="w-4 h-4 mr-2" />
                                     Set Password
                                 </DropdownMenuItem>
@@ -390,7 +395,7 @@ export default function AccountDetailPage() {
                                         Unlink Trainer
                                     </DropdownMenuItem>
                                 ) : (
-                                    <DropdownMenuItem onClick={() => setIsLinkDialogOpen(true)}>
+                                    <DropdownMenuItem onClick={() => openDialog("link")}>
                                         <Link className="w-4 h-4 mr-2" />
                                         Link Trainer
                                     </DropdownMenuItem>
@@ -456,7 +461,7 @@ export default function AccountDetailPage() {
                                     </DropdownMenuItem>
                                 )}
                                 <DropdownMenuItem
-                                    onClick={() => setDeletingAccount(account)}
+                                    onClick={() => { setDeletingAccount(account); openDialog("delete"); }}
                                     className="text-red-600"
                                 >
                                     <Trash2 className="w-4 h-4 mr-2" />
@@ -820,7 +825,7 @@ export default function AccountDetailPage() {
                                                     variant="outline"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        setIsCreateMemberDialogOpen(true);
+                                                        openDialog("create-member");
                                                     }}
                                                 >
                                                     <UserPlus className="w-4 h-4 mr-1" />
@@ -867,7 +872,7 @@ export default function AccountDetailPage() {
                                                     variant="outline"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        setIsCreateTrainerDialogOpen(true);
+                                                        openDialog("create-trainer");
                                                     }}
                                                 >
                                                     <UserPlus className="w-4 h-4 mr-1" />
@@ -935,7 +940,7 @@ export default function AccountDetailPage() {
             </div>
 
             {/* Set Password Dialog */}
-            <Dialog open={!!settingPasswordAccount} onOpenChange={() => { setSettingPasswordAccount(null); setSetPasswordValue(""); }}>
+            <Dialog open={isPasswordDialogOpen} onOpenChange={(open) => { if (!open) { closeDialog(); setSettingPasswordAccount(null); setSetPasswordValue(""); } }}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
                         <DialogTitle>Set Password</DialogTitle>
@@ -959,7 +964,7 @@ export default function AccountDetailPage() {
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => { setSettingPasswordAccount(null); setSetPasswordValue(""); }}>
+                        <Button type="button" variant="outline" onClick={() => { closeDialog(); setSettingPasswordAccount(null); setSetPasswordValue(""); }}>
                             Cancel
                         </Button>
                         <Button type="button" disabled={!setPasswordValue} onClick={handleSetPassword}>
@@ -970,7 +975,7 @@ export default function AccountDetailPage() {
             </Dialog>
 
             {/* Delete Confirmation Dialog */}
-            <AlertDialog open={!!deletingAccount} onOpenChange={() => setDeletingAccount(null)}>
+            <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => { if (!open) { closeDialog(); setDeletingAccount(null); } }}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>Delete Account</AlertDialogTitle>
@@ -992,7 +997,7 @@ export default function AccountDetailPage() {
             </AlertDialog>
 
             {/* Link Trainer Dialog */}
-            <Dialog open={isLinkDialogOpen} onOpenChange={setIsLinkDialogOpen}>
+            <Dialog open={isLinkDialogOpen} onOpenChange={(open) => { if (!open) { closeDialog(); setSelectedTrainerId(""); } }}>
                 <DialogContent className="sm:max-w-[500px]">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
@@ -1045,7 +1050,7 @@ export default function AccountDetailPage() {
                         <Button
                             variant="outline"
                             onClick={() => {
-                                setIsLinkDialogOpen(false);
+                                closeDialog();
                                 setSelectedTrainerId("");
                             }}
                         >
@@ -1073,7 +1078,7 @@ export default function AccountDetailPage() {
 
             <ConfirmationDialog
                 open={isUnlinkTrainerDialogOpen}
-                onOpenChange={setIsUnlinkTrainerDialogOpen}
+                onOpenChange={onOpenChange}
                 onConfirm={confirmUnlinkTrainer}
                 title="Unlink Trainer"
                 description="Are you sure you want to unlink this trainer from the account? This action cannot be undone."
@@ -1084,7 +1089,7 @@ export default function AccountDetailPage() {
             />
 
             {/* Create Member Dialog */}
-            <Dialog open={isCreateMemberDialogOpen} onOpenChange={setIsCreateMemberDialogOpen}>
+            <Dialog open={isCreateMemberDialogOpen} onOpenChange={onOpenChange}>
                 <DialogContent className="sm:max-w-[500px]">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
@@ -1138,7 +1143,7 @@ export default function AccountDetailPage() {
                     <DialogFooter>
                         <Button
                             variant="outline"
-                            onClick={() => setIsCreateMemberDialogOpen(false)}
+                            onClick={() => closeDialog()}
                         >
                             Cancel
                         </Button>
@@ -1163,7 +1168,7 @@ export default function AccountDetailPage() {
             </Dialog>
 
             {/* Create Trainer Dialog */}
-            <Dialog open={isCreateTrainerDialogOpen} onOpenChange={setIsCreateTrainerDialogOpen}>
+            <Dialog open={isCreateTrainerDialogOpen} onOpenChange={onOpenChange}>
                 <DialogContent className="sm:max-w-[500px]">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
@@ -1248,7 +1253,7 @@ export default function AccountDetailPage() {
                     <DialogFooter>
                         <Button
                             variant="outline"
-                            onClick={() => setIsCreateTrainerDialogOpen(false)}
+                            onClick={() => closeDialog()}
                         >
                             Cancel
                         </Button>

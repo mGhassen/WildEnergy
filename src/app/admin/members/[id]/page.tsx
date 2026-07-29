@@ -19,6 +19,7 @@ import { UnlinkAccountDialog } from "@/components/unlink-account-dialog";
 import { CreateAccountDialog } from "@/components/create-account-dialog";
 import { ConfirmationDialog } from "@/components/confirmation-dialog";
 import { ManageCreditDialog } from "@/components/manage-credit-dialog";
+import { useDialogParams } from "@/hooks/use-dialog-params";
 import { 
   ArrowLeft,
   MoreHorizontal,
@@ -196,12 +197,13 @@ export default function MemberDetailsPage() {
   const memberId = params.id as string;
 
   const [activeTab, setActiveTab] = useState("overview");
-  const [showLinkDialog, setShowLinkDialog] = useState(false);
-  const [showUnlinkDialog, setShowUnlinkDialog] = useState(false);
-  const [showCreateAccountDialog, setShowCreateAccountDialog] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [showManageCreditDialog, setShowManageCreditDialog] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const { isOpen, openDialog, closeDialog, onOpenChange } = useDialogParams();
+  const showLinkDialog = isOpen("link");
+  const showUnlinkDialog = isOpen("unlink");
+  const showCreateAccountDialog = isOpen("create-account");
+  const showDeleteDialog = isOpen("delete");
+  const showManageCreditDialog = isOpen("credit");
 
   // Fetch member details
   const { data: memberDetails, isLoading, error } = useMemberDetails(memberId);
@@ -358,7 +360,7 @@ export default function MemberDetailsPage() {
   };
 
   const handleManageCredit = () => {
-    setShowManageCreditDialog(true);
+    openDialog("credit");
   };
 
   const handleSaveMember = async () => {
@@ -425,13 +427,13 @@ export default function MemberDetailsPage() {
   };
 
   const handleDeleteMember = () => {
-    setShowDeleteDialog(true);
+    openDialog("delete");
   };
 
   const handleConfirmDelete = async () => {
     try {
       await deleteMemberMutation.mutateAsync(member.id);
-      setShowDeleteDialog(false);
+      closeDialog();
       // Navigate back to members list after successful deletion
       router.push('/admin/members');
     } catch (error) {
@@ -464,15 +466,15 @@ export default function MemberDetailsPage() {
   };
 
   const handleLinkAccount = () => {
-    setShowLinkDialog(true);
+    openDialog("link");
   };
 
   const handleCreateAccount = () => {
-    setShowCreateAccountDialog(true);
+    openDialog("create-account");
   };
 
   const handleUnlinkAccount = () => {
-    setShowUnlinkDialog(true);
+    openDialog("unlink");
   };
 
   const handleConfirmUnlink = async () => {
@@ -483,7 +485,7 @@ export default function MemberDetailsPage() {
 
     try {
       await unlinkAccountMutation.mutateAsync(member.account_id);
-      setShowUnlinkDialog(false);
+      closeDialog();
     } catch (error) {
       console.error('Failed to unlink account:', error);
     }
@@ -491,7 +493,7 @@ export default function MemberDetailsPage() {
 
   const handleLinkSuccess = () => {
     // The query will automatically refetch due to invalidation
-    setShowLinkDialog(false);
+    closeDialog();
   };
 
   return (
@@ -1235,7 +1237,7 @@ export default function MemberDetailsPage() {
       {/* Account Linking Dialog */}
       <AccountLinkingDialog
         open={showLinkDialog}
-        onOpenChange={setShowLinkDialog}
+        onOpenChange={onOpenChange}
         memberId={memberId}
         memberName={`${member.firstName} ${member.lastName}`}
         onSuccess={handleLinkSuccess}
@@ -1244,7 +1246,7 @@ export default function MemberDetailsPage() {
       {/* Unlink Account Dialog */}
       <UnlinkAccountDialog
         open={showUnlinkDialog}
-        onOpenChange={setShowUnlinkDialog}
+        onOpenChange={onOpenChange}
         onConfirm={handleConfirmUnlink}
         memberName={`${member.firstName} ${member.lastName}`}
         isPending={unlinkAccountMutation.isPending}
@@ -1253,14 +1255,14 @@ export default function MemberDetailsPage() {
       {/* Create Account Dialog */}
       <CreateAccountDialog
         isOpen={showCreateAccountDialog}
-        onClose={() => setShowCreateAccountDialog(false)}
+        onClose={closeDialog}
         memberId={memberId}
         memberName={`${member.firstName} ${member.lastName}`}
       />
 
       <ManageCreditDialog
         open={showManageCreditDialog}
-        onOpenChange={setShowManageCreditDialog}
+        onOpenChange={onOpenChange}
         memberId={member.id}
         memberName={`${member.firstName} ${member.lastName}`}
       />
@@ -1268,7 +1270,7 @@ export default function MemberDetailsPage() {
       {/* Delete Member Confirmation Dialog */}
       <ConfirmationDialog
         open={showDeleteDialog}
-        onOpenChange={setShowDeleteDialog}
+        onOpenChange={onOpenChange}
         onConfirm={handleConfirmDelete}
         title="Delete Member"
         description={`Are you sure you want to delete ${member.firstName} ${member.lastName}? This action cannot be undone and will permanently remove all member data.`}

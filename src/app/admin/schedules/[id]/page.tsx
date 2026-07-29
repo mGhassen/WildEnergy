@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { useDialogParams } from "@/hooks/use-dialog-params";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -152,11 +153,12 @@ export default function ScheduleDetailsPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
   const [showTrainerDetails, setShowTrainerDetails] = useState(false);
   const [selectedCourseIds, setSelectedCourseIds] = useState<number[]>([]);
-  const [bulkEditDialogOpen, setBulkEditDialogOpen] = useState(false);
+  const { isOpen, openDialog, closeDialog, onOpenChange } = useDialogParams();
+  const deleteDialogOpen = isOpen("delete");
+  const bulkDeleteDialogOpen = isOpen("bulk-delete");
+  const bulkEditDialogOpen = isOpen("bulk-edit");
   const [bulkCourseOverrides, setBulkCourseOverrides] = useState<{
     status: BulkCourseStatus;
   }>({ status: "" });
@@ -320,7 +322,7 @@ export default function ScheduleDetailsPage() {
     setBulkCourseOverrides({
       status: inferBulkStatusFromSelection(ids, scheduleCourses),
     });
-    setBulkEditDialogOpen(true);
+    openDialog("bulk-edit");
   };
 
   const handleUnifiedSubmit = async (data: ScheduleFormData) => {
@@ -339,7 +341,7 @@ export default function ScheduleDetailsPage() {
           changes: { status: bulkCourseOverrides.status },
         });
       }
-      setBulkEditDialogOpen(false);
+      closeDialog();
       clearSelection();
     } catch {
       // useUpdateSchedule / mutation hooks surface errors
@@ -356,7 +358,7 @@ export default function ScheduleDetailsPage() {
           title: res.message,
           variant: res.failed?.length ? "destructive" : "default",
         });
-        setBulkDeleteDialogOpen(false);
+        closeDialog();
         clearSelection();
       },
       onError: (err: any) => {
@@ -369,7 +371,7 @@ export default function ScheduleDetailsPage() {
   };
 
   const handleDelete = () => {
-    setDeleteDialogOpen(true);
+    openDialog("delete");
   };
 
   const deleteScheduleMutation = useDeleteSchedule();
@@ -820,7 +822,7 @@ export default function ScheduleDetailsPage() {
                       ? "All selected courses must have zero registrations and check-ins"
                       : undefined
                   }
-                  onClick={() => setBulkDeleteDialogOpen(true)}
+                  onClick={() => openDialog("bulk-delete")}
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
                   Delete selected
@@ -1105,7 +1107,7 @@ export default function ScheduleDetailsPage() {
         </Card>
       )}
 
-      <Dialog open={bulkEditDialogOpen} onOpenChange={setBulkEditDialogOpen}>
+      <Dialog open={bulkEditDialogOpen} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit schedule &amp; selected courses</DialogTitle>
@@ -1409,7 +1411,7 @@ export default function ScheduleDetailsPage() {
               )}
 
               <DialogFooter className="gap-2 sm:gap-0">
-                <Button type="button" variant="outline" onClick={() => setBulkEditDialogOpen(false)}>
+                <Button type="button" variant="outline" onClick={() => closeDialog()}>
                   Cancel
                 </Button>
                 <Button
@@ -1426,7 +1428,7 @@ export default function ScheduleDetailsPage() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={bulkDeleteDialogOpen} onOpenChange={setBulkDeleteDialogOpen}>
+      <AlertDialog open={bulkDeleteDialogOpen} onOpenChange={onOpenChange}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete {selectedDeletableIds.length} course(s)?</AlertDialogTitle>
@@ -1451,7 +1453,7 @@ export default function ScheduleDetailsPage() {
       </AlertDialog>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AlertDialog open={deleteDialogOpen} onOpenChange={onOpenChange}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Schedule</AlertDialogTitle>

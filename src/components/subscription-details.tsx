@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCreatePayment } from "@/hooks/usePayments";
+import { useDialogParams } from "@/hooks/use-dialog-params";
 import { formatDate, subscriptionDurationDays } from "@/lib/date";
 import { formatCurrency, CURRENCY_SYMBOL } from "@/lib/config";
 import { CreditCard, Info, Calendar, Users, Plus, DollarSign, AlertTriangle } from "lucide-react";
@@ -96,7 +97,10 @@ export function SubscriptionDetails({
   member
 }: SubscriptionDetailsProps) {
   const [subTab, setSubTab] = useState<'details' | 'payments'>('details');
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const { isOpen, openDialog, closeDialog, onOpenChange } = useDialogParams();
+  // Own the payment dialog only when this component surfaces Add Payment (admin + tabs).
+  // Admin subscription detail page uses showTabs={false} and owns its own payment dialog.
+  const ownsPaymentDialog = isAdmin && showTabs;
   const [paymentFormData, setPaymentFormData] = useState({
     amount: "",
     payment_type: "cash",
@@ -151,8 +155,18 @@ export function SubscriptionDetails({
       ...prev,
       amount: remainingAmount.toFixed(2),
     }));
-    setIsPaymentModalOpen(true);
+    openDialog("payment");
   };
+
+  useEffect(() => {
+    if (!ownsPaymentDialog) return;
+    if (isOpen("payment") && !paymentFormData.amount && remainingAmount > 0) {
+      setPaymentFormData(prev => ({
+        ...prev,
+        amount: remainingAmount.toFixed(2),
+      }));
+    }
+  }, [ownsPaymentDialog, isOpen("payment"), remainingAmount]);
 
   const handlePaymentSubmit = () => {
     const paymentData = {
@@ -167,7 +181,7 @@ export function SubscriptionDetails({
     
     createPaymentMutation.mutate(paymentData, {
       onSuccess: () => {
-        setIsPaymentModalOpen(false);
+        closeDialog();
         setPaymentFormData({
           amount: "",
           payment_type: "cash",
@@ -519,119 +533,121 @@ export function SubscriptionDetails({
         )}
       </CardContent>
 
-      {/* Add Payment Modal */}
-      <Dialog open={isPaymentModalOpen} onOpenChange={setIsPaymentModalOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Add Payment</DialogTitle>
-            <DialogDescription>
-              Add a payment for this subscription. The amount is prefilled with the remaining balance.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="amount" className="text-right">
-                Amount
-              </Label>
-              <Input
-                id="amount"
-                type="number"
-                step="0.01"
-                value={paymentFormData.amount}
-                onChange={(e) => setPaymentFormData(prev => ({ ...prev, amount: e.target.value }))}
-                className="col-span-3"
-              />
+      {/* Add Payment Modal — only when this component owns payment UI */}
+      {ownsPaymentDialog && (
+        <Dialog open={isOpen("payment")} onOpenChange={onOpenChange}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Add Payment</DialogTitle>
+              <DialogDescription>
+                Add a payment for this subscription. The amount is prefilled with the remaining balance.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="amount" className="text-right">
+                  Amount
+                </Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  step="0.01"
+                  value={paymentFormData.amount}
+                  onChange={(e) => setPaymentFormData(prev => ({ ...prev, amount: e.target.value }))}
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="payment_type" className="text-right">
+                  Type
+                </Label>
+                <Select
+                  value={paymentFormData.payment_type}
+                  onValueChange={(value) => setPaymentFormData(prev => ({ ...prev, payment_type: value }))}
+                >
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">Cash</SelectItem>
+                    <SelectItem value="card">Card</SelectItem>
+                    <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                    <SelectItem value="check">Check</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="payment_status" className="text-right">
+                  Status
+                </Label>
+                <Select
+                  value={paymentFormData.payment_status}
+                  onValueChange={(value) => setPaymentFormData(prev => ({ ...prev, payment_status: value }))}
+                >
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="paid">Paid</SelectItem>
+                    <SelectItem value="failed">Failed</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="payment_date" className="text-right">
+                  Date
+                </Label>
+                <Input
+                  id="payment_date"
+                  type="date"
+                  value={paymentFormData.payment_date}
+                  onChange={(e) => setPaymentFormData(prev => ({ ...prev, payment_date: e.target.value }))}
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="transaction_id" className="text-right">
+                  Transaction ID
+                </Label>
+                <Input
+                  id="transaction_id"
+                  value={paymentFormData.transaction_id}
+                  onChange={(e) => setPaymentFormData(prev => ({ ...prev, transaction_id: e.target.value }))}
+                  className="col-span-3"
+                  placeholder="Optional"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="notes" className="text-right">
+                  Notes
+                </Label>
+                <Textarea
+                  id="notes"
+                  value={paymentFormData.notes}
+                  onChange={(e) => setPaymentFormData(prev => ({ ...prev, notes: e.target.value }))}
+                  className="col-span-3"
+                  rows={3}
+                  placeholder="Optional payment notes"
+                />
+              </div>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="payment_type" className="text-right">
-                Type
-              </Label>
-              <Select
-                value={paymentFormData.payment_type}
-                onValueChange={(value) => setPaymentFormData(prev => ({ ...prev, payment_type: value }))}
+            <DialogFooter>
+              <Button variant="outline" onClick={closeDialog}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handlePaymentSubmit}
+                disabled={createPaymentMutation.isPending || !paymentFormData.amount}
               >
-                <SelectTrigger className="col-span-3">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cash">Cash</SelectItem>
-                  <SelectItem value="card">Card</SelectItem>
-                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                  <SelectItem value="check">Check</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="payment_status" className="text-right">
-                Status
-              </Label>
-              <Select
-                value={paymentFormData.payment_status}
-                onValueChange={(value) => setPaymentFormData(prev => ({ ...prev, payment_status: value }))}
-              >
-                <SelectTrigger className="col-span-3">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="paid">Paid</SelectItem>
-                  <SelectItem value="failed">Failed</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="payment_date" className="text-right">
-                Date
-              </Label>
-              <Input
-                id="payment_date"
-                type="date"
-                value={paymentFormData.payment_date}
-                onChange={(e) => setPaymentFormData(prev => ({ ...prev, payment_date: e.target.value }))}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="transaction_id" className="text-right">
-                Transaction ID
-              </Label>
-              <Input
-                id="transaction_id"
-                value={paymentFormData.transaction_id}
-                onChange={(e) => setPaymentFormData(prev => ({ ...prev, transaction_id: e.target.value }))}
-                className="col-span-3"
-                placeholder="Optional"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="notes" className="text-right">
-                Notes
-              </Label>
-              <Textarea
-                id="notes"
-                value={paymentFormData.notes}
-                onChange={(e) => setPaymentFormData(prev => ({ ...prev, notes: e.target.value }))}
-                className="col-span-3"
-                rows={3}
-                placeholder="Optional payment notes"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsPaymentModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button 
-              onClick={handlePaymentSubmit}
-              disabled={createPaymentMutation.isPending || !paymentFormData.amount}
-            >
-              {createPaymentMutation.isPending ? "Creating..." : "Add Payment"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+                {createPaymentMutation.isPending ? "Creating..." : "Add Payment"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </Card>
   );
 }

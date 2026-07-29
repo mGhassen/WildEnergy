@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,7 @@ import { useMembers } from "@/hooks/useMembers";
 import { useSubscriptions } from "@/hooks/useSubscriptions";
 import { usePlans } from "@/hooks/usePlans";
 import { TableSkeleton, FormSkeleton } from "@/components/skeletons";
+import { useDialogParams } from "@/hooks/use-dialog-params";
 
 type Payment = {
   id: number;
@@ -72,8 +73,6 @@ export default function AdminPayments() {
   });
 
   // Edit and delete state
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [paymentToDelete, setPaymentToDelete] = useState<Payment | null>(null);
   const [editFormData, setEditFormData] = useState({
@@ -92,11 +91,44 @@ export default function AdminPayments() {
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { isOpen, openDialog, closeDialog, onOpenChange, dialogId } = useDialogParams();
+  const isEditModalOpen = isOpen("edit");
+  const isDeleteModalOpen = isOpen("delete");
 
   // Mutations
   const updatePaymentMutation = useUpdatePayment();
 
   const deletePaymentMutation = useDeletePayment();
+
+  const hydrateEditPayment = (payment: Payment) => {
+    setEditingPayment(payment);
+    setEditFormData({
+      amount: payment.amount.toString(),
+      payment_type: payment.payment_type,
+      payment_status: payment.payment_status,
+      payment_date: payment.payment_date ? payment.payment_date.split('T')[0] : "",
+      transaction_id: payment.transaction_id || "",
+      notes: payment.notes || "",
+    });
+  };
+
+  useEffect(() => {
+    if (isOpen("edit") && dialogId != null && !isLoading) {
+      const payment = (payments as any[]).find((p: any) => String(p.id) === String(dialogId));
+      if (payment && editingPayment?.id !== payment.id) {
+        hydrateEditPayment(payment);
+      }
+    } else if (isOpen("delete") && dialogId != null && !isLoading) {
+      const payment = (payments as any[]).find((p: any) => String(p.id) === String(dialogId));
+      if (payment && paymentToDelete?.id !== payment.id) {
+        setPaymentToDelete(payment);
+      }
+    } else if (!isEditModalOpen && !isDeleteModalOpen) {
+      setEditingPayment(null);
+      setPaymentToDelete(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dialogId, isLoading, payments, isEditModalOpen, isDeleteModalOpen]);
 
   // Map members from snake_case to camelCase for UI
   const mappedMembers = Array.isArray(members)
@@ -253,21 +285,13 @@ export default function AdminPayments() {
 
   // Edit and delete handlers
   const handleEditPayment = (payment: Payment) => {
-    setEditingPayment(payment);
-    setEditFormData({
-      amount: payment.amount.toString(),
-      payment_type: payment.payment_type,
-      payment_status: payment.payment_status,
-      payment_date: payment.payment_date ? payment.payment_date.split('T')[0] : "",
-      transaction_id: payment.transaction_id || "",
-      notes: payment.notes || "",
-    });
-    setIsEditModalOpen(true);
+    hydrateEditPayment(payment);
+    openDialog("edit", { id: payment.id });
   };
 
   const handleDeletePayment = (payment: Payment) => {
     setPaymentToDelete(payment);
-    setIsDeleteModalOpen(true);
+    openDialog("delete", { id: payment.id });
   };
 
   const handleEditSubmit = () => {
@@ -289,7 +313,7 @@ export default function AdminPayments() {
       data: updateData
     }, {
       onSuccess: () => {
-        setIsEditModalOpen(false);
+        closeDialog();
         setEditingPayment(null);
       }
     });
@@ -299,7 +323,7 @@ export default function AdminPayments() {
     if (!paymentToDelete) return;
     deletePaymentMutation.mutate(paymentToDelete.id, {
       onSuccess: () => {
-        setIsDeleteModalOpen(false);
+        closeDialog();
         setPaymentToDelete(null);
       }
     });
@@ -655,7 +679,7 @@ export default function AdminPayments() {
       </Card>
 
       {/* Edit Payment Modal */}
-      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+      <Dialog open={isEditModalOpen} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Edit Payment</DialogTitle>
@@ -754,7 +778,7 @@ export default function AdminPayments() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
+            <Button variant="outline" onClick={() => closeDialog()}>
               Cancel
             </Button>
             <Button 
@@ -768,7 +792,7 @@ export default function AdminPayments() {
       </Dialog>
 
       {/* Delete Payment Modal */}
-      <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
+      <Dialog open={isDeleteModalOpen} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Delete Payment</DialogTitle>
@@ -790,7 +814,7 @@ export default function AdminPayments() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDeleteModalOpen(false)}>
+            <Button variant="outline" onClick={() => closeDialog()}>
               Cancel
             </Button>
             <Button 

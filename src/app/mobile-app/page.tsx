@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,7 @@ import { MobileAppSkeleton } from "@/components/skeletons";
 import { formatTime, formatDateTime } from "@/lib/date";
 import QRGenerator from "@/components/qr-generator";
 import { useToast } from "@/hooks/use-toast";
+import { useDialogParams } from "@/hooks/use-dialog-params";
 import { formatDate } from "@/lib/date";
 import { MobileAppSidebar } from "@/components/mobile-app-sidebar";
 
@@ -62,13 +63,13 @@ interface Subscription {
   };
 }
 
-export default function MobileApp() {
+function MobileAppContent() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("home");
   const [selectedCourse, setSelectedCourse] = useState<any | null>(null);
-  const [showQRCode, setShowQRCode] = useState<string | null>(null);
   const [historyFilter, setHistoryFilter] = useState("all");
+  const { isOpen, openDialog, onOpenChange, dialogId } = useDialogParams();
 
   // Listen for tab changes from sidebar
   useEffect(() => {
@@ -86,6 +87,12 @@ export default function MobileApp() {
   const { data: courses = [], isLoading: coursesLoading } = useMemberCourses();
   const { data: registrations = [], isLoading: registrationsLoading } = useMemberRegistrations();
   const { data: subscription, isLoading: subscriptionLoading } = useMemberSubscription();
+
+  const isQROpen = isOpen("qr");
+  const selectedQRRegistration = isQROpen && dialogId != null
+    ? (registrations as any[]).find((r: any) => String(r.id) === String(dialogId)) ?? null
+    : null;
+  const showQRCode = selectedQRRegistration?.qr_code ?? null;
 
   // Mutations
   const registerMutation = useMutation({
@@ -127,9 +134,15 @@ export default function MobileApp() {
     return registrations.some((reg: any) => reg.course?.id === courseId);
   };
 
-  const getRegistrationQR = (courseId: number) => {
-    const reg = registrations.find((reg: any) => reg.course?.id === courseId);
-    return (reg as any)?.qr_code;
+  const getRegistrationForCourse = (courseId: number) => {
+    return (registrations as any[]).find((reg: any) => reg.course?.id === courseId);
+  };
+
+  const openQRForCourse = (courseId: number) => {
+    const reg = getRegistrationForCourse(courseId);
+    if (reg?.id) {
+      openDialog("qr", { id: reg.id });
+    }
   };
 
   // History filtering logic
@@ -279,7 +292,7 @@ export default function MobileApp() {
                       variant="outline"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setShowQRCode(getRegistrationQR(course.id) || "");
+                        openQRForCourse(course.id);
                       }}
                     >
                       <QrCode className="w-4 h-4" />
@@ -355,7 +368,7 @@ export default function MobileApp() {
                     <Button 
                       size="sm" 
                       variant="outline"
-                      onClick={() => setShowQRCode(getRegistrationQR(course.id) || "")}
+                      onClick={() => openQRForCourse(course.id)}
                     >
                       <QrCode className="w-4 h-4 mr-1" />
                       QR Code
@@ -441,7 +454,7 @@ export default function MobileApp() {
               <Button 
                 variant="outline" 
                 className="w-full"
-                onClick={() => setShowQRCode((registration as any).qr_code)}
+                onClick={() => openDialog("qr", { id: (registration as any).id })}
               >
                 <QrCode className="w-4 h-4 mr-2" />
                 Show QR Code for Check-in
@@ -576,7 +589,7 @@ export default function MobileApp() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => setShowQRCode(registration.qr_code)}
+                            onClick={() => openDialog("qr", { id: registration.id })}
                             className="h-7"
                           >
                             <QrCode className="w-3 h-3 mr-1" />
@@ -739,7 +752,7 @@ export default function MobileApp() {
               {isRegistered(selectedCourse.id) ? (
                 <Button 
                   className="w-full"
-                  onClick={() => setShowQRCode(getRegistrationQR(selectedCourse.id) || "")}
+                  onClick={() => openQRForCourse(selectedCourse.id)}
                 >
                   <QrCode className="w-4 h-4 mr-2" />
                   Show QR Code
@@ -767,22 +780,30 @@ export default function MobileApp() {
       )}
 
       {/* QR Code Dialog */}
-      {showQRCode && (
-        <Dialog open={!!showQRCode} onOpenChange={() => setShowQRCode(null)}>
-          <DialogContent className="max-w-sm mx-4">
-            <DialogHeader>
-              <DialogTitle>Check-in QR Code</DialogTitle>
-            </DialogHeader>
-            
+      <Dialog open={isQROpen} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-sm mx-4">
+          <DialogHeader>
+            <DialogTitle>Check-in QR Code</DialogTitle>
+          </DialogHeader>
+          
+          {showQRCode && (
             <div className="flex flex-col items-center space-y-4">
               <QRGenerator value={showQRCode} size={200} />
               <p className="text-sm text-muted-foreground text-center">
                 Show this QR code to the trainer for check-in
               </p>
             </div>
-          </DialogContent>
-        </Dialog>
-      )}
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
+  );
+}
+
+export default function MobileApp() {
+  return (
+    <Suspense fallback={<MobileAppSkeleton />}>
+      <MobileAppContent />
+    </Suspense>
   );
 }

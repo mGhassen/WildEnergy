@@ -42,12 +42,17 @@ function AdminStatsPageInner() {
   useEffect(() => {
     const next = filtersToSearchParams(filters)
     if (tab !== "overview") next.set("tab", tab)
+    // Preserve dialog routing params while syncing filters
+    const dialog = searchParams.get("dialog")
+    if (dialog) next.set("dialog", dialog)
+    const id = searchParams.get("id")
+    if (id) next.set("id", id)
     const qs = next.toString()
     if (qs !== searchParams.toString()) {
       router.replace(`${pathname}?${qs}`, { scroll: false })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters, tab, pathname, router])
+  }, [filters, tab, pathname, router, searchParams])
 
   const onFiltersChange = useCallback((next: StatsFilterState) => {
     setFilters(next)

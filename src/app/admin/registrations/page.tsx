@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -24,6 +24,7 @@ import {
 import { Loader2, AlertTriangle, Check, Eye, MoreHorizontal, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useRegistrations, useDeleteRegistration, useCheckInRegistration } from "@/hooks/useRegistrations";
+import { useDialogParams } from "@/hooks/use-dialog-params";
 
 const formatEuropeanDate = (dateString: string) => {
   const date = new Date(dateString);
@@ -40,10 +41,27 @@ export default function AdminRegistrations() {
   const { data: registrations = [], isLoading, error } = useRegistrations();
   const deleteRegistrationMutation = useDeleteRegistration();
   const checkInMutation = useCheckInRegistration();
+  const { isOpen, openDialog, closeDialog, onOpenChange, dialogId } = useDialogParams();
+  const isDeleteDialogOpen = isOpen("delete");
   const [deleteTarget, setDeleteTarget] = useState<{
     id: number;
     label: string;
   } | null>(null);
+
+  useEffect(() => {
+    if (isOpen("delete") && dialogId != null && !isLoading) {
+      const row = (registrations as any[]).find((r: any) => String(r.id) === String(dialogId));
+      if (row && deleteTarget?.id !== row.id) {
+        setDeleteTarget({
+          id: row.id,
+          label: `${row.member?.first_name ?? ""} ${row.member?.last_name ?? ""} · REG-${String(row.id).padStart(5, "0")}`.trim(),
+        });
+      }
+    } else if (!isDeleteDialogOpen) {
+      setDeleteTarget(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dialogId, isLoading, registrations, isDeleteDialogOpen]);
 
   const handleView = (registration: any) => {
     const qrCode = registration.qr_code;
@@ -169,12 +187,13 @@ export default function AdminRegistrations() {
             )}
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"
-              onClick={() =>
+              onClick={() => {
                 setDeleteTarget({
                   id: row.id,
                   label: `${row.member?.first_name ?? ""} ${row.member?.last_name ?? ""} · REG-${String(row.id).padStart(5, "0")}`.trim(),
-                })
-              }
+                });
+                openDialog("delete", { id: row.id });
+              }}
             >
               <Trash2 className="mr-2 h-4 w-4" />
               Delete
@@ -222,7 +241,7 @@ export default function AdminRegistrations() {
         onRowClick={handleView}
       />
 
-      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={onOpenChange}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete registration?</AlertDialogTitle>
@@ -239,7 +258,7 @@ export default function AdminRegistrations() {
               onClick={() => {
                 const id = deleteTarget?.id;
                 if (id == null) return;
-                setDeleteTarget(null);
+                closeDialog();
                 deleteRegistrationMutation.mutate(id);
               }}
             >

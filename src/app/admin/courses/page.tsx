@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useDialogParams } from '@/hooks/use-dialog-params';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCourses, useUpdateCourse, useDeleteCourse } from '@/hooks/useCourse';
 import { useClasses } from '@/hooks/useClasses';
@@ -51,8 +52,9 @@ interface Course {
 export default function AdminCourses() {
   console.log('AdminCourses page loaded');
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const { isOpen, openDialog, closeDialog, onOpenChange, dialogId } = useDialogParams();
+  const isEditModalOpen = isOpen("edit");
+  const isDeleteModalOpen = isOpen("delete");
   const [calendarView, setCalendarView] = useState<"daily" | "weekly" | "monthly">("monthly");
   const [currentDate, setCurrentDate] = useState(new Date());
   const queryClient = useQueryClient();
@@ -75,6 +77,34 @@ export default function AdminCourses() {
   console.log('Courses query date range:', startOfMonth.toISOString().split('T')[0], endOfMonth.toISOString().split('T')[0]);
 
   const { data: courses, isLoading: coursesLoading, error: coursesError } = useCourses();
+
+  useEffect(() => {
+    if ((isOpen("edit") || isOpen("delete")) && dialogId != null && courses) {
+      const c = (courses as any[]).find((x: any) => String(x.id) === String(dialogId));
+      if (c) {
+        setSelectedCourse({
+          id: c.id,
+          scheduleId: c.schedule_id,
+          classId: c.class_id,
+          trainerId: c.trainer_id,
+          courseDate: c.course_date,
+          startTime: c.start_time,
+          endTime: c.end_time,
+          maxParticipants: c.max_participants,
+          currentParticipants: c.current_participants,
+          status: c.status,
+          isActive: c.is_active,
+          createdAt: c.created_at,
+          updatedAt: c.updated_at,
+          class: c.class,
+          trainer: c.trainer,
+        } as Course);
+      }
+    } else if (!isEditModalOpen && !isDeleteModalOpen) {
+      setSelectedCourse(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dialogId, courses, isEditModalOpen, isDeleteModalOpen]);
 
   // Debug: Log loading and error state
   console.log('coursesLoading:', coursesLoading, 'coursesError:', coursesError);
@@ -191,7 +221,7 @@ export default function AdminCourses() {
       data: updateData 
     }, {
       onSuccess: () => {
-        setIsEditModalOpen(false);
+        closeDialog();
         setSelectedCourse(null);
       }
     });
@@ -201,7 +231,7 @@ export default function AdminCourses() {
     if (!selectedCourse) return;
     deleteCourseMutation.mutate(selectedCourse.id, {
       onSuccess: () => {
-        setIsDeleteModalOpen(false);
+        closeDialog();
         setSelectedCourse(null);
       }
     });
@@ -256,7 +286,7 @@ export default function AdminCourses() {
       </Card>
 
       {/* Edit Course Modal */}
-      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+      <Dialog open={isEditModalOpen} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Edit Course</DialogTitle>
@@ -268,14 +298,14 @@ export default function AdminCourses() {
               trainers={trainers || []}
               activeMembers={activeMembers}
               onSubmit={handleUpdateCourse}
-              onCancel={() => setIsEditModalOpen(false)}
+              onCancel={() => closeDialog()}
             />
           )}
         </DialogContent>
       </Dialog>
 
       {/* Delete Confirmation Modal */}
-      <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
+      <Dialog open={isDeleteModalOpen} onOpenChange={onOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Course</DialogTitle>
@@ -295,7 +325,7 @@ export default function AdminCourses() {
               </Button>
               <Button
                 variant="outline"
-                onClick={() => setIsDeleteModalOpen(false)}
+                onClick={() => closeDialog()}
               >
                 Cancel
               </Button>

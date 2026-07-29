@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Search, Plus, Edit, Trash2, User, Shield, MoreHorizontal, Key, Archive, CheckCircle, XCircle, Mail, Star, X, Phone, Calendar, Clock, Activity, FileText, Loader2, Eye, Users, UserCheck, UserX, Crown, GraduationCap, CreditCard, MapPin, Briefcase, Heart, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useDialogParams } from "@/hooks/use-dialog-params";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { formatDate } from "@/lib/date";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -76,9 +77,27 @@ export default function AccountsPage() {
     const [setPasswordValue, setSetPasswordValue] = useState("");
     const { toast } = useToast();
     const isMobile = useIsMobile();
+    const { isOpen, openDialog, closeDialog, onOpenChange, dialogId } = useDialogParams();
+    const isPasswordDialogOpen = isOpen("password");
+    const isDeleteDialogOpen = isOpen("delete");
 
     // Fetch accounts
     const { data: accounts = [], isLoading, error } = useAccounts();
+
+    useEffect(() => {
+        if (isOpen("password") && dialogId != null && !isLoading) {
+            const a = accounts.find((x: Account) => String(x.account_id) === String(dialogId));
+            if (a && settingPasswordUser?.account_id !== a.account_id) setSettingPasswordUser(a);
+        } else if (isOpen("delete") && dialogId != null && !isLoading) {
+            const a = accounts.find((x: Account) => String(x.account_id) === String(dialogId));
+            if (a && deletingUser?.account_id !== a.account_id) setDeletingUser(a);
+        } else if (!isPasswordDialogOpen && !isDeleteDialogOpen) {
+            setSettingPasswordUser(null);
+            setDeletingUser(null);
+            setSetPasswordValue("");
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [dialogId, isLoading, accounts, isPasswordDialogOpen, isDeleteDialogOpen]);
 
 
     // Delete account mutation
@@ -498,7 +517,7 @@ export default function AccountsPage() {
                                                             <Eye className="w-4 h-4 mr-2" />
                                                             View Details
                                                         </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => setSettingPasswordUser(account)}>
+                                                        <DropdownMenuItem onClick={() => { setSettingPasswordUser(account); openDialog("password", { id: account.account_id }); }}>
                                                             <Key className="w-4 h-4 mr-2" />
                                                             Set Password
                                                         </DropdownMenuItem>
@@ -529,7 +548,7 @@ export default function AccountsPage() {
                                                             </DropdownMenuItem>
                                                         )}
                                                         <DropdownMenuItem
-                                                            onClick={() => setDeletingUser(account)}
+                                                            onClick={() => { setDeletingUser(account); openDialog("delete", { id: account.account_id }); }}
                                                             className="text-red-600"
                                                         >
                                                             <Trash2 className="w-4 h-4 mr-2" />
@@ -674,7 +693,7 @@ export default function AccountsPage() {
                                                             <Eye className="w-4 h-4 mr-2" />
                                                             View Details
                                                         </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => setSettingPasswordUser(account)}>
+                                                        <DropdownMenuItem onClick={() => { setSettingPasswordUser(account); openDialog("password", { id: account.account_id }); }}>
                                                             <Key className="w-4 h-4 mr-2" />
                                                             Set Password
                                                         </DropdownMenuItem>
@@ -705,7 +724,7 @@ export default function AccountsPage() {
                                                             </DropdownMenuItem>
                                                         )}
                                                         <DropdownMenuItem
-                                                            onClick={() => setDeletingUser(account)}
+                                                            onClick={() => { setDeletingUser(account); openDialog("delete", { id: account.account_id }); }}
                                                             className="text-red-600"
                                                         >
                                                             <Trash2 className="w-4 h-4 mr-2" />
@@ -731,7 +750,7 @@ export default function AccountsPage() {
             </Card>
 
             {/* Set Password Dialog */}
-            <Dialog open={!!settingPasswordUser} onOpenChange={() => { setSettingPasswordUser(null); setSetPasswordValue(""); }}>
+            <Dialog open={isPasswordDialogOpen} onOpenChange={(open) => { if (!open) { closeDialog(); setSetPasswordValue(""); } }}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
                         <DialogTitle>Set Password</DialogTitle>
@@ -754,7 +773,7 @@ export default function AccountsPage() {
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => { setSettingPasswordUser(null); setSetPasswordValue(""); }}>
+                        <Button type="button" variant="outline" onClick={() => { closeDialog(); setSetPasswordValue(""); }}>
                             Cancel
                         </Button>
                         <Button type="button" disabled={!setPasswordValue} onClick={() => {
@@ -764,6 +783,7 @@ export default function AccountsPage() {
         password: setPasswordValue 
     }, {
         onSuccess: () => {
+            closeDialog();
             setSettingPasswordUser(null);
             setSetPasswordValue("");
         }
@@ -776,7 +796,7 @@ export default function AccountsPage() {
             </Dialog>
 
             {/* Delete Confirmation Dialog */}
-            <AlertDialog open={!!deletingUser} onOpenChange={() => setDeletingUser(null)}>
+            <AlertDialog open={isDeleteDialogOpen} onOpenChange={onOpenChange}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>Delete Account</AlertDialogTitle>
@@ -790,6 +810,7 @@ export default function AccountsPage() {
                         <AlertDialogAction
                             onClick={() => deletingUser && deleteAccountMutation.mutate(deletingUser.account_id, {
                                 onSuccess: () => {
+                                    closeDialog();
                                     setDeletingUser(null);
                                 }
                             })}

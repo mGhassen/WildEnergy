@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import { useDialogParams } from "@/hooks/use-dialog-params";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -30,7 +31,6 @@ import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar } from "@/components/ui/avatar";
-import { DialogClose } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
@@ -130,16 +130,12 @@ type PaymentFormData = z.infer<typeof paymentFormSchema>;
 
 export default function AdminSubscriptions() {
   const router = useRouter();
-  const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const { isOpen, openDialog, closeDialog, onOpenChange, dialogId, getParam } = useDialogParams();
   const [searchTerm, setSearchTerm] = useState("");
   const [editingSubscription, setEditingSubscription] = useState<Subscription | null>(null);
   const [selectedSubscriptionForPayment, setSelectedSubscriptionForPayment] = useState<Subscription | null>(null);
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
-  const [isDeletePaymentModalOpen, setIsDeletePaymentModalOpen] = useState(false);
   const [paymentToDelete, setPaymentToDelete] = useState<Payment | null>(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [subscriptionToDelete, setSubscriptionToDelete] = useState<number | null>(null);
   
   // Enhanced filtering and sorting state
@@ -258,32 +254,33 @@ export default function AdminSubscriptions() {
     return remainingAmount;
   };
 
+  // Get payments for a subscription
+  const getPaymentsForSubscription = (subscriptionId: number) => {
+    return payments.filter(payment => payment.subscription_id === subscriptionId);
+  };
+
   // Event handlers
   const openCreateSubscriptionModal = () => {
-    subscriptionForm.reset();
-    setIsSubscriptionModalOpen(true);
+    subscriptionForm.reset({
+      memberId: "",
+      planId: "",
+      startDate: new Date().toISOString().split('T')[0],
+      endDate: undefined,
+      notes: "",
+      status: "pending",
+    });
+    openDialog("create");
   };
 
   const openEditModal = (subscription: Subscription) => {
-    setEditingSubscription(subscription);
-    subscriptionForm.reset({
-      memberId: subscription.member_id,
-      planId: subscription.plan_id.toString(),
-      startDate: subscription.start_date.split('T')[0],
-      endDate: subscription.end_date.split('T')[0],
-      notes: subscription.notes || "",
-      status: subscription.status as any,
-    });
-    setIsEditModalOpen(true);
+    openDialog("edit", { id: subscription.id });
   };
 
   // 1. Fix openPaymentModal to accept an optional override for payment_type and amount
   const openPaymentModal = (subscription: Subscription, override?: { amount?: number; payment_type?: PaymentFormData['payment_type'] }) => {
     setSelectedSubscriptionForPayment(subscription);
-    
-    // Calculate remaining amount if not overridden
+    setEditingPayment(null);
     const remainingAmount = override?.amount ?? getRemainingAmount(subscription);
-    
     paymentForm.reset({
       subscription_id: subscription.id,
       amount: remainingAmount,
@@ -292,12 +289,96 @@ export default function AdminSubscriptions() {
       payment_date: new Date().toISOString().split('T')[0],
       payment_reference: "",
     });
-    setIsPaymentModalOpen(true);
+    openDialog("payment", { id: subscription.id });
   };
 
   const navigateToSubscriptionDetails = (subscription: Subscription) => {
     router.push(`/admin/subscriptions/${subscription.id}`);
   };
+
+  // Hydrate forms / selected entities when dialog opens from URL
+  useEffect(() => {
+    if (isOpen("create")) {
+      setEditingSubscription(null);
+      return;
+    }
+
+    if (isOpen("edit") && dialogId != null) {
+      const subscription = mappedSubscriptions.find(
+        (s: Subscription) => String(s.id) === String(dialogId),
+      );
+      if (subscription && editingSubscription?.id !== subscription.id) {
+        setEditingSubscription(subscription);
+        subscriptionForm.reset({
+          memberId: subscription.member_id,
+          planId: subscription.plan_id.toString(),
+          startDate: subscription.start_date.split('T')[0],
+          endDate: subscription.end_date.split('T')[0],
+          notes: subscription.notes || "",
+          status: subscription.status as any,
+        });
+      }
+      return;
+    }
+
+    if (isOpen("payment") && dialogId != null) {
+      const subscription = mappedSubscriptions.find(
+        (s: Subscription) => String(s.id) === String(dialogId),
+      );
+      if (!subscription) return;
+
+      const paymentId = getParam("paymentId");
+      if (paymentId != null) {
+        const payment = payments.find((p) => String(p.id) === String(paymentId));
+        if (payment && editingPayment?.id !== payment.id) {
+          setSelectedSubscriptionForPayment(subscription);
+          setEditingPayment(payment);
+          paymentForm.reset({
+            subscription_id: payment.subscription_id,
+            amount: payment.amount,
+            payment_type: (payment.payment_type as "cash" | "card" | "bank_transfer" | "check" | "other") || "cash",
+            status: (payment.payment_status as "pending" | "paid" | "failed" | "cancelled") || "paid",
+            payment_date: payment.payment_date.split('T')[0],
+            payment_reference: payment.payment_reference || '',
+          });
+        }
+        return;
+      }
+
+      if (selectedSubscriptionForPayment?.id !== subscription.id || editingPayment) {
+        setSelectedSubscriptionForPayment(subscription);
+        setEditingPayment(null);
+        const remainingAmount = getRemainingAmount(subscription);
+        paymentForm.reset({
+          subscription_id: subscription.id,
+          amount: remainingAmount,
+          payment_type: "cash",
+          status: "paid",
+          payment_date: new Date().toISOString().split('T')[0],
+          payment_reference: "",
+        });
+      }
+      return;
+    }
+
+    if (isOpen("delete-payment")) {
+      const paymentId = getParam("paymentId");
+      if (paymentId != null) {
+        const payment = payments.find((p) => String(p.id) === String(paymentId));
+        if (payment && paymentToDelete?.id !== payment.id) {
+          setPaymentToDelete(payment);
+        }
+      }
+      return;
+    }
+
+    if (!isOpen("create") && !isOpen("edit") && !isOpen("payment") && !isOpen("delete-payment")) {
+      setEditingSubscription(null);
+      setSelectedSubscriptionForPayment(null);
+      setEditingPayment(null);
+      setPaymentToDelete(null);
+    }
+  }, [dialogId, mappedSubscriptions, payments, isOpen("create"), isOpen("edit"), isOpen("payment"), isOpen("delete-payment")]);
 
   const handleSubscriptionSubmit = (data: SubscriptionFormData) => {
     const selectedPlan = mappedPlans.find((plan) => plan.id === parseInt(data.planId));
@@ -323,7 +404,7 @@ export default function AdminSubscriptions() {
     
     createSubscriptionMutation.mutate(submitData, {
       onSuccess: () => {
-        setIsSubscriptionModalOpen(false);
+        closeDialog();
         subscriptionForm.reset();
       }
     });
@@ -371,7 +452,7 @@ export default function AdminSubscriptions() {
       data: submitData
     }, {
       onSuccess: () => {
-        setIsEditModalOpen(false);
+        closeDialog();
         setEditingSubscription(null);
         subscriptionForm.reset();
       }
@@ -397,7 +478,7 @@ export default function AdminSubscriptions() {
         data: paymentPayload
       }, {
         onSuccess: () => {
-          setIsPaymentModalOpen(false);
+          closeDialog();
           setEditingPayment(null);
           paymentForm.reset();
         }
@@ -405,7 +486,7 @@ export default function AdminSubscriptions() {
     } else {
       createPaymentMutation.mutate(paymentPayload, {
         onSuccess: () => {
-          setIsPaymentModalOpen(false);
+          closeDialog();
           paymentForm.reset();
         }
       });
@@ -414,39 +495,33 @@ export default function AdminSubscriptions() {
 
   const handleDeleteSubscription = (id: number) => {
     setSubscriptionToDelete(id);
-    setShowDeleteConfirm(true);
+    openDialog("delete", { id });
   };
 
   const handleConfirmDelete = () => {
-    if (subscriptionToDelete) {
-      deleteSubscriptionMutation.mutate(subscriptionToDelete);
-      setShowDeleteConfirm(false);
-      setSubscriptionToDelete(null);
+    const id =
+      typeof dialogId === "number"
+        ? dialogId
+        : dialogId != null
+          ? Number(dialogId)
+          : subscriptionToDelete;
+    if (id) {
+      deleteSubscriptionMutation.mutate(id, {
+        onSuccess: () => {
+          closeDialog();
+          setSubscriptionToDelete(null);
+        },
+      });
     }
   };
 
   function handleEditPayment(payment: Payment) {
-    setEditingPayment(payment);
-    paymentForm.reset({
-      subscription_id: payment.subscription_id,
-      amount: payment.amount,
-      payment_type: (payment.payment_type as "cash" | "card" | "bank_transfer" | "check" | "other") || "cash",
-      status: (payment.payment_status as "pending" | "paid" | "failed" | "cancelled") || "paid",
-      payment_date: payment.payment_date.split('T')[0],
-      payment_reference: payment.payment_reference || '',
-    });
-    setIsPaymentModalOpen(true);
+    openDialog("payment", { id: payment.subscription_id, paymentId: payment.id });
   }
 
   function handleDeletePayment(payment: Payment) {
-    setPaymentToDelete(payment);
-    setIsDeletePaymentModalOpen(true);
+    openDialog("delete-payment", { paymentId: payment.id });
   }
-
-  // Get payments for a subscription
-  const getPaymentsForSubscription = (subscriptionId: number) => {
-    return payments.filter(payment => payment.subscription_id === subscriptionId);
-  };
 
   // Enhanced filtering and sorting logic
   const filteredAndSortedSubscriptions = (() => {
@@ -628,14 +703,10 @@ export default function AdminSubscriptions() {
           <p className="text-muted-foreground">Manage member subscriptions</p>
         </div>
         <div className="flex items-center gap-2">
-          <Dialog open={isSubscriptionModalOpen} onOpenChange={setIsSubscriptionModalOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={openCreateSubscriptionModal}>
-                <Plus className="w-4 h-4 mr-2" />
-                Add Subscription
-              </Button>
-            </DialogTrigger>
-          </Dialog>
+          <Button onClick={openCreateSubscriptionModal}>
+            <Plus className="w-4 h-4 mr-2" />
+            Add Subscription
+          </Button>
         </div>
       </div>
 
@@ -1364,7 +1435,7 @@ export default function AdminSubscriptions() {
       </Card>
 
             {/* Subscription Creation Modal */}
-      <Dialog open={isSubscriptionModalOpen} onOpenChange={setIsSubscriptionModalOpen}>
+      <Dialog open={isOpen("create")} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Add New Subscription</DialogTitle>
@@ -1565,7 +1636,7 @@ export default function AdminSubscriptions() {
               </div>
 
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsSubscriptionModalOpen(false)}>
+                <Button type="button" variant="outline" onClick={closeDialog}>
                   Cancel
                 </Button>
                 <Button type="submit" disabled={createSubscriptionMutation.isPending}>
@@ -1578,7 +1649,7 @@ export default function AdminSubscriptions() {
       </Dialog>
 
             {/* Edit Subscription Modal */}
-      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+      <Dialog open={isOpen("edit")} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Edit Subscription</DialogTitle>
@@ -1785,7 +1856,7 @@ export default function AdminSubscriptions() {
               </div>
 
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)}>
+                <Button type="button" variant="outline" onClick={closeDialog}>
                   Cancel
                 </Button>
                 <Button type="submit" disabled={updateSubscriptionMutation.isPending}>
@@ -1798,10 +1869,10 @@ export default function AdminSubscriptions() {
       </Dialog>
 
       {/* Payment Modal */}
-      <Dialog open={isPaymentModalOpen} onOpenChange={setIsPaymentModalOpen}>
+      <Dialog open={isOpen("payment")} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Add Payment</DialogTitle>
+            <DialogTitle>{editingPayment ? "Edit Payment" : "Add Payment"}</DialogTitle>
             <DialogDescription>
               Record a payment for this subscription
             </DialogDescription>
@@ -1955,11 +2026,13 @@ export default function AdminSubscriptions() {
 
 
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsPaymentModalOpen(false)}>
+                <Button type="button" variant="outline" onClick={closeDialog}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={createPaymentMutation.isPending}>
-                  {createPaymentMutation.isPending ? "Creating..." : "Create Payment"}
+                <Button type="submit" disabled={createPaymentMutation.isPending || updatePaymentMutation.isPending}>
+                  {createPaymentMutation.isPending || updatePaymentMutation.isPending
+                    ? (editingPayment ? "Updating..." : "Creating...")
+                    : (editingPayment ? "Update Payment" : "Create Payment")}
                   </Button>
                 </DialogFooter>
               </form>
@@ -1969,7 +2042,7 @@ export default function AdminSubscriptions() {
 
 
       {/* Payment Delete Confirmation Modal */}
-      <Dialog open={isDeletePaymentModalOpen} onOpenChange={setIsDeletePaymentModalOpen}>
+      <Dialog open={isOpen("delete-payment")} onOpenChange={onOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Payment</DialogTitle>
@@ -1978,8 +2051,17 @@ export default function AdminSubscriptions() {
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-2 mt-4">
-            <Button variant="outline" onClick={() => setIsDeletePaymentModalOpen(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={() => paymentToDelete && deletePaymentMutation.mutate(paymentToDelete.id)} disabled={deletePaymentMutation.isPending}>
+            <Button variant="outline" onClick={closeDialog}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (!paymentToDelete) return;
+                deletePaymentMutation.mutate(paymentToDelete.id, {
+                  onSuccess: () => closeDialog(),
+                });
+              }}
+              disabled={deletePaymentMutation.isPending}
+            >
               {deletePaymentMutation.isPending ? "Deleting..." : "Delete"}
             </Button>
           </div>
@@ -1988,8 +2070,8 @@ export default function AdminSubscriptions() {
 
       {/* Subscription Delete Confirmation Dialog */}
       <ConfirmationDialog
-        open={showDeleteConfirm}
-        onOpenChange={setShowDeleteConfirm}
+        open={isOpen("delete")}
+        onOpenChange={onOpenChange}
         onConfirm={handleConfirmDelete}
         title="Delete Subscription"
         description="Are you sure you want to delete this subscription? This action cannot be undone."

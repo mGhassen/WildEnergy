@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,7 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertPlanSchema, insertPlanGroupSchema } from "@/shared/zod-schemas";
-import { Plus, Search, Edit, Trash2, Clock, X, Star, Users, Calendar, DollarSign, Zap, Grid3X3, Table, ChevronDown, ChevronRight, AlertTriangle } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Clock, X, Star, Users, Calendar, DollarSign, Zap, Grid3X3, Table, ChevronDown, ChevronRight, AlertTriangle, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 import { formatCurrency } from "@/lib/config";
@@ -23,6 +24,7 @@ import { usePlans, useCreatePlan, useUpdatePlan, useDeletePlan, useCheckPlanDele
 import { useGroups } from "@/hooks/useGroups";
 import { planApi } from "@/lib/api/plans";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useDialogParams } from "@/hooks/use-dialog-params";
 
 const planFormSchema = z.object({
   name: z.string().min(1, 'Plan name is required'),
@@ -110,10 +112,8 @@ function sortMappedPlans(list: any[], sort: AdminPlanSort) {
 }
 
 export default function AdminPlans() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deletingPlan, setDeletingPlan] = useState<any>(null);
   const [linkedSubscriptions, setLinkedSubscriptions] = useState<any[]>([]);
   const [viewType, setViewType] = useState<'cards' | 'table'>('cards');
@@ -122,6 +122,10 @@ export default function AdminPlans() {
   const [editPlanSubscriptionCount, setEditPlanSubscriptionCount] = useState<number | null>(null);
   const [editPlanSubscriptionLoading, setEditPlanSubscriptionLoading] = useState(false);
   const queryClient = useQueryClient();
+  const router = useRouter();
+  const { isOpen, openDialog, closeDialog, onOpenChange, dialogId } = useDialogParams();
+  const isModalOpen = isOpen("create") || isOpen("edit");
+  const isDeleteDialogOpen = isOpen("delete");
 
   useEffect(() => {
     try {
@@ -166,6 +170,86 @@ export default function AdminPlans() {
   const updatePlanMutation = useUpdatePlan();
   const deletePlanMutation = useDeletePlan();
   const checkDeletionMutation = useCheckPlanDeletion();
+
+  // Sync form state when dialog opens from URL
+  useEffect(() => {
+    if (isOpen("edit") && dialogId != null && plans) {
+      const plan = (Array.isArray(plans) ? plans : []).find(
+        (p: any) => String(p.id) === String(dialogId),
+      );
+      if (plan && editingPlan?.id !== plan.id) {
+        void hydrateEditPlan(plan);
+      }
+    } else if (isOpen("create") && editingPlan) {
+      setEditingPlan(null);
+      setEditPlanSubscriptionCount(null);
+      setEditPlanSubscriptionLoading(false);
+    } else if (isOpen("delete") && dialogId != null && plans) {
+      const plan = (Array.isArray(plans) ? plans : []).find(
+        (p: any) => String(p.id) === String(dialogId),
+      );
+      if (plan && deletingPlan?.id !== plan.id) {
+        void hydrateDeletePlan(plan);
+      }
+    } else if (!isModalOpen && !isDeleteDialogOpen) {
+      setEditingPlan(null);
+      setDeletingPlan(null);
+      setLinkedSubscriptions([]);
+      setEditPlanSubscriptionCount(null);
+      setEditPlanSubscriptionLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dialogId, isModalOpen, isDeleteDialogOpen, plans]);
+
+  const hydrateEditPlan = async (plan: any) => {
+    setEditingPlan(plan);
+    setEditPlanSubscriptionCount(null);
+    setEditPlanSubscriptionLoading(true);
+    form.reset({
+      name: plan.name,
+      description: plan.description,
+      price: plan.price,
+      durationDays: plan.duration_days ?? plan.durationDays,
+      isActive: plan.is_active ?? plan.isActive,
+      planGroups: plan.plan_groups?.map((group: any) => ({
+        groupId: group.group_id,
+        sessionCount: group.session_count,
+        isFree: group.is_free || false,
+      })) || [],
+    });
+    try {
+      const res = await planApi.checkPlanDeletion(plan.id);
+      const n = res.subscriptionCount ?? res.linkedSubscriptions?.length ?? 0;
+      setEditPlanSubscriptionCount(n);
+    } catch (e) {
+      console.error('checkPlanDeletion (edit dialog):', e);
+      setEditPlanSubscriptionCount(null);
+      toast({
+        title: 'Could not load subscription info',
+        description: e instanceof Error ? e.message : 'Try again or refresh the page.',
+        variant: 'destructive',
+      });
+    } finally {
+      setEditPlanSubscriptionLoading(false);
+    }
+  };
+
+  const hydrateDeletePlan = async (plan: any) => {
+    setDeletingPlan(plan);
+    setLinkedSubscriptions([]);
+    checkDeletionMutation.mutate(plan.id, {
+      onSuccess: (response) => {
+        if (response.canDelete) {
+          setLinkedSubscriptions([]);
+        } else {
+          setLinkedSubscriptions(response.linkedSubscriptions || []);
+        }
+      },
+      onError: () => {
+        setLinkedSubscriptions([]);
+      },
+    });
+  };
 
   // Helper function to get categories from a group (admin structure)
   const getGroupCategories = (group: any) => {
@@ -221,7 +305,7 @@ export default function AdminPlans() {
     if (editingPlan) {
       updatePlanMutation.mutate({ planId: editingPlan.id, data: submitData }, {
         onSuccess: () => {
-          setIsModalOpen(false);
+          closeDialog();
           setEditingPlan(null);
           form.reset();
         }
@@ -229,7 +313,7 @@ export default function AdminPlans() {
     } else {
       createPlanMutation.mutate(submitData, {
         onSuccess: () => {
-          setIsModalOpen(false);
+          closeDialog();
           setEditingPlan(null);
           form.reset();
         }
@@ -237,67 +321,19 @@ export default function AdminPlans() {
     }
   };
 
-  const handleEdit = async (plan: any) => {
-    setEditingPlan(plan);
-    setEditPlanSubscriptionCount(null);
-    setEditPlanSubscriptionLoading(true);
-    form.reset({
-      name: plan.name,
-      description: plan.description,
-      price: plan.price,
-      durationDays: plan.duration_days ?? plan.durationDays,
-      isActive: plan.is_active ?? plan.isActive,
-      planGroups: plan.plan_groups?.map((group: any) => ({
-        groupId: group.group_id,
-        sessionCount: group.session_count,
-        isFree: group.is_free || false,
-      })) || [],
-    });
-    setIsModalOpen(true);
-    try {
-      const res = await planApi.checkPlanDeletion(plan.id);
-      const n = res.subscriptionCount ?? res.linkedSubscriptions?.length ?? 0;
-      setEditPlanSubscriptionCount(n);
-    } catch (e) {
-      console.error('checkPlanDeletion (edit dialog):', e);
-      setEditPlanSubscriptionCount(null);
-      toast({
-        title: 'Could not load subscription info',
-        description: e instanceof Error ? e.message : 'Try again or refresh the page.',
-        variant: 'destructive',
-      });
-    } finally {
-      setEditPlanSubscriptionLoading(false);
-    }
+  const handleEdit = (plan: any) => {
+    openDialog("edit", { id: plan.id });
   };
 
-  const handleDelete = async (plan: any) => {
-    setDeletingPlan(plan);
-    setLinkedSubscriptions([]);
-    
-    // Check if plan can be deleted
-    checkDeletionMutation.mutate(plan.id, {
-      onSuccess: (response) => {
-        if (response.canDelete) {
-          setLinkedSubscriptions([]);
-        } else {
-          setLinkedSubscriptions(response.linkedSubscriptions || []);
-        }
-        setIsDeleteDialogOpen(true);
-      },
-      onError: (error: any) => {
-        console.error('Error checking deletion:', error);
-        setLinkedSubscriptions([]);
-        setIsDeleteDialogOpen(true);
-      }
-    });
+  const handleDelete = (plan: any) => {
+    openDialog("delete", { id: plan.id });
   };
 
   const confirmDelete = () => {
     if (deletingPlan) {
       deletePlanMutation.mutate(deletingPlan.id, {
         onSuccess: () => {
-          setIsDeleteDialogOpen(false);
+          closeDialog();
           setDeletingPlan(null);
           setLinkedSubscriptions([]);
         }
@@ -310,7 +346,7 @@ export default function AdminPlans() {
     setEditPlanSubscriptionCount(null);
     setEditPlanSubscriptionLoading(false);
     form.reset();
-    setIsModalOpen(true);
+    openDialog("create");
   };
 
   const formatPrice = (price: string | number) => {
@@ -335,7 +371,7 @@ export default function AdminPlans() {
         <Dialog
           open={isModalOpen}
           onOpenChange={(open) => {
-            setIsModalOpen(open);
+            onOpenChange(open);
             if (!open) {
               setEditingPlan(null);
               setEditPlanSubscriptionCount(null);
@@ -343,12 +379,10 @@ export default function AdminPlans() {
             }
           }}
         >
-          <DialogTrigger asChild>
-            <Button onClick={openCreateModal}>
-              <Plus className="w-4 h-4 mr-2" />
-              Add Plan
-            </Button>
-          </DialogTrigger>
+          <Button onClick={openCreateModal}>
+            <Plus className="w-4 h-4 mr-2" />
+            Add Plan
+          </Button>
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
               <DialogTitle>{editingPlan ? "Edit Plan" : "Add New Plan"}</DialogTitle>
@@ -837,10 +871,17 @@ export default function AdminPlans() {
                       variant="outline"
                       size="sm"
                       className="flex-1"
+                      onClick={() => router.push(`/admin/plans/${plan.id}`)}
+                    >
+                      <Eye className="w-4 h-4 mr-2" />
+                      View
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => handleEdit(plan)}
                     >
-                      <Edit className="w-4 h-4 mr-2" />
-                      Edit Plan
+                      <Edit className="w-4 h-4" />
                     </Button>
                     <Button
                       variant="outline"
@@ -944,6 +985,15 @@ export default function AdminPlans() {
                       <Button
                         variant="outline"
                         size="sm"
+                        onClick={() => router.push(`/admin/plans/${plan.id}`)}
+                        className="flex items-center gap-1"
+                      >
+                        <Eye className="w-3 h-3" />
+                        View
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => handleEdit(plan)}
                         className="flex items-center gap-1"
                       >
@@ -1030,7 +1080,7 @@ export default function AdminPlans() {
       </div>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={onOpenChange}>
         <AlertDialogContent className="sm:max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-lg font-semibold">
@@ -1089,7 +1139,7 @@ export default function AdminPlans() {
           <AlertDialogFooter className="gap-3">
             <AlertDialogCancel 
               onClick={() => {
-                setIsDeleteDialogOpen(false);
+                closeDialog();
                 setDeletingPlan(null);
                 setLinkedSubscriptions([]);
               }}

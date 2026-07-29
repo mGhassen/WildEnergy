@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -29,8 +29,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { useDialogParams } from "@/hooks/use-dialog-params";
 
 const classFormSchema = insertClassSchema;
 type ClassFormData = z.infer<typeof classFormSchema>;
@@ -50,7 +50,6 @@ function mapClassToApi(data: any) {
 }
 
 export default function AdminClasses() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClass, setEditingClass] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [classToDelete, setClassToDelete] = useState<any>(null);
@@ -58,6 +57,9 @@ export default function AdminClasses() {
   const [linkedCheckinsCount, setLinkedCheckinsCount] = useState<number>(0);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { isOpen, openDialog, closeDialog, onOpenChange, dialogId } = useDialogParams();
+  const isModalOpen = isOpen("create") || isOpen("edit");
+  const isDeleteDialogOpen = isOpen("delete");
 
   const { data: rawClasses = [], isLoading } = useAdminClasses();
   const { data: rawCategories = [], isLoading: categoriesLoading } = useAdminCategories();
@@ -107,14 +109,48 @@ export default function AdminClasses() {
   const updateClassMutation = useUpdateAdminClass();
   const deleteClassMutation = useDeleteAdminClass();
 
+  useEffect(() => {
+    if (isOpen("edit") && dialogId != null && !isLoading) {
+      const classItem = classes.find((c: any) => String(c.id) === String(dialogId));
+      if (classItem && editingClass?.id !== classItem.id) {
+        setEditingClass(classItem);
+        form.reset({
+          name: classItem.name,
+          description: classItem.description,
+          categoryId: classItem.categoryId || null,
+          difficulty: classItem.difficulty || "beginner",
+          durationMinutes: classItem.durationMinutes,
+          maxCapacity: classItem.maxCapacity,
+          equipment: classItem.equipment || "",
+          isActive: classItem.isActive,
+        });
+      }
+    } else if (isOpen("create")) {
+      if (editingClass) setEditingClass(null);
+    } else if (isOpen("delete") && dialogId != null && !isLoading) {
+      const classItem = classes.find((c: any) => String(c.id) === String(dialogId));
+      if (classItem && classToDelete?.id !== classItem.id) {
+        setClassToDelete(classItem);
+        setLinkedRegistrationsCount(registrations.filter((reg: any) => reg.classId === classItem.id).length);
+        setLinkedCheckinsCount(checkins.filter((checkin: any) => checkin.classId === classItem.id).length);
+      }
+    } else if (!isModalOpen && !isDeleteDialogOpen) {
+      setEditingClass(null);
+      setClassToDelete(null);
+      setLinkedRegistrationsCount(0);
+      setLinkedCheckinsCount(0);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dialogId, isLoading, classes, isModalOpen, isDeleteDialogOpen, registrations, checkins]);
+
   // Handle successful mutations
   useEffect(() => {
     if (createClassMutation.isSuccess || updateClassMutation.isSuccess) {
-      setIsModalOpen(false);
+      closeDialog();
       setEditingClass(null);
       form.reset();
     }
-  }, [createClassMutation.isSuccess, updateClassMutation.isSuccess, form]);
+  }, [createClassMutation.isSuccess, updateClassMutation.isSuccess, form, closeDialog]);
 
   const categoriesOptions = categories.map((cat: any) => ({
     value: cat.id,
@@ -147,26 +183,25 @@ export default function AdminClasses() {
       equipment: classItem.equipment || "",
       isActive: classItem.isActive,
     });
-    setIsModalOpen(true);
+    openDialog("edit", { id: classItem.id });
   };
 
-  const handleDeleteClick = async (classItem: any) => {
+  const handleDeleteClick = (classItem: any) => {
     setClassToDelete(classItem);
-    
-    // Check for linked registrations
-    const linkedRegistrations = registrations.filter((reg: any) => reg.classId === classItem.id);
-    setLinkedRegistrationsCount(linkedRegistrations.length);
-    
-    // Check for linked checkins
-    const linkedCheckins = checkins.filter((checkin: any) => checkin.classId === classItem.id);
-    setLinkedCheckinsCount(linkedCheckins.length);
+    setLinkedRegistrationsCount(registrations.filter((reg: any) => reg.classId === classItem.id).length);
+    setLinkedCheckinsCount(checkins.filter((checkin: any) => checkin.classId === classItem.id).length);
+    openDialog("delete", { id: classItem.id });
   };
 
   const handleDelete = (id: number) => {
-    deleteClassMutation.mutate(id);
-    setClassToDelete(null);
-    setLinkedRegistrationsCount(0);
-    setLinkedCheckinsCount(0);
+    deleteClassMutation.mutate(id, {
+      onSuccess: () => {
+        closeDialog();
+        setClassToDelete(null);
+        setLinkedRegistrationsCount(0);
+        setLinkedCheckinsCount(0);
+      },
+    });
   };
 
   const openCreateModal = () => {
@@ -181,7 +216,7 @@ export default function AdminClasses() {
       equipment: "",
       isActive: true,
     });
-    setIsModalOpen(true);
+    openDialog("create");
   };
 
   const getCategoryColor = (categoryId: number, classItem: any) => {
@@ -226,13 +261,11 @@ export default function AdminClasses() {
           <h1 className="text-3xl font-bold text-foreground mb-2">Classes</h1>
           <p className="text-muted-foreground">Manage gym classes and activities</p>
         </div>
-        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={openCreateModal}>
-              <Plus className="w-4 h-4 mr-2" />
-              Add Class
-            </Button>
-          </DialogTrigger>
+        <Dialog open={isModalOpen} onOpenChange={onOpenChange}>
+          <Button onClick={openCreateModal}>
+            <Plus className="w-4 h-4 mr-2" />
+            Add Class
+          </Button>
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
               <DialogTitle>{editingClass ? "Edit Class" : "Add New Class"}</DialogTitle>
@@ -489,64 +522,13 @@ export default function AdminClasses() {
                         >
                           <Edit className="w-4 h-4" />
                         </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button 
-                              variant="ghost" 
-                              size="icon"
-                              onClick={() => handleDeleteClick(classItem)}
-                            >
-                              <Trash2 className="w-4 h-4 text-red-500" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete Class</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                {(linkedRegistrationsCount > 0 || linkedCheckinsCount > 0) ? (
-                                  <div className="space-y-2">
-                                    <p className="text-red-600 font-medium">Cannot delete this class!</p>
-                                    <p>
-                                      This class has:
-                                    </p>
-                                    <ul className="list-disc list-inside space-y-1">
-                                      {linkedRegistrationsCount > 0 && (
-                                        <li><strong>{linkedRegistrationsCount}</strong> registration{linkedRegistrationsCount > 1 ? 's' : ''}</li>
-                                      )}
-                                      {linkedCheckinsCount > 0 && (
-                                        <li><strong>{linkedCheckinsCount}</strong> check-in{linkedCheckinsCount > 1 ? 's' : ''}</li>
-                                      )}
-                                    </ul>
-                                    <p className="text-sm text-muted-foreground">
-                                      Please remove all registrations and check-ins first before deleting this class.
-                                    </p>
-                                  </div>
-                                ) : (
-                                  <>
-                                    Are you sure you want to delete &quot;{classItem.name}&quot;? This action cannot be undone.
-                                  </>
-                                )}
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel onClick={() => {
-                                setClassToDelete(null);
-                                setLinkedRegistrationsCount(0);
-                                setLinkedCheckinsCount(0);
-                              }}>
-                                {(linkedRegistrationsCount > 0 || linkedCheckinsCount > 0) ? 'Close' : 'Cancel'}
-                              </AlertDialogCancel>
-                              {(linkedRegistrationsCount === 0 && linkedCheckinsCount === 0) && (
-                                <AlertDialogAction
-                                  onClick={() => handleDelete(classItem.id)}
-                                  className="bg-red-600 hover:bg-red-700"
-                                >
-                                  Delete
-                                </AlertDialogAction>
-                              )}
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteClick(classItem)}
+                        >
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -556,6 +538,57 @@ export default function AdminClasses() {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={onOpenChange}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Class</AlertDialogTitle>
+            <AlertDialogDescription>
+              {(linkedRegistrationsCount > 0 || linkedCheckinsCount > 0) ? (
+                <div className="space-y-2">
+                  <p className="text-red-600 font-medium">Cannot delete this class!</p>
+                  <p>
+                    This class has:
+                  </p>
+                  <ul className="list-disc list-inside space-y-1">
+                    {linkedRegistrationsCount > 0 && (
+                      <li><strong>{linkedRegistrationsCount}</strong> registration{linkedRegistrationsCount > 1 ? 's' : ''}</li>
+                    )}
+                    {linkedCheckinsCount > 0 && (
+                      <li><strong>{linkedCheckinsCount}</strong> check-in{linkedCheckinsCount > 1 ? 's' : ''}</li>
+                    )}
+                  </ul>
+                  <p className="text-sm text-muted-foreground">
+                    Please remove all registrations and check-ins first before deleting this class.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  Are you sure you want to delete &quot;{classToDelete?.name}&quot;? This action cannot be undone.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              closeDialog();
+              setClassToDelete(null);
+              setLinkedRegistrationsCount(0);
+              setLinkedCheckinsCount(0);
+            }}>
+              {(linkedRegistrationsCount > 0 || linkedCheckinsCount > 0) ? 'Close' : 'Cancel'}
+            </AlertDialogCancel>
+            {(linkedRegistrationsCount === 0 && linkedCheckinsCount === 0) && classToDelete && (
+              <AlertDialogAction
+                onClick={() => handleDelete(classToDelete.id)}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                Delete
+              </AlertDialogAction>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { useSubscriptions } from "@/hooks/useSubscriptions";
 import { usePayments } from "@/hooks/usePayments";
 import { useMembers } from "@/hooks/useMembers";
 import { usePlans } from "@/hooks/usePlans";
+import { useDialogParams } from "@/hooks/use-dialog-params";
 import { SubscriptionDetails } from "@/components/subscription-details";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDate } from "@/lib/date";
@@ -122,16 +123,10 @@ export default function AdminSubscriptionDetails() {
   const params = useParams();
   const router = useRouter();
   const subscriptionId = params.id as string;
+  const { isOpen, openDialog, closeDialog, onOpenChange, getParam } = useDialogParams();
   
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
-  const [isDeletePaymentModalOpen, setIsDeletePaymentModalOpen] = useState(false);
   const [paymentToDelete, setPaymentToDelete] = useState<Payment | null>(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [subscriptionToDelete, setSubscriptionToDelete] = useState<number | null>(null);
-  const [isConsumeSessionModalOpen, setIsConsumeSessionModalOpen] = useState(false);
-  const [isRefundSessionModalOpen, setIsRefundSessionModalOpen] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [selectedRefundGroupId, setSelectedRefundGroupId] = useState<number | null>(null);
   const initializedSubscriptionId = useRef<number | null>(null);
@@ -243,6 +238,7 @@ export default function AdminSubscriptionDetails() {
     
     const amountToUse = override?.amount ?? remainingAmount;
     
+    setEditingPayment(null);
     paymentForm.reset({
       subscription_id: subscription.id,
       amount: amountToUse,
@@ -251,7 +247,7 @@ export default function AdminSubscriptionDetails() {
       payment_date: new Date().toISOString().split('T')[0],
       payment_reference: "",
     });
-    setIsPaymentModalOpen(true);
+    openDialog("payment");
   };
 
   const handlePaymentSubmit = (data: PaymentFormData) => {
@@ -271,7 +267,7 @@ export default function AdminSubscriptionDetails() {
         data: paymentPayload
       }, {
         onSuccess: () => {
-          setIsPaymentModalOpen(false);
+          closeDialog();
           setEditingPayment(null);
           paymentForm.reset();
         }
@@ -279,7 +275,7 @@ export default function AdminSubscriptionDetails() {
     } else {
       createPaymentMutation.mutate(paymentPayload, {
         onSuccess: () => {
-          setIsPaymentModalOpen(false);
+          closeDialog();
           paymentForm.reset();
         }
       });
@@ -287,38 +283,24 @@ export default function AdminSubscriptionDetails() {
   };
 
   const handleDeleteSubscription = () => {
-    setSubscriptionToDelete(parseInt(subscriptionId));
-    setShowDeleteConfirm(true);
+    openDialog("delete");
   };
 
   const handleConfirmDelete = () => {
-    if (subscriptionToDelete) {
-      deleteSubscriptionMutation.mutate(subscriptionToDelete, {
-        onSuccess: () => {
-          router.push('/admin/subscriptions');
-        }
-      });
-      setShowDeleteConfirm(false);
-      setSubscriptionToDelete(null);
-    }
+    deleteSubscriptionMutation.mutate(parseInt(subscriptionId), {
+      onSuccess: () => {
+        closeDialog();
+        router.push('/admin/subscriptions');
+      }
+    });
   };
 
   const handleEditPayment = (payment: Payment) => {
-    setEditingPayment(payment);
-    paymentForm.reset({
-      subscription_id: payment.subscription_id,
-      amount: payment.amount,
-      payment_type: (payment.payment_type as "cash" | "card" | "bank_transfer" | "check" | "other") || "cash",
-      status: (payment.payment_status as "pending" | "paid" | "failed" | "cancelled") || "paid",
-      payment_date: payment.payment_date.split('T')[0],
-      payment_reference: payment.payment_reference || '',
-    });
-    setIsPaymentModalOpen(true);
+    openDialog("payment", { paymentId: payment.id });
   };
 
   const handleDeletePayment = (payment: Payment) => {
-    setPaymentToDelete(payment);
-    setIsDeletePaymentModalOpen(true);
+    openDialog("delete-payment", { paymentId: payment.id });
   };
 
   const handleManualRefund = () => {
@@ -344,7 +326,8 @@ export default function AdminSubscriptionDetails() {
       manualRefundMutation.mutate({ subscriptionId: subscription.id, sessionsToRefund: 1, groupId: refundableGroups[0].group_id });
     } else {
       // Multiple groups available, show selection modal
-      setIsRefundSessionModalOpen(true);
+      setSelectedRefundGroupId(null);
+      openDialog("refund-session");
     }
   };
 
@@ -363,7 +346,7 @@ export default function AdminSubscriptionDetails() {
       }
     }, {
       onSuccess: () => {
-        setIsEditModalOpen(false);
+        closeDialog();
         toast({
           title: "Success",
           description: "Subscription updated successfully",
@@ -387,7 +370,7 @@ export default function AdminSubscriptionDetails() {
       groupId: selectedGroupId
     }, {
       onSuccess: () => {
-        setIsConsumeSessionModalOpen(false);
+        closeDialog();
         setSelectedGroupId(null);
       }
     });
@@ -402,7 +385,7 @@ export default function AdminSubscriptionDetails() {
       groupId: selectedRefundGroupId
     }, {
       onSuccess: () => {
-        setIsRefundSessionModalOpen(false);
+        closeDialog();
         setSelectedRefundGroupId(null);
       }
     });
@@ -422,6 +405,73 @@ export default function AdminSubscriptionDetails() {
       initializedSubscriptionId.current = subscription.id;
     }
   }, [subscription?.id]); // Only depend on subscription ID
+
+  // Hydrate dialog entities from URL params
+  useEffect(() => {
+    if (isOpen("payment")) {
+      const paymentId = getParam("paymentId");
+      if (paymentId != null) {
+        const payment = payments.find((p) => String(p.id) === String(paymentId));
+        if (payment && editingPayment?.id !== payment.id) {
+          setEditingPayment(payment);
+          paymentForm.reset({
+            subscription_id: payment.subscription_id,
+            amount: payment.amount,
+            payment_type: (payment.payment_type as "cash" | "card" | "bank_transfer" | "check" | "other") || "cash",
+            status: (payment.payment_status as "pending" | "paid" | "failed" | "cancelled") || "paid",
+            payment_date: payment.payment_date.split('T')[0],
+            payment_reference: payment.payment_reference || '',
+          });
+        }
+      } else if (editingPayment) {
+        setEditingPayment(null);
+      } else if (subscription && paymentForm.getValues("amount") === 0 && remainingAmount > 0) {
+        paymentForm.reset({
+          subscription_id: subscription.id,
+          amount: remainingAmount,
+          payment_type: "cash",
+          status: "paid",
+          payment_date: new Date().toISOString().split('T')[0],
+          payment_reference: "",
+        });
+      }
+      return;
+    }
+
+    if (isOpen("delete-payment")) {
+      const paymentId = getParam("paymentId");
+      if (paymentId != null) {
+        const payment = payments.find((p) => String(p.id) === String(paymentId));
+        if (payment && paymentToDelete?.id !== payment.id) {
+          setPaymentToDelete(payment);
+        }
+      }
+      return;
+    }
+
+    if (
+      !isOpen("payment") &&
+      !isOpen("delete-payment") &&
+      !isOpen("edit") &&
+      !isOpen("consume-session") &&
+      !isOpen("refund-session") &&
+      !isOpen("delete")
+    ) {
+      setEditingPayment(null);
+      setPaymentToDelete(null);
+      setSelectedGroupId(null);
+      setSelectedRefundGroupId(null);
+    }
+  }, [
+    isOpen("payment"),
+    isOpen("delete-payment"),
+    isOpen("edit"),
+    isOpen("consume-session"),
+    isOpen("refund-session"),
+    isOpen("delete"),
+    payments,
+    subscription,
+  ]);
 
   // Utility functions
   const formatPrice = (price: string | number) => {
@@ -503,7 +553,7 @@ export default function AdminSubscriptionDetails() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               {/* Subscription Management */}
-              <DropdownMenuItem onClick={() => setIsEditModalOpen(true)}>
+              <DropdownMenuItem onClick={() => openDialog("edit")}>
                 <Edit className="w-4 h-4 mr-2" />
                 Edit Subscription
               </DropdownMenuItem>
@@ -522,7 +572,10 @@ export default function AdminSubscriptionDetails() {
                 {manualRefundMutation.isPending ? 'Refunding...' : 'Refund 1 Session'}
               </DropdownMenuItem>
               
-              <DropdownMenuItem onClick={() => setIsConsumeSessionModalOpen(true)}>
+              <DropdownMenuItem onClick={() => {
+                setSelectedGroupId(null);
+                openDialog("consume-session");
+              }}>
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Consume 1 Session
               </DropdownMenuItem>
@@ -642,10 +695,10 @@ export default function AdminSubscriptionDetails() {
       </Tabs>
 
       {/* Payment Modal */}
-      <Dialog open={isPaymentModalOpen} onOpenChange={setIsPaymentModalOpen}>
+      <Dialog open={isOpen("payment")} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Add Payment</DialogTitle>
+            <DialogTitle>{editingPayment ? "Edit Payment" : "Add Payment"}</DialogTitle>
             <DialogDescription>
               Record a payment for this subscription
             </DialogDescription>
@@ -792,11 +845,13 @@ export default function AdminSubscriptionDetails() {
               </div>
 
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsPaymentModalOpen(false)}>
+                <Button type="button" variant="outline" onClick={closeDialog}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={createPaymentMutation.isPending}>
-                  {createPaymentMutation.isPending ? "Creating..." : "Create Payment"}
+                <Button type="submit" disabled={createPaymentMutation.isPending || updatePaymentMutation.isPending}>
+                  {createPaymentMutation.isPending || updatePaymentMutation.isPending
+                    ? (editingPayment ? "Updating..." : "Creating...")
+                    : (editingPayment ? "Update Payment" : "Create Payment")}
                 </Button>
               </DialogFooter>
             </form>
@@ -805,7 +860,7 @@ export default function AdminSubscriptionDetails() {
       </Dialog>
 
       {/* Payment Delete Confirmation Modal */}
-      <Dialog open={isDeletePaymentModalOpen} onOpenChange={setIsDeletePaymentModalOpen}>
+      <Dialog open={isOpen("delete-payment")} onOpenChange={onOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Payment</DialogTitle>
@@ -814,8 +869,17 @@ export default function AdminSubscriptionDetails() {
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-2 mt-4">
-            <Button variant="outline" onClick={() => setIsDeletePaymentModalOpen(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={() => paymentToDelete && deletePaymentMutation.mutate(paymentToDelete.id)} disabled={deletePaymentMutation.isPending}>
+            <Button variant="outline" onClick={closeDialog}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (!paymentToDelete) return;
+                deletePaymentMutation.mutate(paymentToDelete.id, {
+                  onSuccess: () => closeDialog(),
+                });
+              }}
+              disabled={deletePaymentMutation.isPending}
+            >
               {deletePaymentMutation.isPending ? "Deleting..." : "Delete"}
             </Button>
           </div>
@@ -823,7 +887,7 @@ export default function AdminSubscriptionDetails() {
       </Dialog>
 
       {/* Subscription Edit Modal */}
-      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+      <Dialog open={isOpen("edit")} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Edit Subscription</DialogTitle>
@@ -970,7 +1034,7 @@ export default function AdminSubscriptionDetails() {
               </div>
 
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)}>
+                <Button type="button" variant="outline" onClick={closeDialog}>
                   Cancel
                 </Button>
                 <Button type="submit" disabled={updateSubscriptionMutation.isPending}>
@@ -983,7 +1047,7 @@ export default function AdminSubscriptionDetails() {
       </Dialog>
 
       {/* Consume Session Modal */}
-      <Dialog open={isConsumeSessionModalOpen} onOpenChange={setIsConsumeSessionModalOpen}>
+      <Dialog open={isOpen("consume-session")} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Consume Session</DialogTitle>
@@ -1038,7 +1102,7 @@ export default function AdminSubscriptionDetails() {
             <Button 
               variant="outline" 
               onClick={() => {
-                setIsConsumeSessionModalOpen(false);
+                closeDialog();
                 setSelectedGroupId(null);
               }}
             >
@@ -1055,7 +1119,7 @@ export default function AdminSubscriptionDetails() {
       </Dialog>
 
       {/* Refund Session Modal */}
-      <Dialog open={isRefundSessionModalOpen} onOpenChange={setIsRefundSessionModalOpen}>
+      <Dialog open={isOpen("refund-session")} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Refund Session</DialogTitle>
@@ -1115,7 +1179,7 @@ export default function AdminSubscriptionDetails() {
             <Button 
               variant="outline" 
               onClick={() => {
-                setIsRefundSessionModalOpen(false);
+                closeDialog();
                 setSelectedRefundGroupId(null);
               }}
             >
@@ -1133,8 +1197,8 @@ export default function AdminSubscriptionDetails() {
 
       {/* Subscription Delete Confirmation Dialog */}
       <ConfirmationDialog
-        open={showDeleteConfirm}
-        onOpenChange={setShowDeleteConfirm}
+        open={isOpen("delete")}
+        onOpenChange={onOpenChange}
         onConfirm={handleConfirmDelete}
         title="Delete Subscription"
         description="Are you sure you want to delete this subscription? This action cannot be undone."

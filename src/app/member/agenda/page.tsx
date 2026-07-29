@@ -109,7 +109,13 @@ function MemberAgenda() {
       </div>
 
       {/* Big Calendar */}
-      <CalendarProvider users={users} events={events} registrations={registrations || []}>
+      <CalendarProvider
+        users={users}
+        events={events}
+        registrations={registrations || []}
+        eventMode="navigation"
+        eventBasePath="/member/courses"
+      >
         <div className="mx-auto flex max-w-screen-2xl flex-col gap-4 h-[calc(100vh-200px)] min-h-[1200px]">
           <ClientContainer view={view as any} />
         </div>

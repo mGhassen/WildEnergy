@@ -44,15 +44,17 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { formatDate } from "@/lib/date";
 import { ConfirmationDialog } from "@/components/confirmation-dialog";
+import { useDialogParams } from "@/hooks/use-dialog-params";
 
 export default function TrainerDetailsPage() {
   const params = useParams();
   const router = useRouter();
   const trainerId = params.id as string;
-  const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
   const [selectedAccountId, setSelectedAccountId] = useState("");
-  const [isUnlinkDialogOpen, setIsUnlinkDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const { isOpen, openDialog, closeDialog, onOpenChange } = useDialogParams();
+  const isLinkDialogOpen = isOpen("link");
+  const isUnlinkDialogOpen = isOpen("unlink");
+  const isDeleteDialogOpen = isOpen("delete");
 
   const { data: trainer, isLoading, error } = useTrainer(trainerId);
   const { data: accounts = [] } = useAccounts();
@@ -62,7 +64,7 @@ export default function TrainerDetailsPage() {
   const { toast } = useToast();
 
   const goToEditTrainer = () => {
-    router.push(`/admin/trainers?edit=${encodeURIComponent(trainerId)}`);
+    router.push(`/admin/trainers?dialog=edit&id=${encodeURIComponent(trainerId)}`);
   };
 
   const goToAccountSettings = () => {
@@ -99,7 +101,7 @@ export default function TrainerDetailsPage() {
     if (!trainer?.account_id) return;
     deleteTrainerMutation.mutate(trainer.account_id, {
       onSuccess: () => {
-        setIsDeleteDialogOpen(false);
+        closeDialog();
         toast({ title: "Trainer deleted", description: `${trainer.first_name} ${trainer.last_name} has been removed.` });
         router.push("/admin/trainers");
       },
@@ -129,7 +131,7 @@ export default function TrainerDetailsPage() {
       { trainerId, accountId: selectedAccountId },
       {
         onSuccess: () => {
-          setIsLinkDialogOpen(false);
+          closeDialog();
           setSelectedAccountId("");
         }
       }
@@ -137,13 +139,13 @@ export default function TrainerDetailsPage() {
   };
 
   const handleUnlinkAccount = () => {
-    setIsUnlinkDialogOpen(true);
+    openDialog("unlink");
   };
 
   const confirmUnlinkAccount = () => {
     unlinkAccountMutation.mutate(trainerId, {
       onSuccess: () => {
-        setIsUnlinkDialogOpen(false);
+        closeDialog();
       }
     });
   };
@@ -245,7 +247,7 @@ export default function TrainerDetailsPage() {
                 Unlink Account
               </DropdownMenuItem>
             ) : (
-              <DropdownMenuItem onClick={() => setIsLinkDialogOpen(true)}>
+              <DropdownMenuItem onClick={() => openDialog("link")}>
                 <Link className="w-4 h-4 mr-2" />
                 Link Account
               </DropdownMenuItem>
@@ -267,7 +269,7 @@ export default function TrainerDetailsPage() {
                   });
                   return;
                 }
-                setIsDeleteDialogOpen(true);
+                openDialog("delete");
               }}
             >
               <Trash2 className="w-4 h-4 mr-2" />
@@ -367,7 +369,7 @@ export default function TrainerDetailsPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setIsLinkDialogOpen(true)}
+                        onClick={() => openDialog("link")}
                       >
                         <Link className="w-3 h-3 mr-1" />
                         Link Account
@@ -518,7 +520,7 @@ export default function TrainerDetailsPage() {
       </div>
 
       {/* Link Account Dialog */}
-      <Dialog open={isLinkDialogOpen} onOpenChange={setIsLinkDialogOpen}>
+      <Dialog open={isLinkDialogOpen} onOpenChange={(open) => { if (!open) { closeDialog(); setSelectedAccountId(""); } }}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -571,7 +573,7 @@ export default function TrainerDetailsPage() {
             <Button
               variant="outline"
               onClick={() => {
-                setIsLinkDialogOpen(false);
+                closeDialog();
                 setSelectedAccountId("");
               }}
             >
@@ -599,7 +601,7 @@ export default function TrainerDetailsPage() {
 
       <ConfirmationDialog
         open={isUnlinkDialogOpen}
-        onOpenChange={setIsUnlinkDialogOpen}
+        onOpenChange={onOpenChange}
         onConfirm={confirmUnlinkAccount}
         title="Unlink Account"
         description="Are you sure you want to unlink this account from the trainer? This action cannot be undone."
@@ -611,7 +613,7 @@ export default function TrainerDetailsPage() {
 
       <ConfirmationDialog
         open={isDeleteDialogOpen}
-        onOpenChange={setIsDeleteDialogOpen}
+        onOpenChange={onOpenChange}
         onConfirm={confirmDeleteTrainer}
         title="Delete trainer"
         description="This removes the login account and related trainer data. This cannot be undone."

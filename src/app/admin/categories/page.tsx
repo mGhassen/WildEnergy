@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -29,7 +29,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Form,
@@ -48,11 +47,11 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Edit, Trash2, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useDialogParams } from "@/hooks/use-dialog-params";
 
 const categoryFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -70,12 +69,13 @@ interface CategoryWithUI extends Category {
 
 
 export default function AdminCategories() {
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<CategoryWithUI | null>(null);
   const [deletingCategory, setDeletingCategory] = useState<CategoryWithUI | null>(null);
   const [linkedClasses, setLinkedClasses] = useState<any[]>([]);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const { toast } = useToast();
+  const { isOpen, openDialog, closeDialog, onOpenChange, dialogId } = useDialogParams();
+  const isModalOpen = isOpen("create") || isOpen("edit");
+  const isDeleteDialogOpen = isOpen("delete");
 
   const { data: rawCategories = [], isLoading, refetch } = useCategories();
 
@@ -114,17 +114,40 @@ export default function AdminCategories() {
 
   const deleteMutation = useDeleteCategory();
 
+  useEffect(() => {
+    if (isOpen("edit") && dialogId != null && !isLoading) {
+      const category = categories.find((c) => String(c.id) === String(dialogId));
+      if (category && editingCategory?.id !== category.id) {
+        setEditingCategory(category);
+        form.reset({
+          name: category.name,
+          description: category.description || "",
+          color: category.color || "",
+          isActive: category.isActive,
+          groupIds: category.groups?.map(g => g.id) || [],
+        });
+      }
+    } else if (isOpen("create")) {
+      if (editingCategory) setEditingCategory(null);
+    } else if (isOpen("delete") && dialogId != null && !isLoading) {
+      const category = categories.find((c) => String(c.id) === String(dialogId));
+      if (category && deletingCategory?.id !== category.id) {
+        setDeletingCategory(category);
+        setLinkedClasses(classes.filter((cls: AdminClass) => cls.category_id === category.id));
+      }
+    } else if (!isModalOpen && !isDeleteDialogOpen) {
+      setEditingCategory(null);
+      setDeletingCategory(null);
+      setLinkedClasses([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dialogId, isLoading, categories, classes, isModalOpen, isDeleteDialogOpen]);
+
   const onSubmit = (data: CategoryFormData) => {
-    console.log('Form submitted:', { data, editingCategory });
-    console.log('groupIds in form data:', data.groupIds, 'type:', typeof data.groupIds);
-    console.log('Form values:', form.getValues());
-    
     if (editingCategory) {
-      console.log('Calling update mutation with:', { categoryId: editingCategory.id, data });
       updateMutation.mutate({ categoryId: editingCategory.id, data }, {
         onSuccess: () => {
-          console.log('Update successful');
-          setIsCreateDialogOpen(false);
+          closeDialog();
           setEditingCategory(null);
           form.reset();
         },
@@ -135,8 +158,7 @@ export default function AdminCategories() {
     } else {
       createMutation.mutate(data, {
         onSuccess: () => {
-          console.log('Create successful');
-          setIsCreateDialogOpen(false);
+          closeDialog();
           setEditingCategory(null);
           form.reset();
         }
@@ -153,38 +175,25 @@ export default function AdminCategories() {
       isActive: category.isActive,
       groupIds: category.groups?.map(g => g.id) || [],
     });
-    setIsCreateDialogOpen(true);
+    openDialog("edit", { id: category.id });
   };
 
   const handleDelete = (category: CategoryWithUI) => {
     setDeletingCategory(category);
-    
-    // Check if category has linked classes
     const linkedClassesForCategory = classes.filter((cls: AdminClass) => cls.category_id === category.id);
     setLinkedClasses(linkedClassesForCategory);
-    setIsDeleteDialogOpen(true);
+    openDialog("delete", { id: category.id });
   };
 
   const confirmDelete = () => {
     if (deletingCategory) {
-      console.log('Attempting to delete category with ID:', deletingCategory.id);
       deleteMutation.mutate(deletingCategory.id, {
         onSuccess: () => {
-          console.log('Category deleted successfully');
-          setIsDeleteDialogOpen(false);
+          closeDialog();
           setDeletingCategory(null);
           setLinkedClasses([]);
         },
         onError: (error: any) => {
-          console.error('Delete category error:', error);
-          console.error('Error details:', {
-            message: error.message,
-            status: error.status,
-            data: error.data,
-            classes: error.classes
-          });
-          
-          // Show detailed error message with classes that are using this category
           if (error.status === 400 && error.classes && error.classes.length > 0) {
             const classNames = error.classes.map((cls: any) => cls.name).join(', ');
             toast({
@@ -213,7 +222,7 @@ export default function AdminCategories() {
       isActive: true,
       groupIds: [],
     });
-    setIsCreateDialogOpen(true);
+    openDialog("create");
   };
 
   if (isLoading) {
@@ -238,18 +247,11 @@ export default function AdminCategories() {
           <h1 className="text-3xl font-bold text-foreground mb-2">Categories</h1>
           <p className="text-muted-foreground">Manage categories for your gym classes</p>
         </div>
-        <Dialog open={isCreateDialogOpen || !!editingCategory} onOpenChange={(open) => {
-          if (!open) {
-            setIsCreateDialogOpen(false);
-            setEditingCategory(null);
-          }
-        }}>
-          <DialogTrigger asChild>
-            <Button onClick={openCreateDialog}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Category
-            </Button>
-          </DialogTrigger>
+        <Dialog open={isModalOpen} onOpenChange={onOpenChange}>
+          <Button onClick={openCreateDialog}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Category
+          </Button>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
@@ -411,7 +413,7 @@ export default function AdminCategories() {
                     type="button"
                     variant="outline"
                     onClick={() => {
-                      setIsCreateDialogOpen(false);
+                      closeDialog();
                       setEditingCategory(null);
                     }}
                   >
@@ -430,7 +432,7 @@ export default function AdminCategories() {
         </Dialog>
 
         {/* Delete Confirmation Dialog */}
-        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={onOpenChange}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Delete Category</AlertDialogTitle>
@@ -459,7 +461,7 @@ export default function AdminCategories() {
             </AlertDialogDescription>
             <AlertDialogFooter>
               <AlertDialogCancel onClick={() => {
-                setIsDeleteDialogOpen(false);
+                closeDialog();
                 setDeletingCategory(null);
                 setLinkedClasses([]);
               }}>

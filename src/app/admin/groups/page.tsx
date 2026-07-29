@@ -1,14 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -23,6 +23,7 @@ import { useRouter } from "next/navigation";
 import { useGroups, useCreateGroup, useUpdateGroup, useDeleteGroup, useCheckGroupDeletion } from "@/hooks/useGroups";
 import { useCategories } from "@/hooks/useCategories";
 import { TableSkeleton, FormSkeleton } from "@/components/skeletons";
+import { useDialogParams } from "@/hooks/use-dialog-params";
 
 const groupFormSchema = z.object({
   name: z.string().min(1, 'Group name is required'),
@@ -35,15 +36,16 @@ const groupFormSchema = z.object({
 type GroupFormData = z.infer<typeof groupFormSchema>;
 
 export default function AdminGroups() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [deletingGroup, setDeletingGroup] = useState<any>(null);
   const [linkedPlans, setLinkedPlans] = useState<string[]>([]);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const router = useRouter();
+  const { isOpen, openDialog, closeDialog, onOpenChange, dialogId } = useDialogParams();
+  const isModalOpen = isOpen("create") || isOpen("edit");
+  const isDeleteDialogOpen = isOpen("delete");
 
   const { data: groups, isLoading } = useGroups();
   const { data: categories } = useCategories();
@@ -64,6 +66,50 @@ export default function AdminGroups() {
   const deleteGroupMutation = useDeleteGroup();
   const checkDeletionMutation = useCheckGroupDeletion();
 
+  useEffect(() => {
+    if (isOpen("edit") && dialogId != null && !isLoading) {
+      const group = (Array.isArray(groups) ? groups : []).find(
+        (g: any) => String(g.id) === String(dialogId),
+      );
+      if (group && editingGroup?.id !== group.id) {
+        setEditingGroup(group);
+        form.reset({
+          name: group.name,
+          description: group.description,
+          color: group.color,
+          isActive: group.is_active ?? (group as any).isActive,
+          categoryIds: group.categories?.map((cat: any) => cat.id) || [],
+        });
+      }
+    } else if (isOpen("create")) {
+      if (editingGroup) setEditingGroup(null);
+    } else if (isOpen("delete") && dialogId != null && !isLoading) {
+      const group = (Array.isArray(groups) ? groups : []).find(
+        (g: any) => String(g.id) === String(dialogId),
+      );
+      if (group && deletingGroup?.id !== group.id) {
+        setDeletingGroup(group);
+        setLinkedPlans([]);
+        checkDeletionMutation.mutate(group.id, {
+          onSuccess: (response) => {
+            if (response.canDelete) {
+              setLinkedPlans([]);
+            } else {
+              setLinkedPlans(response.linkedPlans || []);
+            }
+          },
+          onError: () => {
+            setLinkedPlans([]);
+          },
+        });
+      }
+    } else if (!isModalOpen && !isDeleteDialogOpen) {
+      setEditingGroup(null);
+      setDeletingGroup(null);
+      setLinkedPlans([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dialogId, isLoading, groups, isModalOpen, isDeleteDialogOpen]);
 
   const filteredGroups = Array.isArray(groups) ? groups.filter((group: any) =>
     `${group.name} ${group.description}`
@@ -82,7 +128,7 @@ export default function AdminGroups() {
     if (editingGroup) {
       updateGroupMutation.mutate({ groupId: editingGroup.id, data: submitData }, {
         onSuccess: () => {
-          setIsModalOpen(false);
+          closeDialog();
           setEditingGroup(null);
           form.reset();
         }
@@ -90,7 +136,7 @@ export default function AdminGroups() {
     } else {
       createGroupMutation.mutate(submitData, {
         onSuccess: () => {
-          setIsModalOpen(false);
+          closeDialog();
           setEditingGroup(null);
           form.reset();
         }
@@ -107,14 +153,13 @@ export default function AdminGroups() {
       isActive: group.is_active ?? group.isActive,
       categoryIds: group.categories?.map((cat: any) => cat.id) || [],
     });
-    setIsModalOpen(true);
+    openDialog("edit", { id: group.id });
   };
 
-  const handleDelete = async (group: any) => {
+  const handleDelete = (group: any) => {
     setDeletingGroup(group);
-    setLinkedPlans([]); // Clear any previous error state
-    
-    // Check if group is used in plans before showing dialog
+    setLinkedPlans([]);
+    openDialog("delete", { id: group.id });
     checkDeletionMutation.mutate(group.id, {
       onSuccess: (response) => {
         if (response.canDelete) {
@@ -122,12 +167,10 @@ export default function AdminGroups() {
         } else {
           setLinkedPlans(response.linkedPlans || []);
         }
-        setIsDeleteDialogOpen(true);
       },
       onError: (error: any) => {
         console.error('Error checking group deletion:', error);
         setLinkedPlans([]);
-        setIsDeleteDialogOpen(true);
       }
     });
   };
@@ -136,7 +179,7 @@ export default function AdminGroups() {
     if (deletingGroup) {
       deleteGroupMutation.mutate(deletingGroup.id, {
         onSuccess: () => {
-          setIsDeleteDialogOpen(false);
+          closeDialog();
           setDeletingGroup(null);
           setLinkedPlans([]);
         }
@@ -147,7 +190,7 @@ export default function AdminGroups() {
   const openCreateModal = () => {
     setEditingGroup(null);
     form.reset();
-    setIsModalOpen(true);
+    openDialog("create");
   };
 
   const navigateToPlans = () => {
@@ -161,13 +204,11 @@ export default function AdminGroups() {
           <h1 className="text-3xl font-bold text-foreground mb-2">Groups</h1>
           <p className="text-muted-foreground">Manage category groups</p>
         </div>
-        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={openCreateModal}>
-              <Plus className="w-4 h-4 mr-2" />
-              Add Group
-            </Button>
-          </DialogTrigger>
+        <Dialog open={isModalOpen} onOpenChange={onOpenChange}>
+          <Button onClick={openCreateModal}>
+            <Plus className="w-4 h-4 mr-2" />
+            Add Group
+          </Button>
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
               <DialogTitle>{editingGroup ? "Edit Group" : "Add New Group"}</DialogTitle>
@@ -416,7 +457,7 @@ export default function AdminGroups() {
       </Card>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={onOpenChange}>
         <AlertDialogContent className="sm:max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-lg font-semibold">
@@ -498,7 +539,7 @@ export default function AdminGroups() {
               onClick={() => {
                 setDeletingGroup(null);
                 setLinkedPlans([]);
-                setIsDeleteDialogOpen(false);
+                closeDialog();
               }}
               className="flex-1"
             >
