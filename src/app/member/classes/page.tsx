@@ -16,7 +16,7 @@ import { apiFetch } from "@/lib/api";
 import { Registration } from "@/lib/api/registrations";
 import { CardSkeleton, ListSkeleton } from "@/components/skeletons";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Clock, Users, Calendar, Star, Check, AlertTriangle, QrCode, List, CalendarRange } from "lucide-react";
+import { Search, Clock, Users, Calendar, Star, Check, QrCode, List, CalendarRange } from "lucide-react";
 import { formatTime, getDayName } from "@/lib/date";
 import { formatDate } from "@/lib/date";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";

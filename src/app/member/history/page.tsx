@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, Clock, User, Search, CheckCircle, XCircle, AlertCircle, QrCode, Filter, Download, TrendingUp, BarChart3, Calendar as CalendarIcon, Copy } from "lucide-react";
+import { Calendar, Clock, User, Search, CheckCircle, XCircle, AlertCircle, QrCode, Filter, Download, TrendingUp, BarChart3, Calendar as CalendarIcon } from "lucide-react";
 import { formatTime, getDayName, formatDateTime } from "@/lib/date";
 import QRGenerator from "@/components/qr-generator";
 import { formatDate } from "@/lib/date";
