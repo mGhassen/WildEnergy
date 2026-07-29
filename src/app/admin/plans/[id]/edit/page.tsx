@@ -134,7 +134,7 @@ export default function AdminEditPlanPage() {
       title="Edit Plan"
       description="Update plan information"
       closeHref={closeHref}
-      className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto"
+      className="sm:max-w-[640px] max-h-[90vh] overflow-y-auto"
     >
       {subscriptionLoading && (
         <p className="text-sm text-muted-foreground mb-4">

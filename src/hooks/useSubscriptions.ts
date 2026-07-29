@@ -93,8 +93,23 @@ export function useManualRefundSessions() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: ({ subscriptionId, sessionsToRefund, groupId }: { subscriptionId: number; sessionsToRefund: number; groupId?: number }) => 
-      subscriptionApi.manualRefundSessions(subscriptionId, sessionsToRefund, groupId),
+    mutationFn: ({
+      subscriptionId,
+      sessionsToRefund,
+      groupId,
+      poolId,
+    }: {
+      subscriptionId: number;
+      sessionsToRefund: number;
+      groupId?: number;
+      poolId?: number;
+    }) =>
+      subscriptionApi.manualRefundSessions(
+        subscriptionId,
+        sessionsToRefund,
+        groupId,
+        poolId
+      ),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
       queryClient.invalidateQueries({ queryKey: ['/api/admin/subscriptions'] });
@@ -123,8 +138,15 @@ export function useConsumeSession() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: ({ subscriptionId, groupId }: { subscriptionId: number; groupId: number }) => 
-      subscriptionApi.consumeSession(subscriptionId, groupId),
+    mutationFn: ({
+      subscriptionId,
+      groupId,
+      poolId,
+    }: {
+      subscriptionId: number;
+      groupId?: number;
+      poolId?: number;
+    }) => subscriptionApi.consumeSession(subscriptionId, { groupId, poolId }),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
       queryClient.invalidateQueries({ queryKey: ['subscription'] });

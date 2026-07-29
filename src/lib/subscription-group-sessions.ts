@@ -1,8 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
- * Ensure subscription_group_sessions rows exist for the subscription's current plan.
- * Missing rows only — never overwrites existing remaining balances.
+ * Ensure subscription_group_sessions and subscription_pool_sessions rows exist
+ * for the subscription's current plan. Missing rows only — never overwrites
+ * existing remaining balances.
  */
 export async function ensureSubscriptionGroupSessions(
   supabase: SupabaseClient,
@@ -15,27 +16,37 @@ export async function ensureSubscriptionGroupSessions(
 }
 
 /**
- * When the plan changes, drop old group-session rows then recreate from the new plan
- * (accounting for registrations already charged to this subscription).
+ * When the plan changes, drop old group/pool session rows then recreate from
+ * the new plan (accounting for registrations already charged to this subscription).
  */
 export async function resetSubscriptionGroupSessionsForPlan(
   supabase: SupabaseClient,
   subscriptionId: number
 ): Promise<{ error: unknown }> {
-  const { error: deleteError } = await supabase
+  const { error: deleteGroupError } = await supabase
     .from('subscription_group_sessions')
     .delete()
     .eq('subscription_id', subscriptionId);
 
-  if (deleteError) {
-    return { error: deleteError };
+  if (deleteGroupError) {
+    return { error: deleteGroupError };
+  }
+
+  const { error: deletePoolError } = await supabase
+    .from('subscription_pool_sessions')
+    .delete()
+    .eq('subscription_id', subscriptionId);
+
+  if (deletePoolError) {
+    return { error: deletePoolError };
   }
 
   return ensureSubscriptionGroupSessions(supabase, subscriptionId);
 }
 
 /**
- * Ensure every subscription on a plan has group-session rows for current plan_groups.
+ * Ensure every subscription on a plan has group/pool session rows for current
+ * plan_groups and plan_session_pools.
  */
 export async function ensureGroupSessionsForPlanSubscriptions(
   supabase: SupabaseClient,

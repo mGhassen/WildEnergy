@@ -9,6 +9,10 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { formatDate, subscriptionDurationDays } from "@/lib/date";
 import { formatCurrency } from "@/lib/config";
 import { CreditCard, Info, Users, Plus, AlertTriangle } from "lucide-react";
+import {
+  totalPlanSessionCount,
+  totalRemainingSessions as sumRemainingSessions,
+} from "@/lib/session-eligibility";
 
 interface Plan {
   id: number;
@@ -38,6 +42,19 @@ interface Plan {
         };
       }>;
     };
+  }>;
+  plan_session_pools?: Array<{
+    id: number;
+    session_count: number;
+    is_free: boolean;
+    plan_session_pool_groups?: Array<{
+      group_id: number;
+      groups?: {
+        id: number;
+        name: string;
+        color?: string;
+      };
+    }>;
   }>;
 }
 
@@ -74,6 +91,20 @@ interface Subscription {
       color: string;
     };
   }[];
+  subscription_pool_sessions?: {
+    id: number;
+    pool_id: number;
+    sessions_remaining: number;
+    total_sessions: number;
+    plan_session_pools?: {
+      id: number;
+      is_free?: boolean;
+      plan_session_pool_groups?: Array<{
+        group_id: number;
+        groups?: { id: number; name: string; color?: string };
+      }>;
+    };
+  }[];
 }
 
 interface SubscriptionDetailsProps {
@@ -98,19 +129,16 @@ export function SubscriptionDetails({
   const router = useRouter();
   const [subTab, setSubTab] = useState<"details" | "payments">("details");
 
-  const plan = subscription.plan || { name: "", price: "", plan_groups: [] };
+  const plan = subscription.plan || {
+    name: "",
+    price: "",
+    plan_groups: [],
+    plan_session_pools: [],
+  };
 
-  const totalSessions =
-    plan.plan_groups?.reduce(
-      (sum: number, group: any) => sum + (group.session_count || 0),
-      0,
-    ) || 0;
+  const totalSessions = totalPlanSessionCount(plan);
 
-  const totalRemainingSessions =
-    subscription.subscription_group_sessions?.reduce(
-      (sum: number, group: any) => sum + (group.sessions_remaining || 0),
-      0,
-    ) || 0;
+  const totalRemainingSessions = sumRemainingSessions(subscription);
 
   const getPaymentsForSub = (subId: number) =>
     payments.filter((p) => p.subscription_id === subId);
@@ -355,8 +383,11 @@ export function SubscriptionDetails({
                 const planGroups = plan.plan_groups || [];
                 const groupSessions =
                   subscription.subscription_group_sessions || [];
+                const planPools = plan.plan_session_pools || [];
+                const poolSessions =
+                  subscription.subscription_pool_sessions || [];
 
-                if (planGroups.length === 0) {
+                if (planGroups.length === 0 && planPools.length === 0) {
                   return (
                     <div className="text-center py-8 text-muted-foreground">
                       <div className="text-sm">No groups assigned to this plan</div>
@@ -368,7 +399,9 @@ export function SubscriptionDetails({
                   <div className="space-y-4">
                     {planGroups.map((planGroup: any) => {
                       const groupSession = groupSessions.find(
-                        (gs: any) => gs.group_id === planGroup.groups.id,
+                        (gs: any) =>
+                          gs.group_id ===
+                          (planGroup.groups?.id ?? planGroup.group_id),
                       );
                       const groupTotalSessions =
                         groupSession?.total_sessions ??
@@ -397,15 +430,16 @@ export function SubscriptionDetails({
                               <div
                                 className="w-4 h-4 rounded-full"
                                 style={{
-                                  backgroundColor: planGroup.groups.color,
+                                  backgroundColor:
+                                    planGroup.groups?.color || "#6B7280",
                                 }}
                               ></div>
                               <div>
                                 <div className="font-medium">
-                                  {planGroup.groups.name}
+                                  {planGroup.groups?.name || "Group"}
                                 </div>
                                 <div className="text-sm text-muted-foreground">
-                                  {planGroup.groups.description}
+                                  {planGroup.groups?.description}
                                 </div>
                               </div>
                             </div>
@@ -445,7 +479,7 @@ export function SubscriptionDetails({
                             </div>
                           </div>
 
-                          {planGroup.groups.category_groups &&
+                          {planGroup.groups?.category_groups &&
                             planGroup.groups.category_groups.length > 0 && (
                               <div className="space-y-2">
                                 <div className="text-sm font-medium text-muted-foreground">
@@ -471,6 +505,100 @@ export function SubscriptionDetails({
                                 </div>
                               </div>
                             )}
+                        </div>
+                      );
+                    })}
+
+                    {planPools.map((pool: any) => {
+                      const poolSession = poolSessions.find(
+                        (ps: any) => ps.pool_id === pool.id,
+                      );
+                      const memberships =
+                        pool.plan_session_pool_groups ||
+                        poolSession?.plan_session_pools
+                          ?.plan_session_pool_groups ||
+                        [];
+                      const names = memberships
+                        .map((m: any) => m.groups?.name)
+                        .filter(Boolean)
+                        .join(", ");
+                      const poolTotal =
+                        poolSession?.total_sessions ?? pool.session_count ?? 0;
+                      const remaining =
+                        poolSession != null
+                          ? poolSession.sessions_remaining
+                          : poolTotal;
+                      const used = Math.max(0, poolTotal - remaining);
+                      const progress =
+                        poolTotal > 0 ? (used / poolTotal) * 100 : 0;
+
+                      return (
+                        <div
+                          key={`pool-${pool.id}`}
+                          className="border border-dashed rounded-lg p-4 space-y-3"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                                Shared pool
+                              </div>
+                              <div className="font-medium">
+                                {names || "Shared sessions"}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {pool.is_free && (
+                                <Badge
+                                  variant="secondary"
+                                  className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                                >
+                                  Free
+                                </Badge>
+                              )}
+                              <Badge variant="outline">
+                                {pool.session_count} shared sessions
+                              </Badge>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap gap-1">
+                            {memberships.map((m: any) => (
+                              <span
+                                key={m.group_id}
+                                className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-muted"
+                              >
+                                <span
+                                  className="w-2 h-2 rounded-full"
+                                  style={{
+                                    backgroundColor:
+                                      m.groups?.color || "#6B7280",
+                                  }}
+                                />
+                                {m.groups?.name}
+                              </span>
+                            ))}
+                          </div>
+
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span>Sessions Used</span>
+                              <span className="font-medium">
+                                {used} / {poolTotal}
+                              </span>
+                            </div>
+                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                              <div
+                                className="bg-primary h-2 rounded-full transition-all duration-300"
+                                style={{
+                                  width: `${Math.min(progress, 100)}%`,
+                                }}
+                              ></div>
+                            </div>
+                            <div className="flex justify-between text-xs text-muted-foreground">
+                              <span>Remaining: {remaining}</span>
+                              <span>{Math.round(progress)}% used</span>
+                            </div>
+                          </div>
                         </div>
                       );
                     })}

@@ -248,8 +248,10 @@ export default function ScheduleCalendar({
       sub.member_id === memberId &&
       sub.status === 'active' &&
       isSubscriptionActiveByEndDate(sub.end_date) &&
-      sub.subscription_group_sessions &&
-      sub.subscription_group_sessions.some((sgs: any) => sgs.sessions_remaining > 0)
+      (
+        (sub.subscription_group_sessions || []).some((sgs: any) => sgs.sessions_remaining > 0) ||
+        (sub.subscription_pool_sessions || []).some((sps: any) => sps.sessions_remaining > 0)
+      )
     );
   }
 

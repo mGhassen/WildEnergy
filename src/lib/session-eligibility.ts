@@ -1,0 +1,113 @@
+/**
+ * Whether a subscription can cover a course category via dedicated group
+ * sessions or shared session pools.
+ */
+export function subscriptionCoversCategory(
+  subscription: {
+    subscription_group_sessions?: Array<{
+      group_id: number;
+      sessions_remaining: number;
+    }>;
+    subscription_pool_sessions?: Array<{
+      pool_id: number;
+      sessions_remaining: number;
+      plan_session_pools?: {
+        plan_session_pool_groups?: Array<{
+          group_id: number;
+          groups?: {
+            category_groups?: Array<{ categories?: { id: number } }>;
+          };
+        }>;
+      };
+    }>;
+    plan?: {
+      plan_groups?: Array<{
+        group_id: number;
+        groups?: {
+          category_groups?: Array<{ categories?: { id: number } }>;
+        };
+      }>;
+      plan_session_pools?: Array<{
+        id: number;
+        plan_session_pool_groups?: Array<{
+          group_id: number;
+          groups?: {
+            category_groups?: Array<{ categories?: { id: number } }>;
+          };
+        }>;
+      }>;
+    };
+  },
+  categoryId: number
+): boolean {
+  const groupHasCategory = (
+    categoryGroups: Array<{ categories?: { id: number } }> | undefined
+  ) =>
+    (categoryGroups || []).some((cg) => cg.categories?.id === categoryId);
+
+  const groupSessions = subscription.subscription_group_sessions || [];
+  const planGroups = subscription.plan?.plan_groups || [];
+
+  for (const groupSession of groupSessions) {
+    if (groupSession.sessions_remaining <= 0) continue;
+    for (const planGroup of planGroups) {
+      if (planGroup.group_id !== groupSession.group_id) continue;
+      if (groupHasCategory(planGroup.groups?.category_groups)) {
+        return true;
+      }
+    }
+  }
+
+  const poolSessions = subscription.subscription_pool_sessions || [];
+  const planPools = subscription.plan?.plan_session_pools || [];
+
+  for (const poolSession of poolSessions) {
+    if (poolSession.sessions_remaining <= 0) continue;
+
+    const planPool =
+      planPools.find((p) => p.id === poolSession.pool_id) ||
+      poolSession.plan_session_pools;
+
+    const memberships =
+      (planPool as any)?.plan_session_pool_groups ||
+      [];
+
+    for (const membership of memberships) {
+      if (groupHasCategory(membership.groups?.category_groups)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+export function totalPlanSessionCount(plan: {
+  plan_groups?: Array<{ session_count?: number }>;
+  plan_session_pools?: Array<{ session_count?: number }>;
+} | null | undefined): number {
+  if (!plan) return 0;
+  const dedicated =
+    plan.plan_groups?.reduce((t, g) => t + (g.session_count ?? 0), 0) || 0;
+  const pooled =
+    plan.plan_session_pools?.reduce((t, p) => t + (p.session_count ?? 0), 0) ||
+    0;
+  return dedicated + pooled;
+}
+
+export function totalRemainingSessions(subscription: {
+  subscription_group_sessions?: Array<{ sessions_remaining?: number }>;
+  subscription_pool_sessions?: Array<{ sessions_remaining?: number }>;
+}): number {
+  const dedicated =
+    subscription.subscription_group_sessions?.reduce(
+      (sum, g) => sum + (g.sessions_remaining || 0),
+      0
+    ) || 0;
+  const pooled =
+    subscription.subscription_pool_sessions?.reduce(
+      (sum, p) => sum + (p.sessions_remaining || 0),
+      0
+    ) || 0;
+  return dedicated + pooled;
+}

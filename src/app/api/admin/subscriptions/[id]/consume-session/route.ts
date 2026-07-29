@@ -12,18 +12,17 @@ export async function POST(
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
 
-    // Verify admin using new user system
     const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-    
+
     const { data: adminCheck } = await supabaseServer()
       .from('user_profiles')
       .select('is_admin, accessible_portals')
       .eq('email', adminUser.email)
       .single();
-    
+
     if (!adminCheck?.is_admin || !adminCheck?.accessible_portals?.includes('admin')) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
@@ -35,13 +34,15 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { group_id } = body;
+    const { group_id, pool_id } = body;
 
-    if (!group_id) {
-      return NextResponse.json({ error: 'Group ID is required' }, { status: 400 });
+    if (!group_id && !pool_id) {
+      return NextResponse.json({ error: 'Group ID or pool ID is required' }, { status: 400 });
+    }
+    if (group_id && pool_id) {
+      return NextResponse.json({ error: 'Provide either group_id or pool_id, not both' }, { status: 400 });
     }
 
-    // Check if subscription exists and is active
     const { data: subscription, error: subscriptionError } = await supabaseServer()
       .from('subscriptions')
       .select('id, status, member_id')
@@ -56,7 +57,55 @@ export async function POST(
       return NextResponse.json({ error: 'Subscription is not active' }, { status: 400 });
     }
 
-    // Check if group session exists and has remaining sessions
+    if (pool_id) {
+      const { data: poolSession, error: poolSessionError } = await supabaseServer()
+        .from('subscription_pool_sessions')
+        .select('id, sessions_remaining, pool_id')
+        .eq('subscription_id', subscriptionId)
+        .eq('pool_id', pool_id)
+        .single();
+
+      if (poolSessionError || !poolSession) {
+        return NextResponse.json({ error: 'Pool session not found for this subscription' }, { status: 404 });
+      }
+
+      if (poolSession.sessions_remaining <= 0) {
+        return NextResponse.json({ error: 'No sessions remaining for this pool' }, { status: 400 });
+      }
+
+      const { data: updatedPoolSession, error: updateError } = await supabaseServer()
+        .from('subscription_pool_sessions')
+        .update({
+          sessions_remaining: poolSession.sessions_remaining - 1,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', poolSession.id)
+        .select(`
+          sessions_remaining,
+          pool_id,
+          plan_session_pools(
+            id,
+            session_count,
+            plan_session_pool_groups(
+              group_id,
+              groups(id, name, color)
+            )
+          )
+        `)
+        .single();
+
+      if (updateError) {
+        console.error('Error consuming pool session:', updateError);
+        return NextResponse.json({ error: 'Failed to consume session' }, { status: 500 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: 'Session consumed successfully',
+        pool_session: updatedPoolSession,
+      });
+    }
+
     const { data: groupSession, error: groupSessionError } = await supabaseServer()
       .from('subscription_group_sessions')
       .select('id, sessions_remaining, group_id')
@@ -72,12 +121,11 @@ export async function POST(
       return NextResponse.json({ error: 'No sessions remaining for this group' }, { status: 400 });
     }
 
-    // Consume one session
     const { data: updatedGroupSession, error: updateError } = await supabaseServer()
       .from('subscription_group_sessions')
-      .update({ 
+      .update({
         sessions_remaining: groupSession.sessions_remaining - 1,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       })
       .eq('id', groupSession.id)
       .select('sessions_remaining, group:groups(id, name, color)')
@@ -91,14 +139,13 @@ export async function POST(
     return NextResponse.json({
       success: true,
       message: 'Session consumed successfully',
-      group_session: updatedGroupSession
+      group_session: updatedGroupSession,
     });
-
   } catch (error) {
     console.error('Consume session error:', error);
-    return NextResponse.json({ 
-      error: 'Internal server error', 
-      details: String(error) 
+    return NextResponse.json({
+      error: 'Internal server error',
+      details: String(error),
     }, { status: 500 });
   }
 }

@@ -7,9 +7,14 @@ import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
 import { FormSkeleton } from "@/components/skeletons";
 import {
-  useSubscription,
+  useSubscriptions,
   useConsumeSession,
 } from "@/hooks/useSubscriptions";
+
+type Selection =
+  | { type: "group"; id: number }
+  | { type: "pool"; id: number }
+  | null;
 
 export default function AdminConsumeSessionPage() {
   const params = useParams();
@@ -21,18 +26,24 @@ export default function AdminConsumeSessionPage() {
       : "/admin/subscriptions";
   const close = useCloseHref(closeHref);
 
-  const { data: subscription, isLoading, isError } =
-    useSubscription(subscriptionId);
+  const { data: subscriptions, isLoading, isError } = useSubscriptions();
   const consumeSessionMutation = useConsumeSession();
-  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
+  const [selection, setSelection] = useState<Selection>(null);
 
-  const groupSessions =
-    (subscription as any)?.subscription_group_sessions || [];
+  const subscription = (subscriptions as any[] | undefined)?.find(
+    (s) => s.id === subscriptionId,
+  );
+  const groupSessions = subscription?.subscription_group_sessions || [];
+  const poolSessions = subscription?.subscription_pool_sessions || [];
 
   const handleConsume = () => {
-    if (!selectedGroupId) return;
+    if (!selection) return;
     consumeSessionMutation.mutate(
-      { subscriptionId, groupId: selectedGroupId },
+      {
+        subscriptionId,
+        groupId: selection.type === "group" ? selection.id : undefined,
+        poolId: selection.type === "pool" ? selection.id : undefined,
+      },
       {
         onSuccess: () => {
           router.replace(closeHref);
@@ -82,27 +93,34 @@ export default function AdminConsumeSessionPage() {
     );
   }
 
+  const hasAny = groupSessions.length > 0 || poolSessions.length > 0;
+
   return (
     <RouteDialog
       title="Consume Session"
-      description="Select which group to consume a session from"
+      description="Select a dedicated group or shared pool to consume from"
       closeHref={closeHref}
       className="sm:max-w-md"
     >
       <div className="space-y-4">
-        {groupSessions.length > 0 ? (
+        {hasAny ? (
           <div className="space-y-2">
             {groupSessions.map((groupSession: any) => {
               const group = groupSession.group || groupSession.groups;
+              const selected =
+                selection?.type === "group" &&
+                selection.id === groupSession.group_id;
               return (
                 <div
-                  key={groupSession.group_id}
+                  key={`g-${groupSession.group_id}`}
                   className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                    selectedGroupId === groupSession.group_id
+                    selected
                       ? "border-primary bg-primary/5"
                       : "border-border hover:border-primary/50"
                   }`}
-                  onClick={() => setSelectedGroupId(groupSession.group_id)}
+                  onClick={() =>
+                    setSelection({ type: "group", id: groupSession.group_id })
+                  }
                 >
                   <div className="flex items-center justify-between">
                     <div>
@@ -111,21 +129,67 @@ export default function AdminConsumeSessionPage() {
                         {groupSession.sessions_remaining} sessions remaining
                       </p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-4 h-4 rounded-full border-2 flex items-center justify-center"
-                        style={{
-                          backgroundColor:
-                            selectedGroupId === groupSession.group_id
-                              ? "var(--primary)"
-                              : "transparent",
-                          borderColor: group?.color || "var(--border)",
-                        }}
-                      >
-                        {selectedGroupId === groupSession.group_id && (
-                          <div className="w-2 h-2 rounded-full bg-white" />
-                        )}
-                      </div>
+                    <div
+                      className="w-4 h-4 rounded-full border-2 flex items-center justify-center"
+                      style={{
+                        backgroundColor: selected
+                          ? "var(--primary)"
+                          : "transparent",
+                        borderColor: group?.color || "var(--border)",
+                      }}
+                    >
+                      {selected && (
+                        <div className="w-2 h-2 rounded-full bg-white" />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+            {poolSessions.map((poolSession: any) => {
+              const pool = poolSession.plan_session_pools;
+              const names = (pool?.plan_session_pool_groups || [])
+                .map((m: any) => m.groups?.name)
+                .filter(Boolean)
+                .join(" / ");
+              const selected =
+                selection?.type === "pool" &&
+                selection.id === poolSession.pool_id;
+              return (
+                <div
+                  key={`p-${poolSession.pool_id}`}
+                  className={`p-3 border border-dashed rounded-lg cursor-pointer transition-colors ${
+                    selected
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-primary/50"
+                  }`}
+                  onClick={() =>
+                    setSelection({ type: "pool", id: poolSession.pool_id })
+                  }
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                        Shared pool
+                      </p>
+                      <h4 className="font-medium">{names || "Shared sessions"}</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {poolSession.sessions_remaining} sessions remaining
+                      </p>
+                    </div>
+                    <div
+                      className="w-4 h-4 rounded-full border-2 flex items-center justify-center"
+                      style={{
+                        backgroundColor: selected
+                          ? "var(--primary)"
+                          : "transparent",
+                        borderColor: "var(--border)",
+                      }}
+                    >
+                      {selected && (
+                        <div className="w-2 h-2 rounded-full bg-white" />
+                      )}
                     </div>
                   </div>
                 </div>
@@ -134,7 +198,7 @@ export default function AdminConsumeSessionPage() {
           </div>
         ) : (
           <p className="text-muted-foreground text-center py-4">
-            No group sessions available for this subscription
+            No group or pool sessions available for this subscription
           </p>
         )}
       </div>
@@ -144,7 +208,7 @@ export default function AdminConsumeSessionPage() {
         </Button>
         <Button
           onClick={handleConsume}
-          disabled={!selectedGroupId || consumeSessionMutation.isPending}
+          disabled={!selection || consumeSessionMutation.isPending}
         >
           {consumeSessionMutation.isPending
             ? "Consuming..."

@@ -44,6 +44,21 @@ export async function GET(req: NextRequest) {
             description,
             color
           )
+        ),
+        plan_session_pools (
+          id,
+          session_count,
+          is_free,
+          plan_session_pool_groups (
+            id,
+            group_id,
+            groups (
+              id,
+              name,
+              description,
+              color
+            )
+          )
         )
       `)
       .eq('is_active', true)

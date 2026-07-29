@@ -37,7 +37,7 @@ export default function AdminNewPlanPage() {
       title="Add New Plan"
       description="Add a new membership plan"
       closeHref="/admin/plans"
-      className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto"
+      className="sm:max-w-[640px] max-h-[90vh] overflow-y-auto"
     >
       <PlanForm
         form={form}

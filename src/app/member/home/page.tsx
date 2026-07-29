@@ -18,6 +18,10 @@ import { CardSkeleton, ListSkeleton } from "@/components/skeletons";
 import { Registration } from "@/lib/api/registrations";
 import { Subscription } from "@/lib/api/subscriptions";
 import { Plan } from "@/lib/api/plans";
+import {
+  totalPlanSessionCount,
+  totalRemainingSessions,
+} from "@/lib/session-eligibility";
 
 // Types for member home page
 interface Trainer {
@@ -63,8 +67,7 @@ function MemberHomeContent() {
   // Calculate insights
   const activeSubs = Array.isArray(subscriptions) ? subscriptions.filter((s: any) => s.status === "active") : [];
   const totalSessionsRemaining = activeSubs.reduce((sum: number, s: any) => {
-    const groupSessions = s.subscription_group_sessions || [];
-    return sum + groupSessions.reduce((groupSum: number, group: any) => groupSum + (group.sessions_remaining || 0), 0);
+    return sum + totalRemainingSessions(s);
   }, 0);
   const totalActive = activeSubs.length;
 
@@ -81,13 +84,7 @@ function MemberHomeContent() {
   console.log('Registrations data:', registrationsArr);
   console.log('Courses data:', coursesArr);
 
-  // Helper function to get total sessions from plan groups
-  const getTotalSessions = (plan: any) => {
-    if (plan?.plan_groups && plan.plan_groups.length > 0) {
-      return plan.plan_groups.reduce((total: number, group: any) => total + (group.session_count || 0), 0);
-    }
-    return 0;
-  };
+  const getTotalSessions = (plan: any) => totalPlanSessionCount(plan);
 
   // Auto-slide functionality with gentle animation
   useEffect(() => {

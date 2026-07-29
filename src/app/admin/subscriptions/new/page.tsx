@@ -53,10 +53,14 @@ export default function AdminNewSubscriptionPage() {
     ? plans.map((plan: any) => ({
         ...plan,
         sessionsIncluded:
-          plan.plan_groups?.reduce(
+          (plan.plan_groups?.reduce(
             (sum: number, group: any) => sum + (group.session_count || 0),
             0,
-          ) ?? 0,
+          ) ?? 0) +
+          (plan.plan_session_pools?.reduce(
+            (sum: number, pool: any) => sum + (pool.session_count || 0),
+            0,
+          ) ?? 0),
         duration: plan.duration_days ?? plan.duration ?? 0,
         isActive: plan.is_active ?? plan.isActive ?? true,
       }))
@@ -318,12 +322,17 @@ export default function AdminNewSubscriptionPage() {
                     </div>
                     <div>
                       Groups: <b>{plan.plan_groups?.length || 0}</b>
+                      {(plan.plan_session_pools?.length || 0) > 0 && (
+                        <>
+                          {" · "}Pools: <b>{plan.plan_session_pools.length}</b>
+                        </>
+                      )}
                     </div>
                   </div>
                   {plan.plan_groups && plan.plan_groups.length > 0 && (
                     <div className="mt-3">
                       <div className="text-xs font-medium text-muted-foreground mb-2">
-                        Included Groups:
+                        Dedicated groups:
                       </div>
                       <div className="space-y-1">
                         {plan.plan_groups.map((group: any) => (
@@ -351,6 +360,39 @@ export default function AdminNewSubscriptionPage() {
                       </div>
                     </div>
                   )}
+                  {plan.plan_session_pools &&
+                    plan.plan_session_pools.length > 0 && (
+                      <div className="mt-3">
+                        <div className="text-xs font-medium text-muted-foreground mb-2">
+                          Shared pools:
+                        </div>
+                        <div className="space-y-1">
+                          {plan.plan_session_pools.map((pool: any) => {
+                            const names = (
+                              pool.plan_session_pool_groups || []
+                            )
+                              .map((m: any) => m.groups?.name)
+                              .filter(Boolean)
+                              .join(" / ");
+                            return (
+                              <div
+                                key={pool.id}
+                                className="flex items-center gap-2 text-xs"
+                              >
+                                <span className="font-medium">
+                                  {names || "Shared pool"}
+                                </span>
+                                <span className="text-muted-foreground">
+                                  ({pool.session_count} shared session
+                                  {pool.session_count > 1 ? "s" : ""}
+                                  {pool.is_free && " • FREE"})
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                 </div>
               );
             })()}

@@ -59,17 +59,25 @@ export const insertPlanGroupSchema = z.object({
   sessionCount: z.number().min(1, 'Session count must be at least 1'),
 });
 
+export const insertPlanSessionPoolSchema = z.object({
+  sessionCount: z.number().min(1, 'Session count must be at least 1'),
+  isFree: z.boolean().optional(),
+  groupIds: z.array(z.number().min(1)).min(2, 'Shared pool needs at least 2 groups'),
+});
+
 export const insertPlanSchema = z.object({
   name: z.string().min(1, 'Plan name is required'),
   description: z.string().optional(),
   price: z.number().min(0, 'Price must be a positive number'),
   duration_days: z.number().min(1, 'Duration must be at least 1 day'),
-  // max_sessions removed - now calculated from plan_groups
+  // max_sessions removed - now calculated from plan_groups + plan_session_pools
   is_active: z.boolean(),
   planGroups: z.array(z.object({
     groupId: z.number().min(1, 'Group is required'),
     sessionCount: z.number().min(1, 'Session count must be at least 1'),
+    isFree: z.boolean().optional(),
   })).optional(),
+  planSessionPools: z.array(insertPlanSessionPoolSchema).optional(),
 });
 
 export const insertClassSchema = z.object({

@@ -23,6 +23,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
+import {
+  totalPlanSessionCount,
+  totalRemainingSessions,
+} from "@/lib/session-eligibility";
 
 type Member = {
   id: string;
@@ -124,11 +128,7 @@ export default function AdminSubscriptions() {
   const mappedPlans = Array.isArray(plans)
     ? plans.map((plan: any) => ({
         ...plan,
-        sessionsIncluded:
-          plan.plan_groups?.reduce(
-            (sum: number, group: any) => sum + (group.session_count || 0),
-            0,
-          ) ?? 0,
+        sessionsIncluded: totalPlanSessionCount(plan),
         duration: plan.duration_days ?? plan.duration ?? 0,
         isActive: plan.is_active ?? plan.isActive ?? true,
       }))
@@ -870,19 +870,20 @@ export default function AdminSubscriptions() {
                     <TableCell>
                       <div className="text-center">
                         <div className="font-medium text-lg">
-                          {subscription.subscription_group_sessions?.reduce(
-                            (sum: number, group: any) =>
-                              sum + (group.sessions_remaining || 0),
-                            0,
-                          ) || 0}
+                          {totalRemainingSessions(subscription)}
                         </div>
                         <div className="text-sm text-muted-foreground">
                           of{" "}
-                          {subscription.subscription_group_sessions?.reduce(
+                          {(subscription.subscription_group_sessions?.reduce(
                             (sum: number, group: any) =>
                               sum + (group.total_sessions || 0),
                             0,
-                          ) || 0}{" "}
+                          ) || 0) +
+                            (subscription.subscription_pool_sessions?.reduce(
+                              (sum: number, pool: any) =>
+                                sum + (pool.total_sessions || 0),
+                              0,
+                            ) || 0)}{" "}
                           total
                         </div>
                       </div>
@@ -1152,11 +1153,7 @@ export default function AdminSubscriptions() {
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">Sessions</span>
                           <span className="font-medium">
-                            {subscription.subscription_group_sessions?.reduce(
-                              (sum: number, group: any) =>
-                                sum + (group.sessions_remaining || 0),
-                              0,
-                            ) || 0}{" "}
+                            {totalRemainingSessions(subscription)}{" "}
                             remaining
                           </span>
                         </div>

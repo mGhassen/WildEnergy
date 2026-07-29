@@ -28,6 +28,7 @@ import { useMemberRegistrations } from "@/hooks/useMemberRegistrations";
 import { useMemberSubscriptions } from "@/hooks/useMemberSubscriptions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { subscriptionCoversCategory } from "@/lib/session-eligibility";
 import { DashboardSkeleton } from "@/components/skeletons";
 
 function combineDateAndTime(dateStr: string, timeStr: string): Date {
@@ -104,25 +105,9 @@ export function MemberCourseDetailsView({
     const categoryId = courseData.class?.category?.id;
     if (!categoryId) return false;
 
-    for (const subscription of activeSubscriptions) {
-      const groupSessions =
-        (subscription as any).subscription_group_sessions || [];
-      for (const groupSession of groupSessions) {
-        if (groupSession.sessions_remaining > 0) {
-          const planGroups = (subscription as any).plan?.plan_groups || [];
-          for (const planGroup of planGroups) {
-            if (planGroup.group_id === groupSession.group_id) {
-              const groupCategories = planGroup.groups?.category_groups || [];
-              const hasCategory = groupCategories.some(
-                (cat: any) => cat.categories?.id === categoryId,
-              );
-              if (hasCategory) return true;
-            }
-          }
-        }
-      }
-    }
-    return false;
+    return activeSubscriptions.some((subscription) =>
+      subscriptionCoversCategory(subscription as any, categoryId),
+    );
   };
 
   const handleRegister = async () => {

@@ -1,5 +1,27 @@
 import { apiRequest } from '@/lib/queryClient';
 
+export interface PlanSessionPool {
+  id: number;
+  session_count: number;
+  is_free: boolean;
+  plan_session_pool_groups?: {
+    id: number;
+    group_id: number;
+    groups?: {
+      id: number;
+      name: string;
+      description?: string;
+      color?: string;
+      categories?: {
+        id: number;
+        name: string;
+        description?: string;
+        color?: string;
+      }[];
+    };
+  }[];
+}
+
 export interface Plan {
   id: number;
   name: string;
@@ -30,6 +52,7 @@ export interface Plan {
       }[];
     };
   }[];
+  plan_session_pools?: PlanSessionPool[];
 }
 
 export interface CreatePlanData {
@@ -43,6 +66,11 @@ export interface CreatePlanData {
     sessionCount: number;
     isFree: boolean;
   }[];
+  planSessionPools?: {
+    sessionCount: number;
+    isFree: boolean;
+    groupIds: number[];
+  }[];
 }
 
 export interface UpdatePlanData {
@@ -55,6 +83,11 @@ export interface UpdatePlanData {
     groupId: number;
     sessionCount: number;
     isFree: boolean;
+  }[];
+  planSessionPools?: {
+    sessionCount: number;
+    isFree: boolean;
+    groupIds: number[];
   }[];
 }
 

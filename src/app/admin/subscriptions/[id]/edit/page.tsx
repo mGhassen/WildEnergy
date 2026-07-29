@@ -60,10 +60,14 @@ export default function AdminEditSubscriptionPage() {
     ? plans.map((plan: any) => ({
         ...plan,
         sessionsIncluded:
-          plan.plan_groups?.reduce(
+          (plan.plan_groups?.reduce(
             (sum: number, group: any) => sum + (group.session_count || 0),
             0,
-          ) ?? 0,
+          ) ?? 0) +
+          (plan.plan_session_pools?.reduce(
+            (sum: number, pool: any) => sum + (pool.session_count || 0),
+            0,
+          ) ?? 0) ?? 0,
         duration: plan.duration_days ?? plan.duration ?? 0,
         isActive: plan.is_active ?? plan.isActive ?? true,
       }))

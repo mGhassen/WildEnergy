@@ -9,6 +9,7 @@ import { useMemberPlans } from "@/hooks/useMemberPlans";
 import { CardSkeleton } from "@/components/skeletons";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { totalPlanSessionCount } from "@/lib/session-eligibility";
 
 type PlanSort = "default" | "name-asc" | "name-desc" | "price-asc" | "price-desc" | "sessions-desc" | "sessions-asc";
 
@@ -29,11 +30,11 @@ function parseStoredMemberPlanSort(raw: string | null): PlanSort | null {
   return raw as PlanSort;
 }
 
-function getTotalSessions(plan: { plan_groups?: Array<{ session_count: number }> }) {
-  if (plan.plan_groups && plan.plan_groups.length > 0) {
-    return plan.plan_groups.reduce((total, group) => total + group.session_count, 0);
-  }
-  return 0;
+function getTotalSessions(plan: {
+  plan_groups?: Array<{ session_count: number }>;
+  plan_session_pools?: Array<{ session_count: number }>;
+}) {
+  return totalPlanSessionCount(plan);
 }
 
 export default function PlansPage() {
@@ -164,17 +165,18 @@ export default function PlansPage() {
                     </div>
                     
                     {/* Plan Groups Display */}
-                    {plan.plan_groups && plan.plan_groups.length > 0 ? (
+                    {(plan.plan_groups?.length ||
+                      plan.plan_session_pools?.length) ? (
                       <div className="space-y-2">
                         <p className="text-xs sm:text-sm font-medium text-muted-foreground">Includes:</p>
                         <div className="space-y-2">
-                          {plan.plan_groups.map((group: any, index: number) => {
+                          {plan.plan_groups?.map((group: any, index: number) => {
                             const categories = getGroupCategories(group);
                             const groupKey = `${plan.id}-${index}`;
                             const isExpanded = expandedGroups.has(groupKey);
                             
                             return (
-                              <div key={index} className="space-y-1">
+                              <div key={`g-${index}`} className="space-y-1">
                                 <div className="flex items-center justify-between text-xs sm:text-sm">
                                   <div 
                                     className="flex items-center gap-2 min-w-0 cursor-pointer hover:bg-muted/50 rounded-md p-1 -m-1 transition-colors"
@@ -207,6 +209,30 @@ export default function PlansPage() {
                                     ))}
                                   </div>
                                 )}
+                              </div>
+                            );
+                          })}
+                          {plan.plan_session_pools?.map((pool: any, index: number) => {
+                            const names = (pool.plan_session_pool_groups || [])
+                              .map((m: any) => m.groups?.name)
+                              .filter(Boolean)
+                              .join(" / ");
+                            return (
+                              <div
+                                key={`p-${index}`}
+                                className="flex items-center justify-between text-xs sm:text-sm"
+                              >
+                                <div className="min-w-0">
+                                  <span className="text-[10px] uppercase text-muted-foreground">
+                                    Shared
+                                  </span>
+                                  <div className="font-medium truncate">
+                                    {names || "Shared pool"}
+                                  </div>
+                                </div>
+                                <span className="text-muted-foreground text-xs sm:text-sm flex-shrink-0 ml-2">
+                                  {pool.session_count} sessions
+                                </span>
                               </div>
                             );
                           })}

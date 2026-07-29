@@ -180,7 +180,8 @@ export async function PUT(request: NextRequest) {
         id: planData.id,
         name: planData.name,
         price: planData.price,
-        sessionsIncluded: planData.plan_groups?.reduce((sum: number, group: any) => sum + (group.session_count || 0), 0) || 0,
+        sessionsIncluded: (planData.plan_groups?.reduce((sum: number, group: any) => sum + (group.session_count || 0), 0) || 0)
+          + (planData.plan_session_pools?.reduce((sum: number, pool: any) => sum + (pool.session_count || 0), 0) || 0),
         duration: planData.duration_days,
       } : null,
     };

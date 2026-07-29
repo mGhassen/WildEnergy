@@ -64,9 +64,14 @@ function parseStoredAdminPlanSort(raw: string | null): AdminPlanSort | null {
 
 function totalPlanSessions(plan: {
   plan_groups?: Array<{ session_count?: number }>;
+  plan_session_pools?: Array<{ session_count?: number }>;
 }) {
-  if (!plan.plan_groups?.length) return 0;
-  return plan.plan_groups.reduce((t, g) => t + (g.session_count ?? 0), 0);
+  const dedicated =
+    plan.plan_groups?.reduce((t, g) => t + (g.session_count ?? 0), 0) || 0;
+  const pooled =
+    plan.plan_session_pools?.reduce((t, p) => t + (p.session_count ?? 0), 0) ||
+    0;
+  return dedicated + pooled;
 }
 
 function sortMappedPlans(list: any[], sort: AdminPlanSort) {
@@ -380,17 +385,18 @@ export default function AdminPlans() {
                         Included Groups
                       </span>
                       <Badge variant="outline" className="text-xs">
-                        {plan.plan_groups?.length || 0}
+                        {(plan.plan_groups?.length || 0) +
+                          (plan.plan_session_pools?.length || 0)}
                       </Badge>
                     </div>
 
-                    <div className="max-h-32 overflow-y-auto">
+                    <div className="max-h-40 overflow-y-auto space-y-2">
                       {plan.plan_groups && plan.plan_groups.length > 0 ? (
                         <div className="space-y-1">
                           {plan.plan_groups.map(
                             (group: any, index: number) => (
                               <div
-                                key={index}
+                                key={`g-${index}`}
                                 className="flex items-center justify-between p-2 bg-muted/30 rounded-md border text-xs"
                               >
                                 <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -422,7 +428,54 @@ export default function AdminPlans() {
                             ),
                           )}
                         </div>
-                      ) : (
+                      ) : null}
+                      {plan.plan_session_pools &&
+                      plan.plan_session_pools.length > 0 ? (
+                        <div className="space-y-1">
+                          {plan.plan_session_pools.map(
+                            (pool: any, index: number) => {
+                              const names = (
+                                pool.plan_session_pool_groups || []
+                              )
+                                .map(
+                                  (m: any) =>
+                                    m.groups?.name || "Unknown",
+                                )
+                                .join(" / ");
+                              return (
+                                <div
+                                  key={`p-${index}`}
+                                  className="flex items-center justify-between p-2 bg-muted/30 rounded-md border text-xs border-dashed"
+                                >
+                                  <div className="min-w-0 flex-1">
+                                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                                      Shared
+                                    </span>
+                                    <div className="text-sm font-medium text-foreground truncate">
+                                      {names || "Shared pool"}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                                    <span className="text-xs text-muted-foreground">
+                                      {pool.session_count}s
+                                    </span>
+                                    {pool.is_free && (
+                                      <Badge
+                                        variant="outline"
+                                        className="text-xs bg-green-100 text-green-700 border-green-200 px-1 py-0"
+                                      >
+                                        FREE
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            },
+                          )}
+                        </div>
+                      ) : null}
+                      {!(plan.plan_groups?.length ||
+                        plan.plan_session_pools?.length) && (
                         <div className="text-center py-4 text-sm text-muted-foreground bg-muted/20 rounded-md border border-dashed">
                           No groups included
                         </div>
@@ -524,12 +577,13 @@ export default function AdminPlans() {
                       <div className="flex items-center gap-2">
                         <Users className="w-4 h-4 text-muted-foreground" />
                         <span className="text-sm font-medium">
-                          {plan.plan_groups?.length || 0}
+                          {(plan.plan_groups?.length || 0) +
+                            (plan.plan_session_pools?.length || 0)}
                         </span>
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        {plan.plan_groups?.length > 0
-                          ? `${plan.plan_groups.reduce((total: number, group: any) => total + group.session_count, 0)} sessions`
+                        {totalPlanSessions(plan) > 0
+                          ? `${totalPlanSessions(plan)} sessions`
                           : "No groups"}
                       </div>
                     </div>

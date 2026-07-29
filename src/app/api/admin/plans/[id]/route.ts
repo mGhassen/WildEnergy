@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { ensureGroupSessionsForPlanSubscriptions } from '@/lib/subscription-group-sessions';
+import {
+  PLAN_WITH_GROUPS_AND_POOLS_SELECT,
+  validatePlanAllocations,
+} from '@/lib/plan-session-pools';
 
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
@@ -10,7 +14,6 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
 
-    // Verify user (member or admin)
     const { data: { user }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !user) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
@@ -18,32 +21,9 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 
     const { id } = await context.params;
 
-    // Fetch plan with its groups
     const { data: plan, error } = await supabaseServer()
       .from('plans')
-      .select(`
-        *,
-        plan_groups (
-          id,
-          group_id,
-          session_count,
-          is_free,
-          groups (
-            id,
-            name,
-            description,
-            color,
-            category_groups (
-              categories (
-                id,
-                name,
-                description,
-                color
-              )
-            )
-          )
-        )
-      `)
+      .select(PLAN_WITH_GROUPS_AND_POOLS_SELECT)
       .eq('id', id)
       .single();
 
@@ -65,7 +45,6 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
 
-    // Verify admin
     const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
@@ -82,23 +61,44 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
     }
 
     const { id } = await context.params;
-    const { planGroups, ...updates } = await req.json();
-    
-    // Update the plan
+    const { planGroups, planSessionPools, ...updates } = await req.json();
+
+    if (planGroups !== undefined || planSessionPools !== undefined) {
+      const validationError = validatePlanAllocations(planGroups, planSessionPools);
+      if (validationError) {
+        return NextResponse.json({ error: validationError }, { status: 400 });
+      }
+    }
+
     const { data: plan, error: planError } = await supabaseServer()
       .from('plans')
       .update(updates)
       .eq('id', id)
       .select('*')
       .single();
-    
+
     if (planError) {
       return NextResponse.json({ error: 'Failed to update plan' }, { status: 500 });
     }
 
-    // Update plan groups if provided
-    if (planGroups !== undefined) {
-      // Delete existing plan groups
+    let shouldSyncSessions = false;
+
+    const rewritingGroups = planGroups !== undefined;
+    const rewritingPools = planSessionPools !== undefined;
+
+    // When rewriting both, clear pools first so exclusivity triggers don't fire
+    // while moving a group between dedicated and shared allocations.
+    if (rewritingPools) {
+      const { error: deletePoolsError } = await supabaseServer()
+        .from('plan_session_pools')
+        .delete()
+        .eq('plan_id', id);
+      if (deletePoolsError) {
+        return NextResponse.json({ error: 'Failed to delete existing session pools' }, { status: 500 });
+      }
+    }
+
+    if (rewritingGroups) {
       const { error: deleteError } = await supabaseServer()
         .from('plan_groups')
         .delete()
@@ -108,7 +108,6 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
         return NextResponse.json({ error: 'Failed to delete existing plan groups' }, { status: 500 });
       }
 
-      // Insert new plan groups
       if (planGroups.length > 0) {
         const planGroupsData = planGroups.map((group: any) => ({
           plan_id: id,
@@ -125,43 +124,63 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
           return NextResponse.json({ error: 'Failed to update plan groups' }, { status: 500 });
         }
       }
+      shouldSyncSessions = true;
+    }
 
-      // Create missing subscription_group_sessions for existing subscriptions on this plan
+    if (rewritingPools) {
+      // Pools already deleted above; insert fresh rows
+      for (const pool of planSessionPools) {
+        const groupIds = (pool.groupIds || []).filter((gid: number) => gid > 0);
+        if (groupIds.length < 2) {
+          return NextResponse.json({
+            error: 'Each shared pool must include at least 2 groups',
+          }, { status: 400 });
+        }
+
+        const { data: createdPool, error: poolError } = await supabaseServer()
+          .from('plan_session_pools')
+          .insert({
+            plan_id: id,
+            session_count: pool.sessionCount,
+            is_free: pool.isFree || false,
+          })
+          .select('id')
+          .single();
+
+        if (poolError || !createdPool) {
+          return NextResponse.json({ error: 'Failed to update session pools' }, { status: 500 });
+        }
+
+        const memberships = groupIds.map((groupId: number) => ({
+          pool_id: createdPool.id,
+          plan_id: Number(id),
+          group_id: groupId,
+        }));
+
+        const { error: membersError } = await supabaseServer()
+          .from('plan_session_pool_groups')
+          .insert(memberships);
+
+        if (membersError) {
+          return NextResponse.json({ error: 'Failed to update session pool groups' }, { status: 500 });
+        }
+      }
+      shouldSyncSessions = true;
+    }
+
+    if (shouldSyncSessions) {
       const { error: syncError } = await ensureGroupSessionsForPlanSubscriptions(
         supabaseServer(),
         id
       );
       if (syncError) {
-        console.error('Error syncing subscription group sessions after plan update:', syncError);
+        console.error('Error syncing subscription sessions after plan update:', syncError);
       }
     }
 
-    // Fetch the complete plan with groups
     const { data: completePlan, error: fetchError } = await supabaseServer()
       .from('plans')
-      .select(`
-        *,
-        plan_groups (
-          id,
-          group_id,
-          session_count,
-          is_free,
-          groups (
-            id,
-            name,
-            description,
-            color,
-            category_groups (
-              categories (
-                id,
-                name,
-                description,
-                color
-              )
-            )
-          )
-        )
-      `)
+      .select(PLAN_WITH_GROUPS_AND_POOLS_SELECT)
       .eq('id', id)
       .single();
 
@@ -183,7 +202,6 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
 
-    // Verify admin
     const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
@@ -201,7 +219,6 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
 
     const { id } = await context.params;
 
-    // Check if plan has active subscriptions
     const { data: subscriptions, error: subscriptionError } = await supabaseServer()
       .from('subscriptions')
       .select('id, member_id, status')
@@ -214,7 +231,7 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
     if (subscriptions && subscriptions.length > 0) {
       const activeSubscriptions = subscriptions.filter(sub => sub.status === 'active');
       if (activeSubscriptions.length > 0) {
-        return NextResponse.json({ 
+        return NextResponse.json({
           error: 'Cannot delete plan with active subscriptions',
           message: `This plan is used by ${activeSubscriptions.length} active subscription(s). Please cancel or transfer these subscriptions first.`,
           linkedSubscriptions: activeSubscriptions
@@ -222,7 +239,9 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
       }
     }
 
-    // Delete plan groups first (due to foreign key constraint)
+    // Pools cascade via FK; also delete dedicated groups explicitly for clarity
+    await supabaseServer().from('plan_session_pools').delete().eq('plan_id', id);
+
     const { error: groupsError } = await supabaseServer()
       .from('plan_groups')
       .delete()
@@ -232,7 +251,6 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
       return NextResponse.json({ error: 'Failed to delete plan groups' }, { status: 500 });
     }
 
-    // Delete the plan
     const { error } = await supabaseServer()
       .from('plans')
       .delete()

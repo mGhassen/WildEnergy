@@ -51,6 +51,29 @@ export async function GET(req: NextRequest) {
                 )
               )
             )
+          ),
+          plan_session_pools (
+            id,
+            session_count,
+            is_free,
+            plan_session_pool_groups (
+              id,
+              group_id,
+              groups (
+                id,
+                name,
+                description,
+                color,
+                category_groups (
+                  categories (
+                    id,
+                    name,
+                    description,
+                    color
+                  )
+                )
+              )
+            )
           )
         ),
         subscription_group_sessions(
@@ -63,6 +86,26 @@ export async function GET(req: NextRequest) {
             name,
             description,
             color
+          )
+        ),
+        subscription_pool_sessions(
+          id,
+          pool_id,
+          sessions_remaining,
+          total_sessions,
+          plan_session_pools(
+            id,
+            session_count,
+            is_free,
+            plan_session_pool_groups(
+              group_id,
+              groups(
+                id,
+                name,
+                description,
+                color
+              )
+            )
           )
         )
       `)
@@ -94,7 +137,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const { subscriptionId, sessionsToRefund = 1, groupId } = await req.json();
+    const { subscriptionId, sessionsToRefund = 1, groupId, poolId } = await req.json();
     
     if (!subscriptionId) {
       return NextResponse.json({ error: 'Subscription ID is required' }, { status: 400 });
@@ -108,6 +151,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Cannot refund more than 100 sessions at once' }, { status: 400 });
     }
 
+    if (groupId && poolId) {
+      return NextResponse.json({ error: 'Provide either groupId or poolId, not both' }, { status: 400 });
+    }
+
     // Get the subscription
     const { data: subscription, error: subError } = await supabaseServer()
       .from('subscriptions')
@@ -117,6 +164,56 @@ export async function POST(req: NextRequest) {
 
     if (subError || !subscription) {
       return NextResponse.json({ error: 'Subscription not found' }, { status: 404 });
+    }
+
+    // Shared pool refund
+    if (poolId) {
+      const { data: poolSession, error: poolError } = await supabaseServer()
+        .from('subscription_pool_sessions')
+        .select('*')
+        .eq('subscription_id', subscriptionId)
+        .eq('pool_id', poolId)
+        .single();
+
+      if (poolError || !poolSession) {
+        return NextResponse.json({ error: `No pool sessions found for pool ${poolId}` }, { status: 404 });
+      }
+
+      const sessionsToRefundThisPool = Math.min(
+        sessionsToRefund,
+        poolSession.total_sessions - poolSession.sessions_remaining
+      );
+
+      if (sessionsToRefundThisPool <= 0) {
+        return NextResponse.json({
+          success: false,
+          error: 'No sessions could be refunded. Pool is already at maximum capacity.',
+          sessionsRefunded: 0,
+        }, { status: 400 });
+      }
+
+      const { error: updateError } = await supabaseServer()
+        .from('subscription_pool_sessions')
+        .update({
+          sessions_remaining: poolSession.sessions_remaining + sessionsToRefundThisPool,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', poolSession.id);
+
+      if (updateError) {
+        return NextResponse.json({ error: 'Failed to update pool session' }, { status: 500 });
+      }
+
+      await supabaseServer()
+        .from('subscriptions')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', subscriptionId);
+
+      return NextResponse.json({
+        success: true,
+        sessionsRefunded: sessionsToRefundThisPool,
+        message: `Successfully refunded ${sessionsToRefundThisPool} session(s) to shared pool`,
+      });
     }
 
     // Get group sessions for this subscription

@@ -98,7 +98,10 @@ export default function AdminCourses() {
         s.status === 'active' &&
         isSubscriptionActiveByEndDate(s.end_date) &&
         s.subscription_group_sessions &&
-        s.subscription_group_sessions.some((sgs: any) => sgs.sessions_remaining > 0)
+        (
+          s.subscription_group_sessions.some((sgs: any) => sgs.sessions_remaining > 0) ||
+          (s.subscription_pool_sessions || []).some((sps: any) => sps.sessions_remaining > 0)
+        )
     );
     
     // Debug logging

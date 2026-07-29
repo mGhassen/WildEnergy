@@ -62,6 +62,21 @@ export async function GET(req: NextRequest) {
               description,
               color
             )
+          ),
+          plan_session_pools(
+            id,
+            session_count,
+            is_free,
+            plan_session_pool_groups(
+              id,
+              group_id,
+              groups(
+                id,
+                name,
+                description,
+                color
+              )
+            )
           )
         ),
         subscription_group_sessions(
@@ -74,6 +89,26 @@ export async function GET(req: NextRequest) {
             name,
             description,
             color
+          )
+        ),
+        subscription_pool_sessions(
+          id,
+          pool_id,
+          sessions_remaining,
+          total_sessions,
+          plan_session_pools(
+            id,
+            session_count,
+            is_free,
+            plan_session_pool_groups(
+              group_id,
+              groups(
+                id,
+                name,
+                description,
+                color
+              )
+            )
           )
         )
       `)

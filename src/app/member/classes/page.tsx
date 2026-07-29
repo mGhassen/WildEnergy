@@ -25,6 +25,7 @@ import { CalendarProvider } from "@/calendar/contexts/calendar-context";
 import { ClientContainer } from "@/calendar/components/client-container";
 import { MobileClientContainer } from "@/components/mobile-client-container";
 import { convertCoursesToMemberEvents, createMemberUsers } from "@/calendar/utils/course-converter";
+import { subscriptionCoversCategory } from "@/lib/session-eligibility";
 import Link from "next/link";
 
 // Types for member classes page
@@ -184,38 +185,13 @@ function MemberClassesContent() {
 
   // Helper function to check if member can register for a course based on subscription group sessions
   const canRegisterForCourse = (course: Course) => {
-    // First check if member has any active subscriptions
     if (!activeSubscriptions.length) return false;
-    
-    // Get the category ID for this course
     const categoryId = course.class?.category?.id;
     if (!categoryId) return false;
-    
-    // Check if any active subscription has remaining sessions for this course's group
-    for (const subscription of activeSubscriptions) {
-      const groupSessions = subscription.subscription_group_sessions || [];
-      
-      // Find group sessions that include this category
-      for (const groupSession of groupSessions) {
-        if (groupSession.sessions_remaining > 0) {
-          // Check if this group includes the course's category
-          // We need to check the plan's groups to see if any group contains this category
-          const planGroups = subscription.plan?.plan_groups || [];
-          for (const planGroup of planGroups) {
-            if (planGroup.group_id === groupSession.group_id) {
-              // Check if this group has the course's category
-              const groupCategories = planGroup.groups?.category_groups || [];
-              const hasCategory = groupCategories.some((cat: any) => cat.categories?.id === categoryId);
-              if (hasCategory) {
-                return true;
-              }
-            }
-          }
-        }
-      }
-    }
-    
-    return false;
+
+    return activeSubscriptions.some((subscription) =>
+      subscriptionCoversCategory(subscription as any, categoryId),
+    );
   };
 
   const handleCancel = (course: Course) => {

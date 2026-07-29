@@ -79,12 +79,32 @@ export const subscriptionApi = {
     return apiRequest('GET', '/api/member/subscription');
   },
 
-  async manualRefundSessions(subscriptionId: number, sessionsToRefund: number, groupId?: number): Promise<any> {
-    return apiRequest('POST', '/api/member/subscriptions', { subscriptionId, sessionsToRefund, groupId });
+  async manualRefundSessions(
+    subscriptionId: number,
+    sessionsToRefund: number,
+    groupId?: number,
+    poolId?: number
+  ): Promise<any> {
+    return apiRequest('POST', '/api/member/subscriptions', {
+      subscriptionId,
+      sessionsToRefund,
+      groupId,
+      poolId,
+    });
   },
 
-  async consumeSession(subscriptionId: number, groupId: number): Promise<any> {
-    return apiRequest('POST', `/api/admin/subscriptions/${subscriptionId}/consume-session`, { group_id: groupId });
+  async consumeSession(
+    subscriptionId: number,
+    opts: { groupId?: number; poolId?: number }
+  ): Promise<any> {
+    return apiRequest(
+      'POST',
+      `/api/admin/subscriptions/${subscriptionId}/consume-session`,
+      {
+        group_id: opts.groupId,
+        pool_id: opts.poolId,
+      }
+    );
   }
 };
 
