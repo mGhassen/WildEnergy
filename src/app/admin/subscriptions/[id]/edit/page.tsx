@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useSubscription, useUpdateSubscription } from "@/hooks/useSubscriptions";
+import { useSubscription, useSubscriptions, useUpdateSubscription } from "@/hooks/useSubscriptions";
 import { useMembers } from "@/hooks/useMembers";
 import { usePlans } from "@/hooks/usePlans";
 import { formatCurrency } from "@/lib/config";
@@ -42,7 +42,16 @@ export default function AdminEditSubscriptionPage() {
       : "/admin/subscriptions";
   const close = useCloseHref(closeHref);
 
-  const { data: subscription, isLoading, isError } = useSubscription(subscriptionId);
+  const { data: subscriptionById, isLoading: isLoadingOne, isError } =
+    useSubscription(subscriptionId);
+  const { data: subscriptions = [], isLoading: isLoadingList } =
+    useSubscriptions();
+  const subscription =
+    subscriptionById ??
+    (Array.isArray(subscriptions)
+      ? subscriptions.find((s: any) => Number(s.id) === subscriptionId)
+      : undefined);
+  const isLoading = (isLoadingOne || isLoadingList) && !subscription;
   const updateSubscriptionMutation = useUpdateSubscription();
   const { data: members = [] } = useMembers();
   const { data: plans = [] } = usePlans();
@@ -147,7 +156,7 @@ export default function AdminEditSubscriptionPage() {
     );
   }
 
-  if (isError || !subscription) {
+  if ((isError && !subscription) || !subscription) {
     return (
       <RouteDialog
         title="Edit Subscription"

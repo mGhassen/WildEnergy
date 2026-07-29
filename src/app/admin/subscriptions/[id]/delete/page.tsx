@@ -7,6 +7,7 @@ import { DialogFooter } from "@/components/ui/dialog";
 import { FormSkeleton } from "@/components/skeletons";
 import {
   useSubscription,
+  useSubscriptions,
   useDeleteSubscription,
 } from "@/hooks/useSubscriptions";
 
@@ -20,8 +21,16 @@ export default function AdminDeleteSubscriptionPage() {
       : "/admin/subscriptions";
   const close = useCloseHref(closeHref);
 
-  const { data: subscription, isLoading, isError } =
+  const { data: subscriptionById, isLoading: isLoadingOne, isError } =
     useSubscription(subscriptionId);
+  const { data: subscriptions = [], isLoading: isLoadingList } =
+    useSubscriptions();
+  const subscription =
+    subscriptionById ??
+    (Array.isArray(subscriptions)
+      ? subscriptions.find((s: any) => Number(s.id) === subscriptionId)
+      : undefined);
+  const isLoading = (isLoadingOne || isLoadingList) && !subscription;
   const deleteSubscriptionMutation = useDeleteSubscription();
 
   const handleConfirm = () => {
@@ -59,7 +68,7 @@ export default function AdminDeleteSubscriptionPage() {
     );
   }
 
-  if (isError || !subscription) {
+  if ((isError && !subscription) || !subscription) {
     return (
       <RouteDialog
         title="Delete Subscription"

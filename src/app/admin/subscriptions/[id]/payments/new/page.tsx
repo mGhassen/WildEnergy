@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useSubscription } from "@/hooks/useSubscriptions";
+import { useSubscription, useSubscriptions } from "@/hooks/useSubscriptions";
 import { useCreatePayment, usePayments } from "@/hooks/usePayments";
 import { FormSkeleton } from "@/components/skeletons";
 
@@ -47,8 +47,16 @@ export default function AdminNewSubscriptionPaymentPage() {
       : "/admin/subscriptions";
   const close = useCloseHref(closeHref);
 
-  const { data: subscription, isLoading, isError } =
+  const { data: subscriptionById, isLoading: isLoadingOne, isError } =
     useSubscription(subscriptionId);
+  const { data: subscriptions = [], isLoading: isLoadingList } =
+    useSubscriptions();
+  const subscription =
+    subscriptionById ??
+    (Array.isArray(subscriptions)
+      ? subscriptions.find((s: any) => Number(s.id) === subscriptionId)
+      : undefined);
+  const isLoading = (isLoadingOne || isLoadingList) && !subscription;
   const { data: payments = [] } = usePayments();
   const createPaymentMutation = useCreatePayment();
 
@@ -132,7 +140,7 @@ export default function AdminNewSubscriptionPaymentPage() {
     );
   }
 
-  if (isError || !subscription) {
+  if ((isError && !subscription) || !subscription) {
     return (
       <RouteDialog
         title="Add Payment"

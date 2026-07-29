@@ -11,6 +11,168 @@ function extractIdFromUrl(request: NextRequest): string | null {
   return match ? match[1] : null;
 }
 
+const SUBSCRIPTION_DETAIL_SELECT = `
+  *,
+  members:member_id(
+    id,
+    status,
+    profiles:profile_id(
+      first_name,
+      last_name
+    ),
+    accounts:account_id(
+      email
+    )
+  ),
+  plan:plans(
+    id,
+    name,
+    price,
+    duration_days,
+    is_active,
+    plan_groups(
+      id,
+      group_id,
+      session_count,
+      is_free,
+      group:groups(
+        id,
+        name,
+        description,
+        color
+      )
+    ),
+    plan_session_pools(
+      id,
+      session_count,
+      is_free,
+      plan_session_pool_groups(
+        id,
+        group_id,
+        groups(
+          id,
+          name,
+          description,
+          color
+        )
+      )
+    )
+  ),
+  subscription_group_sessions(
+    id,
+    group_id,
+    sessions_remaining,
+    total_sessions,
+    group:groups(
+      id,
+      name,
+      description,
+      color
+    )
+  ),
+  subscription_pool_sessions(
+    id,
+    pool_id,
+    sessions_remaining,
+    total_sessions,
+    plan_session_pools(
+      id,
+      session_count,
+      is_free,
+      plan_session_pool_groups(
+        group_id,
+        groups(
+          id,
+          name,
+          description,
+          color
+        )
+      )
+    )
+  )
+`;
+
+export async function GET(request: NextRequest) {
+  try {
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.split(' ')[1];
+    if (!token) {
+      return NextResponse.json({ error: 'No token provided' }, { status: 401 });
+    }
+
+    const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
+    if (authError || !adminUser) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+    }
+    const { data: adminCheck } = await supabaseServer()
+      .from('user_profiles')
+      .select('is_admin, accessible_portals')
+      .eq('email', adminUser.email)
+      .single();
+    if (!adminCheck?.is_admin || !adminCheck?.accessible_portals?.includes('admin')) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
+
+    const id = extractIdFromUrl(request);
+    if (!id) {
+      return NextResponse.json({ error: 'Subscription ID is required' }, { status: 400 });
+    }
+    const subscriptionId = parseInt(id, 10);
+    if (!Number.isFinite(subscriptionId)) {
+      return NextResponse.json({ error: 'Invalid subscription ID' }, { status: 400 });
+    }
+
+    const { data: sub, error } = await supabaseServer()
+      .from('subscriptions')
+      .select(SUBSCRIPTION_DETAIL_SELECT)
+      .eq('id', subscriptionId)
+      .single();
+
+    if (error || !sub) {
+      return NextResponse.json(
+        { error: 'Subscription not found', details: error?.message },
+        { status: 404 },
+      );
+    }
+
+    try {
+      await ensureSubscriptionGroupSessions(supabaseServer() as any, subscriptionId);
+    } catch (ensureError) {
+      console.error('ensureSubscriptionGroupSessions on GET:', ensureError);
+    }
+
+    const memberRow = Array.isArray(sub.members) ? sub.members[0] : sub.members;
+    const { members: _members, ...rest } = sub;
+    const plan = rest.plan
+      ? {
+          ...rest.plan,
+          price: parseFloat(rest.plan.price) || 0,
+        }
+      : null;
+
+    return NextResponse.json({
+      ...rest,
+      plan,
+      member: memberRow
+        ? {
+            member_id: memberRow.id,
+            id: memberRow.id,
+            first_name: memberRow.profiles?.first_name || '',
+            last_name: memberRow.profiles?.last_name || '',
+            firstName: memberRow.profiles?.first_name || '',
+            lastName: memberRow.profiles?.last_name || '',
+            account_email: memberRow.accounts?.email || '',
+            email: memberRow.accounts?.email || '',
+            member_status: memberRow.status || 'active',
+          }
+        : null,
+    });
+  } catch (error) {
+    console.error('Subscription fetch error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
 export async function PUT(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
