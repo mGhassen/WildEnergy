@@ -36,7 +36,7 @@ export const planFormSchema = z
         isFree: z.boolean(),
         groupIds: z
           .array(z.number().min(1))
-          .min(2, "Shared pool needs at least 2 groups"),
+          .min(1, "Pool needs at least 1 group"),
       }),
     ),
   })
@@ -318,7 +318,7 @@ export function PlanForm({
                 name={`planSessionPools.${index}.groupIds`}
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-xs">Groups (pick ≥ 2)</FormLabel>
+                    <FormLabel className="text-xs">Groups</FormLabel>
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                       {groups?.map((group) => {
                         const checked = field.value?.includes(group.id);

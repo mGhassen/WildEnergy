@@ -131,9 +131,9 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
       // Pools already deleted above; insert fresh rows
       for (const pool of planSessionPools) {
         const groupIds = (pool.groupIds || []).filter((gid: number) => gid > 0);
-        if (groupIds.length < 2) {
+        if (groupIds.length < 1) {
           return NextResponse.json({
-            error: 'Each shared pool must include at least 2 groups',
+            error: 'Each pool must include at least 1 group',
           }, { status: 400 });
         }
 

@@ -78,9 +78,9 @@ export async function replacePlanSessionPools(
 
   for (const pool of pools) {
     const groupIds = (pool.groupIds || []).filter((id) => id > 0);
-    if (groupIds.length < 2) {
+    if (groupIds.length < 1) {
       return {
-        error: new Error('Each shared pool must include at least 2 groups'),
+        error: new Error('Each pool must include at least 1 group'),
       };
     }
 
@@ -132,8 +132,8 @@ export function validatePlanAllocations(
 
   for (const pool of pools || []) {
     const ids = (pool.groupIds || []).filter((id) => id > 0);
-    if (ids.length < 2) {
-      return 'Each shared pool must include at least 2 groups';
+    if (ids.length < 1) {
+      return 'Each pool must include at least 1 group';
     }
     const seenInPool = new Set<number>();
     for (const id of ids) {

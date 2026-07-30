@@ -62,7 +62,7 @@ export const insertPlanGroupSchema = z.object({
 export const insertPlanSessionPoolSchema = z.object({
   sessionCount: z.number().min(1, 'Session count must be at least 1'),
   isFree: z.boolean().optional(),
-  groupIds: z.array(z.number().min(1)).min(2, 'Shared pool needs at least 2 groups'),
+  groupIds: z.array(z.number().min(1)).min(1, 'Pool needs at least 1 group'),
 });
 
 export const insertPlanSchema = z.object({
