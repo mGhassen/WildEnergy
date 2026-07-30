@@ -54,7 +54,7 @@ export type PlanSessionPoolInput = {
 
 /**
  * Replace all shared session pools for a plan.
- * Caller should validate no overlap with dedicated plan_groups.
+ * Caller should validate dedicated vs shared exclusivity (same group may be in multiple pools).
  */
 export async function replacePlanSessionPools(
   supabase: {
@@ -120,14 +120,14 @@ export function validatePlanAllocations(
   planGroups: Array<{ groupId: number }> | undefined,
   pools: PlanSessionPoolInput[] | undefined
 ): string | null {
-  const used = new Set<number>();
+  const dedicatedIds = new Set<number>();
 
   for (const g of planGroups || []) {
     if (!g.groupId) continue;
-    if (used.has(g.groupId)) {
+    if (dedicatedIds.has(g.groupId)) {
       return 'A group cannot appear more than once in dedicated allocations';
     }
-    used.add(g.groupId);
+    dedicatedIds.add(g.groupId);
   }
 
   for (const pool of pools || []) {
@@ -141,10 +141,9 @@ export function validatePlanAllocations(
         return 'A group cannot appear twice in the same shared pool';
       }
       seenInPool.add(id);
-      if (used.has(id)) {
-        return 'A group cannot be both dedicated and in a shared pool (or in multiple pools)';
+      if (dedicatedIds.has(id)) {
+        return 'A group cannot be both dedicated and in a shared pool';
       }
-      used.add(id);
     }
   }
 
