@@ -213,26 +213,39 @@ export default function PlansPage() {
                             );
                           })}
                           {plan.plan_session_pools?.map((pool: any, index: number) => {
-                            const names = (pool.plan_session_pool_groups || [])
-                              .map((m: any) => m.groups?.name)
-                              .filter(Boolean)
-                              .join(" / ");
+                            const memberships =
+                              pool.plan_session_pool_groups || [];
                             return (
                               <div
                                 key={`p-${index}`}
-                                className="flex items-center justify-between text-xs sm:text-sm"
+                                className="space-y-1"
                               >
-                                <div className="min-w-0">
+                                <div className="flex items-center justify-between text-xs sm:text-sm">
                                   <span className="text-[10px] uppercase text-muted-foreground">
-                                    Shared
+                                    Package · {memberships.length} group
+                                    {memberships.length !== 1 ? "s" : ""}
                                   </span>
-                                  <div className="font-medium truncate">
-                                    {names || "Shared pool"}
-                                  </div>
+                                  <span className="text-muted-foreground text-xs sm:text-sm flex-shrink-0 ml-2">
+                                    {pool.session_count} sessions
+                                  </span>
                                 </div>
-                                <span className="text-muted-foreground text-xs sm:text-sm flex-shrink-0 ml-2">
-                                  {pool.session_count} sessions
-                                </span>
+                                <div className="flex flex-wrap gap-1">
+                                  {memberships.map((m: any) => (
+                                    <span
+                                      key={m.group_id || m.groups?.id}
+                                      className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-xs"
+                                    >
+                                      <span
+                                        className="h-1.5 w-1.5 rounded-full shrink-0"
+                                        style={{
+                                          backgroundColor:
+                                            m.groups?.color || "#6B7280",
+                                        }}
+                                      />
+                                      {m.groups?.name}
+                                    </span>
+                                  ))}
+                                </div>
                               </div>
                             );
                           })}

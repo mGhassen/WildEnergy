@@ -425,25 +425,26 @@ export function SubscriptionDetails({
                           key={planGroup.id}
                           className="border rounded-lg p-4 space-y-3"
                         >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-3 min-w-0">
                               <div
-                                className="w-4 h-4 rounded-full"
+                                className="w-3.5 h-3.5 rounded-full shrink-0"
                                 style={{
                                   backgroundColor:
                                     planGroup.groups?.color || "#6B7280",
                                 }}
-                              ></div>
-                              <div>
+                              />
+                              <div className="min-w-0">
                                 <div className="font-medium">
                                   {planGroup.groups?.name || "Group"}
                                 </div>
                                 <div className="text-sm text-muted-foreground">
-                                  {planGroup.groups?.description}
+                                  {sessionsUsed} / {groupTotalSessions} session
+                                  {groupTotalSessions !== 1 ? "s" : ""} used
                                 </div>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 shrink-0">
                               {planGroup.is_free && (
                                 <Badge
                                   variant="secondary"
@@ -452,57 +453,40 @@ export function SubscriptionDetails({
                                   Free
                                 </Badge>
                               )}
-                              <Badge variant="outline">
-                                {planGroup.session_count} sessions
-                              </Badge>
+                              <span className="text-sm text-muted-foreground">
+                                {sessionsRemaining} left
+                              </span>
                             </div>
                           </div>
 
-                          <div className="space-y-2">
-                            <div className="flex justify-between text-sm">
-                              <span>Sessions Used</span>
-                              <span className="font-medium">
-                                {sessionsUsed} / {groupTotalSessions}
-                              </span>
-                            </div>
-                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                              <div
-                                className="bg-primary h-2 rounded-full transition-all duration-300"
-                                style={{
-                                  width: `${Math.min(progressPercentage, 100)}%`,
-                                }}
-                              ></div>
-                            </div>
-                            <div className="flex justify-between text-xs text-muted-foreground">
-                              <span>Remaining: {sessionsRemaining}</span>
-                              <span>{Math.round(progressPercentage)}% used</span>
-                            </div>
+                          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                            <div
+                              className="bg-primary h-2 rounded-full transition-all duration-300"
+                              style={{
+                                width: `${Math.min(progressPercentage, 100)}%`,
+                              }}
+                            />
                           </div>
 
                           {planGroup.groups?.category_groups &&
                             planGroup.groups.category_groups.length > 0 && (
-                              <div className="space-y-2">
-                                <div className="text-sm font-medium text-muted-foreground">
-                                  Categories
-                                </div>
-                                <div className="flex flex-wrap gap-2">
-                                  {planGroup.groups.category_groups.map(
-                                    (categoryGroup: any) => (
-                                      <Badge
-                                        key={categoryGroup.categories.id}
-                                        variant="outline"
-                                        className="text-xs border-0 text-white"
-                                        style={{
-                                          backgroundColor:
-                                            categoryGroup.categories.color,
-                                          color: "white",
-                                        }}
-                                      >
-                                        {categoryGroup.categories.name}
-                                      </Badge>
-                                    ),
-                                  )}
-                                </div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {planGroup.groups.category_groups.map(
+                                  (categoryGroup: any) => (
+                                    <Badge
+                                      key={categoryGroup.categories.id}
+                                      variant="outline"
+                                      className="text-xs border-0 text-white"
+                                      style={{
+                                        backgroundColor:
+                                          categoryGroup.categories.color,
+                                        color: "white",
+                                      }}
+                                    >
+                                      {categoryGroup.categories.name}
+                                    </Badge>
+                                  ),
+                                )}
                               </div>
                             )}
                         </div>
@@ -518,10 +502,6 @@ export function SubscriptionDetails({
                         poolSession?.plan_session_pools
                           ?.plan_session_pool_groups ||
                         [];
-                      const names = memberships
-                        .map((m: any) => m.groups?.name)
-                        .filter(Boolean)
-                        .join(", ");
                       const poolTotal =
                         poolSession?.total_sessions ?? pool.session_count ?? 0;
                       const remaining =
@@ -537,16 +517,17 @@ export function SubscriptionDetails({
                           key={`pool-${pool.id}`}
                           className="border border-dashed rounded-lg p-4 space-y-3"
                         >
-                          <div className="flex items-center justify-between">
+                          <div className="flex items-start justify-between gap-3">
                             <div>
                               <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                                Shared pool
+                                Package pool
                               </div>
-                              <div className="font-medium">
-                                {names || "Shared sessions"}
+                              <div className="font-medium mt-0.5">
+                                {used} / {poolTotal} session
+                                {poolTotal !== 1 ? "s" : ""} used
                               </div>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 shrink-0">
                               {pool.is_free && (
                                 <Badge
                                   variant="secondary"
@@ -555,50 +536,40 @@ export function SubscriptionDetails({
                                   Free
                                 </Badge>
                               )}
-                              <Badge variant="outline">
-                                {pool.session_count} shared sessions
-                              </Badge>
+                              <span className="text-sm text-muted-foreground">
+                                {remaining} left
+                              </span>
                             </div>
                           </div>
 
-                          <div className="flex flex-wrap gap-1">
-                            {memberships.map((m: any) => (
-                              <span
-                                key={m.group_id}
-                                className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-muted"
-                              >
+                          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                            <div
+                              className="bg-primary h-2 rounded-full transition-all duration-300"
+                              style={{
+                                width: `${Math.min(progress, 100)}%`,
+                              }}
+                            />
+                          </div>
+
+                          {memberships.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5">
+                              {memberships.map((m: any) => (
                                 <span
-                                  className="w-2 h-2 rounded-full"
-                                  style={{
-                                    backgroundColor:
-                                      m.groups?.color || "#6B7280",
-                                  }}
-                                />
-                                {m.groups?.name}
-                              </span>
-                            ))}
-                          </div>
-
-                          <div className="space-y-2">
-                            <div className="flex justify-between text-sm">
-                              <span>Sessions Used</span>
-                              <span className="font-medium">
-                                {used} / {poolTotal}
-                              </span>
+                                  key={m.group_id}
+                                  className="inline-flex items-center gap-1.5 text-sm px-2 py-1 rounded-md bg-muted"
+                                >
+                                  <span
+                                    className="w-2.5 h-2.5 rounded-full shrink-0"
+                                    style={{
+                                      backgroundColor:
+                                        m.groups?.color || "#6B7280",
+                                    }}
+                                  />
+                                  {m.groups?.name}
+                                </span>
+                              ))}
                             </div>
-                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                              <div
-                                className="bg-primary h-2 rounded-full transition-all duration-300"
-                                style={{
-                                  width: `${Math.min(progress, 100)}%`,
-                                }}
-                              ></div>
-                            </div>
-                            <div className="flex justify-between text-xs text-muted-foreground">
-                              <span>Remaining: {remaining}</span>
-                              <span>{Math.round(progress)}% used</span>
-                            </div>
-                          </div>
+                          )}
                         </div>
                       );
                     })}

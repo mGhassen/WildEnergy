@@ -106,7 +106,7 @@ export default function AdminRefundSessionPage() {
   return (
     <RouteDialog
       title="Refund Session"
-      description="Select a dedicated group or shared pool to refund to"
+      description="Select a dedicated group or package pool to refund to"
       closeHref={closeHref}
       className="sm:max-w-md"
     >
@@ -164,10 +164,7 @@ export default function AdminRefundSessionPage() {
 
             {refundablePools.map((poolSession: any) => {
               const pool = poolSession.plan_session_pools;
-              const names = (pool?.plan_session_pool_groups || [])
-                .map((m: any) => m.groups?.name)
-                .filter(Boolean)
-                .join(" / ");
+              const memberships = pool?.plan_session_pool_groups || [];
               const selected =
                 selection?.type === "pool" &&
                 selection.id === poolSession.pool_id;
@@ -183,12 +180,33 @@ export default function AdminRefundSessionPage() {
                     setSelection({ type: "pool", id: poolSession.pool_id })
                   }
                 >
-                  <div className="flex items-center justify-between">
-                    <div>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0 space-y-1.5">
                       <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                        Shared pool
+                        Package pool
                       </p>
-                      <h4 className="font-medium">{names || "Shared sessions"}</h4>
+                      <div className="flex flex-wrap gap-1">
+                        {memberships.map((m: any) => (
+                          <span
+                            key={m.group_id || m.groups?.id}
+                            className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-xs"
+                          >
+                            <span
+                              className="h-1.5 w-1.5 rounded-full shrink-0"
+                              style={{
+                                backgroundColor:
+                                  m.groups?.color || "#6B7280",
+                              }}
+                            />
+                            {m.groups?.name}
+                          </span>
+                        ))}
+                        {memberships.length === 0 && (
+                          <span className="font-medium text-sm">
+                            Package sessions
+                          </span>
+                        )}
+                      </div>
                       <p className="text-sm text-muted-foreground">
                         {poolSession.sessions_remaining} /{" "}
                         {poolSession.total_sessions} sessions
@@ -201,7 +219,7 @@ export default function AdminRefundSessionPage() {
                       </p>
                     </div>
                     <div
-                      className="w-4 h-4 rounded-full border-2 flex items-center justify-center"
+                      className="w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0"
                       style={{
                         backgroundColor: selected
                           ? "var(--primary)"

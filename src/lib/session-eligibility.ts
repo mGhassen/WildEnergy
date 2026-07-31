@@ -1,6 +1,6 @@
 /**
  * Whether a subscription can cover a course category via dedicated group
- * sessions or shared session pools.
+ * sessions or package session pools.
  */
 export function subscriptionCoversCategory(
   subscription: {

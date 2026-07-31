@@ -357,29 +357,44 @@ export default function AdminNewSubscriptionPage() {
                     plan.plan_session_pools.length > 0 && (
                       <div className="mt-3">
                         <div className="text-xs font-medium text-muted-foreground mb-2">
-                          Shared pools:
+                          Package pools:
                         </div>
                         <div className="space-y-1">
                           {plan.plan_session_pools.map((pool: any) => {
-                            const names = (
-                              pool.plan_session_pool_groups || []
-                            )
-                              .map((m: any) => m.groups?.name)
-                              .filter(Boolean)
-                              .join(" / ");
+                            const memberships =
+                              pool.plan_session_pool_groups || [];
                             return (
                               <div
                                 key={pool.id}
-                                className="flex items-center gap-2 text-xs"
+                                className="space-y-1"
                               >
-                                <span className="font-medium">
-                                  {names || "Shared pool"}
-                                </span>
-                                <span className="text-muted-foreground">
-                                  ({pool.session_count} shared session
-                                  {pool.session_count > 1 ? "s" : ""}
-                                  {pool.is_free && " • FREE"})
-                                </span>
+                                <div className="flex items-center gap-2 text-xs">
+                                  <span className="font-medium">
+                                    Package pool
+                                  </span>
+                                  <span className="text-muted-foreground">
+                                    ({pool.session_count} session
+                                    {pool.session_count > 1 ? "s" : ""}
+                                    {pool.is_free && " • FREE"})
+                                  </span>
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                  {memberships.map((m: any) => (
+                                    <span
+                                      key={m.group_id || m.groups?.id}
+                                      className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-xs"
+                                    >
+                                      <span
+                                        className="h-1.5 w-1.5 rounded-full shrink-0"
+                                        style={{
+                                          backgroundColor:
+                                            m.groups?.color || "#6B7280",
+                                        }}
+                                      />
+                                      {m.groups?.name}
+                                    </span>
+                                  ))}
+                                </div>
                               </div>
                             );
                           })}

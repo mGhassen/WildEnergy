@@ -223,57 +223,61 @@ export default function AdminPlanDetailPage() {
 
               {sharedPools.map((pool) => {
                 const memberships = pool.plan_session_pool_groups || [];
-                const names = memberships
-                  .map((m) => m.groups?.name)
-                  .filter(Boolean)
-                  .join(" / ");
 
                 return (
                   <div
                     key={`pool-${pool.id}`}
-                    className="flex items-center justify-between rounded-md border border-dashed p-3"
+                    className="rounded-md border border-dashed p-3 space-y-2"
                   >
-                    <div className="min-w-0">
+                    <div className="flex items-center justify-between gap-3">
                       <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                        Shared pool
+                        Package pool
+                        {memberships.length > 0 && (
+                          <span className="normal-case tracking-normal">
+                            {" "}
+                            · {memberships.length} group
+                            {memberships.length !== 1 ? "s" : ""}
+                          </span>
+                        )}
                       </div>
-                      <div className="font-medium">
-                        {names || "Shared sessions"}
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-sm font-medium">
+                          {pool.session_count} session
+                          {pool.session_count !== 1 ? "s" : ""}
+                        </span>
+                        {pool.is_free && (
+                          <Badge
+                            variant="outline"
+                            className="bg-green-100 text-green-700 border-green-200"
+                          >
+                            FREE
+                          </Badge>
+                        )}
                       </div>
-                      {memberships.length > 0 && (
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {memberships.map((m) => (
+                    </div>
+                    {memberships.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {memberships.map((m) => (
+                          <span
+                            key={m.group_id}
+                            className="inline-flex items-center gap-1.5 rounded-md bg-muted px-2 py-1 text-sm"
+                          >
                             <span
-                              key={m.group_id}
-                              className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs"
-                            >
-                              <span
-                                className="h-2 w-2 rounded-full"
-                                style={{
-                                  backgroundColor:
-                                    m.groups?.color || "#6B7280",
-                                }}
-                              />
-                              {m.groups?.name}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0 ml-3">
-                      <span className="text-sm text-muted-foreground">
-                        {pool.session_count} shared session
-                        {pool.session_count !== 1 ? "s" : ""}
-                      </span>
-                      {pool.is_free && (
-                        <Badge
-                          variant="outline"
-                          className="bg-green-100 text-green-700 border-green-200"
-                        >
-                          FREE
-                        </Badge>
-                      )}
-                    </div>
+                              className="h-2.5 w-2.5 rounded-full shrink-0"
+                              style={{
+                                backgroundColor:
+                                  m.groups?.color || "#6B7280",
+                              }}
+                            />
+                            {m.groups?.name || "Unknown"}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        No groups in this pool
+                      </p>
+                    )}
                   </div>
                 );
               })}

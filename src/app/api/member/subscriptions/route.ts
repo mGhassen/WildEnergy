@@ -166,7 +166,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Subscription not found' }, { status: 404 });
     }
 
-    // Shared pool refund
+    // Package pool refund
     if (poolId) {
       const { data: poolSession, error: poolError } = await supabaseServer()
         .from('subscription_pool_sessions')
@@ -212,7 +212,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         success: true,
         sessionsRefunded: sessionsToRefundThisPool,
-        message: `Successfully refunded ${sessionsToRefundThisPool} session(s) to shared pool`,
+        message: `Successfully refunded ${sessionsToRefundThisPool} session(s) to package pool`,
       });
     }
 

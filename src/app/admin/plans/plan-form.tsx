@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,9 +13,123 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { useFieldArray, UseFormReturn } from "react-hook-form";
-import { Plus, X } from "lucide-react";
+import { Check, ChevronsUpDown, Plus, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { z } from "zod";
+
+type GroupOption = { id: number; name: string; color?: string };
+
+function PoolGroupPicker({
+  groups,
+  value,
+  onChange,
+}: {
+  groups: GroupOption[] | undefined;
+  value: number[];
+  onChange: (ids: number[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = (groups || []).filter((g) => value.includes(g.id));
+
+  const toggle = (id: number) => {
+    onChange(
+      value.includes(id) ? value.filter((x) => x !== id) : [...value, id],
+    );
+  };
+
+  return (
+    <div className="space-y-2">
+      {selected.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {selected.map((group) => (
+            <button
+              key={group.id}
+              type="button"
+              onClick={() => toggle(group.id)}
+              className="inline-flex items-center gap-1.5 rounded-md bg-muted px-2 py-1 text-sm hover:bg-muted/80"
+            >
+              <span
+                className="h-2 w-2 rounded-full shrink-0"
+                style={{ backgroundColor: group.color || "#6B7280" }}
+              />
+              {group.name}
+              <X className="h-3 w-3 text-muted-foreground" />
+            </button>
+          ))}
+        </div>
+      )}
+
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            role="combobox"
+            aria-expanded={open}
+            className="w-full justify-between font-normal"
+          >
+            <span className="text-muted-foreground">
+              {value.length === 0
+                ? "Search and add groups…"
+                : `${value.length} group${value.length === 1 ? "" : "s"} selected`}
+            </span>
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent
+          className="w-[var(--radix-popover-trigger-width)] p-0"
+          align="start"
+        >
+          <Command>
+            <CommandInput placeholder="Search groups…" />
+            <CommandList className="max-h-56">
+              <CommandEmpty>No groups found.</CommandEmpty>
+              <CommandGroup>
+                {(groups || []).map((group) => {
+                  const isSelected = value.includes(group.id);
+                  return (
+                    <CommandItem
+                      key={group.id}
+                      value={group.name}
+                      onSelect={() => toggle(group.id)}
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          isSelected ? "opacity-100" : "opacity-0",
+                        )}
+                      />
+                      <span
+                        className="mr-2 h-2 w-2 rounded-full shrink-0"
+                        style={{ backgroundColor: group.color || "#6B7280" }}
+                      />
+                      {group.name}
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
 
 export const planFormSchema = z
   .object({
@@ -89,7 +204,7 @@ export const planFormDefaultValues: PlanFormData = {
 
 type PlanFormProps = {
   form: UseFormReturn<PlanFormData>;
-  groups: Array<{ id: number; name: string; color?: string }> | undefined;
+  groups: GroupOption[] | undefined;
   onSubmit: (data: PlanFormData) => void;
   submitLabel: string;
   isSubmitting?: boolean;
@@ -235,11 +350,11 @@ export function PlanForm({
 
         {/* Dedicated groups UI hidden — planGroups still in form/API for later */}
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div>
               <FormLabel className="text-base font-semibold">
-                Shared session pools
+                Package pools
               </FormLabel>
               <p className="text-xs text-muted-foreground">
                 One session count usable in any of the selected groups
@@ -254,110 +369,96 @@ export function PlanForm({
               }
             >
               <Plus className="w-4 h-4 mr-1" />
-              Add Pool
+              Add pool
             </Button>
           </div>
 
-          {poolFields.map((field, index) => (
-            <div key={field.id} className="p-4 border rounded-lg space-y-3">
-              <div className="flex items-center gap-3">
-                <FormField
-                  control={form.control}
-                  name={`planSessionPools.${index}.sessionCount`}
-                  render={({ field }) => (
-                    <FormItem className="w-28">
-                      <FormLabel className="text-xs">Sessions</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min={1}
-                          className="h-10 text-center font-medium"
-                          {...field}
-                          onChange={(e) =>
-                            field.onChange(Number(e.target.value))
-                          }
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name={`planSessionPools.${index}.isFree`}
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center space-x-2 space-y-0 pt-6">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                          className="data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
-                        />
-                      </FormControl>
-                      <FormLabel className="text-sm font-medium">Free</FormLabel>
-                    </FormItem>
-                  )}
-                />
-
-                <div className="flex-1" />
-
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="mt-5"
-                  onClick={() => removePool(index)}
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-
-              <FormField
-                control={form.control}
-                name={`planSessionPools.${index}.groupIds`}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs">Groups</FormLabel>
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                      {groups?.map((group) => {
-                        const checked = field.value?.includes(group.id);
-                        return (
-                          <label
-                            key={group.id}
-                            className="flex items-center gap-2 rounded border px-2 py-1.5 text-sm cursor-pointer hover:bg-muted/50"
-                          >
-                            <Checkbox
-                              checked={checked}
-                              onCheckedChange={(next) => {
-                                const current = field.value || [];
-                                field.onChange(
-                                  next
-                                    ? [...current, group.id]
-                                    : current.filter((id) => id !== group.id),
-                                );
-                              }}
-                            />
-                            <div
-                              className="w-2 h-2 rounded-full shrink-0"
-                              style={{ backgroundColor: group.color }}
-                            />
-                            <span className="truncate">{group.name}</span>
-                          </label>
-                        );
-                      })}
+          {poolFields.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-2">
+              No package pools yet.
+            </p>
+          ) : (
+            <div className="divide-y">
+              {poolFields.map((field, index) => (
+                <div key={field.id} className="py-4 space-y-3 first:pt-2">
+                  <div className="flex items-end gap-3">
+                    <div className="text-sm font-medium text-muted-foreground w-14 shrink-0 pb-2">
+                      Pool {index + 1}
                     </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-          ))}
 
-          {poolFields.length === 0 && (
-            <div className="text-center py-6 text-muted-foreground text-sm">
-              No shared pools. Add a pool for sessions usable across multiple
-              groups.
+                    <FormField
+                      control={form.control}
+                      name={`planSessionPools.${index}.sessionCount`}
+                      render={({ field }) => (
+                        <FormItem className="w-24">
+                          <FormLabel className="text-xs">Sessions</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min={1}
+                              className="h-9 text-center"
+                              {...field}
+                              onChange={(e) =>
+                                field.onChange(Number(e.target.value))
+                              }
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name={`planSessionPools.${index}.isFree`}
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center space-x-2 space-y-0 pb-2">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              className="data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
+                            />
+                          </FormControl>
+                          <FormLabel className="text-sm font-medium">
+                            Free
+                          </FormLabel>
+                        </FormItem>
+                      )}
+                    />
+
+                    <div className="flex-1" />
+
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="text-muted-foreground mb-0.5"
+                      onClick={() => removePool(index)}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name={`planSessionPools.${index}.groupIds`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Groups</FormLabel>
+                        <FormControl>
+                          <PoolGroupPicker
+                            groups={groups}
+                            value={field.value || []}
+                            onChange={field.onChange}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              ))}
             </div>
           )}
         </div>

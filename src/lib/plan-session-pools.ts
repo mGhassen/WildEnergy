@@ -1,4 +1,4 @@
-/** Shared PostgREST select for plans including dedicated groups and shared pools */
+/** Shared PostgREST select for plans including dedicated groups and package pools */
 export const PLAN_WITH_GROUPS_AND_POOLS_SELECT = `
   *,
   plan_groups (
@@ -53,7 +53,7 @@ export type PlanSessionPoolInput = {
 };
 
 /**
- * Replace all shared session pools for a plan.
+ * Replace all package session pools for a plan.
  * Caller should validate dedicated vs shared exclusivity (same group may be in multiple pools).
  */
 export async function replacePlanSessionPools(
@@ -138,11 +138,11 @@ export function validatePlanAllocations(
     const seenInPool = new Set<number>();
     for (const id of ids) {
       if (seenInPool.has(id)) {
-        return 'A group cannot appear twice in the same shared pool';
+        return 'A group cannot appear twice in the same package pool';
       }
       seenInPool.add(id);
       if (dedicatedIds.has(id)) {
-        return 'A group cannot be both dedicated and in a shared pool';
+        return 'A group cannot be both dedicated and in a package pool';
       }
     }
   }

@@ -66,6 +66,8 @@ export default function AdminPayments() {
     dateFrom: "",
     dateTo: "",
   });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   const router = useRouter();
   const { data: payments = [], isLoading } = usePayments();
@@ -141,6 +143,19 @@ export default function AdminPayments() {
       return searchMatch && memberMatch && planMatch && paymentTypeMatch && statusMatch && dateMatch;
     });
   }, [mappedPayments, filters]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredPayments.length / pageSize));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedPayments = useMemo(() => {
+    const start = (safePage - 1) * pageSize;
+    return filteredPayments.slice(start, start + pageSize);
+  }, [filteredPayments, safePage, pageSize]);
+
+  // Reset to first page when filters or page size change
+  const updateFilters = (updater: (prev: FilterState) => FilterState) => {
+    setFilters(updater);
+    setCurrentPage(1);
+  };
 
   // Calculate statistics
   const stats = useMemo(() => {
@@ -224,6 +239,7 @@ export default function AdminPayments() {
       dateFrom: "",
       dateTo: "",
     });
+    setCurrentPage(1);
   };
 
   const handleEditPayment = (payment: Payment) => {
@@ -355,7 +371,7 @@ export default function AdminPayments() {
                 <Input
                   placeholder="Search payments..."
                   value={filters.searchTerm}
-                  onChange={(e) => setFilters(prev => ({ ...prev, searchTerm: e.target.value }))}
+                  onChange={(e) => updateFilters((prev) => ({ ...prev, searchTerm: e.target.value }))}
                   className="pl-8"
                 />
               </div>
@@ -364,7 +380,7 @@ export default function AdminPayments() {
             {/* Member Filter */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Member</label>
-              <Select value={filters.selectedMember} onValueChange={(value) => setFilters(prev => ({ ...prev, selectedMember: value }))}>
+              <Select value={filters.selectedMember} onValueChange={(value) => updateFilters((prev) => ({ ...prev, selectedMember: value }))}>
                 <SelectTrigger>
                   <SelectValue placeholder="All members" />
                 </SelectTrigger>
@@ -382,7 +398,7 @@ export default function AdminPayments() {
             {/* Plan Filter */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Plan</label>
-              <Select value={filters.selectedPlan} onValueChange={(value) => setFilters(prev => ({ ...prev, selectedPlan: value }))}>
+              <Select value={filters.selectedPlan} onValueChange={(value) => updateFilters((prev) => ({ ...prev, selectedPlan: value }))}>
                 <SelectTrigger>
                   <SelectValue placeholder="All plans" />
                 </SelectTrigger>
@@ -400,7 +416,7 @@ export default function AdminPayments() {
             {/* Payment Type Filter */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Payment Type</label>
-              <Select value={filters.selectedPaymentType} onValueChange={(value) => setFilters(prev => ({ ...prev, selectedPaymentType: value }))}>
+              <Select value={filters.selectedPaymentType} onValueChange={(value) => updateFilters((prev) => ({ ...prev, selectedPaymentType: value }))}>
                 <SelectTrigger>
                   <SelectValue placeholder="All types" />
                 </SelectTrigger>
@@ -418,7 +434,7 @@ export default function AdminPayments() {
             {/* Status Filter */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Status</label>
-              <Select value={filters.selectedStatus} onValueChange={(value) => setFilters(prev => ({ ...prev, selectedStatus: value }))}>
+              <Select value={filters.selectedStatus} onValueChange={(value) => updateFilters((prev) => ({ ...prev, selectedStatus: value }))}>
                 <SelectTrigger>
                   <SelectValue placeholder="All statuses" />
                 </SelectTrigger>
@@ -441,13 +457,13 @@ export default function AdminPayments() {
                   type="date"
                   placeholder="From"
                   value={filters.dateFrom}
-                  onChange={(e) => setFilters(prev => ({ ...prev, dateFrom: e.target.value }))}
+                  onChange={(e) => updateFilters((prev) => ({ ...prev, dateFrom: e.target.value }))}
                 />
                 <Input
                   type="date"
                   placeholder="To"
                   value={filters.dateTo}
-                  onChange={(e) => setFilters(prev => ({ ...prev, dateTo: e.target.value }))}
+                  onChange={(e) => updateFilters((prev) => ({ ...prev, dateTo: e.target.value }))}
                 />
               </div>
             </div>
@@ -501,85 +517,167 @@ export default function AdminPayments() {
             {filteredPayments.length} of {mappedPayments.length} payments
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Member</TableHead>
-                <TableHead>Plan</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredPayments.map((payment) => (
-                <TableRow key={payment.id}>
-                  <TableCell>
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                        <span className="text-sm font-medium text-primary">
-                          {payment.member ? getInitials(payment.member.firstName, payment.member.lastName) : "?"}
-                        </span>
-                      </div>
-                      <div>
-                        <p className="font-medium text-foreground">
-                          {payment.member?.firstName} {payment.member?.lastName}
-                        </p>
-                        <p className="text-sm text-muted-foreground">{payment.member?.email}</p>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <p className="font-medium text-foreground">{payment.subscription?.plan?.name || 'N/A'}</p>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center">
-                      <DollarSign className="w-4 h-4 mr-1 text-muted-foreground" />
-                      <span className="font-medium">{formatPrice(payment.amount)}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {payment.payment_type === 'credit' ? (
-                      <Badge style={{ backgroundColor: '#FFA500', color: '#fff' }}>
-                        Credit
-                      </Badge>
-                    ) : (
-                      payment.payment_type || '-'
-                    )}
-                  </TableCell>
-                  <TableCell>{payment.payment_date ? formatDate(payment.payment_date) : '-'}</TableCell>
-                  <TableCell>
-                    <Badge className={getPaymentStatusColor(payment.payment_status)}>
-                      {getPaymentStatusText(payment.payment_status)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEditPayment(payment)}
-                        className="h-8 w-8 p-0"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDeletePayment(payment)}
-                        className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
+        <CardContent className="p-0">
+          <div className="px-6">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Member</TableHead>
+                  <TableHead>Plan</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {paginatedPayments.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                      No payments found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  paginatedPayments.map((payment) => (
+                    <TableRow key={payment.id}>
+                      <TableCell>
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                            <span className="text-sm font-medium text-primary">
+                              {payment.member ? getInitials(payment.member.firstName, payment.member.lastName) : "?"}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="font-medium text-foreground">
+                              {payment.member?.firstName} {payment.member?.lastName}
+                            </p>
+                            <p className="text-sm text-muted-foreground">{payment.member?.email}</p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <p className="font-medium text-foreground">{payment.subscription?.plan?.name || 'N/A'}</p>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center">
+                          <DollarSign className="w-4 h-4 mr-1 text-muted-foreground" />
+                          <span className="font-medium">{formatPrice(payment.amount)}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {payment.payment_type === 'credit' ? (
+                          <Badge style={{ backgroundColor: '#FFA500', color: '#fff' }}>
+                            Credit
+                          </Badge>
+                        ) : (
+                          payment.payment_type || '-'
+                        )}
+                      </TableCell>
+                      <TableCell>{payment.payment_date ? formatDate(payment.payment_date) : '-'}</TableCell>
+                      <TableCell>
+                        <Badge className={getPaymentStatusColor(payment.payment_status)}>
+                          {getPaymentStatusText(payment.payment_status)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditPayment(payment)}
+                            className="h-8 w-8 p-0"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeletePayment(payment)}
+                            className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          {filteredPayments.length > 0 && (
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-6 py-3 border-t">
+              <div className="flex items-center gap-4">
+                <div className="text-sm text-muted-foreground">
+                  Showing{" "}
+                  {(safePage - 1) * pageSize + 1} to{" "}
+                  {Math.min(safePage * pageSize, filteredPayments.length)} of{" "}
+                  {filteredPayments.length} payments
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Rows:</span>
+                  <Select
+                    value={pageSize.toString()}
+                    onValueChange={(value) => {
+                      setPageSize(Number(value));
+                      setCurrentPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="w-20 h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="20">20</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                      <SelectItem value="100">100</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              {totalPages > 1 && (
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(1)}
+                    disabled={safePage === 1}
+                  >
+                    First
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(safePage - 1)}
+                    disabled={safePage === 1}
+                  >
+                    Previous
+                  </Button>
+                  <span className="text-sm text-foreground whitespace-nowrap">
+                    Page {safePage} of {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(safePage + 1)}
+                    disabled={safePage === totalPages}
+                  >
+                    Next
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={safePage === totalPages}
+                  >
+                    Last
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
