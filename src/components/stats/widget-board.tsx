@@ -1,13 +1,12 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import GridLayout, { type Layout } from "react-grid-layout/legacy"
 import { useContainerWidth } from "react-grid-layout"
 import type { AdminStatsResponse } from "@/lib/api/stats"
 import type { CustomQuerySpec } from "@/lib/stats/query-spec"
 import {
   CUSTOM_METRIC_ID,
-  defaultBoard,
   defaultParams,
   loadBoard,
   saveBoard,
@@ -32,6 +31,43 @@ function layoutForCustom(viz: CustomQuerySpec["viz"]): Pick<BoardLayoutItem, "w"
   return { w: 3, h: 3 }
 }
 
+function sameLayout(a: BoardLayoutItem[], b: Layout): boolean {
+  if (a.length !== b.length) return false
+  const byId = new Map(a.map((item) => [item.i, item]))
+  for (const item of b) {
+    const prev = byId.get(item.i)
+    if (!prev) return false
+    if (
+      prev.x !== item.x ||
+      prev.y !== item.y ||
+      prev.w !== item.w ||
+      prev.h !== item.h
+    ) {
+      return false
+    }
+  }
+  return true
+}
+
+function toBoardLayouts(
+  layout: Layout,
+  prevLayouts: BoardLayoutItem[],
+): BoardLayoutItem[] {
+  return layout.map((l) => {
+    const prevItem = prevLayouts.find((p) => p.i === l.i)
+    return {
+      i: l.i,
+      x: l.x,
+      y: l.y,
+      w: l.w,
+      h: l.h,
+      minW: l.minW ?? prevItem?.minW ?? 2,
+      minH: l.minH ?? prevItem?.minH ?? 2,
+      maxH: prevItem?.maxH ?? l.maxH,
+    }
+  })
+}
+
 export function WidgetBoard({
   tab,
   data,
@@ -46,44 +82,61 @@ export function WidgetBoard({
   to: string
 }) {
   const { width, containerRef, mounted } = useContainerWidth()
-  const [board, setBoard] = useState<BoardState>(() => defaultBoard(tab))
-  const [hydrated, setHydrated] = useState(false)
+  const [board, setBoard] = useState<BoardState | null>(null)
   const [showGrid, setShowGrid] = useState(false)
   const [isAddWidgetOpen, setIsAddWidgetOpen] = useState(false)
+  const boardTabRef = useRef(tab)
+  const persistReadyRef = useRef(false)
 
+  // Load board for the active tab; block saves until load finishes
   useEffect(() => {
+    persistReadyRef.current = false
+    boardTabRef.current = tab
     setBoard(loadBoard(tab))
-    setHydrated(true)
+    // Allow saves on next tick so we never persist a stale board under a new tab key
+    const id = window.setTimeout(() => {
+      persistReadyRef.current = true
+    }, 0)
+    return () => {
+      window.clearTimeout(id)
+      persistReadyRef.current = false
+    }
   }, [tab])
 
   useEffect(() => {
-    if (!hydrated) return
+    if (!board || !persistReadyRef.current) return
+    if (boardTabRef.current !== tab) return
     saveBoard(tab, board)
-  }, [board, tab, hydrated])
+  }, [board, tab])
 
-  const onLayoutChange = useCallback((layout: Layout) => {
-    setBoard((prev) => ({
-      ...prev,
-      layouts: layout.map((l) => {
-        const prevItem = prev.layouts.find((p) => p.i === l.i)
-        return {
-          i: l.i,
-          x: l.x,
-          y: l.y,
-          w: l.w,
-          h: l.h,
-          minW: l.minW,
-          minH: l.minH,
-          maxH: prevItem?.maxH ?? l.maxH,
-        }
-      }),
-    }))
+  const applyLayout = useCallback((layout: Layout) => {
+    if (!layout.length) return
+    setBoard((prev) => {
+      if (!prev) return prev
+      if (sameLayout(prev.layouts, layout)) return prev
+      // Ignore partial layouts (e.g. unmount flicker) that would wipe the board
+      if (layout.length < prev.layouts.length) return prev
+      return {
+        ...prev,
+        layouts: toBoardLayouts(layout, prev.layouts),
+      }
+    })
   }, [])
+
+  const onLayoutChange = useCallback(
+    (layout: Layout) => {
+      // Ignore mount-time / compaction noise until persistence is armed
+      if (!persistReadyRef.current) return
+      applyLayout(layout)
+    },
+    [applyLayout],
+  )
 
   const addTemplate = useCallback((metric: MetricDef) => {
     const id = `${metric.id}__${Date.now().toString(36)}`
     const isKpi = metric.viz === "kpi"
     setBoard((prev) => {
+      if (!prev) return prev
       const maxY = prev.layouts.reduce((m, l) => Math.max(m, l.y + l.h), 0)
       const widget: BoardWidget = {
         id,
@@ -111,6 +164,7 @@ export function WidgetBoard({
     const id = `${CUSTOM_METRIC_ID}__${Date.now().toString(36)}`
     const size = layoutForCustom(query.viz)
     setBoard((prev) => {
+      if (!prev) return prev
       const maxY = prev.layouts.reduce((m, l) => Math.max(m, l.y + l.h), 0)
       const widget: BoardWidget = {
         id,
@@ -136,27 +190,44 @@ export function WidgetBoard({
   }, [])
 
   const updateCustom = useCallback((id: string, query: CustomQuerySpec) => {
-    setBoard((prev) => ({
-      ...prev,
-      widgets: prev.widgets.map((w) =>
-        w.id === id ? { ...w, customQuery: query } : w,
-      ),
-    }))
+    setBoard((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        widgets: prev.widgets.map((w) =>
+          w.id === id ? { ...w, customQuery: query } : w,
+        ),
+      }
+    })
   }, [])
 
   const removeWidget = useCallback((id: string) => {
-    setBoard((prev) => ({
-      widgets: prev.widgets.filter((w) => w.id !== id),
-      layouts: prev.layouts.filter((l) => l.i !== id),
-    }))
+    setBoard((prev) => {
+      if (!prev) return prev
+      return {
+        widgets: prev.widgets.filter((w) => w.id !== id),
+        layouts: prev.layouts.filter((l) => l.i !== id),
+      }
+    })
   }, [])
 
   const changeParams = useCallback((id: string, params: Record<string, string>) => {
-    setBoard((prev) => ({
-      ...prev,
-      widgets: prev.widgets.map((w) => (w.id === id ? { ...w, params } : w)),
-    }))
+    setBoard((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        widgets: prev.widgets.map((w) => (w.id === id ? { ...w, params } : w)),
+      }
+    })
   }, [])
+
+  if (!board) {
+    return (
+      <div ref={containerRef} className="min-h-[320px]">
+        <div className="h-48 animate-pulse rounded-lg bg-muted/40" />
+      </div>
+    )
+  }
 
   const layout = board.layouts.map((l) => ({
     ...l,
@@ -206,9 +277,15 @@ export function WidgetBoard({
             width={width}
             onLayoutChange={onLayoutChange}
             onDragStart={() => setShowGrid(true)}
-            onDragStop={() => setShowGrid(false)}
+            onDragStop={(next) => {
+              setShowGrid(false)
+              applyLayout(next)
+            }}
             onResizeStart={() => setShowGrid(true)}
-            onResizeStop={() => setShowGrid(false)}
+            onResizeStop={(next) => {
+              setShowGrid(false)
+              applyLayout(next)
+            }}
             draggableHandle=".drag-handle"
             compactType="vertical"
             margin={MARGIN}
