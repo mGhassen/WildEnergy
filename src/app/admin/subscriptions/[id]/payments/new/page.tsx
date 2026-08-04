@@ -13,6 +13,7 @@ import { Form, FormControl, FormItem, FormLabel, FormMessage } from "@/component
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useSubscription, useSubscriptions } from "@/hooks/useSubscriptions";
 import { useCreatePayment, usePayments } from "@/hooks/usePayments";
+import { useMemberCredit } from "@/hooks/useMemberCredit";
 import { FormSkeleton } from "@/components/skeletons";
 
 const paymentFormSchema = z.object({
@@ -73,7 +74,13 @@ export default function AdminNewSubscriptionPaymentPage() {
   }, [subscription, payments, subscriptionId]);
 
   const member = (subscription as any)?.member;
-  const memberCredit = Number(member?.credit) || 0;
+  const memberId =
+    subscription?.member_id || member?.id || member?.member_id || null;
+  const { data: creditData } = useMemberCredit(memberId);
+  // Prefer ledger endpoint; fall back to nested credit only while loading
+  const memberCredit =
+    creditData?.credit ??
+    (Number.isFinite(Number(member?.credit)) ? Number(member.credit) : 0);
 
   const form = useForm<PaymentFormData>({
     resolver: zodResolver(paymentFormSchema),

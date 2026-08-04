@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { getMemberCreditBalance } from '@/lib/member-credit';
 import { deleteSubscriptionWithDependents } from '@/lib/subscription-delete-cleanup';
 import {
   ensureSubscriptionGroupSessions,
@@ -150,6 +151,10 @@ export async function GET(request: NextRequest) {
         }
       : null;
 
+    const memberCredit = memberRow?.id
+      ? await getMemberCreditBalance(memberRow.id)
+      : 0;
+
     return NextResponse.json({
       ...rest,
       plan,
@@ -164,6 +169,7 @@ export async function GET(request: NextRequest) {
             account_email: memberRow.accounts?.email || '',
             email: memberRow.accounts?.email || '',
             member_status: memberRow.status || 'active',
+            credit: memberCredit,
           }
         : null,
     });
