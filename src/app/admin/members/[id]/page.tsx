@@ -53,7 +53,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Save, X } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Loader2, Save, X, Ban } from "lucide-react";
+import { BlacklistRibbon } from "@/components/blacklist-ribbon";
 
 // Types
 interface Member {
@@ -69,6 +71,7 @@ interface Member {
   address?: string;
   profession?: string;
   memberNotes?: string;
+  isBlacklisted: boolean;
   credit: number;
   userType: string;
   accessiblePortals: string[];
@@ -209,6 +212,7 @@ export default function MemberDetailsPage() {
     profession: "",
     memberNotes: "",
     status: "",
+    isBlacklisted: false,
     credit: 0,
     createdAt: "",
   });
@@ -227,6 +231,7 @@ export default function MemberDetailsPage() {
         profession: member.profession || "",
         memberNotes: member.memberNotes || "",
         status: member.status || "active",
+        isBlacklisted: Boolean(member.isBlacklisted),
         credit: member.credit || 0,
         createdAt: member.createdAt ? member.createdAt.split('T')[0] : "",
       });
@@ -306,6 +311,7 @@ export default function MemberDetailsPage() {
     address: memberDetails.member.address,
     profession: memberDetails.member.profession,
     memberNotes: memberDetails.member.memberNotes,
+    isBlacklisted: Boolean(memberDetails.member.isBlacklisted),
     credit: memberDetails.member.credit,
     userType: memberDetails.member.userType || 'member',
     accessiblePortals: memberDetails.member.accessiblePortals || ['member'],
@@ -394,9 +400,21 @@ export default function MemberDetailsPage() {
         profession: member.profession || "",
         memberNotes: member.memberNotes || "",
         status: member.status || "active",
+        isBlacklisted: Boolean(member.isBlacklisted),
         credit: member.credit || 0,
         createdAt: member.createdAt ? member.createdAt.split('T')[0] : "",
       });
+    }
+  };
+
+  const handleToggleBlacklist = async () => {
+    try {
+      await updateMemberMutation.mutateAsync({
+        memberId: member.id,
+        data: { isBlacklisted: !member.isBlacklisted },
+      });
+    } catch (error) {
+      console.error('Failed to toggle blacklist:', error);
     }
   };
 
@@ -453,7 +471,8 @@ export default function MemberDetailsPage() {
 
 
   return (
-    <div className="space-y-6">
+    <div className="relative space-y-6 overflow-hidden">
+      {member.isBlacklisted && <BlacklistRibbon className="h-24 w-24" />}
       {/* Header Section */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-4">
@@ -472,9 +491,14 @@ export default function MemberDetailsPage() {
               </span>
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-foreground">
-                {member.firstName} {member.lastName}
-              </h1>
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-2xl font-bold text-foreground">
+                  {member.firstName} {member.lastName}
+                </h1>
+                {member.isBlacklisted && (
+                  <Badge className="bg-black text-white hover:bg-black">Blacklist</Badge>
+                )}
+              </div>
               <p className="text-muted-foreground">{member.email || 'No email (unlinked member)'}</p>
             </div>
           </div>
@@ -559,6 +583,10 @@ export default function MemberDetailsPage() {
                 Call Member
               </DropdownMenuItem>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleToggleBlacklist}>
+                <Ban className="w-4 h-4 mr-2" />
+                {member.isBlacklisted ? 'Remove from Blacklist' : 'Blacklist Member'}
+              </DropdownMenuItem>
               {member.status === 'active' ? (
                 <DropdownMenuItem onClick={handleSuspendMember} className="text-destructive">
                   <UserX className="w-4 h-4 mr-2" />
@@ -875,6 +903,29 @@ export default function MemberDetailsPage() {
                       <Badge className={getMemberStatusColor(member.status)}>
                         {member.status}
                       </Badge>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Blacklist</Label>
+                  {isEditing ? (
+                    <div className="mt-2 flex items-center gap-3">
+                      <Switch
+                        checked={editForm.isBlacklisted}
+                        onCheckedChange={(checked) => setEditForm({ ...editForm, isBlacklisted: checked })}
+                      />
+                      <span className="text-sm">
+                        {editForm.isBlacklisted ? 'Blacklisted' : 'Not blacklisted'}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="mt-1">
+                      {member.isBlacklisted ? (
+                        <Badge className="bg-black text-white hover:bg-black">Blacklist</Badge>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">No</p>
+                      )}
                     </div>
                   )}
                 </div>

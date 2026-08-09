@@ -112,6 +112,7 @@ export async function GET(
           member_notes: unlinkedMember.member_notes,
           credit: 0,
           member_status: unlinkedMember.status,
+          is_blacklisted: unlinkedMember.is_blacklisted ?? false,
           created_at: unlinkedMember.created_at,
           trainer_id: null,
           specialization: null,
@@ -226,6 +227,7 @@ export async function GET(
         address: member.address,
         profession: member.profession,
         memberNotes: member.member_notes,
+        isBlacklisted: member.is_blacklisted ?? false,
         credit,
         userType: member.user_type,
         accessiblePortals: member.accessible_portals,
@@ -501,6 +503,7 @@ export async function PUT(
       memberUpdates.member_notes = body.memberNotes === "" ? null : body.memberNotes;
     }
     if (body.status !== undefined) memberUpdates.status = body.status;
+    if (body.isBlacklisted !== undefined) memberUpdates.is_blacklisted = Boolean(body.isBlacklisted);
     // Credit is managed exclusively via /api/admin/members/[id]/credit
     if (body.createdAt) {
       memberUpdates.created_at = body.createdAt;

@@ -12,6 +12,7 @@ export interface UpdateMemberDetailsData {
   profession?: string;
   memberNotes?: string;
   status?: string;
+  isBlacklisted?: boolean;
   credit?: number;
   createdAt?: string;
 }

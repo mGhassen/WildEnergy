@@ -12,6 +12,7 @@ export interface Member {
   credit: number;
   member_notes?: string;
   member_status?: string;
+  is_blacklisted?: boolean;
   account_status?: string; // Account status for error styling
   // subscription_status removed - should be determined dynamically from subscriptions table
   user_type: string;
@@ -47,6 +48,7 @@ export interface MemberDetails {
     address?: string;
     profession?: string;
     memberNotes?: string;
+    isBlacklisted?: boolean;
     credit: number;
     userType?: string;
     accessiblePortals?: string[];

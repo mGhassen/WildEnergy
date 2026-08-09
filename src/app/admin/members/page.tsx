@@ -51,6 +51,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { TableSkeleton } from "@/components/skeletons";
 import { getCurrentSubscriptionStatus, getActiveSubscriptions } from "@/lib/api/subscriptions";
 import { GuestCountBadge } from "@/components/guest-count-badge";
+import { BlacklistRibbon } from "@/components/blacklist-ribbon";
 
 // Proper types based on actual API response
 interface Member {
@@ -64,6 +65,7 @@ interface Member {
   credit: number;
   member_notes?: string;
   member_status: string;
+  is_blacklisted?: boolean;
   account_status?: string; // Account status for error styling
   guest_count?: number; // Number of times registered as guest by admin
   // subscription_status removed - calculated dynamically from subscriptions
@@ -224,6 +226,7 @@ export default function MembersPage() {
       last_name: member.last_name || '',
       email: member.email || '',
       member_status: member.member_status || 'inactive',
+      is_blacklisted: Boolean(member.is_blacklisted),
       credit: typeof member.credit === 'number' ? member.credit : 0,
       phone: member.phone || '',
       created_at: member.created_at || member.createdAt || '',
@@ -359,9 +362,10 @@ export default function MembersPage() {
     
     return (
       <Card 
-        className="mb-3 hover:shadow-md transition-shadow cursor-pointer"
+        className="relative mb-3 overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
         onClick={() => openMemberDetails(member)}
       >
+        {member.is_blacklisted && <BlacklistRibbon />}
         <CardContent className="p-4">
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-center gap-3">
@@ -422,9 +426,14 @@ export default function MembersPage() {
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">Status:</span>
-              <Badge className={memberStatus.color}>
-                {memberStatus.icon} {memberStatus.label}
-              </Badge>
+              <div className="flex items-center gap-1.5">
+                <Badge className={memberStatus.color}>
+                  {memberStatus.icon} {memberStatus.label}
+                </Badge>
+                {member.is_blacklisted && (
+                  <Badge className="bg-black text-white hover:bg-black">Blacklist</Badge>
+                )}
+              </div>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">Subscription:</span>
@@ -789,9 +798,14 @@ export default function MembersPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge className={memberStatus.color}>
-                          {memberStatus.icon} {memberStatus.label}
-                        </Badge>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <Badge className={memberStatus.color}>
+                            {memberStatus.icon} {memberStatus.label}
+                          </Badge>
+                          {member.is_blacklisted && (
+                            <Badge className="bg-black text-white hover:bg-black">Blacklist</Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Badge className={subscriptionStatus.color}>
@@ -902,9 +916,10 @@ export default function MembersPage() {
                 return (
                   <Card 
                     key={member.id} 
-                    className="hover:shadow-md transition-shadow cursor-pointer"
+                    className="relative overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
                     onClick={() => openMemberDetails(member)}
                   >
+                    {member.is_blacklisted && <BlacklistRibbon />}
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center space-x-3">
@@ -978,9 +993,14 @@ export default function MembersPage() {
                       <div className="space-y-2">
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-muted-foreground">Status:</span>
-                          <Badge className={memberStatus.color}>
-                            {memberStatus.icon} {memberStatus.label}
-                          </Badge>
+                          <div className="flex items-center gap-1.5">
+                            <Badge className={memberStatus.color}>
+                              {memberStatus.icon} {memberStatus.label}
+                            </Badge>
+                            {member.is_blacklisted && (
+                              <Badge className="bg-black text-white hover:bg-black">Blacklist</Badge>
+                            )}
+                          </div>
                         </div>
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-muted-foreground">Subscription:</span>

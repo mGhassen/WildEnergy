@@ -38,6 +38,7 @@ export const members = pgTable("members", {
   profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
   memberNotes: text("member_notes"),
   status: text("status", { enum: ['active', 'inactive', 'suspended'] }).notNull().default("active"),
+  isBlacklisted: boolean("is_blacklisted").notNull().default(false),
   // credit lives in member_credit_entries (SUM), not on members
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
