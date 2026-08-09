@@ -365,7 +365,7 @@ export default function MembersPage() {
         className="relative mb-3 overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
         onClick={() => openMemberDetails(member)}
       >
-        {member.is_blacklisted && <BlacklistRibbon />}
+        {member.is_blacklisted && <BlacklistRibbon size="md" />}
         <CardContent className="p-4">
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-center gap-3">
@@ -426,14 +426,9 @@ export default function MembersPage() {
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">Status:</span>
-              <div className="flex items-center gap-1.5">
-                <Badge className={memberStatus.color}>
-                  {memberStatus.icon} {memberStatus.label}
-                </Badge>
-                {member.is_blacklisted && (
-                  <Badge className="bg-black text-white hover:bg-black">Blacklist</Badge>
-                )}
-              </div>
+              <Badge className={memberStatus.color}>
+                {memberStatus.icon} {memberStatus.label}
+              </Badge>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">Subscription:</span>
@@ -798,14 +793,9 @@ export default function MembersPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <Badge className={memberStatus.color}>
-                            {memberStatus.icon} {memberStatus.label}
-                          </Badge>
-                          {member.is_blacklisted && (
-                            <Badge className="bg-black text-white hover:bg-black">Blacklist</Badge>
-                          )}
-                        </div>
+                        <Badge className={memberStatus.color}>
+                          {memberStatus.icon} {memberStatus.label}
+                        </Badge>
                       </TableCell>
                       <TableCell>
                         <Badge className={subscriptionStatus.color}>
@@ -833,56 +823,59 @@ export default function MembersPage() {
                           {formatDate(member.created_at || "")}
                         </p>
                       </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <MoreHorizontal className="w-3 h-3" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
-                            <DropdownMenuItem
-                              onPointerDown={(e) => e.preventDefault()}
-                              onSelect={() => router.push(`/admin/members/${member.id}`)}
-                            >
-                              <Edit className="w-4 h-4 mr-2" />
-                              Edit Member
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onPointerDown={(e) => e.preventDefault()}
-                              onSelect={() => router.push(`/admin/members/${member.id}/credit`)}
-                            >
-                              <Wallet className="w-4 h-4 mr-2" />
-                              Manage Credit
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onPointerDown={(e) => e.preventDefault()}>
-                              <Mail className="w-4 h-4 mr-2" />
-                              Send Email
-                            </DropdownMenuItem>
-                            <DropdownMenuItem disabled={!member.phone} onPointerDown={(e) => e.preventDefault()}>
-                              <Phone className="w-4 h-4 mr-2" />
-                              Call Member
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-destructive" onPointerDown={(e) => e.preventDefault()}>
-                              <UserX className="w-4 h-4 mr-2" />
-                              Suspend Member
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="text-destructive"
-                              onPointerDown={(e) => e.preventDefault()}
-                              onSelect={() => router.push(`/admin/members/${member.id}/delete`)}
-                            >
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              Delete Member
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                      <TableCell className="relative min-w-[96px] overflow-hidden">
+                        {member.is_blacklisted && <BlacklistRibbon size="md" />}
+                        <div className="relative z-0 flex justify-end">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <MoreHorizontal className="w-3 h-3" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
+                              <DropdownMenuItem
+                                onPointerDown={(e) => e.preventDefault()}
+                                onSelect={() => router.push(`/admin/members/${member.id}`)}
+                              >
+                                <Edit className="w-4 h-4 mr-2" />
+                                Edit Member
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onPointerDown={(e) => e.preventDefault()}
+                                onSelect={() => router.push(`/admin/members/${member.id}/credit`)}
+                              >
+                                <Wallet className="w-4 h-4 mr-2" />
+                                Manage Credit
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onPointerDown={(e) => e.preventDefault()}>
+                                <Mail className="w-4 h-4 mr-2" />
+                                Send Email
+                              </DropdownMenuItem>
+                              <DropdownMenuItem disabled={!member.phone} onPointerDown={(e) => e.preventDefault()}>
+                                <Phone className="w-4 h-4 mr-2" />
+                                Call Member
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem className="text-destructive" onPointerDown={(e) => e.preventDefault()}>
+                                <UserX className="w-4 h-4 mr-2" />
+                                Suspend Member
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="text-destructive"
+                                onPointerDown={(e) => e.preventDefault()}
+                                onSelect={() => router.push(`/admin/members/${member.id}/delete`)}
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Delete Member
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -919,7 +912,7 @@ export default function MembersPage() {
                     className="relative overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
                     onClick={() => openMemberDetails(member)}
                   >
-                    {member.is_blacklisted && <BlacklistRibbon />}
+                    {member.is_blacklisted && <BlacklistRibbon size="md" />}
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center space-x-3">
@@ -993,14 +986,9 @@ export default function MembersPage() {
                       <div className="space-y-2">
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-muted-foreground">Status:</span>
-                          <div className="flex items-center gap-1.5">
-                            <Badge className={memberStatus.color}>
-                              {memberStatus.icon} {memberStatus.label}
-                            </Badge>
-                            {member.is_blacklisted && (
-                              <Badge className="bg-black text-white hover:bg-black">Blacklist</Badge>
-                            )}
-                          </div>
+                          <Badge className={memberStatus.color}>
+                            {memberStatus.icon} {memberStatus.label}
+                          </Badge>
                         </div>
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-muted-foreground">Subscription:</span>

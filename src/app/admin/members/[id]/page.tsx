@@ -12,7 +12,7 @@ import { useMemberDetails } from "@/hooks/useMemberDetails";
 import { useUpdateMemberDetails } from "@/hooks/useUpdateMemberDetails";
 import { useCreateAccountFromMember } from "@/hooks/useCreateAccountFromMember";
 import { useToast } from "@/hooks/use-toast";
-import { 
+import {
   ArrowLeft,
   MoreHorizontal,
   Edit,
@@ -196,7 +196,7 @@ export default function MemberDetailsPage() {
 
   // Fetch member details
   const { data: memberDetails, isLoading, error } = useMemberDetails(memberId);
-  
+
   // Account linking hooks
   const updateMemberMutation = useUpdateMemberDetails();
   const { toast } = useToast();
@@ -257,7 +257,7 @@ export default function MemberDetailsPage() {
     const errorMessage = error?.message || 'Unknown error occurred';
     const is403 = (error as any)?.status === 403;
     const is404 = (error as any)?.status === 404;
-    
+
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4">
@@ -277,11 +277,11 @@ export default function MemberDetailsPage() {
               {is403 ? 'Access Denied' : is404 ? 'Member Not Found' : 'Error Loading Member'}
             </h3>
             <p className="text-muted-foreground mb-4">
-              {is403 
+              {is403
                 ? 'You don\'t have permission to view this member\'s details.'
                 : is404
-                ? `The member with ID "${memberId}" doesn't exist.`
-                : `Failed to load member details: ${errorMessage}`
+                  ? `The member with ID "${memberId}" doesn't exist.`
+                  : `Failed to load member details: ${errorMessage}`
               }
             </p>
             {(error as any)?.status && (
@@ -363,10 +363,10 @@ export default function MemberDetailsPage() {
       });
       return;
     }
-    
+
     if (!editForm.lastName.trim()) {
       toast({
-        title: "Validation Error", 
+        title: "Validation Error",
         description: "Last name is required",
         variant: "destructive",
       });
@@ -471,8 +471,7 @@ export default function MemberDetailsPage() {
 
 
   return (
-    <div className="relative space-y-6 overflow-hidden">
-      {member.isBlacklisted && <BlacklistRibbon className="h-24 w-24" />}
+    <div className="space-y-6">
       {/* Header Section */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-4">
@@ -491,19 +490,14 @@ export default function MemberDetailsPage() {
               </span>
             </div>
             <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl font-bold text-foreground">
-                  {member.firstName} {member.lastName}
-                </h1>
-                {member.isBlacklisted && (
-                  <Badge className="bg-black text-white hover:bg-black">Blacklist</Badge>
-                )}
-              </div>
+              <h1 className="text-2xl font-bold text-foreground">
+                {member.firstName} {member.lastName}
+              </h1>
               <p className="text-muted-foreground">{member.email || 'No email (unlinked member)'}</p>
             </div>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-2">
           {isEditing ? (
             <>
@@ -555,55 +549,55 @@ export default function MemberDetailsPage() {
                     <Wallet className="w-4 h-4 mr-2" />
                     Manage Credit
                   </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              {member.account_id ? (
-                <DropdownMenuItem onClick={handleUnlinkAccount}>
-                  <Unlink className="w-4 h-4 mr-2" />
-                  'Unlink Account'
-                </DropdownMenuItem>
-              ) : (
-                <>
-                  <DropdownMenuItem onClick={handleCreateAccount}>
-                    <UserPlus className="w-4 h-4 mr-2" />
-                    Create Account
+                  <DropdownMenuSeparator />
+                  {member.account_id ? (
+                    <DropdownMenuItem onClick={handleUnlinkAccount}>
+                      <Unlink className="w-4 h-4 mr-2" />
+                      'Unlink Account'
+                    </DropdownMenuItem>
+                  ) : (
+                    <>
+                      <DropdownMenuItem onClick={handleCreateAccount}>
+                        <UserPlus className="w-4 h-4 mr-2" />
+                        Create Account
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleLinkAccount}>
+                        <Link className="w-4 h-4 mr-2" />
+                        Link Account
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSendEmail} disabled={!member.email}>
+                    <Mail className="w-4 h-4 mr-2" />
+                    Send Email
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleLinkAccount}>
-                    <Link className="w-4 h-4 mr-2" />
-                    Link Account
+                  <DropdownMenuItem onClick={handleCallMember} disabled={!member.phone}>
+                    <Phone className="w-4 h-4 mr-2" />
+                    Call Member
                   </DropdownMenuItem>
-                </>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleSendEmail} disabled={!member.email}>
-                <Mail className="w-4 h-4 mr-2" />
-                Send Email
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleCallMember} disabled={!member.phone}>
-                <Phone className="w-4 h-4 mr-2" />
-                Call Member
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleToggleBlacklist}>
-                <Ban className="w-4 h-4 mr-2" />
-                {member.isBlacklisted ? 'Remove from Blacklist' : 'Blacklist Member'}
-              </DropdownMenuItem>
-              {member.status === 'active' ? (
-                <DropdownMenuItem onClick={handleSuspendMember} className="text-destructive">
-                  <UserX className="w-4 h-4 mr-2" />
-                  Suspend Member
-                </DropdownMenuItem>
-              ) : (
-                <DropdownMenuItem onClick={handleActivateMember}>
-                  <UserCheck className="w-4 h-4 mr-2" />
-                  Activate Member
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuItem onClick={handleDeleteMember} className="text-destructive">
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete Member
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleToggleBlacklist}>
+                    <Ban className="w-4 h-4 mr-2" />
+                    {member.isBlacklisted ? 'Remove from Blacklist' : 'Blacklist Member'}
+                  </DropdownMenuItem>
+                  {member.status === 'active' ? (
+                    <DropdownMenuItem onClick={handleSuspendMember} className="text-destructive">
+                      <UserX className="w-4 h-4 mr-2" />
+                      Suspend Member
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem onClick={handleActivateMember}>
+                      <UserCheck className="w-4 h-4 mr-2" />
+                      Activate Member
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem onClick={handleDeleteMember} className="text-destructive">
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete Member
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </>
           )}
         </div>
@@ -646,7 +640,7 @@ export default function MemberDetailsPage() {
           </CardContent>
         </Card>
 
-        <Card 
+        <Card
           className={`border-l-4 ${member.account_id ? 'border-l-purple-500 cursor-pointer hover:shadow-md transition-shadow' : 'border-l-orange-500'}`}
           onClick={member.account_id ? () => router.push(`/admin/accounts/${member.account_id}`) : undefined}
         >
@@ -726,7 +720,8 @@ export default function MemberDetailsPage() {
         <TabsContent value="overview" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Personal Information */}
-            <Card>
+            <Card className="relative overflow-hidden">
+              {member.isBlacklisted && <BlacklistRibbon size="lg" />}
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <User className="w-5 h-5" />
@@ -747,7 +742,7 @@ export default function MemberDetailsPage() {
                     {isEditing ? (
                       <Input
                         value={editForm.firstName}
-                        onChange={(e) => setEditForm({...editForm, firstName: e.target.value})}
+                        onChange={(e) => setEditForm({ ...editForm, firstName: e.target.value })}
                         className="mt-1"
                         required
                       />
@@ -762,7 +757,7 @@ export default function MemberDetailsPage() {
                     {isEditing ? (
                       <Input
                         value={editForm.lastName}
-                        onChange={(e) => setEditForm({...editForm, lastName: e.target.value})}
+                        onChange={(e) => setEditForm({ ...editForm, lastName: e.target.value })}
                         className="mt-1"
                         required
                       />
@@ -806,7 +801,7 @@ export default function MemberDetailsPage() {
                     <Input
                       type="email"
                       value={editForm.profileEmail}
-                      onChange={(e) => setEditForm({...editForm, profileEmail: e.target.value})}
+                      onChange={(e) => setEditForm({ ...editForm, profileEmail: e.target.value })}
                       className="mt-1"
                       placeholder="Contact email"
                     />
@@ -819,7 +814,7 @@ export default function MemberDetailsPage() {
                   {isEditing ? (
                     <Input
                       value={editForm.phone}
-                      onChange={(e) => setEditForm({...editForm, phone: e.target.value})}
+                      onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
                       className="mt-1"
                     />
                   ) : (
@@ -832,7 +827,7 @@ export default function MemberDetailsPage() {
                     <Input
                       type="date"
                       value={editForm.dateOfBirth}
-                      onChange={(e) => setEditForm({...editForm, dateOfBirth: e.target.value})}
+                      onChange={(e) => setEditForm({ ...editForm, dateOfBirth: e.target.value })}
                       className="mt-1"
                     />
                   ) : (
@@ -844,7 +839,7 @@ export default function MemberDetailsPage() {
                   {isEditing ? (
                     <Textarea
                       value={editForm.address}
-                      onChange={(e) => setEditForm({...editForm, address: e.target.value})}
+                      onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
                       className="mt-1"
                       rows={2}
                     />
@@ -860,7 +855,7 @@ export default function MemberDetailsPage() {
                   {isEditing ? (
                     <Input
                       value={editForm.profession}
-                      onChange={(e) => setEditForm({...editForm, profession: e.target.value})}
+                      onChange={(e) => setEditForm({ ...editForm, profession: e.target.value })}
                       className="mt-1"
                     />
                   ) : (
@@ -876,19 +871,19 @@ export default function MemberDetailsPage() {
                     <Input
                       type="date"
                       value={editForm.createdAt}
-                      onChange={(e) => setEditForm({...editForm, createdAt: e.target.value})}
+                      onChange={(e) => setEditForm({ ...editForm, createdAt: e.target.value })}
                       className="mt-1"
                     />
                   ) : (
                     <p className="text-sm">{formatDate(member.createdAt || "")}</p>
                   )}
                 </div>
-                
+
                 {/* Member Status */}
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Member Status</Label>
                   {isEditing ? (
-                    <Select value={editForm.status} onValueChange={(value) => setEditForm({...editForm, status: value})}>
+                    <Select value={editForm.status} onValueChange={(value) => setEditForm({ ...editForm, status: value })}>
                       <SelectTrigger className="mt-1">
                         <SelectValue />
                       </SelectTrigger>
@@ -907,9 +902,9 @@ export default function MemberDetailsPage() {
                   )}
                 </div>
 
-                <div>
-                  <Label className="text-sm font-medium text-muted-foreground">Blacklist</Label>
-                  {isEditing ? (
+                {isEditing && (
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Blacklist</Label>
                     <div className="mt-2 flex items-center gap-3">
                       <Switch
                         checked={editForm.isBlacklisted}
@@ -919,18 +914,10 @@ export default function MemberDetailsPage() {
                         {editForm.isBlacklisted ? 'Blacklisted' : 'Not blacklisted'}
                       </span>
                     </div>
-                  ) : (
-                    <div className="mt-1">
-                      {member.isBlacklisted ? (
-                        <Badge className="bg-black text-white hover:bg-black">Blacklist</Badge>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">No</p>
-                      )}
-                    </div>
-                  )}
-                </div>
-                
-                
+                  </div>
+                )}
+
+
                 {/* Credit Balance — managed via Manage Credit dialog */}
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Credit Balance</Label>
@@ -958,14 +945,14 @@ export default function MemberDetailsPage() {
                     <p className="text-sm font-medium">{formatCurrency(member.credit)}</p>
                   )}
                 </div>
-                
+
                 {/* Member Notes */}
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Member Notes</Label>
                   {isEditing ? (
                     <Textarea
                       value={editForm.memberNotes}
-                      onChange={(e) => setEditForm({...editForm, memberNotes: e.target.value})}
+                      onChange={(e) => setEditForm({ ...editForm, memberNotes: e.target.value })}
                       className="mt-1"
                       rows={3}
                       placeholder="Enter member notes..."
@@ -1146,8 +1133,8 @@ export default function MemberDetailsPage() {
                             {registration.course?.class?.name || `Class ID: ${registration.course_id}`}
                           </h4>
                           <p className="text-sm text-muted-foreground">
-                            {registration.course?.course_date ? 
-                              formatDate(registration.course.course_date) : 
+                            {registration.course?.course_date ?
+                              formatDate(registration.course.course_date) :
                               formatDate(registration.registration_date)
                             }
                           </p>
@@ -1206,8 +1193,8 @@ export default function MemberDetailsPage() {
                             {checkin.course?.class?.name || `Check-in #${checkin.id}`}
                           </h4>
                           <p className="text-sm text-muted-foreground">
-                            {checkin.course?.course_date ? 
-                              formatDate(checkin.course.course_date) : 
+                            {checkin.course?.course_date ?
+                              formatDate(checkin.course.course_date) :
                               formatDateTime(checkin.checkin_time)
                             }
                           </p>
