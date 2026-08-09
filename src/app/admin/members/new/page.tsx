@@ -78,21 +78,21 @@ export default function AdminNewMemberPage() {
       closeHref={CLOSE_HREF}
     >
       <div className="space-y-4 py-2">
-        <div className="flex items-end gap-2">
-          <div className="grid flex-1 grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="firstName">First Name *</Label>
-              <Input
-                id="firstName"
-                value={createForm.firstName}
-                onChange={(e) =>
-                  setCreateForm({ ...createForm, firstName: e.target.value })
-                }
-                placeholder="First name"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="lastName">Last Name *</Label>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="firstName">First Name *</Label>
+            <Input
+              id="firstName"
+              value={createForm.firstName}
+              onChange={(e) =>
+                setCreateForm({ ...createForm, firstName: e.target.value })
+              }
+              placeholder="First name"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="lastName">Last Name *</Label>
+            <div className="relative">
               <Input
                 id="lastName"
                 value={createForm.lastName}
@@ -100,62 +100,63 @@ export default function AdminNewMemberPage() {
                   setCreateForm({ ...createForm, lastName: e.target.value })
                 }
                 placeholder="Last name"
+                className={similarMembers.length > 0 ? "pr-9" : undefined}
               />
+              {similarMembers.length > 0 && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className={
+                        hasBlacklistedMatch
+                          ? "absolute right-0.5 top-1/2 h-8 w-8 -translate-y-1/2 text-destructive hover:text-destructive"
+                          : "absolute right-0.5 top-1/2 h-8 w-8 -translate-y-1/2 text-amber-600 hover:text-amber-700"
+                      }
+                      aria-label={`${similarMembers.length} similar member${similarMembers.length === 1 ? "" : "s"}`}
+                      title="Similar existing members"
+                    >
+                      <Binoculars className="h-4 w-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-72 p-3">
+                    <p
+                      className={
+                        hasBlacklistedMatch
+                          ? "mb-2 text-sm font-medium text-destructive"
+                          : "mb-2 text-sm font-medium text-amber-700"
+                      }
+                    >
+                      Possible duplicates
+                    </p>
+                    <p className="mb-2 text-xs text-muted-foreground">
+                      You can open an existing member or create anyway.
+                    </p>
+                    <ul className="max-h-48 space-y-1 overflow-y-auto">
+                      {similarMembers.map((member) => (
+                        <li key={member.id}>
+                          <Link
+                            href={`/admin/members/${member.id}`}
+                            className="flex items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-muted"
+                          >
+                            <span>
+                              {member.first_name} {member.last_name}
+                            </span>
+                            {member.is_blacklisted && (
+                              <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-destructive">
+                                Blacklist
+                              </span>
+                            )}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </PopoverContent>
+                </Popover>
+              )}
             </div>
           </div>
-          {similarMembers.length > 0 && (
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className={
-                    hasBlacklistedMatch
-                      ? "shrink-0 text-destructive hover:text-destructive"
-                      : "shrink-0 text-amber-600 hover:text-amber-700"
-                  }
-                  aria-label={`${similarMembers.length} similar member${similarMembers.length === 1 ? "" : "s"}`}
-                  title="Similar existing members"
-                >
-                  <Binoculars className="h-4 w-4" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-72 p-3">
-                <p
-                  className={
-                    hasBlacklistedMatch
-                      ? "mb-2 text-sm font-medium text-destructive"
-                      : "mb-2 text-sm font-medium text-amber-700"
-                  }
-                >
-                  Possible duplicates
-                </p>
-                <p className="mb-2 text-xs text-muted-foreground">
-                  You can open an existing member or create anyway.
-                </p>
-                <ul className="max-h-48 space-y-1 overflow-y-auto">
-                  {similarMembers.map((member) => (
-                    <li key={member.id}>
-                      <Link
-                        href={`/admin/members/${member.id}`}
-                        className="flex items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-muted"
-                      >
-                        <span>
-                          {member.first_name} {member.last_name}
-                        </span>
-                        {member.is_blacklisted && (
-                          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-destructive">
-                            Blacklist
-                          </span>
-                        )}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </PopoverContent>
-            </Popover>
-          )}
         </div>
         <div className="space-y-2">
           <Label htmlFor="phone">Phone</Label>

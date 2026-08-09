@@ -473,27 +473,30 @@ export default function MemberDetailsPage() {
   return (
     <div className="space-y-6">
       {/* Header Section */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => router.back()}
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
-          </Button>
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-              <span className="text-lg font-medium text-primary">
-                {getInitials(member.firstName || "", member.lastName || "")}
-              </span>
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">
-                {member.firstName} {member.lastName}
-              </h1>
-              <p className="text-muted-foreground">{member.email || 'No email (unlinked member)'}</p>
+      <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+        <div className="relative min-w-0 flex-1 overflow-hidden rounded-lg pr-8">
+          {member.isBlacklisted && <BlacklistRibbon size="lg" side="right" />}
+          <div className="flex items-center gap-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.back()}
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                <span className="text-lg font-medium text-primary">
+                  {getInitials(member.firstName || "", member.lastName || "")}
+                </span>
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-foreground">
+                  {member.firstName} {member.lastName}
+                </h1>
+                <p className="text-muted-foreground">{member.email || 'No email (unlinked member)'}</p>
+              </div>
             </div>
           </div>
         </div>
