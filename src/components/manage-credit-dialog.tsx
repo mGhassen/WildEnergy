@@ -19,7 +19,7 @@ import { Separator } from "@/components/ui/separator";
 import {
   useAdjustMemberCredit,
   useMemberCredit,
-  useUpdateMemberCreditEntryDate,
+  useUpdateMemberCreditEntry,
   type CreditEntry,
 } from "@/hooks/useMemberCredit";
 import { formatCurrency } from "@/lib/config";
@@ -72,29 +72,51 @@ function entryLabel(entry: CreditEntry): string {
 
 function EntryRow({
   entry,
-  onUpdateDate,
+  onUpdate,
   isUpdating,
 }: {
   entry: CreditEntry;
-  onUpdateDate?: (entryId: number, entryDate: string) => Promise<void>;
+  onUpdate?: (
+    entryId: number,
+    patch: { entryDate: string; amount: number; notes: string }
+  ) => Promise<void>;
   isUpdating?: boolean;
 }) {
   const isCredit = entry.amount > 0;
-  const canEditDate = entry.entryType === "manual_add" && !!onUpdateDate;
+  const canEdit = entry.entryType === "manual_add" && !!onUpdate;
   const [editing, setEditing] = useState(false);
   const [draftDate, setDraftDate] = useState(entry.entryDate);
+  const [draftAmount, setDraftAmount] = useState(String(entry.amount));
+  const [draftNotes, setDraftNotes] = useState(entry.notes || "");
 
   useEffect(() => {
-    if (!editing) setDraftDate(entry.entryDate);
-  }, [entry.entryDate, editing]);
+    if (!editing) {
+      setDraftDate(entry.entryDate);
+      setDraftAmount(String(Math.abs(entry.amount)));
+      setDraftNotes(entry.notes || "");
+    }
+  }, [entry.entryDate, entry.amount, entry.notes, editing]);
 
-  const handleSaveDate = async () => {
-    if (!onUpdateDate || !draftDate || draftDate === entry.entryDate) {
+  const handleSave = async () => {
+    const parsed = parseFloat(draftAmount);
+    if (!onUpdate || !draftDate || !Number.isFinite(parsed) || parsed <= 0) return;
+
+    const nextNotes = draftNotes.trim();
+    const unchanged =
+      draftDate === entry.entryDate &&
+      parsed === Math.abs(entry.amount) &&
+      nextNotes === (entry.notes || "").trim();
+    if (unchanged) {
       setEditing(false);
       return;
     }
+
     try {
-      await onUpdateDate(entry.id, draftDate);
+      await onUpdate(entry.id, {
+        entryDate: draftDate,
+        amount: parsed,
+        notes: nextNotes,
+      });
       setEditing(false);
     } catch {
       // toast handled in hook
@@ -122,41 +144,68 @@ function EntryRow({
           <div className="min-w-0">
             <p className="text-sm font-medium leading-none">{entryLabel(entry)}</p>
             {editing ? (
-              <div className="mt-1.5 flex items-center gap-1.5">
-                <Input
-                  type="date"
-                  value={draftDate}
-                  onChange={(e) => setDraftDate(e.target.value)}
-                  className="h-8 w-auto text-xs"
+              <div className="mt-1.5 space-y-1.5">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <Input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    inputMode="decimal"
+                    value={draftAmount}
+                    onChange={(e) => setDraftAmount(e.target.value)}
+                    className="h-8 w-24 text-xs"
+                    disabled={isUpdating}
+                  />
+                  <Input
+                    type="date"
+                    value={draftDate}
+                    onChange={(e) => setDraftDate(e.target.value)}
+                    className="h-8 w-auto text-xs"
+                    disabled={isUpdating}
+                  />
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8"
+                    onClick={handleSave}
+                    disabled={
+                      isUpdating ||
+                      !draftDate ||
+                      !draftAmount ||
+                      parseFloat(draftAmount) <= 0
+                    }
+                  >
+                    {isUpdating ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Check className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8"
+                    onClick={() => {
+                      setDraftDate(entry.entryDate);
+                      setDraftAmount(String(Math.abs(entry.amount)));
+                      setDraftNotes(entry.notes || "");
+                      setEditing(false);
+                    }}
+                    disabled={isUpdating}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                <Textarea
+                  rows={2}
+                  placeholder="Notes (optional)"
+                  value={draftNotes}
+                  onChange={(e) => setDraftNotes(e.target.value)}
+                  className="text-xs"
                   disabled={isUpdating}
                 />
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8"
-                  onClick={handleSaveDate}
-                  disabled={isUpdating || !draftDate}
-                >
-                  {isUpdating ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Check className="h-3.5 w-3.5" />
-                  )}
-                </Button>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8"
-                  onClick={() => {
-                    setDraftDate(entry.entryDate);
-                    setEditing(false);
-                  }}
-                  disabled={isUpdating}
-                >
-                  <X className="h-3.5 w-3.5" />
-                </Button>
               </div>
             ) : (
               <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
@@ -164,14 +213,14 @@ function EntryRow({
                   {formatDate(entry.entryDate)}
                   {entry.createdBy ? ` · ${entry.createdBy}` : ""}
                 </span>
-                {canEditDate ? (
+                {canEdit ? (
                   <Button
                     type="button"
                     size="icon"
                     variant="ghost"
                     className="h-6 w-6 text-muted-foreground"
                     onClick={() => setEditing(true)}
-                    title="Edit date"
+                    title="Edit amount, date, and notes"
                   >
                     <Pencil className="h-3 w-3" />
                   </Button>
@@ -194,7 +243,7 @@ function EntryRow({
             </p>
           </div>
         </div>
-        {entry.notes ? (
+        {!editing && entry.notes ? (
           <p className="text-xs text-muted-foreground line-clamp-2">{entry.notes}</p>
         ) : null}
       </div>
@@ -210,7 +259,7 @@ export function ManageCreditDialog({
 }: ManageCreditDialogProps) {
   const { data, isLoading, isFetching } = useMemberCredit(memberId, open);
   const adjustMutation = useAdjustMemberCredit(memberId);
-  const updateDateMutation = useUpdateMemberCreditEntryDate(memberId);
+  const updateEntryMutation = useUpdateMemberCreditEntry(memberId);
 
   const [action, setAction] = useState<"add" | "remove">("add");
   const [amount, setAmount] = useState("");
@@ -262,12 +311,20 @@ export function ManageCreditDialog({
     }
   };
 
-  const handleUpdateEntryDate = async (entryId: number, nextDate: string) => {
-    await updateDateMutation.mutateAsync({ entryId, entryDate: nextDate });
+  const handleUpdateEntry = async (
+    entryId: number,
+    patch: { entryDate: string; amount: number; notes: string }
+  ) => {
+    await updateEntryMutation.mutateAsync({
+      entryId,
+      entryDate: patch.entryDate,
+      amount: patch.amount,
+      notes: patch.notes,
+    });
   };
 
   const handleClose = (nextOpen: boolean) => {
-    if (adjustMutation.isPending || updateDateMutation.isPending) return;
+    if (adjustMutation.isPending || updateEntryMutation.isPending) return;
     onOpenChange(nextOpen);
   };
 
@@ -423,10 +480,10 @@ export function ManageCreditDialog({
                       <EntryRow
                         key={entry.id}
                         entry={entry}
-                        onUpdateDate={handleUpdateEntryDate}
+                        onUpdate={handleUpdateEntry}
                         isUpdating={
-                          updateDateMutation.isPending &&
-                          updateDateMutation.variables?.entryId === entry.id
+                          updateEntryMutation.isPending &&
+                          updateEntryMutation.variables?.entryId === entry.id
                         }
                       />
                     ))}
@@ -442,7 +499,7 @@ export function ManageCreditDialog({
             type="button"
             variant="outline"
             onClick={() => handleClose(false)}
-            disabled={adjustMutation.isPending || updateDateMutation.isPending}
+            disabled={adjustMutation.isPending || updateEntryMutation.isPending}
           >
             Close
           </Button>

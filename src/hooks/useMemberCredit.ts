@@ -61,28 +61,32 @@ export function useAdjustMemberCredit(memberId: string) {
   });
 }
 
-export interface UpdateCreditEntryDatePayload {
+export interface UpdateCreditEntryPayload {
   entryId: number;
-  entryDate: string;
+  entryDate?: string;
+  amount?: number;
+  notes?: string | null;
 }
 
-export function useUpdateMemberCreditEntryDate(memberId: string) {
+export function useUpdateMemberCreditEntry(memberId: string) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: (payload: UpdateCreditEntryDatePayload) =>
+    mutationFn: (payload: UpdateCreditEntryPayload) =>
       apiRequest('PATCH', `/api/admin/members/${memberId}/credit`, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['member-credit', memberId] });
+      queryClient.invalidateQueries({ queryKey: ['member-details', memberId] });
+      queryClient.invalidateQueries({ queryKey: ['members'] });
       toast({
-        title: 'Date updated',
-        description: 'Credit entry date has been updated.',
+        title: 'Credit entry updated',
+        description: 'Manual credit entry has been updated.',
       });
     },
     onError: (error: any) => {
       toast({
-        title: 'Failed to update date',
+        title: 'Failed to update entry',
         description: error.message || 'Please try again',
         variant: 'destructive',
       });

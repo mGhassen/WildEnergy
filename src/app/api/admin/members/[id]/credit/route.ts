@@ -4,7 +4,7 @@ import {
   applyMemberCreditChange,
   getMemberCreditBalance,
   getMemberOutstandingDebit,
-  updateManualCreditEntryDate,
+  updateManualCreditEntry,
 } from '@/lib/member-credit';
 
 async function verifyAdminAuth(req: NextRequest) {
@@ -162,32 +162,67 @@ export async function PATCH(
 
     const body = await request.json();
     const entryId = Number(body.entryId);
-    const entryDate = typeof body.entryDate === 'string' ? body.entryDate : '';
+    const entryDate =
+      typeof body.entryDate === 'string' ? body.entryDate : undefined;
+    const amount =
+      body.amount === undefined || body.amount === null || body.amount === ''
+        ? undefined
+        : Number(body.amount);
+    const notes =
+      body.notes === undefined
+        ? undefined
+        : body.notes === null
+          ? null
+          : String(body.notes);
 
     if (!Number.isFinite(entryId) || entryId <= 0) {
       return NextResponse.json({ error: 'Entry ID is required' }, { status: 400 });
     }
 
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(entryDate)) {
+    if (entryDate === undefined && amount === undefined && notes === undefined) {
+      return NextResponse.json(
+        { error: 'Provide entryDate, amount, and/or notes' },
+        { status: 400 }
+      );
+    }
+
+    if (entryDate !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(entryDate)) {
       return NextResponse.json({ error: 'Invalid entry date' }, { status: 400 });
     }
 
-    const result = await updateManualCreditEntryDate({
+    if (amount !== undefined && (!Number.isFinite(amount) || amount <= 0)) {
+      return NextResponse.json(
+        { error: 'Amount must be a positive number' },
+        { status: 400 }
+      );
+    }
+
+    const result = await updateManualCreditEntry({
       memberId,
       entryId,
       entryDate,
+      amount,
+      notes,
     });
 
     return NextResponse.json({
       success: true,
       entryId: result.entryId,
       entryDate: result.entryDate,
+      amount: result.amount,
+      notes: result.notes,
+      credit: result.credit,
     });
   } catch (error: any) {
-    console.error('Update credit entry date error:', error);
-    const message = error.message || 'Failed to update credit entry date';
+    console.error('Update credit entry error:', error);
+    const message = error.message || 'Failed to update credit entry';
     const status =
-      message.includes('not found') || message.includes('Only manually')
+      message.includes('not found') ||
+      message.includes('Only manually') ||
+      message.includes('Cannot set amount') ||
+      message.includes('Amount must') ||
+      message.includes('Invalid') ||
+      message.includes('Nothing')
         ? 400
         : 500;
     return NextResponse.json({ error: message }, { status });

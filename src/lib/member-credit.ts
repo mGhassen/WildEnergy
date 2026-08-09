@@ -97,23 +97,76 @@ export async function getMemberCreditBalancesMap(
   return balances;
 }
 
+async function recomputeMemberCreditBalanceAfter(memberId: string): Promise<number> {
+  const { data: entries, error } = await supabaseServer()
+    .from('member_credit_entries')
+    .select('id, amount')
+    .eq('member_id', memberId)
+    .order('entry_date', { ascending: true })
+    .order('created_at', { ascending: true })
+    .order('id', { ascending: true });
+
+  if (error) {
+    throw new Error(error.message || 'Failed to load credit entries for recompute');
+  }
+
+  let running = 0;
+  for (const row of entries || []) {
+    running = roundMoney(running + parseFloat(row.amount || '0'));
+    const { error: updateError } = await supabaseServer()
+      .from('member_credit_entries')
+      .update({ balance_after: running.toString() })
+      .eq('id', row.id);
+
+    if (updateError) {
+      throw new Error(updateError.message || 'Failed to recompute credit balances');
+    }
+  }
+
+  return running;
+}
+
 /**
- * Update entry_date for a manual_add row only. Amount / balance unchanged.
+ * Update date, amount, and/or notes for a manual_add row only.
+ * Rejects amount changes that would drive total balance below 0.
  */
-export async function updateManualCreditEntryDate(params: {
+export async function updateManualCreditEntry(params: {
   memberId: string;
   entryId: number;
+  entryDate?: string;
+  amount?: number;
+  notes?: string | null;
+}): Promise<{
+  entryId: number;
   entryDate: string;
-}): Promise<{ entryId: number; entryDate: string }> {
-  const { memberId, entryId, entryDate } = params;
+  amount: number;
+  notes: string | null;
+  credit: number;
+}> {
+  const { memberId, entryId } = params;
 
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(entryDate)) {
+  if (params.entryDate !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(params.entryDate)) {
     throw new Error('Invalid entry date');
+  }
+
+  if (
+    params.amount !== undefined &&
+    (!Number.isFinite(params.amount) || params.amount <= 0)
+  ) {
+    throw new Error('Amount must be a positive number');
+  }
+
+  if (
+    params.entryDate === undefined &&
+    params.amount === undefined &&
+    params.notes === undefined
+  ) {
+    throw new Error('Nothing to update');
   }
 
   const { data: entry, error: fetchError } = await supabaseServer()
     .from('member_credit_entries')
-    .select('id, entry_type, member_id')
+    .select('id, entry_type, member_id, amount, entry_date, notes')
     .eq('id', entryId)
     .eq('member_id', memberId)
     .single();
@@ -123,20 +176,55 @@ export async function updateManualCreditEntryDate(params: {
   }
 
   if (entry.entry_type !== 'manual_add') {
-    throw new Error('Only manually added credits can have their date edited');
+    throw new Error('Only manually added credits can be edited');
   }
+
+  const currentAmount = roundMoney(parseFloat(entry.amount || '0'));
+  const nextAmount =
+    params.amount !== undefined ? roundMoney(params.amount) : currentAmount;
+  const nextDate = params.entryDate ?? entry.entry_date;
+  const nextNotes =
+    params.notes !== undefined
+      ? params.notes?.trim() || null
+      : entry.notes ?? null;
+
+  if (nextAmount !== currentAmount) {
+    const currentCredit = await getMemberCreditBalance(memberId);
+    const nextCredit = roundMoney(currentCredit - currentAmount + nextAmount);
+    if (nextCredit < 0) {
+      throw new Error(
+        `Cannot set amount to ${nextAmount}: would leave balance at ${nextCredit}`
+      );
+    }
+  }
+
+  const patch: { entry_date?: string; amount?: string; notes?: string | null } = {};
+  if (params.entryDate !== undefined) patch.entry_date = nextDate;
+  if (params.amount !== undefined) patch.amount = nextAmount.toString();
+  if (params.notes !== undefined) patch.notes = nextNotes;
 
   const { error: updateError } = await supabaseServer()
     .from('member_credit_entries')
-    .update({ entry_date: entryDate })
+    .update(patch)
     .eq('id', entryId)
     .eq('member_id', memberId);
 
   if (updateError) {
-    throw new Error(updateError.message || 'Failed to update credit entry date');
+    throw new Error(updateError.message || 'Failed to update credit entry');
   }
 
-  return { entryId, entryDate };
+  const credit =
+    params.amount !== undefined || params.entryDate !== undefined
+      ? await recomputeMemberCreditBalanceAfter(memberId)
+      : await getMemberCreditBalance(memberId);
+
+  return {
+    entryId,
+    entryDate: nextDate,
+    amount: nextAmount,
+    notes: nextNotes,
+    credit,
+  };
 }
 
 /**
