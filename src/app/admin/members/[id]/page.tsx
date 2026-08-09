@@ -498,6 +498,11 @@ export default function MemberDetailsPage() {
                   <BlacklistRibbon orientation="horizontal" />
                 )}
               </div>
+              {member.isBlacklisted && member.memberNotes?.trim() && (
+                <p className="mt-1 text-xl font-semibold leading-snug text-foreground">
+                  {member.memberNotes.trim()}
+                </p>
+              )}
               <p className="text-muted-foreground">{member.email || 'No email (unlinked member)'}</p>
             </div>
           </div>
