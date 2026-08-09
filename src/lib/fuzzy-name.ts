@@ -51,7 +51,7 @@ export type NamedMember = {
   is_blacklisted?: boolean;
 };
 
-export function findSimilarBlacklistedMembers<T extends NamedMember>(
+export function findSimilarMembers<T extends NamedMember>(
   firstName: string,
   lastName: string,
   members: T[],
@@ -62,7 +62,6 @@ export function findSimilarBlacklistedMembers<T extends NamedMember>(
 
   return members.filter(
     (member) =>
-      member.is_blacklisted &&
       namesLookAlike(first, member.first_name || "") &&
       namesLookAlike(last, member.last_name || ""),
   );

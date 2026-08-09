@@ -539,19 +539,6 @@ export default function MemberDetailsPage() {
                 <Download className="w-4 h-4 mr-2" />
                 Export
               </Button>
-              <Button
-                size="sm"
-                onClick={handleToggleBlacklist}
-                disabled={updateMemberMutation.isPending}
-                className={
-                  member.isBlacklisted
-                    ? 'bg-muted text-foreground hover:bg-muted/80'
-                    : 'bg-black text-white hover:bg-black/90'
-                }
-              >
-                <Ban className="w-4 h-4 mr-2" />
-                {member.isBlacklisted ? 'Unblacklist' : 'Blacklist'}
-              </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm">

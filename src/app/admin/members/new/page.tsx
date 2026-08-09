@@ -23,7 +23,7 @@ import {
 import { DialogFooter } from "@/components/ui/dialog";
 import { Binoculars, Loader2 } from "lucide-react";
 import { useCreateMember, useMembers } from "@/hooks/useMembers";
-import { findSimilarBlacklistedMembers } from "@/lib/fuzzy-name";
+import { findSimilarMembers } from "@/lib/fuzzy-name";
 
 const CLOSE_HREF = "/admin/members";
 
@@ -45,15 +45,11 @@ export default function AdminNewMemberPage() {
   const deferredFirstName = useDeferredValue(createForm.firstName);
   const deferredLastName = useDeferredValue(createForm.lastName);
 
-  const blacklistMatches = useMemo(
-    () =>
-      findSimilarBlacklistedMembers(
-        deferredFirstName,
-        deferredLastName,
-        members,
-      ),
+  const similarMembers = useMemo(
+    () => findSimilarMembers(deferredFirstName, deferredLastName, members),
     [deferredFirstName, deferredLastName, members],
   );
+  const hasBlacklistedMatch = similarMembers.some((m) => m.is_blacklisted);
 
   const handleCreateMember = () => {
     if (!createForm.firstName.trim() || !createForm.lastName.trim()) return;
@@ -107,32 +103,52 @@ export default function AdminNewMemberPage() {
               />
             </div>
           </div>
-          {blacklistMatches.length > 0 && (
+          {similarMembers.length > 0 && (
             <Popover>
               <PopoverTrigger asChild>
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="shrink-0 text-destructive hover:text-destructive"
-                  aria-label={`${blacklistMatches.length} similar blacklisted member${blacklistMatches.length === 1 ? "" : "s"}`}
-                  title="Similar blacklisted members"
+                  className={
+                    hasBlacklistedMatch
+                      ? "shrink-0 text-destructive hover:text-destructive"
+                      : "shrink-0 text-amber-600 hover:text-amber-700"
+                  }
+                  aria-label={`${similarMembers.length} similar member${similarMembers.length === 1 ? "" : "s"}`}
+                  title="Similar existing members"
                 >
                   <Binoculars className="h-4 w-4" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent align="end" className="w-72 p-3">
-                <p className="mb-2 text-sm font-medium text-destructive">
-                  Similar blacklisted members
+                <p
+                  className={
+                    hasBlacklistedMatch
+                      ? "mb-2 text-sm font-medium text-destructive"
+                      : "mb-2 text-sm font-medium text-amber-700"
+                  }
+                >
+                  Possible duplicates
+                </p>
+                <p className="mb-2 text-xs text-muted-foreground">
+                  You can open an existing member or create anyway.
                 </p>
                 <ul className="max-h-48 space-y-1 overflow-y-auto">
-                  {blacklistMatches.map((member) => (
+                  {similarMembers.map((member) => (
                     <li key={member.id}>
                       <Link
                         href={`/admin/members/${member.id}`}
-                        className="block rounded-sm px-2 py-1.5 text-sm hover:bg-muted"
+                        className="flex items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-muted"
                       >
-                        {member.first_name} {member.last_name}
+                        <span>
+                          {member.first_name} {member.last_name}
+                        </span>
+                        {member.is_blacklisted && (
+                          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-destructive">
+                            Blacklist
+                          </span>
+                        )}
                       </Link>
                     </li>
                   ))}
