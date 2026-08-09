@@ -21,14 +21,31 @@ const sizeConfig = {
 interface BlacklistRibbonProps {
   size?: keyof typeof sizeConfig;
   side?: "left" | "right";
+  orientation?: "diagonal" | "horizontal";
   className?: string;
 }
 
 export function BlacklistRibbon({
   size = "md",
   side = "right",
+  orientation = "diagonal",
   className,
 }: BlacklistRibbonProps) {
+  if (orientation === "horizontal") {
+    return (
+      <div
+        className={cn(
+          "inline-flex items-center bg-black px-4 py-1.5 text-xs font-bold tracking-[0.18em] text-white shadow-md",
+          "[clip-path:polygon(8px_0,100%_0,calc(100%-8px)_100%,0_100%)]",
+          className
+        )}
+        aria-label="Blacklisted"
+      >
+        BLACKLIST
+      </div>
+    );
+  }
+
   const config = sizeConfig[size];
   const isLeft = side === "left";
 
