@@ -98,6 +98,48 @@ export async function getMemberCreditBalancesMap(
 }
 
 /**
+ * Update entry_date for a manual_add row only. Amount / balance unchanged.
+ */
+export async function updateManualCreditEntryDate(params: {
+  memberId: string;
+  entryId: number;
+  entryDate: string;
+}): Promise<{ entryId: number; entryDate: string }> {
+  const { memberId, entryId, entryDate } = params;
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(entryDate)) {
+    throw new Error('Invalid entry date');
+  }
+
+  const { data: entry, error: fetchError } = await supabaseServer()
+    .from('member_credit_entries')
+    .select('id, entry_type, member_id')
+    .eq('id', entryId)
+    .eq('member_id', memberId)
+    .single();
+
+  if (fetchError || !entry) {
+    throw new Error(fetchError?.message || 'Credit entry not found');
+  }
+
+  if (entry.entry_type !== 'manual_add') {
+    throw new Error('Only manually added credits can have their date edited');
+  }
+
+  const { error: updateError } = await supabaseServer()
+    .from('member_credit_entries')
+    .update({ entry_date: entryDate })
+    .eq('id', entryId)
+    .eq('member_id', memberId);
+
+  if (updateError) {
+    throw new Error(updateError.message || 'Failed to update credit entry date');
+  }
+
+  return { entryId, entryDate };
+}
+
+/**
  * Append-only ledger write. Removals cannot drive balance below 0.
  */
 export async function applyMemberCreditChange(

@@ -4,6 +4,7 @@ import {
   applyMemberCreditChange,
   getMemberCreditBalance,
   getMemberOutstandingDebit,
+  updateManualCreditEntryDate,
 } from '@/lib/member-credit';
 
 async function verifyAdminAuth(req: NextRequest) {
@@ -142,6 +143,53 @@ export async function POST(
     console.error('Adjust member credit error:', error);
     const message = error.message || 'Failed to adjust member credit';
     const status = message.includes('Insufficient') ? 400 : 500;
+    return NextResponse.json({ error: message }, { status });
+  }
+}
+
+export async function PATCH(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    const authResult = await verifyAdminAuth(request);
+    if (authResult.error) return authResult.error;
+
+    const { id: memberId } = await context.params;
+    if (!memberId) {
+      return NextResponse.json({ error: 'Member ID is required' }, { status: 400 });
+    }
+
+    const body = await request.json();
+    const entryId = Number(body.entryId);
+    const entryDate = typeof body.entryDate === 'string' ? body.entryDate : '';
+
+    if (!Number.isFinite(entryId) || entryId <= 0) {
+      return NextResponse.json({ error: 'Entry ID is required' }, { status: 400 });
+    }
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(entryDate)) {
+      return NextResponse.json({ error: 'Invalid entry date' }, { status: 400 });
+    }
+
+    const result = await updateManualCreditEntryDate({
+      memberId,
+      entryId,
+      entryDate,
+    });
+
+    return NextResponse.json({
+      success: true,
+      entryId: result.entryId,
+      entryDate: result.entryDate,
+    });
+  } catch (error: any) {
+    console.error('Update credit entry date error:', error);
+    const message = error.message || 'Failed to update credit entry date';
+    const status =
+      message.includes('not found') || message.includes('Only manually')
+        ? 400
+        : 500;
     return NextResponse.json({ error: message }, { status });
   }
 }

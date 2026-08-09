@@ -19,6 +19,7 @@ import { Separator } from "@/components/ui/separator";
 import {
   useAdjustMemberCredit,
   useMemberCredit,
+  useUpdateMemberCreditEntryDate,
   type CreditEntry,
 } from "@/hooks/useMemberCredit";
 import { formatCurrency } from "@/lib/config";
@@ -26,11 +27,14 @@ import { formatDate } from "@/lib/date";
 import {
   ArrowDownLeft,
   ArrowUpRight,
+  Check,
   CreditCard,
   Loader2,
+  Pencil,
   Plus,
   Minus,
   Wallet,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -66,8 +70,36 @@ function entryLabel(entry: CreditEntry): string {
   }
 }
 
-function EntryRow({ entry }: { entry: CreditEntry }) {
+function EntryRow({
+  entry,
+  onUpdateDate,
+  isUpdating,
+}: {
+  entry: CreditEntry;
+  onUpdateDate?: (entryId: number, entryDate: string) => Promise<void>;
+  isUpdating?: boolean;
+}) {
   const isCredit = entry.amount > 0;
+  const canEditDate = entry.entryType === "manual_add" && !!onUpdateDate;
+  const [editing, setEditing] = useState(false);
+  const [draftDate, setDraftDate] = useState(entry.entryDate);
+
+  useEffect(() => {
+    if (!editing) setDraftDate(entry.entryDate);
+  }, [entry.entryDate, editing]);
+
+  const handleSaveDate = async () => {
+    if (!onUpdateDate || !draftDate || draftDate === entry.entryDate) {
+      setEditing(false);
+      return;
+    }
+    try {
+      await onUpdateDate(entry.id, draftDate);
+      setEditing(false);
+    } catch {
+      // toast handled in hook
+    }
+  };
 
   return (
     <div className="flex items-start gap-3 py-3">
@@ -89,10 +121,63 @@ function EntryRow({ entry }: { entry: CreditEntry }) {
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-sm font-medium leading-none">{entryLabel(entry)}</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {formatDate(entry.entryDate)}
-              {entry.createdBy ? ` · ${entry.createdBy}` : ""}
-            </p>
+            {editing ? (
+              <div className="mt-1.5 flex items-center gap-1.5">
+                <Input
+                  type="date"
+                  value={draftDate}
+                  onChange={(e) => setDraftDate(e.target.value)}
+                  className="h-8 w-auto text-xs"
+                  disabled={isUpdating}
+                />
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8"
+                  onClick={handleSaveDate}
+                  disabled={isUpdating || !draftDate}
+                >
+                  {isUpdating ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Check className="h-3.5 w-3.5" />
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8"
+                  onClick={() => {
+                    setDraftDate(entry.entryDate);
+                    setEditing(false);
+                  }}
+                  disabled={isUpdating}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ) : (
+              <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                <span>
+                  {formatDate(entry.entryDate)}
+                  {entry.createdBy ? ` · ${entry.createdBy}` : ""}
+                </span>
+                {canEditDate ? (
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6 text-muted-foreground"
+                    onClick={() => setEditing(true)}
+                    title="Edit date"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                ) : null}
+              </p>
+            )}
           </div>
           <div className="text-right shrink-0">
             <p
@@ -125,6 +210,7 @@ export function ManageCreditDialog({
 }: ManageCreditDialogProps) {
   const { data, isLoading, isFetching } = useMemberCredit(memberId, open);
   const adjustMutation = useAdjustMemberCredit(memberId);
+  const updateDateMutation = useUpdateMemberCreditEntryDate(memberId);
 
   const [action, setAction] = useState<"add" | "remove">("add");
   const [amount, setAmount] = useState("");
@@ -176,8 +262,12 @@ export function ManageCreditDialog({
     }
   };
 
+  const handleUpdateEntryDate = async (entryId: number, nextDate: string) => {
+    await updateDateMutation.mutateAsync({ entryId, entryDate: nextDate });
+  };
+
   const handleClose = (nextOpen: boolean) => {
-    if (adjustMutation.isPending) return;
+    if (adjustMutation.isPending || updateDateMutation.isPending) return;
     onOpenChange(nextOpen);
   };
 
@@ -330,7 +420,15 @@ export function ManageCreditDialog({
                   </p>
                   <div className="divide-y">
                     {dayEntries.map((entry) => (
-                      <EntryRow key={entry.id} entry={entry} />
+                      <EntryRow
+                        key={entry.id}
+                        entry={entry}
+                        onUpdateDate={handleUpdateEntryDate}
+                        isUpdating={
+                          updateDateMutation.isPending &&
+                          updateDateMutation.variables?.entryId === entry.id
+                        }
+                      />
                     ))}
                   </div>
                 </div>
@@ -344,7 +442,7 @@ export function ManageCreditDialog({
             type="button"
             variant="outline"
             onClick={() => handleClose(false)}
-            disabled={adjustMutation.isPending}
+            disabled={adjustMutation.isPending || updateDateMutation.isPending}
           >
             Close
           </Button>

@@ -60,3 +60,32 @@ export function useAdjustMemberCredit(memberId: string) {
     },
   });
 }
+
+export interface UpdateCreditEntryDatePayload {
+  entryId: number;
+  entryDate: string;
+}
+
+export function useUpdateMemberCreditEntryDate(memberId: string) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (payload: UpdateCreditEntryDatePayload) =>
+      apiRequest('PATCH', `/api/admin/members/${memberId}/credit`, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['member-credit', memberId] });
+      toast({
+        title: 'Date updated',
+        description: 'Credit entry date has been updated.',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to update date',
+        description: error.message || 'Please try again',
+        variant: 'destructive',
+      });
+    },
+  });
+}
