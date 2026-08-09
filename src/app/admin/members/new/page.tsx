@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { RouteDialog, useCloseHref } from "@/components/route-dialog";
 import { Button } from "@/components/ui/button";
@@ -14,9 +15,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { DialogFooter } from "@/components/ui/dialog";
-import { Loader2 } from "lucide-react";
-import { useCreateMember } from "@/hooks/useMembers";
+import { Binoculars, Loader2 } from "lucide-react";
+import { useCreateMember, useMembers } from "@/hooks/useMembers";
+import { findSimilarBlacklistedMembers } from "@/lib/fuzzy-name";
 
 const CLOSE_HREF = "/admin/members";
 
@@ -24,6 +31,7 @@ export default function AdminNewMemberPage() {
   const router = useRouter();
   const onCancel = useCloseHref(CLOSE_HREF);
   const createMemberMutation = useCreateMember();
+  const { data: members = [] } = useMembers();
   const [createForm, setCreateForm] = useState({
     firstName: "",
     lastName: "",
@@ -33,6 +41,19 @@ export default function AdminNewMemberPage() {
     credit: 0,
     status: "active",
   });
+
+  const deferredFirstName = useDeferredValue(createForm.firstName);
+  const deferredLastName = useDeferredValue(createForm.lastName);
+
+  const blacklistMatches = useMemo(
+    () =>
+      findSimilarBlacklistedMembers(
+        deferredFirstName,
+        deferredLastName,
+        members,
+      ),
+    [deferredFirstName, deferredLastName, members],
+  );
 
   const handleCreateMember = () => {
     if (!createForm.firstName.trim() || !createForm.lastName.trim()) return;
@@ -61,29 +82,64 @@ export default function AdminNewMemberPage() {
       closeHref={CLOSE_HREF}
     >
       <div className="space-y-4 py-2">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="firstName">First Name *</Label>
-            <Input
-              id="firstName"
-              value={createForm.firstName}
-              onChange={(e) =>
-                setCreateForm({ ...createForm, firstName: e.target.value })
-              }
-              placeholder="First name"
-            />
+        <div className="flex items-end gap-2">
+          <div className="grid flex-1 grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="firstName">First Name *</Label>
+              <Input
+                id="firstName"
+                value={createForm.firstName}
+                onChange={(e) =>
+                  setCreateForm({ ...createForm, firstName: e.target.value })
+                }
+                placeholder="First name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="lastName">Last Name *</Label>
+              <Input
+                id="lastName"
+                value={createForm.lastName}
+                onChange={(e) =>
+                  setCreateForm({ ...createForm, lastName: e.target.value })
+                }
+                placeholder="Last name"
+              />
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="lastName">Last Name *</Label>
-            <Input
-              id="lastName"
-              value={createForm.lastName}
-              onChange={(e) =>
-                setCreateForm({ ...createForm, lastName: e.target.value })
-              }
-              placeholder="Last name"
-            />
-          </div>
+          {blacklistMatches.length > 0 && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0 text-destructive hover:text-destructive"
+                  aria-label={`${blacklistMatches.length} similar blacklisted member${blacklistMatches.length === 1 ? "" : "s"}`}
+                  title="Similar blacklisted members"
+                >
+                  <Binoculars className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-72 p-3">
+                <p className="mb-2 text-sm font-medium text-destructive">
+                  Similar blacklisted members
+                </p>
+                <ul className="max-h-48 space-y-1 overflow-y-auto">
+                  {blacklistMatches.map((member) => (
+                    <li key={member.id}>
+                      <Link
+                        href={`/admin/members/${member.id}`}
+                        className="block rounded-sm px-2 py-1.5 text-sm hover:bg-muted"
+                      >
+                        {member.first_name} {member.last_name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </PopoverContent>
+            </Popover>
+          )}
         </div>
         <div className="space-y-2">
           <Label htmlFor="phone">Phone</Label>
