@@ -79,8 +79,8 @@ export default function DataTable({
   selectable = true,
   title = "Data Table",
   description = "Manage your data",
-  pagination = false,
-  pageSize = 10
+  pagination = true,
+  pageSize = 20
 }: DataTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortColumn, setSortColumn] = useState<string | null>(null);
@@ -736,7 +736,10 @@ export default function DataTable({
             </div>
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">Rows per page:</span>
-              <Select value={currentPageSize.toString()} onValueChange={(value) => setCurrentPageSize(parseInt(value))}>
+              <Select value={currentPageSize.toString()} onValueChange={(value) => {
+                setCurrentPageSize(parseInt(value));
+                setCurrentPage(1);
+              }}>
                 <SelectTrigger className="w-20">
                   <SelectValue />
                 </SelectTrigger>

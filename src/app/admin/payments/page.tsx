@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useClientPagination } from "@/hooks/useClientPagination";
+import { ListPagination } from "@/components/list-pagination";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -66,9 +68,6 @@ export default function AdminPayments() {
     dateFrom: "",
     dateTo: "",
   });
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
-
   const router = useRouter();
   const { data: payments = [], isLoading } = usePayments();
   const { data: members = [] } = useMembers();
@@ -144,20 +143,24 @@ export default function AdminPayments() {
     });
   }, [mappedPayments, filters]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredPayments.length / pageSize));
-  const safePage = Math.min(currentPage, totalPages);
-  const paginatedPayments = useMemo(() => {
-    const start = (safePage - 1) * pageSize;
-    return filteredPayments.slice(start, start + pageSize);
-  }, [filteredPayments, safePage, pageSize]);
+  const {
+    paginatedItems: paginatedPayments,
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalPages,
+    totalItems,
+    resetPage,
+    rangeStart,
+    rangeEnd,
+  } = useClientPagination(filteredPayments);
 
-  // Reset to first page when filters or page size change
   const updateFilters = (updater: (prev: FilterState) => FilterState) => {
     setFilters(updater);
-    setCurrentPage(1);
+    resetPage();
   };
 
-  // Calculate statistics
   const stats = useMemo(() => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -239,7 +242,7 @@ export default function AdminPayments() {
       dateFrom: "",
       dateTo: "",
     });
-    setCurrentPage(1);
+    resetPage();
   };
 
   const handleEditPayment = (payment: Payment) => {
@@ -608,75 +611,18 @@ export default function AdminPayments() {
           </div>
 
           {filteredPayments.length > 0 && (
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-6 py-3 border-t">
-              <div className="flex items-center gap-4">
-                <div className="text-sm text-muted-foreground">
-                  Showing{" "}
-                  {(safePage - 1) * pageSize + 1} to{" "}
-                  {Math.min(safePage * pageSize, filteredPayments.length)} of{" "}
-                  {filteredPayments.length} payments
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">Rows:</span>
-                  <Select
-                    value={pageSize.toString()}
-                    onValueChange={(value) => {
-                      setPageSize(Number(value));
-                      setCurrentPage(1);
-                    }}
-                  >
-                    <SelectTrigger className="w-20 h-8">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="10">10</SelectItem>
-                      <SelectItem value="20">20</SelectItem>
-                      <SelectItem value="50">50</SelectItem>
-                      <SelectItem value="100">100</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              {totalPages > 1 && (
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(1)}
-                    disabled={safePage === 1}
-                  >
-                    First
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(safePage - 1)}
-                    disabled={safePage === 1}
-                  >
-                    Previous
-                  </Button>
-                  <span className="text-sm text-foreground whitespace-nowrap">
-                    Page {safePage} of {totalPages}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(safePage + 1)}
-                    disabled={safePage === totalPages}
-                  >
-                    Next
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(totalPages)}
-                    disabled={safePage === totalPages}
-                  >
-                    Last
-                  </Button>
-                </div>
-              )}
-            </div>
+            <ListPagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalItems={totalItems}
+              rangeStart={rangeStart}
+              rangeEnd={rangeEnd}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+              itemLabel="payments"
+              className="px-6"
+            />
           )}
         </CardContent>
       </Card>

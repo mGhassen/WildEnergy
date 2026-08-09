@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useClientPagination } from "@/hooks/useClientPagination";
+import { ListPagination } from "@/components/list-pagination";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -234,6 +236,23 @@ export default function AdminSubscriptions() {
 
     return filtered;
   })();
+
+  const {
+    paginatedItems: paginatedSubscriptions,
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalPages,
+    totalItems,
+    resetPage,
+    rangeStart,
+    rangeEnd,
+  } = useClientPagination(filteredAndSortedSubscriptions);
+
+  useEffect(() => {
+    resetPage();
+  }, [searchTerm, sortField, sortDirection, statusFilter, paymentStatusFilter, planFilter, dateRangeFilter]);
 
   const analytics = (() => {
     const total = mappedSubscriptions.length;
@@ -734,7 +753,7 @@ export default function AdminSubscriptions() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredAndSortedSubscriptions.map((subscription) => (
+                {paginatedSubscriptions.map((subscription) => (
                   <TableRow
                     key={subscription.id}
                     className={cn(
@@ -1019,7 +1038,7 @@ export default function AdminSubscriptions() {
             </Table>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredAndSortedSubscriptions.map((subscription) => {
+              {paginatedSubscriptions.map((subscription) => {
                 const subscriptionPayments = getPaymentsForSubscription(
                   subscription.id,
                 );
@@ -1192,6 +1211,20 @@ export default function AdminSubscriptions() {
                 );
               })}
             </div>
+          )}
+
+          {filteredAndSortedSubscriptions.length > 0 && (
+            <ListPagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalItems={totalItems}
+              rangeStart={rangeStart}
+              rangeEnd={rangeEnd}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+              itemLabel="subscriptions"
+            />
           )}
         </CardContent>
       </Card>

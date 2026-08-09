@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useClientPagination } from "@/hooks/useClientPagination";
+import { ListPagination } from "@/components/list-pagination";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -304,6 +306,23 @@ export default function MembersPage() {
         return sortOrder === "asc" ? comparison : -comparison;
       });
   }, [processedMembers, searchTerm, statusFilter, subscriptionFilter, sortBy, sortOrder]);
+
+  const {
+    paginatedItems: paginatedMembers,
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalPages,
+    totalItems,
+    resetPage,
+    rangeStart,
+    rangeEnd,
+  } = useClientPagination(filteredMembers);
+
+  useEffect(() => {
+    resetPage();
+  }, [searchTerm, statusFilter, subscriptionFilter, sortBy, sortOrder]);
 
   const openMemberDetails = (member: Member) => {
     router.push(`/admin/members/${member.id}`);
@@ -742,7 +761,7 @@ export default function MembersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredMembers.map((member) => {
+                {paginatedMembers.map((member) => {
                   const memberStatus = getStatusConfig(member.member_status);
                   const subscriptionStatus = getSubscriptionConfig(getCurrentSubscriptionStatus(member.subscriptions || []));
                   
@@ -900,7 +919,7 @@ export default function MembersPage() {
           {/* Desktop Grid View */}
           {!isMobile && viewMode === 'grid' && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredMembers.map((member) => {
+              {paginatedMembers.map((member) => {
                 const memberStatus = getStatusConfig(member.member_status);
                 const subscriptionStatus = getSubscriptionConfig(getCurrentSubscriptionStatus(member.subscriptions || []));
                 
@@ -1038,7 +1057,7 @@ export default function MembersPage() {
           {/* Mobile Card View */}
           {isMobile && (
             <div className="space-y-2">
-              {filteredMembers.map((member) => (
+              {paginatedMembers.map((member) => (
                 <MobileMemberCard key={member.id} member={member} />
               ))}
               {filteredMembers.length === 0 && (
@@ -1055,6 +1074,20 @@ export default function MembersPage() {
                 </div>
               )}
             </div>
+          )}
+
+          {filteredMembers.length > 0 && (
+            <ListPagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalItems={totalItems}
+              rangeStart={rangeStart}
+              rangeEnd={rangeEnd}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+              itemLabel="members"
+            />
           )}
         </CardContent>
       </Card>

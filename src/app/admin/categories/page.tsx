@@ -1,6 +1,8 @@
 "use client";
 
 import { useCategories } from "@/hooks/useCategories";
+import { useClientPagination } from "@/hooks/useClientPagination";
+import { ListPagination } from "@/components/list-pagination";
 import { useAdminClasses } from "@/hooks/useAdmin";
 import { TableSkeleton } from "@/components/skeletons";
 import { Category } from "@/lib/api/categories";
@@ -34,6 +36,18 @@ export default function AdminCategories() {
       isActive: cat.is_active,
     }),
   );
+
+  const {
+    paginatedItems: paginatedCategories,
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalPages,
+    totalItems,
+    rangeStart,
+    rangeEnd,
+  } = useClientPagination(categories);
 
   const getClassCount = (categoryId: number) =>
     classes.filter((cls: AdminClass) => cls.category_id === categoryId).length;
@@ -85,7 +99,7 @@ export default function AdminCategories() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {categories.map((category) => (
+              {paginatedCategories.map((category) => (
                 <TableRow key={category.id}>
                   <TableCell>
                     <div className="flex items-center space-x-3">
@@ -169,6 +183,19 @@ export default function AdminCategories() {
             <div className="text-center py-8 text-muted-foreground">
               No categories found. Create your first category to get started.
             </div>
+          )}
+          {categories.length > 0 && (
+            <ListPagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalItems={totalItems}
+              rangeStart={rangeStart}
+              rangeEnd={rangeEnd}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+              itemLabel="categories"
+            />
           )}
         </CardContent>
       </Card>

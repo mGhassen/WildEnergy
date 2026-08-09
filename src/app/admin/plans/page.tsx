@@ -28,6 +28,8 @@ import {
 } from "lucide-react";
 import { formatCurrency } from "@/lib/config";
 import { usePlans } from "@/hooks/usePlans";
+import { useClientPagination } from "@/hooks/useClientPagination";
+import { ListPagination } from "@/components/list-pagination";
 
 type AdminPlanSort =
   | "default"
@@ -166,6 +168,23 @@ export default function AdminPlans() {
     }));
     return sortMappedPlans(mapped, planSort);
   }, [plans, searchTerm, planSort]);
+
+  const {
+    paginatedItems: paginatedPlans,
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalPages,
+    totalItems,
+    resetPage,
+    rangeStart,
+    rangeEnd,
+  } = useClientPagination(mappedPlans);
+
+  useEffect(() => {
+    resetPage();
+  }, [searchTerm, planSort]);
 
   const formatPrice = (price: string | number) => {
     return formatCurrency(Number(price));
@@ -327,7 +346,7 @@ export default function AdminPlans() {
           </div>
         ) : viewType === "cards" ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {mappedPlans.map((plan: any) => (
+            {paginatedPlans.map((plan: any) => (
               <Card
                 key={plan.id}
                 className="group hover:shadow-lg transition-all duration-200 border-border/50 hover:border-primary/20 h-full flex flex-col"
@@ -540,7 +559,7 @@ export default function AdminPlans() {
             </div>
 
             <div className="divide-y">
-              {mappedPlans.map((plan: any) => (
+              {paginatedPlans.map((plan: any) => (
                 <div
                   key={plan.id}
                   className="p-4 hover:bg-muted/20 transition-colors"
@@ -718,6 +737,20 @@ export default function AdminPlans() {
               ))}
             </div>
           </div>
+        )}
+
+        {mappedPlans.length > 0 && (
+          <ListPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={totalItems}
+            rangeStart={rangeStart}
+            rangeEnd={rangeEnd}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+            itemLabel="plans"
+          />
         )}
       </div>
     </div>

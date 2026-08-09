@@ -17,6 +17,8 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import QRGenerator from "@/components/qr-generator";
 import { useCheckins } from "@/hooks/useCheckins";
+import { useClientPagination } from "@/hooks/useClientPagination";
+import { ListPagination } from "@/components/list-pagination";
 import { CheckCircle, Clock, Users, QrCode, Copy, Eye, Plus } from "lucide-react";
 import { getInitials } from "@/lib/auth";
 import { formatDateTime } from "@/lib/date";
@@ -73,6 +75,23 @@ export default function AdminCheckins() {
       return dateMatch && courseMatch && memberMatch && statusMatch;
     });
   }, [mappedCheckins, filterDate, filterCourse, filterMember, filterStatus]);
+
+  const {
+    paginatedItems: paginatedCheckins,
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalPages,
+    totalItems,
+    resetPage,
+    rangeStart,
+    rangeEnd,
+  } = useClientPagination(filteredCheckins);
+
+  useEffect(() => {
+    resetPage();
+  }, [filterDate, filterCourse, filterMember, filterStatus]);
 
   const handleManualCheckin = () => {
     if (!manualQRCode.trim()) {
@@ -202,7 +221,7 @@ export default function AdminCheckins() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredCheckins.map((checkin: any) => {
+                    {paginatedCheckins.map((checkin: any) => {
                       const checkinDate = checkin.checkinTime ? new Date(checkin.checkinTime) : null;
                       const course = checkin.registration?.course;
                       const member = checkin.member;
@@ -275,6 +294,17 @@ export default function AdminCheckins() {
                     })}
                   </TableBody>
                 </Table>
+                <ListPagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  pageSize={pageSize}
+                  totalItems={totalItems}
+                  rangeStart={rangeStart}
+                  rangeEnd={rangeEnd}
+                  onPageChange={setCurrentPage}
+                  onPageSizeChange={setPageSize}
+                  itemLabel="check-ins"
+                />
               </div>
             )}
           </TooltipProvider>

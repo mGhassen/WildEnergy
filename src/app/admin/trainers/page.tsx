@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useClientPagination } from "@/hooks/useClientPagination";
+import { ListPagination } from "@/components/list-pagination";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -84,6 +86,23 @@ export default function AdminTrainers() {
 
     return true;
   });
+
+  const {
+    paginatedItems: paginatedTrainers,
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalPages,
+    totalItems,
+    resetPage,
+    rangeStart,
+    rangeEnd,
+  } = useClientPagination(filteredTrainers);
+
+  useEffect(() => {
+    resetPage();
+  }, [searchTerm, statusFilter, specializationFilter]);
 
   const deleteTrainerMutation = useDeleteTrainer();
 
@@ -274,7 +293,7 @@ export default function AdminTrainers() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredTrainers.map((trainer: any) => (
+                {paginatedTrainers.map((trainer: any) => (
                   <TableRow 
                     key={trainer.id} 
                     className="cursor-pointer hover:bg-muted/50"
@@ -411,6 +430,20 @@ export default function AdminTrainers() {
                 ))}
               </TableBody>
             </Table>
+          )}
+
+          {filteredTrainers.length > 0 && (
+            <ListPagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalItems={totalItems}
+              rangeStart={rangeStart}
+              rangeEnd={rangeEnd}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+              itemLabel="trainers"
+            />
           )}
         </CardContent>
       </Card>

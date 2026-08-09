@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 
 import { useState, useEffect } from "react";
+import { useClientPagination } from "@/hooks/useClientPagination";
+import { ListPagination } from "@/components/list-pagination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -164,6 +166,23 @@ export default function AccountsPage() {
         
         return matchesSearch && matchesStatus && matchesRole;
     }) : [];
+
+    const {
+        paginatedItems: paginatedAccounts,
+        currentPage,
+        setCurrentPage,
+        pageSize,
+        setPageSize,
+        totalPages,
+        totalItems,
+        resetPage,
+        rangeStart,
+        rangeEnd,
+    } = useClientPagination(filteredAccounts);
+
+    useEffect(() => {
+        resetPage();
+    }, [searchTerm, statusFilter, roleFilter]);
 
     // Get statistics
     const stats = {
@@ -392,7 +411,7 @@ export default function AccountsPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {filteredAccounts.map((account: any, index: number) => {
+                                {paginatedAccounts.map((account: any, index: number) => {
                                     // Debug logging
                                     if (index < 3) {
                                         console.log('Account data:', { 
@@ -556,7 +575,7 @@ export default function AccountsPage() {
                     {/* Mobile Card View */}
                     {isMobile && (
                         <div className="space-y-3">
-                            {filteredAccounts.map((account: any, index: number) => {
+                            {paginatedAccounts.map((account: any, index: number) => {
                                 // Debug logging
                                 if (index < 3) {
                                     console.log('Mobile Account data:', { 
@@ -723,6 +742,20 @@ export default function AccountsPage() {
                                 </div>
                             )}
                         </div>
+                    )}
+
+                    {filteredAccounts.length > 0 && (
+                        <ListPagination
+                            currentPage={currentPage}
+                            totalPages={totalPages}
+                            pageSize={pageSize}
+                            totalItems={totalItems}
+                            rangeStart={rangeStart}
+                            rangeEnd={rangeEnd}
+                            onPageChange={setCurrentPage}
+                            onPageSizeChange={setPageSize}
+                            itemLabel="accounts"
+                        />
                     )}
                 </CardContent>
             </Card>

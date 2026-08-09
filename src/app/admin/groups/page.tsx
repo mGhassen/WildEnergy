@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useClientPagination } from "@/hooks/useClientPagination";
+import { ListPagination } from "@/components/list-pagination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -36,6 +38,23 @@ export default function AdminGroups() {
           .includes(searchTerm.toLowerCase()),
       )
     : [];
+
+  const {
+    paginatedItems: paginatedGroups,
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalPages,
+    totalItems,
+    resetPage,
+    rangeStart,
+    rangeEnd,
+  } = useClientPagination(filteredGroups);
+
+  useEffect(() => {
+    resetPage();
+  }, [searchTerm]);
 
   return (
     <div className="space-y-8">
@@ -83,7 +102,7 @@ export default function AdminGroups() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredGroups.map((group: any) => (
+                {paginatedGroups.map((group: any) => (
                   <TableRow key={group.id}>
                     <TableCell>
                       <div className="flex items-center space-x-3">
@@ -165,6 +184,20 @@ export default function AdminGroups() {
                 ))}
               </TableBody>
             </Table>
+          )}
+
+          {filteredGroups.length > 0 && (
+            <ListPagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalItems={totalItems}
+              rangeStart={rangeStart}
+              rangeEnd={rangeEnd}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+              itemLabel="groups"
+            />
           )}
         </CardContent>
       </Card>

@@ -2,6 +2,8 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useAdminTerms, useCreateTerms, useUpdateTerms, useDeleteTerms, useActivateTerms } from "@/hooks/useAdminTerms";
+import { useClientPagination } from "@/hooks/useClientPagination";
+import { ListPagination } from "@/components/list-pagination";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -106,6 +108,23 @@ export default function AdminTerms() {
       }
     });
   }, [terms, searchTerm, statusFilter, typeFilter, sortBy, sortOrder]);
+
+  const {
+    paginatedItems: paginatedTerms,
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalPages,
+    totalItems,
+    resetPage,
+    rangeStart,
+    rangeEnd,
+  } = useClientPagination(filteredAndSortedTerms);
+
+  useEffect(() => {
+    resetPage();
+  }, [searchTerm, statusFilter, typeFilter, sortBy, sortOrder]);
 
   const selectedDeletableIds = useMemo(
     () =>
@@ -590,7 +609,7 @@ export default function AdminTerms() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredAndSortedTerms.map((term) => (
+                  {paginatedTerms.map((term) => (
                     <tr 
                       key={term.id} 
                       className="border-b border-border hover:bg-muted/50 transition-colors cursor-pointer"
@@ -688,6 +707,17 @@ export default function AdminTerms() {
                   ))}
                 </tbody>
               </table>
+              <ListPagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                pageSize={pageSize}
+                totalItems={totalItems}
+                rangeStart={rangeStart}
+                rangeEnd={rangeEnd}
+                onPageChange={setCurrentPage}
+                onPageSizeChange={setPageSize}
+                itemLabel="terms"
+              />
             </div>
           )}
         </CardContent>

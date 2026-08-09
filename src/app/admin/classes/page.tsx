@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useClientPagination } from "@/hooks/useClientPagination";
+import { ListPagination } from "@/components/list-pagination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -58,6 +60,23 @@ export default function AdminClasses() {
     const searchText = `${classItem.name || ""} ${classItem.description || ""}`;
     return searchText.toLowerCase().includes((searchTerm || "").toLowerCase());
   });
+
+  const {
+    paginatedItems: paginatedClasses,
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalPages,
+    totalItems,
+    resetPage,
+    rangeStart,
+    rangeEnd,
+  } = useClientPagination(filteredClasses);
+
+  useEffect(() => {
+    resetPage();
+  }, [searchTerm]);
 
   const getCategoryColor = (categoryId: number, classItem: any) => {
     let category = classItem?.categories;
@@ -133,7 +152,7 @@ export default function AdminClasses() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredClasses.map((classItem: any) => (
+                {paginatedClasses.map((classItem: any) => (
                   <TableRow key={classItem.id}>
                     <TableCell>
                       <div className="flex items-center space-x-3">
@@ -234,6 +253,20 @@ export default function AdminClasses() {
                 ))}
               </TableBody>
             </Table>
+          )}
+
+          {filteredClasses.length > 0 && (
+            <ListPagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalItems={totalItems}
+              rangeStart={rangeStart}
+              rangeEnd={rangeEnd}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+              itemLabel="classes"
+            />
           )}
         </CardContent>
       </Card>
