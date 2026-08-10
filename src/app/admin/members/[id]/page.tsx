@@ -42,7 +42,8 @@ import {
   Unlink,
   UserPlus,
   AlertCircle,
-  Wallet
+  Wallet,
+  GraduationCap,
 } from "lucide-react";
 import { formatDate, formatSubscriptionPeriod, isSubscriptionActiveByEndDate } from "@/lib/date";
 import { formatCurrency } from "@/lib/config";
@@ -464,6 +465,10 @@ export default function MemberDetailsPage() {
     router.push(`/admin/members/${memberId}/create-account`);
   };
 
+  const handleCreateTrainer = () => {
+    router.push(`/admin/members/${memberId}/create-trainer`);
+  };
+
   const handleUnlinkAccount = () => {
     router.push(`/admin/members/${memberId}/unlink`);
   };
@@ -560,10 +565,14 @@ export default function MemberDetailsPage() {
                     Manage Credit
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleCreateTrainer}>
+                    <GraduationCap className="w-4 h-4 mr-2" />
+                    Create Trainer
+                  </DropdownMenuItem>
                   {member.account_id ? (
                     <DropdownMenuItem onClick={handleUnlinkAccount}>
                       <Unlink className="w-4 h-4 mr-2" />
-                      'Unlink Account'
+                      Unlink Account
                     </DropdownMenuItem>
                   ) : (
                     <>

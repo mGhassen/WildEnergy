@@ -77,7 +77,9 @@ export async function POST(req: NextRequest) {
       name: name.trim(),
       description: description ? String(description).trim() : undefined,
       category_id: category_id ? Number(category_id) : null,
-      difficulty: difficulty || 'beginner',
+      difficulty: Array.isArray(difficulty) && difficulty.length > 0
+        ? difficulty
+        : ['beginner'],
       duration: Number(duration),
       max_capacity: Number(max_capacity),
       equipment: equipment || null,

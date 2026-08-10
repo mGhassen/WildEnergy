@@ -1,14 +1,11 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   ArrowLeft, 
   Edit, 
@@ -27,12 +24,10 @@ import {
   Link,
   Unlink,
   UserPlus,
-  UserMinus
 } from "lucide-react";
 import { getInitials } from "@/lib/auth";
-import { useTrainer, useLinkTrainerAccount, useUnlinkTrainerAccount, useDeleteTrainer } from "@/hooks/useTrainers";
+import { useTrainer, useUnlinkTrainerAccount } from "@/hooks/useTrainers";
 import { useToast } from "@/hooks/use-toast";
-import { useAccounts } from "@/hooks/useAccounts";
 import { DashboardSkeleton } from "@/components/skeletons";
 import { 
   DropdownMenu, 
@@ -41,8 +36,6 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { formatDate } from "@/lib/date";
-import { ConfirmationDialog } from "@/components/confirmation-dialog";
 
 export default function TrainerDetailsPage() {
   const params = useParams();
@@ -50,10 +43,7 @@ export default function TrainerDetailsPage() {
   const trainerId = params.id as string;
 
   const { data: trainer, isLoading, error } = useTrainer(trainerId);
-  const { data: accounts = [] } = useAccounts();
-  const linkAccountMutation = useLinkTrainerAccount();
   const unlinkAccountMutation = useUnlinkTrainerAccount();
-  const deleteTrainerMutation = useDeleteTrainer();
   const { toast } = useToast();
 
   const goToEditTrainer = () => {
@@ -194,16 +184,36 @@ export default function TrainerDetailsPage() {
               Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator />
+            {trainer.member_id && (
+              <DropdownMenuItem
+                onClick={() => router.push(`/admin/members/${trainer.member_id}`)}
+              >
+                <User className="w-4 h-4 mr-2" />
+                View Member
+              </DropdownMenuItem>
+            )}
             {trainer.account_id ? (
               <DropdownMenuItem onClick={handleUnlinkAccount}>
                 <Unlink className="w-4 h-4 mr-2" />
                 Unlink Account
               </DropdownMenuItem>
             ) : (
-              <DropdownMenuItem onClick={() => router.push(`/admin/trainers/${trainerId}/link`)}>
-                <Link className="w-4 h-4 mr-2" />
-                Link Account
-              </DropdownMenuItem>
+              <>
+                <DropdownMenuItem
+                  onClick={() =>
+                    router.push(`/admin/trainers/${trainerId}/create-account`)
+                  }
+                >
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Create Account
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => router.push(`/admin/trainers/${trainerId}/link`)}
+                >
+                  <Link className="w-4 h-4 mr-2" />
+                  Link Account
+                </DropdownMenuItem>
+              </>
             )}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={exportTrainerData}>
@@ -213,17 +223,7 @@ export default function TrainerDetailsPage() {
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="text-destructive"
-              onClick={() => {
-                if (!trainer.account_id) {
-                  toast({
-                    title: "Cannot delete",
-                    description: "This trainer has no linked login account. Remove the trainer record from the database or link an account first.",
-                    variant: "destructive",
-                  });
-                  return;
-                }
-                router.push(`/admin/trainers/${trainerId}/delete`);
-              }}
+              onClick={() => router.push(`/admin/trainers/${trainerId}/delete`)}
             >
               <Trash2 className="w-4 h-4 mr-2" />
               Delete Trainer
@@ -274,7 +274,12 @@ export default function TrainerDetailsPage() {
                     <Mail className="w-4 h-4 text-muted-foreground" />
                     <span className="text-muted-foreground">Email:</span>
                   </div>
-                  <p className="font-medium text-foreground">{trainer.email || 'No email (unlinked trainer)'}</p>
+                  <p className="font-medium text-foreground">
+                    {trainer.email || trainer.profile_email || "No email"}
+                  </p>
+                  {!trainer.email && trainer.profile_email && (
+                    <p className="text-xs text-muted-foreground">Contact email (no login)</p>
+                  )}
                 </div>
                 
                 <div className="space-y-1">
@@ -290,8 +295,28 @@ export default function TrainerDetailsPage() {
 
               <Separator />
 
-              {/* Account Link Status */}
-              <div className="space-y-2">
+              {/* Same-person roles */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm">
+                    <User className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">Member role:</span>
+                  </div>
+                  {trainer.member_id ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        router.push(`/admin/members/${trainer.member_id}`)
+                      }
+                    >
+                      View Member
+                    </Button>
+                  ) : (
+                    <Badge variant="secondary">No member role</Badge>
+                  )}
+                </div>
+
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-sm">
                     <User className="w-4 h-4 text-muted-foreground" />
@@ -317,15 +342,29 @@ export default function TrainerDetailsPage() {
                     <div className="flex items-center gap-2">
                       <Badge variant="secondary">
                         <Unlink className="w-3 h-3 mr-1" />
-                        Not Linked
+                        No login
                       </Badge>
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => router.push(`/admin/trainers/${trainerId}/link`)}
+                        onClick={() =>
+                          router.push(
+                            `/admin/trainers/${trainerId}/create-account`,
+                          )
+                        }
+                      >
+                        <UserPlus className="w-3 h-3 mr-1" />
+                        Create
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          router.push(`/admin/trainers/${trainerId}/link`)
+                        }
                       >
                         <Link className="w-3 h-3 mr-1" />
-                        Link Account
+                        Link
                       </Button>
                     </div>
                   )}
@@ -405,10 +444,37 @@ export default function TrainerDetailsPage() {
                 <Edit className="w-4 h-4 mr-2" />
                 Edit Profile
               </Button>
-              <Button type="button" className="w-full justify-start" variant="outline" onClick={goToAccountSettings}>
-                <Settings className="w-4 h-4 mr-2" />
-                Account Settings
-              </Button>
+              {trainer.account_id ? (
+                <Button type="button" className="w-full justify-start" variant="outline" onClick={goToAccountSettings}>
+                  <Settings className="w-4 h-4 mr-2" />
+                  Account Settings
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  className="w-full justify-start"
+                  variant="outline"
+                  onClick={() =>
+                    router.push(`/admin/trainers/${trainerId}/create-account`)
+                  }
+                >
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Create Account
+                </Button>
+              )}
+              {trainer.member_id && (
+                <Button
+                  type="button"
+                  className="w-full justify-start"
+                  variant="outline"
+                  onClick={() =>
+                    router.push(`/admin/members/${trainer.member_id}`)
+                  }
+                >
+                  <User className="w-4 h-4 mr-2" />
+                  View Member
+                </Button>
+              )}
               <Button type="button" className="w-full justify-start" variant="outline" onClick={goToSchedule}>
                 <Calendar className="w-4 h-4 mr-2" />
                 View Schedule

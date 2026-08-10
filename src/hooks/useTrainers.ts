@@ -69,17 +69,86 @@ export function useDeleteTrainer() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: (accountId: string) => trainerApi.deleteTrainer(accountId),
+    mutationFn: (trainerId: string) => trainerApi.deleteTrainer(trainerId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['trainers'] });
       toast({
         title: 'Trainer deleted',
-        description: 'The trainer has been successfully deleted.',
+        description: 'The trainer role has been removed.',
       });
     },
     onError: (error: any) => {
       toast({
         title: 'Failed to delete trainer',
+        description: error.message || 'Please try again',
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
+export function useCreateTrainerFromMember() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: ({
+      memberId,
+      data,
+    }: {
+      memberId: string;
+      data?: {
+        specialization?: string;
+        experienceYears?: number;
+        bio?: string;
+        certification?: string;
+        hourlyRate?: number;
+        status?: string;
+      };
+    }) => trainerApi.createFromMember(memberId, data),
+    onSuccess: (_data, { memberId }) => {
+      queryClient.invalidateQueries({ queryKey: ['trainers'] });
+      queryClient.invalidateQueries({ queryKey: ['member', memberId] });
+      queryClient.invalidateQueries({ queryKey: ['memberDetails', memberId] });
+      toast({
+        title: 'Trainer created',
+        description: 'Trainer role added on the same profile.',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to create trainer',
+        description: error.message || 'Please try again',
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
+export function useCreateAccountFromTrainer() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: ({
+      trainerId,
+      data,
+    }: {
+      trainerId: string;
+      data: { email: string; password: string; isAdmin?: boolean };
+    }) => trainerApi.createAccount(trainerId, data),
+    onSuccess: (_data, { trainerId }) => {
+      queryClient.invalidateQueries({ queryKey: ['trainer', trainerId] });
+      queryClient.invalidateQueries({ queryKey: ['trainers'] });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      toast({
+        title: 'Account created',
+        description: 'Login account linked to this trainer.',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to create account',
         description: error.message || 'Please try again',
         variant: 'destructive',
       });

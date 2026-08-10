@@ -319,23 +319,23 @@ async function seedData() {
     const { data: classes, error: classesError } = await supabase
       .from('classes')
       .insert([
-        { name: 'Yoga Flow', description: 'Vinyasa yoga for all levels', category_id: categories[0].id, duration: 60, max_capacity: 18, equipment: 'Yoga mat', difficulty: 'beginner', is_active: true },
-        { name: 'Yoga Advanced', description: 'Advanced yoga poses and sequences', category_id: categories[0].id, duration: 75, max_capacity: 12, equipment: 'Yoga mat, blocks', difficulty: 'advanced', is_active: true },
-        { name: 'Cardio Blast', description: 'High-intensity interval training', category_id: categories[1].id, duration: 45, max_capacity: 25, equipment: 'None', difficulty: 'intermediate', is_active: true },
-        { name: 'HIIT Challenge', description: 'Extreme high-intensity workout', category_id: categories[1].id, duration: 30, max_capacity: 20, equipment: 'Kettlebells', difficulty: 'advanced', is_active: true },
-        { name: 'Strength Circuit', description: 'Strength and conditioning circuit', category_id: categories[2].id, duration: 60, max_capacity: 16, equipment: 'Dumbbells, resistance bands', difficulty: 'intermediate', is_active: true },
-        { name: 'Powerlifting Basics', description: 'Introduction to powerlifting techniques', category_id: categories[2].id, duration: 90, max_capacity: 8, equipment: 'Barbells, plates', difficulty: 'beginner', is_active: true },
-        { name: 'Pilates Core', description: 'Pilates class focused on core strength', category_id: categories[3].id, duration: 50, max_capacity: 14, equipment: 'Mat, ring', difficulty: 'beginner', is_active: true },
-        { name: 'Pilates Advanced', description: 'Advanced Pilates with equipment', category_id: categories[3].id, duration: 60, max_capacity: 10, equipment: 'Reformer, chair', difficulty: 'advanced', is_active: true },
-        { name: 'Pole Dance Beginner', description: 'Introduction to pole dancing', category_id: categories[4].id, duration: 60, max_capacity: 12, equipment: 'Pole', difficulty: 'beginner', is_active: true },
-        { name: 'Pole Dance Intermediate', description: 'Intermediate pole techniques', category_id: categories[4].id, duration: 75, max_capacity: 10, equipment: 'Pole', difficulty: 'intermediate', is_active: true },
-        { name: 'Flexibility Flow', description: 'Deep stretching and mobility', category_id: categories[5].id, duration: 45, max_capacity: 20, equipment: 'Mat, straps', difficulty: 'beginner', is_active: true },
-        { name: 'Salsa Basics', description: 'Learn basic salsa steps', category_id: categories[6].id, duration: 60, max_capacity: 15, equipment: 'None', difficulty: 'beginner', is_active: true },
-        { name: 'Bachata Sensual', description: 'Sensual bachata dancing', category_id: categories[6].id, duration: 60, max_capacity: 12, equipment: 'None', difficulty: 'intermediate', is_active: true },
-        { name: 'Kickboxing', description: 'High-energy martial arts workout', category_id: categories[7].id, duration: 50, max_capacity: 18, equipment: 'Gloves, pads', difficulty: 'intermediate', is_active: true },
-        { name: 'Self-Defense', description: 'Practical self-defense techniques', category_id: categories[7].id, duration: 60, max_capacity: 15, equipment: 'Pads, dummy', difficulty: 'beginner', is_active: true },
-        { name: 'Meditation Circle', description: 'Guided meditation and mindfulness', category_id: categories[8].id, duration: 30, max_capacity: 25, equipment: 'Cushions', difficulty: 'beginner', is_active: true },
-        { name: 'Breathing Workshop', description: 'Breathing exercises and relaxation', category_id: categories[9].id, duration: 45, max_capacity: 20, equipment: 'Mats, blankets', difficulty: 'beginner', is_active: true }
+        { name: 'Yoga Flow', description: 'Vinyasa yoga for all levels', category_id: categories[0].id, duration: 60, max_capacity: 18, equipment: 'Yoga mat', difficulty: ['beginner'], is_active: true },
+        { name: 'Yoga Advanced', description: 'Advanced yoga poses and sequences', category_id: categories[0].id, duration: 75, max_capacity: 12, equipment: 'Yoga mat, blocks', difficulty: ['advanced'], is_active: true },
+        { name: 'Cardio Blast', description: 'High-intensity interval training', category_id: categories[1].id, duration: 45, max_capacity: 25, equipment: 'None', difficulty: ['intermediate'], is_active: true },
+        { name: 'HIIT Challenge', description: 'Extreme high-intensity workout', category_id: categories[1].id, duration: 30, max_capacity: 20, equipment: 'Kettlebells', difficulty: ['advanced'], is_active: true },
+        { name: 'Strength Circuit', description: 'Strength and conditioning circuit', category_id: categories[2].id, duration: 60, max_capacity: 16, equipment: 'Dumbbells, resistance bands', difficulty: ['intermediate'], is_active: true },
+        { name: 'Powerlifting Basics', description: 'Introduction to powerlifting techniques', category_id: categories[2].id, duration: 90, max_capacity: 8, equipment: 'Barbells, plates', difficulty: ['beginner'], is_active: true },
+        { name: 'Pilates Core', description: 'Pilates class focused on core strength', category_id: categories[3].id, duration: 50, max_capacity: 14, equipment: 'Mat, ring', difficulty: ['beginner'], is_active: true },
+        { name: 'Pilates Advanced', description: 'Advanced Pilates with equipment', category_id: categories[3].id, duration: 60, max_capacity: 10, equipment: 'Reformer, chair', difficulty: ['advanced'], is_active: true },
+        { name: 'Pole Dance Beginner', description: 'Introduction to pole dancing', category_id: categories[4].id, duration: 60, max_capacity: 12, equipment: 'Pole', difficulty: ['beginner'], is_active: true },
+        { name: 'Pole Dance Intermediate', description: 'Intermediate pole techniques', category_id: categories[4].id, duration: 75, max_capacity: 10, equipment: 'Pole', difficulty: ['intermediate'], is_active: true },
+        { name: 'Flexibility Flow', description: 'Deep stretching and mobility', category_id: categories[5].id, duration: 45, max_capacity: 20, equipment: 'Mat, straps', difficulty: ['beginner'], is_active: true },
+        { name: 'Salsa Basics', description: 'Learn basic salsa steps', category_id: categories[6].id, duration: 60, max_capacity: 15, equipment: 'None', difficulty: ['beginner'], is_active: true },
+        { name: 'Bachata Sensual', description: 'Sensual bachata dancing', category_id: categories[6].id, duration: 60, max_capacity: 12, equipment: 'None', difficulty: ['intermediate'], is_active: true },
+        { name: 'Kickboxing', description: 'High-energy martial arts workout', category_id: categories[7].id, duration: 50, max_capacity: 18, equipment: 'Gloves, pads', difficulty: ['intermediate'], is_active: true },
+        { name: 'Self-Defense', description: 'Practical self-defense techniques', category_id: categories[7].id, duration: 60, max_capacity: 15, equipment: 'Pads, dummy', difficulty: ['beginner'], is_active: true },
+        { name: 'Meditation Circle', description: 'Guided meditation and mindfulness', category_id: categories[8].id, duration: 30, max_capacity: 25, equipment: 'Cushions', difficulty: ['beginner'], is_active: true },
+        { name: 'Breathing Workshop', description: 'Breathing exercises and relaxation', category_id: categories[9].id, duration: 45, max_capacity: 20, equipment: 'Mats, blankets', difficulty: ['beginner'], is_active: true }
       ])
       .select();
 

@@ -24,7 +24,7 @@ interface Course {
       name: string;
       color: string;
     };
-    difficulty: string;
+    difficulty: string | string[];
     maxCapacity: number;
     duration: number;
   };

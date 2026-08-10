@@ -31,10 +31,10 @@ export const profiles = pgTable("profiles", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Members table - member-specific data
+// Members table - member-specific data (account optional; person = profile)
 export const members = pgTable("members", {
   id: uuid("id").primaryKey().defaultRandom(),
-  accountId: uuid("account_id").notNull().references(() => accounts.id, { onDelete: "cascade" }),
+  accountId: uuid("account_id").references(() => accounts.id, { onDelete: "set null" }),
   profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
   memberNotes: text("member_notes"),
   status: text("status", { enum: ['active', 'inactive', 'suspended'] }).notNull().default("active"),
@@ -44,10 +44,10 @@ export const members = pgTable("members", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Trainers table - trainer-specific data
+// Trainers table - trainer-specific data (account optional; person = profile)
 export const trainers = pgTable("trainers", {
   id: uuid("id").primaryKey().defaultRandom(),
-  accountId: uuid("account_id").notNull().references(() => accounts.id, { onDelete: "cascade" }),
+  accountId: uuid("account_id").references(() => accounts.id, { onDelete: "set null" }),
   profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
   specialization: text("specialization"),
   experienceYears: integer("experience_years").default(0),
@@ -403,7 +403,10 @@ export const insertClassSchema = z.object({
   name: z.string().min(1, 'Class name is required'),
   description: z.string().optional(),
   categoryId: z.number().min(1, 'Category is required'),
-  difficulty: z.enum(['beginner', 'intermediate', 'advanced']).default('beginner'),
+  difficulty: z
+    .array(z.enum(['beginner', 'intermediate', 'advanced']))
+    .min(1, 'Select at least one difficulty')
+    .default(['beginner']),
   durationMinutes: z.number().min(1, 'Duration must be at least 1 minute'),
   maxCapacity: z.number().min(1, 'Max capacity is required'),
   equipment: z.string().optional(),

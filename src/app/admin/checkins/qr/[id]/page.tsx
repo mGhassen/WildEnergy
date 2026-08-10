@@ -44,7 +44,7 @@ interface CheckinInfo {
       id: number;
       name: string;
       category?: string;
-      difficulty?: string;
+      difficulty?: string | string[];
       maxCapacity?: number;
     };
     trainer: {
@@ -546,7 +546,9 @@ export default function CheckinQRPage() {
                         <div className="flex items-center gap-2">
                           <strong className="text-foreground">Difficulty</strong>
                           <Badge variant="outline">
-                            {checkinInfo.course?.class?.difficulty || '-'}
+                            {Array.isArray(checkinInfo.course?.class?.difficulty)
+                              ? checkinInfo.course.class.difficulty.join(', ')
+                              : (checkinInfo.course?.class?.difficulty || '-')}
                           </Badge>
                         </div>
                         <p><strong className="text-foreground">Capacity:</strong> {checkinInfo.checkedInCount || 0} / {checkinInfo.course?.class?.maxCapacity || '-'}</p>

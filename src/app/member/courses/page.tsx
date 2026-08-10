@@ -50,7 +50,7 @@ interface Class {
   name: string;
   description?: string;
   category?: Category;
-  difficulty?: string;
+  difficulty?: string | string[];
   duration?: number;
 }
 
@@ -314,17 +314,24 @@ function MemberCourses() {
   };
 
   // Add this helper to render difficulty stars
-  const renderDifficultyStars = (difficulty: string) => {
+  const renderDifficultyStars = (difficulty: string | string[]) => {
     const levels = {
       beginner: { count: 1, color: 'text-green-600', label: 'Beginner' },
       intermediate: { count: 2, color: 'text-blue-600', label: 'Intermediate' },
       advanced: { count: 3, color: 'text-red-600', label: 'Advanced' },
       expert: { count: 4, color: 'text-purple-600', label: 'Expert' },
     } as Record<string, { count: number; color: string; label: string }>;
-    const key = difficulty?.toLowerCase() || '';
+    const order = ['beginner', 'intermediate', 'advanced', 'expert'];
+    const values = (Array.isArray(difficulty) ? difficulty : [difficulty])
+      .map((d) => d?.toLowerCase() || '')
+      .filter(Boolean);
+    const key = values.sort((a, b) => order.indexOf(b) - order.indexOf(a))[0] || '';
     const level = levels[key] || { count: 1, color: 'text-gray-400', label: 'Unknown' };
+    const label = values.length > 1
+      ? values.map((v) => levels[v]?.label || v).join(', ')
+      : level.label;
     return (
-      <span className={`flex items-center ml-2`} title={level.label} aria-label={level.label}>
+      <span className={`flex items-center ml-2`} title={label} aria-label={label}>
         {[...Array(level.count)].map((_, i) => (
           <Star key={i} className={`w-4 h-4 ${level.color}`} fill="currentColor" />
         ))}
@@ -501,7 +508,7 @@ function MemberCourses() {
                               <div className="text-xs text-muted-foreground mb-1">Date: {formatDate(course.course_date || course.courseDate)}</div>
                               <div className="text-xs text-muted-foreground mb-1">Time: {formatTime(course.start_time || course.startTime)} - {formatTime(course.end_time || course.endTime)}</div>
                               <div className="text-xs text-muted-foreground mb-1">Category: {course.class?.category?.name || '-'}</div>
-                              <div className="text-xs text-muted-foreground mb-1">Difficulty: {course.class?.difficulty || '-'}</div>
+                              <div className="text-xs text-muted-foreground mb-1">Difficulty: {Array.isArray(course.class?.difficulty) ? course.class.difficulty.join(', ') : (course.class?.difficulty || '-')}</div>
                             </TooltipContent>
                           </Tooltip>
                           <div className="flex items-center gap-2 flex-shrink-0">

@@ -12,7 +12,7 @@ interface CourseData {
       name: string;
       color: string;
     };
-    difficulty?: string;
+    difficulty?: string | string[];
     duration?: number;
     max_capacity?: number;
   };
@@ -130,7 +130,7 @@ export const convertCoursesToMemberEvents = (
     validEvents.push({
       id: course.id,
       title: course.class?.name || 'Unknown Class',
-      description: `${course.class?.description || ''}\n\nInstructor: ${instructorName}\nDifficulty: ${course.class?.difficulty || 'Unknown'}\nDuration: ${course.class?.duration || 60} minutes`,
+      description: `${course.class?.description || ''}\n\nInstructor: ${instructorName}\nDifficulty: ${Array.isArray(course.class?.difficulty) ? course.class.difficulty.join(', ') : (course.class?.difficulty || 'Unknown')}\nDuration: ${course.class?.duration || 60} minutes`,
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString(),
       color: getEventColor(course.class?.category),

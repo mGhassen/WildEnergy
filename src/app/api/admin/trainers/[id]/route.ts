@@ -55,6 +55,7 @@ export async function GET(request: NextRequest) {
             first_name,
             last_name,
             phone,
+            profile_email,
             date_of_birth,
             address,
             profession,
@@ -67,11 +68,12 @@ export async function GET(request: NextRequest) {
         .single();
 
       if (!unlinkedError && unlinkedTrainer) {
-        // Create a trainer object in the expected format for unlinked trainers
         trainer = {
           trainer_id: unlinkedTrainer.id,
-          account_id: null, // Unlinked trainer has no account
-          email: null, // No email for unlinked trainers
+          account_id: null,
+          profile_id: unlinkedTrainer.profile_id,
+          email: null,
+          profile_email: unlinkedTrainer.profiles.profile_email,
           account_status: null,
           last_login: null,
           first_name: unlinkedTrainer.profiles.first_name,
@@ -93,10 +95,10 @@ export async function GET(request: NextRequest) {
           certification: unlinkedTrainer.certification,
           hourly_rate: unlinkedTrainer.hourly_rate,
           trainer_status: unlinkedTrainer.status,
-          user_type: 'trainer', // Unlinked trainers are just trainers
-          accessible_portals: ['trainer'] // Unlinked trainers only have trainer portal access
+          user_type: 'trainer',
+          accessible_portals: ['trainer'],
         };
-        trainerError = null; // Clear the error since we found the trainer
+        trainerError = null;
       }
     }
       
@@ -108,11 +110,32 @@ export async function GET(request: NextRequest) {
     if (!trainer) {
       return NextResponse.json({ error: 'Trainer not found' }, { status: 404 });
     }
+
+    let profileId = trainer.profile_id ?? null;
+    if (!profileId && trainer.trainer_id) {
+      const { data: trainerRow } = await supabaseServer()
+        .from('trainers')
+        .select('profile_id')
+        .eq('id', trainer.trainer_id)
+        .maybeSingle();
+      profileId = trainerRow?.profile_id ?? null;
+    }
+
+    let memberId = trainer.member_id ?? null;
+    if (!memberId && profileId) {
+      const { data: member } = await supabaseServer()
+        .from('members')
+        .select('id')
+        .eq('profile_id', profileId)
+        .maybeSingle();
+      memberId = member?.id ?? null;
+    }
     
-    // Format trainer data for frontend compatibility
     const trainerData = {
       id: trainer.trainer_id,
       account_id: trainer.account_id,
+      profile_id: profileId,
+      member_id: memberId,
       specialization: trainer.specialization,
       experience_years: trainer.experience_years,
       bio: trainer.bio,
@@ -122,12 +145,13 @@ export async function GET(request: NextRequest) {
       first_name: trainer.first_name ?? "",
       last_name: trainer.last_name ?? "",
       email: trainer.email ?? "",
+      profile_email: trainer.profile_email ?? null,
       phone: trainer.phone ?? "",
       user_type: trainer.user_type,
       accessible_portals: trainer.accessible_portals,
       created_at: trainer.created_at,
       updated_at: trainer.updated_at,
-      isUnlinked: trainer.account_id === null // Flag to indicate if trainer is unlinked
+      isUnlinked: trainer.account_id === null
     };
     
     return NextResponse.json(trainerData);

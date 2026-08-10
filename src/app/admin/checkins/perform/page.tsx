@@ -42,7 +42,7 @@ interface CheckinInfo {
       id: number;
       name: string;
       category?: string;
-      difficulty?: string;
+      difficulty?: string | string[];
       maxCapacity?: number;
     };
     trainer: {

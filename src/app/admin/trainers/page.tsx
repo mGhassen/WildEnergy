@@ -19,7 +19,7 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { useTrainers, useDeleteTrainer } from "@/hooks/useTrainers";
+import { useTrainers } from "@/hooks/useTrainers";
 import { 
   Plus, 
   Search, 
@@ -104,28 +104,8 @@ export default function AdminTrainers() {
     resetPage();
   }, [searchTerm, statusFilter, specializationFilter]);
 
-  const deleteTrainerMutation = useDeleteTrainer();
-
-  // Filtering is now handled above with the transformed data
-
-
-
   const handleDelete = (trainer: any) => {
-    deleteTrainerMutation.mutate(trainer.account_id, {
-      onSuccess: () => {
-        toast({
-          title: "Trainer deleted",
-          description: `${trainer.first_name} ${trainer.last_name} has been deleted successfully.`,
-        });
-      },
-      onError: (error: any) => {
-        toast({
-          title: "Error",
-          description: error.message || "Failed to delete trainer",
-          variant: "destructive",
-        });
-      },
-    });
+    router.push(`/admin/trainers/${trainer.id}/delete`);
   };
 
   const handleViewTrainer = (trainer: any) => {

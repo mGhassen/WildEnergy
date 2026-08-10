@@ -230,7 +230,11 @@ export function MemberCourseDetailsView({
                 {courseLoading ? (
                   <Skeleton className="h-4 w-16 mx-auto" />
                 ) : (
-                  courseData.class?.difficulty || "Unknown"
+                  courseData.class?.difficulty
+                    ? (Array.isArray(courseData.class.difficulty)
+                        ? courseData.class.difficulty.join(", ")
+                        : courseData.class.difficulty)
+                    : "Unknown"
                 )}
               </div>
             </div>

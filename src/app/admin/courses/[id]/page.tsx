@@ -128,7 +128,7 @@ interface CourseDetails {
     duration: number;
     max_capacity: number;
     equipment?: string;
-    difficulty: string;
+    difficulty: string | string[];
     is_active: boolean;
     category: {
       id: number;
@@ -553,9 +553,16 @@ export default function CourseDetailsPage() {
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Difficulty</label>
-                  <Badge className={getDifficultyColor(courseData.class.difficulty)}>
-                    {courseData.class.difficulty}
-                  </Badge>
+                  <div className="flex flex-wrap gap-1">
+                    {(Array.isArray(courseData.class.difficulty)
+                      ? courseData.class.difficulty
+                      : [courseData.class.difficulty]
+                    ).map((level: string) => (
+                      <Badge key={level} className={getDifficultyColor(level)}>
+                        {level}
+                      </Badge>
+                    ))}
+                  </div>
                 </div>
               </div>
               

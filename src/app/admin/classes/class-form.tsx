@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Form,
   FormControl,
@@ -22,6 +23,11 @@ import { DialogFooter } from "@/components/ui/dialog";
 import { UseFormReturn } from "react-hook-form";
 import { insertClassSchema } from "@/shared/zod-schemas";
 import { z } from "zod";
+import {
+  DIFFICULTY_OPTIONS,
+  normalizeDifficulties,
+  type DifficultyLevel,
+} from "@/lib/difficulty";
 
 export const classFormSchema = insertClassSchema;
 export type ClassFormData = z.infer<typeof classFormSchema>;
@@ -30,7 +36,7 @@ export const classFormDefaultValues: ClassFormData = {
   name: "",
   description: "",
   categoryId: null,
-  difficulty: "beginner",
+  difficulty: ["beginner"],
   durationMinutes: 60,
   maxCapacity: 20,
   equipment: "",
@@ -56,6 +62,12 @@ type ClassFormProps = {
   onSubmit: (data: ClassFormData) => void;
   submitLabel: string;
   isSubmitting?: boolean;
+};
+
+const DIFFICULTY_LABELS: Record<DifficultyLevel, string> = {
+  beginner: "Beginner",
+  intermediate: "Intermediate",
+  advanced: "Advanced",
 };
 
 export function ClassForm({
@@ -131,29 +143,46 @@ export function ClassForm({
             </FormItem>
           )}
         />
+        <FormField
+          control={form.control}
+          name="difficulty"
+          render={() => (
+            <FormItem>
+              <FormLabel>Difficulty</FormLabel>
+              <div className="flex flex-wrap gap-4">
+                {DIFFICULTY_OPTIONS.map((level) => (
+                  <FormField
+                    key={level}
+                    control={form.control}
+                    name="difficulty"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center space-x-2 space-y-0">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value?.includes(level)}
+                            onCheckedChange={(checked) => {
+                              const current = field.value || [];
+                              field.onChange(
+                                checked
+                                  ? [...current, level]
+                                  : current.filter((v) => v !== level),
+                              );
+                            }}
+                          />
+                        </FormControl>
+                        <FormLabel className="font-normal">
+                          {DIFFICULTY_LABELS[level]}
+                        </FormLabel>
+                      </FormItem>
+                    )}
+                  />
+                ))}
+              </div>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         <div className="grid grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="difficulty"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Difficulty</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select difficulty" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="beginner">Beginner</SelectItem>
-                    <SelectItem value="intermediate">Intermediate</SelectItem>
-                    <SelectItem value="advanced">Advanced</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
           <FormField
             control={form.control}
             name="durationMinutes"
@@ -232,7 +261,7 @@ export function classToFormValues(classItem: {
   description?: string | null;
   categoryId?: number | null;
   category_id?: number | null;
-  difficulty?: string | null;
+  difficulty?: string | string[] | null;
   durationMinutes?: number;
   duration?: number;
   maxCapacity?: number;
@@ -245,7 +274,7 @@ export function classToFormValues(classItem: {
     name: classItem.name,
     description: classItem.description ?? "",
     categoryId: classItem.categoryId ?? classItem.category_id ?? null,
-    difficulty: (classItem.difficulty as ClassFormData["difficulty"]) || "beginner",
+    difficulty: normalizeDifficulties(classItem.difficulty),
     durationMinutes: classItem.durationMinutes ?? classItem.duration ?? 60,
     maxCapacity: classItem.maxCapacity ?? classItem.max_capacity ?? 20,
     equipment: classItem.equipment || "",

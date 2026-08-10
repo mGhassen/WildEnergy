@@ -33,41 +33,33 @@ export default function AdminTrainerDeletePage() {
     );
   }
 
-  const canDelete = !!trainer.account_id;
-
   return (
     <RouteDialog
       title="Delete Trainer"
-      description={
-        canDelete
-          ? `Are you sure you want to delete ${trainer.first_name} ${trainer.last_name}? This removes the linked login account and trainer data.`
-          : "This trainer has no linked account and cannot be deleted from here."
-      }
+      description={`Remove the trainer role for ${trainer.first_name} ${trainer.last_name}? The person profile${trainer.member_id ? " and member role" : ""} will be kept.`}
       closeHref={closeHref}
     >
-      <div className="flex gap-3 justify-end pt-2">
+      <div className="flex justify-end gap-3 pt-2">
         <Button variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        {canDelete && (
-          <Button
-            variant="destructive"
-            disabled={deleteTrainerMutation.isPending}
-            onClick={() => {
-              deleteTrainerMutation.mutate(trainer.account_id!, {
-                onSuccess: () => {
-                  toast({
-                    title: "Trainer deleted",
-                    description: `${trainer.first_name} ${trainer.last_name} has been removed.`,
-                  });
-                  router.replace("/admin/trainers");
-                },
-              });
-            }}
-          >
-            {deleteTrainerMutation.isPending ? "Deleting..." : "Delete"}
-          </Button>
-        )}
+        <Button
+          variant="destructive"
+          disabled={deleteTrainerMutation.isPending}
+          onClick={() => {
+            deleteTrainerMutation.mutate(trainer.id, {
+              onSuccess: () => {
+                toast({
+                  title: "Trainer deleted",
+                  description: `${trainer.first_name} ${trainer.last_name} trainer role removed.`,
+                });
+                router.replace("/admin/trainers");
+              },
+            });
+          }}
+        >
+          {deleteTrainerMutation.isPending ? "Deleting..." : "Delete Trainer"}
+        </Button>
       </div>
     </RouteDialog>
   );

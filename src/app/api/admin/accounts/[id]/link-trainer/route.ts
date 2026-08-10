@@ -86,10 +86,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Trainer is already linked to an account' }, { status: 400 });
     }
 
-    // Link account to trainer
+    // Same person = same profile. Reject mismatched profiles instead of silently forking identity.
+    if (
+      trainer.profile_id &&
+      account.profile_id &&
+      trainer.profile_id !== account.profile_id
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            'Trainer and account belong to different profiles. Link only when they are the same person.',
+        },
+        { status: 400 },
+      );
+    }
+
+    const updates: { account_id: string; profile_id?: string } = {
+      account_id: accountId,
+    };
+    // If trainer has no profile yet, inherit the account's person.
+    if (!trainer.profile_id && account.profile_id) {
+      updates.profile_id = account.profile_id;
+    }
+
     const { error: linkError } = await supabaseServer()
       .from('trainers')
-      .update({ account_id: accountId })
+      .update(updates)
       .eq('id', trainerId);
 
     if (linkError) {

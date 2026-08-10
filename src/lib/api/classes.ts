@@ -52,7 +52,7 @@ export interface CreateAdminClassData {
   name: string;
   description?: string;
   category_id: number | null;
-  difficulty: string;
+  difficulty: string[];
   duration: number;
   max_capacity: number;
   equipment?: string;
@@ -63,7 +63,7 @@ export interface UpdateAdminClassData {
   name?: string;
   description?: string;
   category_id?: number | null;
-  difficulty?: string;
+  difficulty?: string[];
   duration?: number;
   max_capacity?: number;
   equipment?: string;
