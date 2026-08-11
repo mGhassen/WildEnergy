@@ -218,7 +218,7 @@ export async function PATCH(
     const message = error.message || 'Failed to update credit entry';
     const status =
       message.includes('not found') ||
-      message.includes('Only manually') ||
+      message.includes('Only manual') ||
       message.includes('Cannot set amount') ||
       message.includes('Amount must') ||
       message.includes('Invalid') ||

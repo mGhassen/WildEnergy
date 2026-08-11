@@ -83,7 +83,10 @@ function EntryRow({
   isUpdating?: boolean;
 }) {
   const isCredit = entry.amount > 0;
-  const canEdit = entry.entryType === "manual_add" && !!onUpdate;
+  const canEdit =
+    (entry.entryType === "manual_add" ||
+      entry.entryType === "opening_balance") &&
+    !!onUpdate;
   const [editing, setEditing] = useState(false);
   const [draftDate, setDraftDate] = useState(entry.entryDate);
   const [draftAmount, setDraftAmount] = useState(String(entry.amount));

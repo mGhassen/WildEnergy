@@ -127,7 +127,7 @@ async function recomputeMemberCreditBalanceAfter(memberId: string): Promise<numb
 }
 
 /**
- * Update date, amount, and/or notes for a manual_add row only.
+ * Update date, amount, and/or notes for manual_add / opening_balance rows.
  * Rejects amount changes that would drive total balance below 0.
  */
 export async function updateManualCreditEntry(params: {
@@ -175,8 +175,8 @@ export async function updateManualCreditEntry(params: {
     throw new Error(fetchError?.message || 'Credit entry not found');
   }
 
-  if (entry.entry_type !== 'manual_add') {
-    throw new Error('Only manually added credits can be edited');
+  if (entry.entry_type !== 'manual_add' && entry.entry_type !== 'opening_balance') {
+    throw new Error('Only manual or opening-balance credits can be edited');
   }
 
   const currentAmount = roundMoney(parseFloat(entry.amount || '0'));
