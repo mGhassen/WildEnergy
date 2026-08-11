@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { RouteDialog, useCloseHref } from "@/components/route-dialog";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,9 @@ import {
   useSubscriptions,
   useDeleteSubscription,
 } from "@/hooks/useSubscriptions";
+import { usePayments } from "@/hooks/usePayments";
+import { AlertTriangle } from "lucide-react";
+import { formatCurrency } from "@/lib/config";
 
 export default function AdminDeleteSubscriptionPage() {
   const params = useParams();
@@ -25,16 +29,27 @@ export default function AdminDeleteSubscriptionPage() {
     useSubscription(subscriptionId);
   const { data: subscriptions = [], isLoading: isLoadingList } =
     useSubscriptions();
+  const { data: payments = [], isLoading: isLoadingPayments } = usePayments();
   const subscription =
     subscriptionById ??
     (Array.isArray(subscriptions)
       ? subscriptions.find((s: any) => Number(s.id) === subscriptionId)
       : undefined);
-  const isLoading = (isLoadingOne || isLoadingList) && !subscription;
+  const isLoading =
+    ((isLoadingOne || isLoadingList) && !subscription) || isLoadingPayments;
   const deleteSubscriptionMutation = useDeleteSubscription();
 
+  const linkedPayments = useMemo(
+    () =>
+      payments.filter(
+        (payment) => Number(payment.subscription_id) === subscriptionId
+      ),
+    [payments, subscriptionId]
+  );
+  const cannotDelete = linkedPayments.length > 0;
+
   const handleConfirm = () => {
-    if (!subscription) return;
+    if (!subscription || cannotDelete) return;
     deleteSubscriptionMutation.mutate(subscriptionId, {
       onSuccess: () => {
         router.replace("/admin/subscriptions");
@@ -79,7 +94,10 @@ export default function AdminDeleteSubscriptionPage() {
           This subscription may have been deleted or the link is invalid.
         </p>
         <DialogFooter>
-          <Button variant="outline" onClick={() => router.replace("/admin/subscriptions")}>
+          <Button
+            variant="outline"
+            onClick={() => router.replace("/admin/subscriptions")}
+          >
             Back to subscriptions
           </Button>
         </DialogFooter>
@@ -95,11 +113,15 @@ export default function AdminDeleteSubscriptionPage() {
 
   return (
     <RouteDialog
-      title="Delete Subscription"
-      description="Are you sure you want to delete this subscription? This action cannot be undone."
+      title={cannotDelete ? "Cannot Delete Subscription" : "Delete Subscription"}
+      description={
+        cannotDelete
+          ? "This subscription still has payments. Delete those payments first."
+          : "Are you sure you want to delete this subscription? This action cannot be undone."
+      }
       closeHref={closeHref}
     >
-      <div className="py-4">
+      <div className="py-4 space-y-4">
         <div className="bg-muted/50 p-4 rounded-lg">
           <p className="font-medium">{memberName || "Unknown member"}</p>
           {planName && (
@@ -109,6 +131,53 @@ export default function AdminDeleteSubscriptionPage() {
             Status: {subscription.status}
           </p>
         </div>
+
+        {cannotDelete && (
+          <div className="p-4 bg-destructive/10 border-l-4 border-destructive rounded-lg">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+              <div className="min-w-0 flex-1 space-y-3">
+                <div>
+                  <h4 className="font-semibold text-sm">
+                    {linkedPayments.length} payment
+                    {linkedPayments.length === 1 ? "" : "s"} must be deleted
+                    first
+                  </h4>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Deleting payments restores credit wallet effects. Then you
+                    can delete the subscription.
+                  </p>
+                </div>
+                <ul className="space-y-2">
+                  {linkedPayments.map((payment) => (
+                    <li
+                      key={payment.id}
+                      className="flex items-center justify-between gap-3 rounded-md border bg-background/80 px-3 py-2 text-sm"
+                    >
+                      <span className="truncate">
+                        #{payment.id} · {payment.payment_type} ·{" "}
+                        {payment.payment_status}
+                      </span>
+                      <span className="font-medium tabular-nums shrink-0">
+                        {formatCurrency(Number(payment.amount))}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    router.replace(`/admin/subscriptions/${subscriptionId}`)
+                  }
+                >
+                  Open subscription
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       <DialogFooter>
         <Button variant="outline" onClick={close}>
@@ -117,11 +186,13 @@ export default function AdminDeleteSubscriptionPage() {
         <Button
           variant="destructive"
           onClick={handleConfirm}
-          disabled={deleteSubscriptionMutation.isPending}
+          disabled={cannotDelete || deleteSubscriptionMutation.isPending}
         >
-          {deleteSubscriptionMutation.isPending
-            ? "Deleting..."
-            : "Delete Subscription"}
+          {cannotDelete
+            ? "Cannot Delete"
+            : deleteSubscriptionMutation.isPending
+              ? "Deleting..."
+              : "Delete Subscription"}
         </Button>
       </DialogFooter>
     </RouteDialog>

@@ -418,7 +418,12 @@ export async function DELETE(request: NextRequest) {
     if (!result.ok) {
       console.error('Subscription delete error:', result.error, result.details);
       return NextResponse.json(
-        { error: result.error, details: result.details },
+        {
+          error: result.error,
+          details: result.details,
+          paymentCount: result.paymentCount,
+          payments: result.payments,
+        },
         { status: result.status }
       );
     }

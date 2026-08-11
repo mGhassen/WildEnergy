@@ -369,7 +369,12 @@ export async function DELETE(req: NextRequest) {
     const result = await deleteSubscriptionWithDependents(supabaseServer(), subscriptionId);
     if (!result.ok) {
       return NextResponse.json(
-        { error: result.error, details: result.details },
+        {
+          error: result.error,
+          details: result.details,
+          paymentCount: result.paymentCount,
+          payments: result.payments,
+        },
         { status: result.status }
       );
     }

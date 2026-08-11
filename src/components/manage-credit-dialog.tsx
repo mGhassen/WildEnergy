@@ -328,9 +328,16 @@ export function ManageCreditDialog({
     onOpenChange(nextOpen);
   };
 
+  const showHistory = entries.length > 0;
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-xl max-h-[90vh] flex flex-col gap-0 p-0 overflow-hidden">
+      <DialogContent
+        className={cn(
+          "max-h-[90vh] flex flex-col gap-0 p-0 overflow-hidden",
+          showHistory ? "sm:max-w-4xl" : "sm:max-w-xl"
+        )}
+      >
         <DialogHeader className="px-6 pt-6 pb-4">
           <DialogTitle className="flex items-center gap-2">
             <Wallet className="h-5 w-5" />
@@ -341,158 +348,158 @@ export function ManageCreditDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="px-6 pb-4">
-          <div className="grid grid-cols-2 gap-3 rounded-lg border bg-muted/40 p-4">
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Credit
-              </p>
-              <p className="mt-1 text-2xl font-bold tabular-nums text-emerald-600">
-                {isLoading ? "—" : formatCurrency(credit)}
-              </p>
-            </div>
-            <div className="border-l pl-3">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Debit due
-              </p>
-              <p className="mt-1 text-2xl font-bold tabular-nums text-red-600">
-                {isLoading ? "—" : formatCurrency(debit)}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <Separator />
-
-        <form onSubmit={handleSubmit} className="px-6 py-4 space-y-4">
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant={action === "add" ? "default" : "outline"}
-              onClick={() => setAction("add")}
-              className="flex-1"
-            >
-              <Plus className="h-4 w-4 mr-1.5" />
-              Add credit
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant={action === "remove" ? "destructive" : "outline"}
-              onClick={() => setAction("remove")}
-              className="flex-1"
-            >
-              <Minus className="h-4 w-4 mr-1.5" />
-              Remove credit
-            </Button>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="credit-amount">Amount</Label>
-              <Input
-                id="credit-amount"
-                type="number"
-                min="0.01"
-                step="0.01"
-                inputMode="decimal"
-                placeholder="0.00"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="credit-date">Date</Label>
-              <Input
-                id="credit-date"
-                type="date"
-                value={entryDate}
-                onChange={(e) => setEntryDate(e.target.value)}
-                required
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="credit-notes">Notes (optional)</Label>
-            <Textarea
-              id="credit-notes"
-              rows={2}
-              placeholder="Reason for this credit change…"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-          </div>
-
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={adjustMutation.isPending || !amount || parseFloat(amount) <= 0}
-          >
-            {adjustMutation.isPending ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : action === "add" ? (
-              <Plus className="h-4 w-4 mr-2" />
-            ) : (
-              <Minus className="h-4 w-4 mr-2" />
-            )}
-            {action === "add" ? "Add to balance" : "Remove from balance"}
-          </Button>
-        </form>
-
-        <Separator />
-
-        <div className="px-6 pt-4 pb-2 flex items-center justify-between">
-          <h3 className="text-sm font-semibold flex items-center gap-2">
-            <CreditCard className="h-4 w-4" />
-            Credit history
-          </h3>
-          {isFetching && !isLoading ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-          ) : (
-            <Badge variant="secondary" className="text-xs">
-              {entries.length} {entries.length === 1 ? "entry" : "entries"}
-            </Badge>
+        <div
+          className={cn(
+            "flex-1 min-h-0",
+            showHistory ? "grid sm:grid-cols-2 sm:divide-x" : "flex flex-col"
           )}
-        </div>
-
-        <ScrollArea className="h-[280px] px-6">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-10 text-muted-foreground">
-              <Loader2 className="h-5 w-5 animate-spin mr-2" />
-              Loading history…
-            </div>
-          ) : entries.length === 0 ? (
-            <div className="py-10 text-center text-sm text-muted-foreground">
-              No credit history yet. Add credit above to start the ledger.
-            </div>
-          ) : (
-            <div className="pb-4">
-              {groupedEntries.map(([date, dayEntries]) => (
-                <div key={date} className="mb-2">
-                  <p className="sticky top-0 z-10 bg-background/95 backdrop-blur py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    {formatDate(date)}
+        >
+          <div className="flex flex-col min-h-0">
+            <div className="px-6 pb-4">
+              <div className="grid grid-cols-2 gap-3 rounded-lg border bg-muted/40 p-4">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Credit
                   </p>
-                  <div className="divide-y">
-                    {dayEntries.map((entry) => (
-                      <EntryRow
-                        key={entry.id}
-                        entry={entry}
-                        onUpdate={handleUpdateEntry}
-                        isUpdating={
-                          updateEntryMutation.isPending &&
-                          updateEntryMutation.variables?.entryId === entry.id
-                        }
-                      />
-                    ))}
-                  </div>
+                  <p className="mt-1 text-2xl font-bold tabular-nums text-emerald-600">
+                    {isLoading ? "—" : formatCurrency(credit)}
+                  </p>
                 </div>
-              ))}
+                <div className="border-l pl-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Debit due
+                  </p>
+                  <p className="mt-1 text-2xl font-bold tabular-nums text-red-600">
+                    {isLoading ? "—" : formatCurrency(debit)}
+                  </p>
+                </div>
+              </div>
             </div>
-          )}
-        </ScrollArea>
+
+            <Separator />
+
+            <form onSubmit={handleSubmit} className="px-6 py-4 space-y-4">
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={action === "add" ? "default" : "outline"}
+                  onClick={() => setAction("add")}
+                  className="flex-1"
+                >
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  Add credit
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={action === "remove" ? "destructive" : "outline"}
+                  onClick={() => setAction("remove")}
+                  className="flex-1"
+                >
+                  <Minus className="h-4 w-4 mr-1.5" />
+                  Remove credit
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="credit-amount">Amount</Label>
+                  <Input
+                    id="credit-amount"
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    inputMode="decimal"
+                    placeholder="0.00"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="credit-date">Date</Label>
+                  <Input
+                    id="credit-date"
+                    type="date"
+                    value={entryDate}
+                    onChange={(e) => setEntryDate(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="credit-notes">Notes (optional)</Label>
+                <Textarea
+                  id="credit-notes"
+                  rows={2}
+                  placeholder="Reason for this credit change…"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                />
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={adjustMutation.isPending || !amount || parseFloat(amount) <= 0}
+              >
+                {adjustMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : action === "add" ? (
+                  <Plus className="h-4 w-4 mr-2" />
+                ) : (
+                  <Minus className="h-4 w-4 mr-2" />
+                )}
+                {action === "add" ? "Add to balance" : "Remove from balance"}
+              </Button>
+            </form>
+          </div>
+
+          {showHistory ? (
+            <div className="flex flex-col min-h-0 border-t sm:border-t-0">
+              <div className="px-6 pt-4 pb-2 flex items-center justify-between">
+                <h3 className="text-sm font-semibold flex items-center gap-2">
+                  <CreditCard className="h-4 w-4" />
+                  Credit history
+                </h3>
+                {isFetching && !isLoading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                ) : (
+                  <Badge variant="secondary" className="text-xs">
+                    {entries.length} {entries.length === 1 ? "entry" : "entries"}
+                  </Badge>
+                )}
+              </div>
+
+              <ScrollArea className="flex-1 min-h-[280px] max-h-[420px] px-6">
+                <div className="pb-4">
+                  {groupedEntries.map(([date, dayEntries]) => (
+                    <div key={date} className="mb-2">
+                      <p className="sticky top-0 z-10 bg-background/95 backdrop-blur py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        {formatDate(date)}
+                      </p>
+                      <div className="divide-y">
+                        {dayEntries.map((entry) => (
+                          <EntryRow
+                            key={entry.id}
+                            entry={entry}
+                            onUpdate={handleUpdateEntry}
+                            isUpdating={
+                              updateEntryMutation.isPending &&
+                              updateEntryMutation.variables?.entryId === entry.id
+                            }
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
+          ) : null}
+        </div>
 
         <DialogFooter className="px-6 py-4 border-t">
           <Button
