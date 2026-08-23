@@ -52,7 +52,11 @@ import {
   ChevronDown,
   X
 } from 'lucide-react';
-import { formatTime, formatDate, isSubscriptionActiveByEndDate } from '@/lib/date';
+import { formatTime, formatDate } from '@/lib/date';
+import {
+  memberCoversCourseOnDate,
+  subscriptionsCoveringCourseDate,
+} from '@/lib/subscription-for-course';
 import {
   assertCourseDeletableWithAutoCancel,
   describeCourseDeleteBlockReason,
@@ -295,26 +299,38 @@ export default function CourseDetailsPage() {
   };
 
   const handleAddMembers = () => {
-    // Dedicated group sessions need an explicit group/guest pick; pools auto-deduct on register
-    const membersNeedingSelection = selectedMembers.filter(memberId => {
+    const coveringIdsFor = (member: any) =>
+      new Set(
+        subscriptionsCoveringCourseDate(
+          member?.subscriptions,
+          courseData.course_date,
+        ).map((s) => s.id),
+      );
+
+    // Dedicated group sessions on a covering sub need an explicit group/guest pick
+    const membersNeedingSelection = selectedMembers.filter((memberId) => {
       const member = allMembers.find((m: any) => m.id === memberId);
-      return member?.groupSessions && member.groupSessions.length > 0;
+      if (!member) return false;
+      const coveringIds = coveringIdsFor(member);
+      return (member.groupSessions || []).some(
+        (gs: any) =>
+          coveringIds.has(gs.subscription_id) && gs.sessions_remaining > 0,
+      );
     });
 
-    const membersWithoutSelection = membersNeedingSelection.filter(memberId => 
-      !memberGroupSelections[memberId]
+    const membersWithoutSelection = membersNeedingSelection.filter(
+      (memberId) => !memberGroupSelections[memberId],
     );
 
     if (membersWithoutSelection.length > 0) {
       toast({
         title: 'Registration Selection Required',
-        description: `Please select either a subscription group or guest registration for ${membersWithoutSelection.length} member(s) with active subscriptions.`,
+        description: `Please select either a subscription group or guest registration for ${membersWithoutSelection.length} member(s) with subscriptions covering this course.`,
         variant: 'destructive',
       });
       return;
     }
 
-    // Proceed with member addition
     proceedWithMemberAddition();
   };
 
@@ -443,35 +459,12 @@ export default function CourseDetailsPage() {
 
   const getCourseGroupId = () => courseData?.class?.category?.group?.id;
 
-  const memberEligibleForCourse = (member: any) => {
-    const courseGroupId = getCourseGroupId();
-    if (courseGroupId == null) return false;
-
-    const activeSubIds = new Set(
-      (member.subscriptions || [])
-        .filter(
-          (s: any) =>
-            s.status === 'active' && isSubscriptionActiveByEndDate(s.end_date)
-        )
-        .map((s: any) => s.id)
+  const memberEligibleForCourse = (member: any) =>
+    memberCoversCourseOnDate(
+      member,
+      courseData.course_date,
+      getCourseGroupId(),
     );
-    if (activeSubIds.size === 0) return false;
-
-    const hasGroupSessions = (member.groupSessions || []).some(
-      (gs: any) =>
-        gs.group_id === courseGroupId &&
-        gs.sessions_remaining > 0 &&
-        activeSubIds.has(gs.subscription_id)
-    );
-    if (hasGroupSessions) return true;
-
-    return (member.poolSessions || []).some(
-      (ps: any) =>
-        (ps.group_ids || []).includes(courseGroupId) &&
-        ps.sessions_remaining > 0 &&
-        activeSubIds.has(ps.subscription_id)
-    );
-  };
 
   const getAvailableMembers = () => {
     if (!courseData || !allMembers) return [];
@@ -1039,7 +1032,8 @@ export default function CourseDetailsPage() {
 
             {!showOtherMembers && (
               <p className="text-xs text-muted-foreground">
-                Showing members with an active subscription that covers this course.
+                Showing members whose subscription covered this course on{' '}
+                {formatDate(courseData.course_date)} (with remaining sessions).
                 Use &quot;Show other members&quot; for guest registration.
               </p>
             )}
@@ -1066,19 +1060,37 @@ export default function CourseDetailsPage() {
                 </div>
               ) : (
                 getFilteredMembers().map((member: any) => {
-                  const courseGroupId = course?.class?.category?.group?.id;
-                  const groupSession = member.groupSessions?.find((gs: any) => gs.group_id === courseGroupId);
-                  const poolSession = (member.poolSessions || []).find((ps: any) =>
-                    (ps.group_ids || []).includes(courseGroupId)
+                  const courseGroupId = courseData?.class?.category?.group?.id;
+                  const coveringIds = new Set(
+                    subscriptionsCoveringCourseDate(
+                      member.subscriptions,
+                      courseData.course_date,
+                    ).map((s) => s.id),
+                  );
+                  const groupSession = member.groupSessions?.find(
+                    (gs: any) =>
+                      gs.group_id === courseGroupId &&
+                      coveringIds.has(gs.subscription_id),
+                  );
+                  const poolSession = (member.poolSessions || []).find(
+                    (ps: any) =>
+                      (ps.group_ids || []).includes(courseGroupId) &&
+                      coveringIds.has(ps.subscription_id),
                   );
                   const remainingSessions =
-                    (groupSession?.sessions_remaining || 0) + (poolSession?.sessions_remaining || 0);
+                    (groupSession?.sessions_remaining || 0) +
+                    (poolSession?.sessions_remaining || 0);
                   const totalSessions =
-                    (groupSession?.total_sessions || 0) + (poolSession?.total_sessions || 0);
+                    (groupSession?.total_sessions || 0) +
+                    (poolSession?.total_sessions || 0);
                   const isExpanded = expandedMembers.has(member.id);
                   const hasSubscriptions =
-                    (member.groupSessions && member.groupSessions.length > 0) ||
-                    (member.poolSessions && member.poolSessions.length > 0);
+                    (member.groupSessions || []).some((gs: any) =>
+                      coveringIds.has(gs.subscription_id),
+                    ) ||
+                    (member.poolSessions || []).some((ps: any) =>
+                      coveringIds.has(ps.subscription_id),
+                    );
                   
                   return (
                     <div
@@ -1199,7 +1211,7 @@ export default function CourseDetailsPage() {
                                   }}
                                   className="space-y-2"
                                 >
-                                  {member.groupSessions?.map((groupSession: any) => (
+                                  {member.groupSessions?.filter((gs: any) => coveringIds.has(gs.subscription_id)).map((groupSession: any) => (
                                     <div 
                                       key={`${member.id}-${groupSession.group_id}`}
                                       className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-muted/50 transition-colors"
@@ -1221,7 +1233,7 @@ export default function CourseDetailsPage() {
                                       </label>
                                     </div>
                                   ))}
-                                  {(member.poolSessions || []).map((poolSession: any) => (
+                                  {(member.poolSessions || []).filter((ps: any) => coveringIds.has(ps.subscription_id)).map((poolSession: any) => (
                                     <div
                                       key={`${member.id}-pool-${poolSession.pool_id}`}
                                       className="flex items-center space-x-3 p-3 border rounded-lg bg-muted/30"

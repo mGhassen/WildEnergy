@@ -49,6 +49,22 @@ export function isSubscriptionActiveByEndDate(
   return endKey > fromKey;
 }
 
+/**
+ * Whether a subscription covers a calendar day (course date).
+ * Inclusive start, exclusive end — same rule as live eligibility.
+ */
+export function isSubscriptionValidOnDate(
+  startDate: string | Date | null | undefined,
+  endDate: string | Date | null | undefined,
+  asOf: string | Date = new Date(),
+): boolean {
+  const startKey = toDateKey(startDate);
+  const endKey = toDateKey(endDate);
+  const asOfKey = toDateKey(asOf);
+  if (!startKey || !endKey || !asOfKey) return false;
+  return startKey <= asOfKey && endKey > asOfKey;
+}
+
 /** Sold duration in days (exclusive end − start). */
 export function subscriptionDurationDays(
   startDate: string | Date | null | undefined,

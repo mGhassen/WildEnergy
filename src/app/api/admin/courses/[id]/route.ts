@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer, createSupabaseClient } from '@/lib/supabase';
 import { deleteCourseWithRegistrationCleanup } from '@/lib/course-delete-cleanup';
 import { editCourseSchema } from '@/shared/zod-schemas';
+import { pickSubscriptionForCourse } from '@/lib/subscription-for-course';
 
 export async function GET(
   req: NextRequest,
@@ -365,16 +366,33 @@ export async function POST(
       return NextResponse.json({ error: 'Member IDs are required' }, { status: 400 });
     }
 
-    // Check if course exists and get capacity info
+    // Check if course exists and get capacity + date for historical subscription matching
     const { data: course, error: courseError } = await supabaseServer()
       .from('courses')
-      .select('id, max_participants, current_participants')
+      .select(`
+        id,
+        max_participants,
+        current_participants,
+        course_date,
+        class:classes(
+          id,
+          category:categories(
+            id,
+            category_groups(
+              group:groups(id)
+            )
+          )
+        )
+      `)
       .eq('id', courseId)
       .single();
 
     if (courseError || !course) {
       return NextResponse.json({ error: 'Course not found' }, { status: 404 });
     }
+
+    const courseGroupId =
+      (course as any).class?.category?.category_groups?.[0]?.group?.id ?? null;
 
     // Note: Admin registrations bypass capacity checks
     // Admins can register members even when course is at capacity
@@ -463,21 +481,53 @@ export async function POST(
           });
 
         } else {
-          // Regular registration with subscription
-          // Get member's active subscription
-          const { data: activeSubscription } = await supabaseServer()
-            .from('subscriptions')
-            .select('id')
-            .eq('member_id', memberId)
-            .eq('status', 'active')
-            .order('end_date', { ascending: false })
-            .limit(1)
-            .single();
+          // Subscription valid on the course date (not "active today")
+          const preferredGroupId = groupSelections[memberId];
+          const { data: memberSubscriptions, error: subsError } =
+            await supabaseServer()
+              .from('subscriptions')
+              .select(`
+                id,
+                start_date,
+                end_date,
+                status,
+                subscription_group_sessions(
+                  group_id,
+                  sessions_remaining
+                ),
+                subscription_pool_sessions(
+                  pool_id,
+                  sessions_remaining,
+                  plan_session_pools(
+                    plan_session_pool_groups(group_id)
+                  )
+                )
+              `)
+              .eq('member_id', memberId)
+              .neq('status', 'cancelled');
 
-          if (!activeSubscription) {
+          if (subsError) {
+            console.error('Subscription lookup error for member:', memberId, subsError);
             errors.push({
               memberId,
-              error: 'No active subscription found'
+              error: 'Failed to load subscriptions',
+            });
+            continue;
+          }
+
+          const coveringSubscription = pickSubscriptionForCourse(
+            memberSubscriptions || [],
+            course.course_date,
+            courseGroupId,
+            typeof preferredGroupId === 'number' && preferredGroupId > 0
+              ? preferredGroupId
+              : null,
+          );
+
+          if (!coveringSubscription) {
+            errors.push({
+              memberId,
+              error: 'No subscription covering this course date with remaining sessions',
             });
             continue;
           }
@@ -488,14 +538,14 @@ export async function POST(
               p_user_id: memberId,
               p_course_id: courseId,
               p_current_participants: course.current_participants + registrationResults.length,
-              p_subscription_id: activeSubscription.id
+              p_subscription_id: coveringSubscription.id,
             }) as { data: any; error: any };
 
           if (procedureError) {
             console.error('Registration procedure error for member:', memberId, procedureError);
             errors.push({
               memberId,
-              error: 'Failed to create registration'
+              error: 'Failed to create registration',
             });
             continue;
           }
@@ -504,7 +554,7 @@ export async function POST(
             memberId,
             registration: result,
             success: true,
-            type: 'subscription'
+            type: 'subscription',
           });
         }
 
