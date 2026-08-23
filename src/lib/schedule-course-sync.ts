@@ -146,3 +146,44 @@ export function newCourseRowFromSchedule(
     status: 'scheduled' as const,
   };
 }
+
+export type ScheduleEditBlockReason = 'members' | 'done' | 'edited';
+
+export function describeScheduleEditBlock(reason: ScheduleEditBlockReason): string {
+  switch (reason) {
+    case 'members':
+      return 'This schedule has courses with member registrations or check-ins. Cancel registrations first or edit individual courses.';
+    case 'done':
+      return 'This schedule has courses that are already done. Edit individual courses instead.';
+    case 'edited':
+      return 'This schedule has courses that were manually edited. Edit individual courses instead.';
+  }
+}
+
+/** Block schedule-template edit when any course is protected. */
+export function getScheduleEditBlockReason(params: {
+  schedule: ScheduleTemplate;
+  courses: Array<
+    Pick<
+      CourseForSync,
+      | 'id'
+      | 'class_id'
+      | 'trainer_id'
+      | 'course_date'
+      | 'start_time'
+      | 'end_time'
+      | 'max_participants'
+      | 'status'
+    > & { isEdited?: boolean }
+  >;
+  courseHasMembers: (courseId: number) => boolean;
+}): ScheduleEditBlockReason | null {
+  for (const course of params.courses) {
+    if (params.courseHasMembers(course.id)) return 'members';
+    if (courseIsDone(course)) return 'done';
+    if (course.isEdited === true || courseIsEditedVsSchedule(course, params.schedule)) {
+      return 'edited';
+    }
+  }
+  return null;
+}

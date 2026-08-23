@@ -139,34 +139,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
     
-    // Fetch linked members using new system with subscriptions and group sessions
+    // Fetch linked members (subscriptions loaded separately — user_profiles is a view,
+    // so nested subscriptions:subscriptions() does not resolve via FK and returns empty)
     const { data: linkedMembers, error: linkedError } = await supabaseServer()
       .from('user_profiles')
-      .select(`
-        *,
-        subscriptions:subscriptions(
-          id,
-          member_id,
-          plan_id,
-          start_date,
-          end_date,
-          status,
-          notes,
-          created_at,
-          updated_at,
-          subscription_group_sessions:subscription_group_sessions(
-            id,
-            group_id,
-            sessions_remaining,
-            total_sessions,
-            groups:groups(
-              id,
-              name
-            )
-          )
-        )
-      `)
-      .not('member_id', 'is', null) // Only users with member records
+      .select('*')
+      .not('member_id', 'is', null)
       .eq('member_status', 'active')
       .order('first_name', { ascending: true });
     
@@ -179,7 +157,7 @@ export async function GET(req: NextRequest) {
     const { data: unlinkedMembers, error: unlinkedError } = await supabaseServer()
       .from('members')
       .select('*')
-      .is('account_id', null) // Only unlinked members
+      .is('account_id', null)
       .eq('status', 'active');
 
     if (unlinkedError) {
@@ -187,7 +165,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch unlinked members' }, { status: 500 });
     }
 
-    // Fetch profiles for unlinked members
     const profileIds = unlinkedMembers?.map(m => m.profile_id).filter(Boolean) || [];
     const { data: unlinkedProfiles, error: profilesError } = await supabaseServer()
       .from('profiles')
@@ -199,26 +176,99 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch unlinked profiles' }, { status: 500 });
     }
 
-    // Combine members with their profiles
     const unlinkedMembersWithProfiles = unlinkedMembers?.map(member => ({
       ...member,
       profiles: unlinkedProfiles?.find(p => p.id === member.profile_id) || null
     })) || [];
 
-    // Format linked members
-    const linkedMembersFormatted = (linkedMembers || []).map((m: any) => {
-      // Flatten group sessions from all subscriptions
-      const allGroupSessions = (m.subscriptions || []).flatMap((sub: any) => 
+    const allMemberIds = [
+      ...(linkedMembers || []).map((m: any) => m.member_id),
+      ...(unlinkedMembers || []).map((m: any) => m.id),
+    ].filter(Boolean);
+
+    // subscriptions.member_id → members(id); query from subscriptions, not the view
+    const subscriptionsByMemberId = new Map<string, any[]>();
+    if (allMemberIds.length > 0) {
+      const { data: subscriptions, error: subsError } = await supabaseServer()
+        .from('subscriptions')
+        .select(`
+          id,
+          member_id,
+          plan_id,
+          start_date,
+          end_date,
+          status,
+          notes,
+          created_at,
+          updated_at,
+          subscription_group_sessions(
+            id,
+            group_id,
+            sessions_remaining,
+            total_sessions,
+            groups:groups(
+              id,
+              name
+            )
+          ),
+          subscription_pool_sessions(
+            id,
+            pool_id,
+            sessions_remaining,
+            total_sessions,
+            plan_session_pools(
+              id,
+              plan_session_pool_groups(
+                group_id,
+                groups(id, name)
+              )
+            )
+          )
+        `)
+        .in('member_id', allMemberIds);
+
+      if (subsError) {
+        console.error('Error fetching member subscriptions:', subsError);
+        return NextResponse.json({ error: 'Failed to fetch subscriptions' }, { status: 500 });
+      }
+
+      for (const sub of subscriptions || []) {
+        const list = subscriptionsByMemberId.get(sub.member_id) || [];
+        list.push(sub);
+        subscriptionsByMemberId.set(sub.member_id, list);
+      }
+    }
+
+    const flattenGroupSessions = (subs: any[]) =>
+      (subs || []).flatMap((sub: any) =>
         (sub.subscription_group_sessions || []).map((sgs: any) => ({
           group_id: sgs.group_id,
           group_name: sgs.groups?.name || 'Unknown Group',
           sessions_remaining: sgs.sessions_remaining,
           total_sessions: sgs.total_sessions,
-          subscription_id: sub.id
+          subscription_id: sub.id,
         }))
       );
 
-      return { 
+    const flattenPoolSessions = (subs: any[]) =>
+      (subs || []).flatMap((sub: any) =>
+        (sub.subscription_pool_sessions || []).map((sps: any) => ({
+          pool_id: sps.pool_id,
+          sessions_remaining: sps.sessions_remaining,
+          total_sessions: sps.total_sessions,
+          subscription_id: sub.id,
+          group_ids: (sps.plan_session_pools?.plan_session_pool_groups || []).map(
+            (g: any) => g.group_id
+          ),
+          group_names: (sps.plan_session_pools?.plan_session_pool_groups || []).map(
+            (g: any) => g.groups?.name || 'Unknown Group'
+          ),
+        }))
+      );
+
+    const linkedMembersFormatted = (linkedMembers || []).map((m: any) => {
+      const subscriptions = subscriptionsByMemberId.get(m.member_id) || [];
+      return {
         id: m.member_id,
         account_id: m.account_id,
         first_name: m.first_name,
@@ -230,37 +280,40 @@ export async function GET(req: NextRequest) {
         member_notes: m.member_notes,
         member_status: m.member_status,
         is_blacklisted: m.is_blacklisted ?? false,
-        account_status: m.account_status, // Include account status
+        account_status: m.account_status,
         user_type: m.user_type,
         accessible_portals: m.accessible_portals,
         created_at: m.created_at,
-        subscriptions: m.subscriptions || [],
-        groupSessions: allGroupSessions
+        subscriptions,
+        groupSessions: flattenGroupSessions(subscriptions),
+        poolSessions: flattenPoolSessions(subscriptions),
       };
     });
 
-    // Format unlinked members
-    const unlinkedMembersFormatted = unlinkedMembersWithProfiles.map((m: any) => ({ 
-      id: m.id,
-      account_id: null,
-      first_name: m.profiles?.first_name || 'Unknown',
-      last_name: m.profiles?.last_name || 'User',
-      email: null, // No account email for unlinked members
-      profile_email: m.profiles?.profile_email || null,
-      phone: m.profiles?.phone,
-      is_member: true,
-      credit: 0,
-      member_notes: m.member_notes,
-      member_status: m.status,
-      is_blacklisted: m.is_blacklisted ?? false,
-      user_type: 'member',
-      accessible_portals: ['member'],
-      created_at: m.created_at,
-      subscriptions: [],
-      groupSessions: []
-    }));
+    const unlinkedMembersFormatted = unlinkedMembersWithProfiles.map((m: any) => {
+      const subscriptions = subscriptionsByMemberId.get(m.id) || [];
+      return {
+        id: m.id,
+        account_id: null,
+        first_name: m.profiles?.first_name || 'Unknown',
+        last_name: m.profiles?.last_name || 'User',
+        email: null,
+        profile_email: m.profiles?.profile_email || null,
+        phone: m.profiles?.phone,
+        is_member: true,
+        credit: 0,
+        member_notes: m.member_notes,
+        member_status: m.status,
+        is_blacklisted: m.is_blacklisted ?? false,
+        user_type: 'member',
+        accessible_portals: ['member'],
+        created_at: m.created_at,
+        subscriptions,
+        groupSessions: flattenGroupSessions(subscriptions),
+        poolSessions: flattenPoolSessions(subscriptions),
+      };
+    });
 
-    // Combine both lists
     const allMembers = [...linkedMembersFormatted, ...unlinkedMembersFormatted];
 
     // Credit from ledger SUM (not members.credit)

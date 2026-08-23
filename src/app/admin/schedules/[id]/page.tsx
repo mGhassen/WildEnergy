@@ -19,7 +19,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useForm } from "react-hook-form";
 
-import { useSchedule, useUpdateSchedule, useDeleteSchedule } from "@/hooks/useSchedules";
+import { useSchedule, useDeleteSchedule } from "@/hooks/useSchedules";
+import { useUpdateScheduleWithCourses } from "@/hooks/useScheduleWithCourses";
 import { useClasses } from "@/hooks/useClasses";
 import { useTrainers } from "@/hooks/useTrainers";
 import { useAdminRegistrations, useAdminCheckins } from "@/hooks/useAdmin";
@@ -48,6 +49,12 @@ import {
   assertCourseDeletableWithAutoCancel,
   assertScheduleDeletableWithAutoCancel,
 } from "@/lib/course-delete-cleanup";
+import { registrationStatusBlocksDelete } from "@/lib/course-delete-rules";
+import {
+  describeScheduleEditBlock,
+  getScheduleEditBlockReason,
+  type ScheduleEditBlockReason,
+} from "@/lib/schedule-course-sync";
 import { useToast } from "@/hooks/use-toast";
 
 // Utility function for European date formatting (DD/MM/YYYY)
@@ -63,7 +70,7 @@ const formatEuropeanDate = (dateString: string) => {
 interface ScheduleFormData {
   classId: number;
   trainerId: string; // Changed to string for UUID
-  dayOfWeek: number;
+  daysOfWeek: number[];
   startTime: string;
   endTime: string;
   maxParticipants: number;
@@ -81,10 +88,15 @@ function toDateInputValue(v?: string | null) {
 
 function mapScheduleToApi(data: ScheduleFormData) {
   const d = (v?: string) => (v && v.trim() !== "" ? v.split("T")[0] : null);
+  const days =
+    data.repetitionType === "weekly"
+      ? [...new Set(data.daysOfWeek ?? [])].sort((a, b) => a - b)
+      : [];
   return {
     class_id: Number(data.classId),
     trainer_id: data.trainerId && data.trainerId.trim() !== "" ? data.trainerId : null,
-    day_of_week: data.dayOfWeek,
+    day_of_week: days[0] ?? data.daysOfWeek?.[0] ?? 1,
+    days_of_week: days.length ? days : undefined,
     start_time: data.startTime,
     end_time: data.endTime,
     max_participants: data.maxParticipants,
@@ -156,6 +168,7 @@ export default function ScheduleDetailsPage() {
   const [selectedCourseIds, setSelectedCourseIds] = useState<number[]>([]);
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
   const [bulkEditDialogOpen, setBulkEditDialogOpen] = useState(false);
+  const [editBlockedReason, setEditBlockedReason] = useState<ScheduleEditBlockReason | null>(null);
   const [bulkCourseOverrides, setBulkCourseOverrides] = useState<{
     status: BulkCourseStatus;
   }>({ status: "" });
@@ -170,7 +183,7 @@ export default function ScheduleDetailsPage() {
     defaultValues: {
       classId: 0,
       trainerId: "",
-      dayOfWeek: 1,
+      daysOfWeek: [1],
       startTime: "",
       endTime: "",
       maxParticipants: 10,
@@ -263,7 +276,7 @@ export default function ScheduleDetailsPage() {
   // Pagination info
   const totalPages = Math.ceil(filteredCourses.length / coursesPerPage);
 
-  const updateScheduleMutation = useUpdateSchedule();
+  const updateScheduleMutation = useUpdateScheduleWithCourses();
   const bulkUpdateCoursesMutation = useBulkUpdateCourses();
   const bulkDeleteCoursesMutation = useBulkDeleteCourses();
 
@@ -295,6 +308,11 @@ export default function ScheduleDetailsPage() {
 
   const openBulkEdit = (selectionOverride?: number[]) => {
     if (!schedule) return;
+    const reason = getEditBlockReason();
+    if (reason) {
+      setEditBlockedReason(reason);
+      return;
+    }
     const ids =
       selectionOverride !== undefined ? selectionOverride : selectedCourseIds;
     if (selectionOverride !== undefined) {
@@ -303,7 +321,7 @@ export default function ScheduleDetailsPage() {
     form.reset({
       classId: schedule.class_id || 0,
       trainerId: schedule.trainer_id || "",
-      dayOfWeek: schedule.day_of_week,
+      daysOfWeek: [schedule.day_of_week ?? 1],
       startTime: schedule.start_time,
       endTime: schedule.end_time,
       maxParticipants:
@@ -341,7 +359,7 @@ export default function ScheduleDetailsPage() {
       
       clearSelection();
     } catch {
-      // useUpdateSchedule / mutation hooks surface errors
+      // useUpdateScheduleWithCourses / mutation hooks surface errors
     }
   };
 
@@ -396,6 +414,38 @@ export default function ScheduleDetailsPage() {
       })),
       checkins
     ) === null;
+
+  const courseHasMembers = (courseId: number) => {
+    const regs = scheduleRegistrations.filter((r: any) => r.course_id === courseId);
+    if (regs.some((r: any) => registrationStatusBlocksDelete(r.status))) return true;
+    const regIds = new Set(regs.map((r: any) => r.id));
+    return (checkins as any[]).some(
+      (ch: any) => regIds.has(ch.registration_id) || regIds.has(ch.registration?.id),
+    );
+  };
+
+  const getEditBlockReason = (): ScheduleEditBlockReason | null => {
+    if (!schedule) return null;
+    return getScheduleEditBlockReason({
+      schedule: {
+        id: schedule.id,
+        class_id: schedule.class_id,
+        trainer_id: schedule.trainer_id,
+        day_of_week: schedule.day_of_week,
+        start_time: schedule.start_time,
+        end_time: schedule.end_time,
+        max_participants: schedule.max_participants,
+        repetition_type: schedule.repetition_type,
+        schedule_date: schedule.schedule_date,
+        start_date: schedule.start_date,
+        end_date: schedule.end_date,
+      },
+      courses: scheduleCourses,
+      courseHasMembers,
+    });
+  };
+
+  const canEditSchedule = getEditBlockReason() === null;
 
   const bulkStatusMaxIdx = BULK_COURSE_STATUS_STEPS.length - 1;
   const bulkStatusIdx = bulkCourseStatusToIndex(bulkCourseOverrides.status);
@@ -493,9 +543,38 @@ export default function ScheduleDetailsPage() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             {scheduleCourses.length === 0 && (
-              <DropdownMenuItem onClick={() => openBulkEdit()}>
+              canEditSchedule ? (
+                <DropdownMenuItem onClick={() => openBulkEdit()}>
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit schedule
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem
+                  onClick={() => {
+                    const reason = getEditBlockReason();
+                    if (reason) setEditBlockedReason(reason);
+                  }}
+                  className="text-muted-foreground"
+                >
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit schedule (locked)
+                </DropdownMenuItem>
+              )
+            )}
+            {scheduleCourses.length > 0 && (
+              <DropdownMenuItem
+                onClick={() => {
+                  if (!canEditSchedule) {
+                    const reason = getEditBlockReason();
+                    if (reason) setEditBlockedReason(reason);
+                    return;
+                  }
+                  router.push(`/admin/schedules/${scheduleId}/edit`);
+                }}
+                className={!canEditSchedule ? "text-muted-foreground" : undefined}
+              >
                 <Edit className="mr-2 h-4 w-4" />
-                Edit schedule
+                {canEditSchedule ? "Edit schedule" : "Edit schedule (locked)"}
               </DropdownMenuItem>
             )}
             <DropdownMenuItem
@@ -803,9 +882,14 @@ export default function ScheduleDetailsPage() {
             {selectedCourseIds.length > 0 && (
               <div className="flex flex-wrap items-center gap-2 mt-3 p-3 bg-primary/10 rounded-lg border border-border">
                 <span className="text-sm font-medium">{selectedCourseIds.length} selected</span>
-                <Button size="sm" onClick={() => openBulkEdit()}>
+                <Button
+                  size="sm"
+                  onClick={() => openBulkEdit()}
+                  variant={canEditSchedule ? "default" : "outline"}
+                  className={!canEditSchedule ? "text-muted-foreground" : undefined}
+                >
                   <Edit className="w-4 h-4 mr-2" />
-                  Edit schedule &amp; courses
+                  {canEditSchedule ? "Edit schedule & courses" : "Edit locked"}
                 </Button>
                 <Button
                   size="sm"
@@ -1277,36 +1361,54 @@ export default function ScheduleDetailsPage() {
                 </div>
               )}
 
+              {form.watch("repetitionType") === "weekly" && (
               <FormField
                 control={form.control}
-                name="dayOfWeek"
+                name="daysOfWeek"
+                rules={{
+                  validate: (value) =>
+                    (value?.length ?? 0) > 0 || "Select at least one day",
+                }}
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Day of week</FormLabel>
-                    <Select
-                      onValueChange={(value) => field.onChange(Number(value))}
-                      value={field.value !== undefined ? String(field.value) : ""}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select day of week" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="0">Sunday</SelectItem>
-                        <SelectItem value="1">Monday</SelectItem>
-                        <SelectItem value="2">Tuesday</SelectItem>
-                        <SelectItem value="3">Wednesday</SelectItem>
-                        <SelectItem value="4">Thursday</SelectItem>
-                        <SelectItem value="5">Friday</SelectItem>
-                        <SelectItem value="6">Saturday</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <FormLabel>Days of week</FormLabel>
+                    <div className="grid grid-cols-2 gap-2 rounded-md border p-3">
+                      {[
+                        { value: 0, label: "Sunday" },
+                        { value: 1, label: "Monday" },
+                        { value: 2, label: "Tuesday" },
+                        { value: 3, label: "Wednesday" },
+                        { value: 4, label: "Thursday" },
+                        { value: 5, label: "Friday" },
+                        { value: 6, label: "Saturday" },
+                      ].map((day) => {
+                        const checked = field.value?.includes(day.value) ?? false;
+                        return (
+                          <label
+                            key={day.value}
+                            className="flex cursor-pointer items-center gap-2 text-sm"
+                          >
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={(isChecked) => {
+                                const current = field.value ?? [];
+                                field.onChange(
+                                  isChecked
+                                    ? [...current, day.value].sort((a, b) => a - b)
+                                    : current.filter((d) => d !== day.value),
+                                );
+                              }}
+                            />
+                            {day.label}
+                          </label>
+                        );
+                      })}
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-
+              )}
               <FormField
                 control={form.control}
                 name="maxParticipants"

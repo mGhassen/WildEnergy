@@ -29,6 +29,11 @@ import { Plus, Search, Edit, Trash2, Calendar, Users, TrendingUp, RepeatIcon, Cl
 import { getDayName, formatTime } from "@/lib/date";
 import { registrationStatusBlocksDelete } from "@/lib/course-delete-rules";
 import { assertScheduleDeletableWithAutoCancel } from "@/lib/course-delete-cleanup";
+import {
+  describeScheduleEditBlock,
+  getScheduleEditBlockReason,
+  type ScheduleEditBlockReason,
+} from "@/lib/schedule-course-sync";
 import { TableSkeleton, FormSkeleton } from "@/components/skeletons";
 
 // Utility function for European date formatting (DD/MM/YYYY)
@@ -46,7 +51,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 interface ScheduleFormData {
   classId: number;
   trainerId: string; // Changed to string to handle UUID
-  dayOfWeek: number;
+  daysOfWeek: number[];
   startTime: string;
   endTime: string;
   maxParticipants: number;
@@ -59,13 +64,16 @@ interface ScheduleFormData {
 
 // Helper to map camelCase to snake_case for API
 function mapScheduleToApi(data: any, classes: any[] = []) {
-  const selectedClass = classes.find(c => c.id === Number(data.classId));
-  const className = selectedClass?.name || 'Class';
-  
+  const days: number[] =
+    data.repetitionType === "weekly"
+      ? [...new Set((data.daysOfWeek ?? []) as number[])].sort((a, b) => a - b)
+      : [];
+
   return {
     class_id: data.classId,
     trainer_id: data.trainerId && data.trainerId.trim() !== "" ? data.trainerId : null, // Convert empty string to null
-    day_of_week: data.dayOfWeek,
+    day_of_week: days[0] ?? data.daysOfWeek?.[0] ?? data.dayOfWeek ?? 1,
+    days_of_week: days.length ? days : undefined,
     start_time: data.startTime,
     end_time: data.endTime,
     max_participants: data.maxParticipants, // Use form value
@@ -103,6 +111,7 @@ export default function AdminSchedules() {
   const [editingSchedule, setEditingSchedule] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [scheduleToDelete, setScheduleToDelete] = useState<any>(null);
+  const [editBlockedReason, setEditBlockedReason] = useState<ScheduleEditBlockReason | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const isMobile = useIsMobile();
@@ -258,7 +267,7 @@ export default function AdminSchedules() {
               <Eye className="mr-2 h-4 w-4" />
               View Details
             </DropdownMenuItem>
-            {canEditSchedule(row.id) ? (
+            {canEditSchedule(row) ? (
               <DropdownMenuItem
                 onClick={(e) => {
                   e.stopPropagation();
@@ -272,17 +281,12 @@ export default function AdminSchedules() {
               <DropdownMenuItem
                 onClick={(e) => {
                   e.stopPropagation();
-                  toast({
-                    title: "Cannot Edit Schedule",
-                    description: "This schedule has member registrations or check-ins. Please cancel all registrations first.",
-                    variant: "destructive"
-                  });
+                  showCannotEdit(row);
                 }}
                 className="text-muted-foreground"
-                disabled
               >
                 <Edit className="mr-2 h-4 w-4" />
-                Edit (Has Registrations)
+                Edit (locked)
               </DropdownMenuItem>
             )}
             {canDeleteSchedule(row.id) ? (
@@ -451,7 +455,7 @@ export default function AdminSchedules() {
     defaultValues: {
       classId: 0,
       trainerId: "", // Changed to empty string for UUID
-      dayOfWeek: 1, // Monday
+      daysOfWeek: [1], // Monday
       startTime: "",
       endTime: "",
       maxParticipants: 10, // Default value, will be updated when class is selected
@@ -505,7 +509,7 @@ export default function AdminSchedules() {
       form.reset({
         classId: 0,
         trainerId: "",
-        dayOfWeek: 1,
+        daysOfWeek: [1],
         startTime: "",
         endTime: "",
         maxParticipants: 10,
@@ -525,7 +529,7 @@ export default function AdminSchedules() {
       form.reset({
         classId: 0,
         trainerId: "",
-        dayOfWeek: 1,
+        daysOfWeek: [1],
         startTime: "",
         endTime: "",
         maxParticipants: 10,
@@ -559,24 +563,39 @@ export default function AdminSchedules() {
     );
   };
 
-  const getScheduleBlockingState = (scheduleId: number) => {
-    const scheduleCourses = courses.filter(
-      (course: any) => course.schedule_id === scheduleId
+  const courseHasMembersForSchedule = (courseId: number) => {
+    const regs = (registrations as any[]).filter((r: any) => r.course_id === courseId);
+    if (regs.some((r: any) => registrationStatusBlocksDelete(r.status))) return true;
+    const regIds = new Set(regs.map((r: any) => r.id));
+    return (checkins as any[]).some(
+      (ch: any) =>
+        regIds.has(ch.registration_id) ||
+        regIds.has(ch.registration?.id) ||
+        ch.registration?.course_id === courseId,
     );
-    const courseIds = scheduleCourses.map((course: any) => course.id);
-    const scheduleRegistrations = registrations.filter((reg: any) =>
-      courseIds.includes(reg.course_id)
+  };
+
+  const getEditBlockReason = (schedule: any): ScheduleEditBlockReason | null => {
+    const scheduleCourses = (courses as any[]).filter(
+      (course: any) => course.schedule_id === schedule.id,
     );
-    const hasBlockingRegs = scheduleRegistrations.some((r: any) =>
-      registrationStatusBlocksDelete(r.status)
-    );
-    const scheduleCheckins = checkins.filter((checkin: any) =>
-      courseIds.includes(checkin.registration?.course_id)
-    );
-    return {
-      hasBlockingRegs,
-      checkinCount: scheduleCheckins.length,
-    };
+    return getScheduleEditBlockReason({
+      schedule: {
+        id: schedule.id,
+        class_id: schedule.class_id ?? schedule.classId,
+        trainer_id: schedule.trainer_id ?? schedule.trainerId ?? null,
+        day_of_week: schedule.day_of_week ?? schedule.dayOfWeek ?? null,
+        start_time: schedule.start_time ?? schedule.startTime,
+        end_time: schedule.end_time ?? schedule.endTime,
+        max_participants: schedule.max_participants ?? schedule.maxParticipants ?? null,
+        repetition_type: schedule.repetition_type ?? schedule.repetitionType ?? null,
+        schedule_date: schedule.schedule_date ?? schedule.scheduleDate,
+        start_date: schedule.start_date ?? schedule.startDate,
+        end_date: schedule.end_date ?? schedule.endDate,
+      },
+      courses: scheduleCourses,
+      courseHasMembers: courseHasMembersForSchedule,
+    });
   };
 
   const canDeleteSchedule = (scheduleId: number) => {
@@ -607,9 +626,12 @@ export default function AdminSchedules() {
     );
   };
 
-  const canEditSchedule = (scheduleId: number) => {
-    const { hasBlockingRegs, checkinCount } = getScheduleBlockingState(scheduleId);
-    return !hasBlockingRegs && checkinCount === 0;
+  const canEditSchedule = (schedule: any) => getEditBlockReason(schedule) === null;
+
+  const showCannotEdit = (schedule: any) => {
+    const reason = getEditBlockReason(schedule);
+    if (!reason) return;
+    setEditBlockedReason(reason);
   };
 
   const getRepetitionLabel = (type: string) => {
@@ -638,23 +660,17 @@ export default function AdminSchedules() {
   };
 
   const handleEdit = (schedule: any) => {
-    console.log('Editing schedule:', schedule);
-    
-    // Check if schedule can be edited
-    if (!canEditSchedule(schedule.id)) {
-      toast({
-        title: "Cannot Edit Schedule",
-        description: "This schedule has member registrations or check-ins. Please cancel all registrations first.",
-        variant: "destructive"
-      });
+    const reason = getEditBlockReason(schedule);
+    if (reason) {
+      setEditBlockedReason(reason);
       return;
     }
-    
+
     setEditingSchedule(schedule);
     form.reset({
       classId: schedule.classId || 0,
       trainerId: schedule.trainerId || "",
-      dayOfWeek: schedule.dayOfWeek || 1,
+      daysOfWeek: [schedule.dayOfWeek || 1],
       startTime: schedule.startTime || "",
       endTime: schedule.endTime || "",
       maxParticipants: schedule.maxParticipants || 10,
@@ -777,15 +793,20 @@ export default function AdminSchedules() {
             </div>
           </div>
           <div className="flex gap-2 mt-2">
-            {canEditSchedule(schedule.id) ? (
+            {canEditSchedule(schedule) ? (
               <Button size="icon" variant="ghost" className="border border-border text-primary" onClick={() => onEdit(schedule)}>
                 <Edit className="w-4 h-4" />
               </Button>
             ) : (
-              <div className="text-xs text-muted-foreground px-2 py-1 bg-gray-100 rounded flex items-center gap-1">
-                <Edit className="w-3 h-3" />
-                Has registrations
-              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-muted-foreground"
+                onClick={() => showCannotEdit(schedule)}
+              >
+                <Edit className="w-3 h-3 mr-1" />
+                Edit locked
+              </Button>
             )}
             {canDeleteSchedule(schedule.id) ? (
               <Button size="icon" variant="ghost" className="border border-border text-destructive" onClick={() => onDelete(schedule)}>
@@ -851,7 +872,27 @@ export default function AdminSchedules() {
       </div>
 
       {/* Delete Confirmation Dialog */}
-      
+
+      <AlertDialog
+        open={editBlockedReason !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditBlockedReason(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cannot edit schedule</AlertDialogTitle>
+            <AlertDialogDescription>
+              {editBlockedReason ? describeScheduleEditBlock(editBlockedReason) : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setEditBlockedReason(null)}>
+              OK
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

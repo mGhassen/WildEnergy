@@ -52,7 +52,7 @@ import {
   ChevronDown,
   X
 } from 'lucide-react';
-import { formatTime, formatDate } from '@/lib/date';
+import { formatTime, formatDate, isSubscriptionActiveByEndDate } from '@/lib/date';
 import {
   assertCourseDeletableWithAutoCancel,
   describeCourseDeleteBlockReason,
@@ -251,6 +251,7 @@ export default function CourseDetailsPage() {
   const [expandedMembers, setExpandedMembers] = useState<Set<string>>(new Set());
   const [memberGroupSelections, setMemberGroupSelections] = useState<Record<string, number>>({});
   const [memberManagementOpen, setMemberManagementOpen] = useState(false);
+  const [showOtherMembers, setShowOtherMembers] = useState(false);
   const courseId = params.id as string;
   const searchParams = useSearchParams();
   useEffect(() => {
@@ -294,14 +295,14 @@ export default function CourseDetailsPage() {
   };
 
   const handleAddMembers = () => {
-    // Check if all members with subscriptions have group selections or guest registration
-    const membersWithSubscriptions = selectedMembers.filter(memberId => {
+    // Dedicated group sessions need an explicit group/guest pick; pools auto-deduct on register
+    const membersNeedingSelection = selectedMembers.filter(memberId => {
       const member = allMembers.find((m: any) => m.id === memberId);
       return member?.groupSessions && member.groupSessions.length > 0;
     });
 
-    const membersWithoutSelection = membersWithSubscriptions.filter(memberId => 
-      !memberGroupSelections[memberId] // No selection at all (neither group nor guest)
+    const membersWithoutSelection = membersNeedingSelection.filter(memberId => 
+      !memberGroupSelections[memberId]
     );
 
     if (membersWithoutSelection.length > 0) {
@@ -370,8 +371,7 @@ export default function CourseDetailsPage() {
   };
 
   const handleSelectAll = () => {
-    const availableMembers = getAvailableMembers();
-    setSelectedMembers(availableMembers.map((member: any) => member.id));
+    setSelectedMembers(getFilteredMembers().map((member: any) => member.id));
   };
 
   const handleDeselectAll = () => {
@@ -441,6 +441,40 @@ export default function CourseDetailsPage() {
   );
   const canDeleteThisCourse = courseDeleteBlockReason === null;
 
+  const getCourseGroupId = () =>
+    courseData?.class?.category?.group?.id ??
+    courseData?.class?.category?.category_groups?.[0]?.group?.id;
+
+  const memberEligibleForCourse = (member: any) => {
+    const courseGroupId = getCourseGroupId();
+    if (courseGroupId == null) return false;
+
+    const activeSubIds = new Set(
+      (member.subscriptions || [])
+        .filter(
+          (s: any) =>
+            s.status === 'active' && isSubscriptionActiveByEndDate(s.end_date)
+        )
+        .map((s: any) => s.id)
+    );
+    if (activeSubIds.size === 0) return false;
+
+    const hasGroupSessions = (member.groupSessions || []).some(
+      (gs: any) =>
+        gs.group_id === courseGroupId &&
+        gs.sessions_remaining > 0 &&
+        activeSubIds.has(gs.subscription_id)
+    );
+    if (hasGroupSessions) return true;
+
+    return (member.poolSessions || []).some(
+      (ps: any) =>
+        (ps.group_ids || []).includes(courseGroupId) &&
+        ps.sessions_remaining > 0 &&
+        activeSubIds.has(ps.subscription_id)
+    );
+  };
+
   const getAvailableMembers = () => {
     if (!courseData || !allMembers) return [];
     const registeredIds = courseData.registrations.map(r => r.member?.id).filter(Boolean);
@@ -448,9 +482,12 @@ export default function CourseDetailsPage() {
   };
 
   const getFilteredMembers = () => {
-    const available = getAvailableMembers();
+    let available = getAvailableMembers();
+    if (!showOtherMembers) {
+      available = available.filter(memberEligibleForCourse);
+    }
     if (!searchTerm) return available;
-    return available.filter((member: any) => 
+    return available.filter((member: any) =>
       `${member.first_name || ''} ${member.last_name || ''}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (member.email || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -939,7 +976,18 @@ export default function CourseDetailsPage() {
       </Card>
 
       {/* Member Management Dialog */}
-      <Dialog open={memberManagementOpen} onOpenChange={setMemberManagementOpen}>
+      <Dialog
+        open={memberManagementOpen}
+        onOpenChange={(open) => {
+          setMemberManagementOpen(open);
+          if (!open) {
+            setShowOtherMembers(false);
+            setSearchTerm('');
+            setSelectedMembers([]);
+            setMemberGroupSelections({});
+          }
+        }}
+      >
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -965,6 +1013,14 @@ export default function CourseDetailsPage() {
               </div>
               <div className="flex items-center gap-2">
                 <Button
+                  variant={showOtherMembers ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setShowOtherMembers((v) => !v)}
+                >
+                  <Users className="w-4 h-4 mr-1" />
+                  {showOtherMembers ? 'Eligible only' : 'Show other members'}
+                </Button>
+                <Button
                   variant="outline"
                   size="sm"
                   onClick={handleSelectAll}
@@ -983,22 +1039,50 @@ export default function CourseDetailsPage() {
               </div>
             </div>
 
+            {!showOtherMembers && (
+              <p className="text-xs text-muted-foreground">
+                Showing members with an active subscription that covers this course.
+                Use &quot;Show other members&quot; for guest registration.
+              </p>
+            )}
+
             {/* Members List */}
             <div className="flex-1 overflow-y-auto space-y-2">
               {getFilteredMembers().length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>No available members found</p>
+                  <p>
+                    {showOtherMembers
+                      ? 'No available members found'
+                      : 'No members with a subscription for this course'}
+                  </p>
+                  {!showOtherMembers && (
+                    <Button
+                      variant="link"
+                      className="mt-2"
+                      onClick={() => setShowOtherMembers(true)}
+                    >
+                      Show other members
+                    </Button>
+                  )}
                 </div>
               ) : (
                 getFilteredMembers().map((member: any) => {
-                  // Get remaining sessions for this course's group
-                  const courseGroupId = course?.class?.category?.category_groups?.[0]?.group?.id;
+                  const courseGroupId =
+                    course?.class?.category?.group?.id ??
+                    course?.class?.category?.category_groups?.[0]?.group?.id;
                   const groupSession = member.groupSessions?.find((gs: any) => gs.group_id === courseGroupId);
-                  const remainingSessions = groupSession?.sessions_remaining || 0;
-                  const totalSessions = groupSession?.total_sessions || 0;
+                  const poolSession = (member.poolSessions || []).find((ps: any) =>
+                    (ps.group_ids || []).includes(courseGroupId)
+                  );
+                  const remainingSessions =
+                    (groupSession?.sessions_remaining || 0) + (poolSession?.sessions_remaining || 0);
+                  const totalSessions =
+                    (groupSession?.total_sessions || 0) + (poolSession?.total_sessions || 0);
                   const isExpanded = expandedMembers.has(member.id);
-                  const hasSubscriptions = member.groupSessions && member.groupSessions.length > 0;
+                  const hasSubscriptions =
+                    (member.groupSessions && member.groupSessions.length > 0) ||
+                    (member.poolSessions && member.poolSessions.length > 0);
                   
                   return (
                     <div
@@ -1119,7 +1203,7 @@ export default function CourseDetailsPage() {
                                   }}
                                   className="space-y-2"
                                 >
-                                  {member.groupSessions.map((groupSession: any) => (
+                                  {member.groupSessions?.map((groupSession: any) => (
                                     <div 
                                       key={`${member.id}-${groupSession.group_id}`}
                                       className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-muted/50 transition-colors"
@@ -1139,6 +1223,25 @@ export default function CourseDetailsPage() {
                                           </p>
                                         </div>
                                       </label>
+                                    </div>
+                                  ))}
+                                  {(member.poolSessions || []).map((poolSession: any) => (
+                                    <div
+                                      key={`${member.id}-pool-${poolSession.pool_id}`}
+                                      className="flex items-center space-x-3 p-3 border rounded-lg bg-muted/30"
+                                    >
+                                      <div className="flex-1">
+                                        <h5 className="font-medium text-sm">
+                                          Session pool
+                                          {poolSession.group_names?.length
+                                            ? ` (${poolSession.group_names.join(', ')})`
+                                            : ''}
+                                        </h5>
+                                        <p className="text-xs text-muted-foreground">
+                                          {poolSession.sessions_remaining} sessions remaining of {poolSession.total_sessions} total
+                                          {' · '}auto-used on register
+                                        </p>
+                                      </div>
                                     </div>
                                   ))}
                                 </RadioGroup>
@@ -1165,10 +1268,18 @@ export default function CourseDetailsPage() {
                 {(() => {
                   const membersWithSubscriptions = selectedMembers.filter(memberId => {
                     const member = allMembers.find((m: any) => m.id === memberId);
+                    return (
+                      (member?.groupSessions && member.groupSessions.length > 0) ||
+                      (member?.poolSessions && member.poolSessions.length > 0)
+                    );
+                  });
+
+                  const membersNeedingSelection = selectedMembers.filter(memberId => {
+                    const member = allMembers.find((m: any) => m.id === memberId);
                     return member?.groupSessions && member.groupSessions.length > 0;
                   });
                   
-                  const membersWithoutSelection = membersWithSubscriptions.filter(memberId => 
+                  const membersWithoutSelection = membersNeedingSelection.filter(memberId => 
                     !memberGroupSelections[memberId]
                   );
                   
@@ -1177,21 +1288,23 @@ export default function CourseDetailsPage() {
                   );
                   
                   const subscriptionMembers = membersWithSubscriptions.filter(memberId =>
-                    memberGroupSelections[memberId] && memberGroupSelections[memberId] > 0
+                    (memberGroupSelections[memberId] && memberGroupSelections[memberId] > 0) ||
+                    (!memberGroupSelections[memberId] &&
+                      !(allMembers.find((m: any) => m.id === memberId)?.groupSessions?.length))
                   );
                   
                   if (membersWithSubscriptions.length > 0) {
                     return (
                       <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
                         <p className="text-xs text-blue-800">
-                          ℹ️ <strong>Note:</strong> {membersWithSubscriptions.length} member{membersWithSubscriptions.length !== 1 ? 's have' : ' has'} subscription{membersWithSubscriptions.length !== 1 ? 's' : ''} with group sessions.
+                          ℹ️ <strong>Note:</strong> {membersWithSubscriptions.length} member{membersWithSubscriptions.length !== 1 ? 's have' : ' has'} subscription{membersWithSubscriptions.length !== 1 ? 's' : ''} with sessions.
                           {membersWithoutSelection.length > 0 ? (
                             <span className="block mt-1 text-red-600">
                               ⚠️ {membersWithoutSelection.length} member{membersWithoutSelection.length !== 1 ? 's need' : ' needs'} registration selection. Click on the member{membersWithoutSelection.length !== 1 ? 's' : ''} to expand and select group or guest registration.
                             </span>
                           ) : (
                             <span className="block mt-1 text-green-600">
-                              ✅ All members with subscriptions have selections: {subscriptionMembers.length} using subscription{subscriptionMembers.length !== 1 ? 's' : ''}, {guestMembers.length} as guest{guestMembers.length !== 1 ? 's' : ''}.
+                              ✅ Ready: {subscriptionMembers.length} using subscription{subscriptionMembers.length !== 1 ? 's' : ''}, {guestMembers.length} as guest{guestMembers.length !== 1 ? 's' : ''}.
                             </span>
                           )}
                         </p>
