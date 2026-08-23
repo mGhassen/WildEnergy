@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
-import { registrationStatusBlocksDelete } from '@/lib/course-delete-rules';
 import {
   assertCourseDeletableWithAutoCancel,
   deleteCourseWithRegistrationCleanup,
 } from '@/lib/course-delete-cleanup';
+import {
+  buildExpectedCourseDates,
+  courseSyncPayloadFromSchedule,
+  dateOnly,
+  isCourseProtectedFromScheduleSync,
+  newCourseRowFromSchedule,
+  type CourseForSync,
+  type ScheduleTemplate,
+} from '@/lib/schedule-course-sync';
 
 function extractIdFromUrl(request: NextRequest): string | null {
   const match = request.nextUrl.pathname.match(/\/schedules\/([^/]+)/);
@@ -139,14 +147,32 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    
-    // Check if schedule has registrations or checkins before allowing edit
-    const { data: schedule, error: scheduleError } = await supabaseServer()
+
+    const { data: oldSchedule, error: scheduleError } = await supabaseServer()
       .from('schedules')
       .select(`
         id,
+        class_id,
+        trainer_id,
+        day_of_week,
+        start_time,
+        end_time,
+        max_participants,
+        repetition_type,
+        schedule_date,
+        start_date,
+        end_date,
+        is_active,
         courses(
-          id, 
+          id,
+          schedule_id,
+          class_id,
+          trainer_id,
+          course_date,
+          start_time,
+          end_time,
+          max_participants,
+          status,
           class_registrations(
             id,
             status,
@@ -157,25 +183,13 @@ export async function PUT(request: NextRequest) {
       .eq('id', id)
       .single();
 
-    if (scheduleError || !schedule) {
+    if (scheduleError || !oldSchedule) {
       return NextResponse.json({ error: 'Schedule not found' }, { status: 404 });
     }
 
-    let blockingRegistrations = 0;
-    let totalCheckins = 0;
+    const oldTemplate = oldSchedule as ScheduleTemplate & { courses?: CourseForSync[] };
+    const existingCourses = (oldTemplate.courses || []) as CourseForSync[];
 
-    schedule.courses?.forEach((course: any) => {
-      const registrations = course.class_registrations || [];
-      registrations.forEach((reg: any) => {
-        if (registrationStatusBlocksDelete(reg.status)) blockingRegistrations++;
-        totalCheckins += (reg.checkins || []).length;
-      });
-    });
-
-    const hasRegistrationsOrCheckins =
-      blockingRegistrations > 0 || totalCheckins > 0;
-
-    // Update the schedule
     const { data: updatedSchedule, error: updateError } = await supabaseServer()
       .from('schedules')
       .update({
@@ -192,14 +206,16 @@ export async function PUT(request: NextRequest) {
         is_active: body.is_active,
       })
       .eq('id', id)
-      .select()
+      .select(`
+        *,
+        classes(id, max_capacity)
+      `)
       .single();
 
-    if (updateError) {
-      return NextResponse.json({ error: 'Failed to update schedule', details: updateError.message }, { status: 500 });
+    if (updateError || !updatedSchedule) {
+      return NextResponse.json({ error: 'Failed to update schedule', details: updateError?.message }, { status: 500 });
     }
 
-    // If schedule is being set to inactive, update all related courses to inactive
     if (body.is_active === false) {
       const { error: updateCoursesError } = await supabaseServer()
         .from('courses')
@@ -208,198 +224,147 @@ export async function PUT(request: NextRequest) {
 
       if (updateCoursesError) {
         console.error('Error updating courses to inactive:', updateCoursesError);
-        return NextResponse.json({ 
-          error: 'Schedule updated but failed to deactivate related courses', 
-          details: updateCoursesError.message 
+        return NextResponse.json({
+          error: 'Schedule updated but failed to deactivate related courses',
+          details: updateCoursesError.message,
         }, { status: 500 });
       }
+
+      return NextResponse.json({
+        ...updatedSchedule,
+        updatedCourses: 0,
+        addedCourses: 0,
+        removedCourses: 0,
+        skippedCourses: existingCourses.length,
+        message: 'Schedule updated and set to inactive. Related courses have been deactivated.',
+      });
     }
 
-    // Only regenerate courses if the schedule is active AND has no registrations/checkins
-    if (body.is_active === true && !hasRegistrationsOrCheckins) {
-      try {
-        // First, delete all existing courses for this schedule
-        const { error: deleteCoursesError } = await supabaseServer()
-          .from('courses')
-          .delete()
-          .eq('schedule_id', id);
-
-        if (deleteCoursesError) {
-          console.error('Error deleting existing courses:', deleteCoursesError);
-          return NextResponse.json({ 
-            error: 'Failed to delete existing courses', 
-            details: deleteCoursesError.message 
-          }, { status: 500 });
-        }
-
-      // Get the updated schedule with class details for course generation
-      const { data: scheduleForGeneration, error: scheduleError } = await supabaseServer()
-        .from('schedules')
-        .select(`
-          id,
-          class_id,
-          trainer_id,
-          day_of_week,
-          start_time,
-          end_time,
-          max_participants,
-          repetition_type,
-          schedule_date,
-          start_date,
-          end_date,
-          is_active,
-          classes!inner(id, max_capacity)
-        `)
-        .eq('id', id)
-        .single();
-
-      if (scheduleError || !scheduleForGeneration) {
-        console.error('Error fetching updated schedule:', scheduleError);
-        return NextResponse.json({ 
-          error: 'Failed to fetch updated schedule', 
-          details: scheduleError?.message 
-        }, { status: 500 });
+    try {
+      const newTemplate = updatedSchedule as ScheduleTemplate;
+      const expectedDates = buildExpectedCourseDates(newTemplate);
+      if (expectedDates.length === 0) {
+        return NextResponse.json({
+          error: newTemplate.repetition_type === 'once'
+            ? 'No schedule_date for one-time event'
+            : 'Missing start_date or end_date for recurring event',
+        }, { status: 400 });
       }
 
-      // Generate new courses based on updated schedule
-      const coursesToInsert = [];
-      const repetitionType = scheduleForGeneration.repetition_type || 'once';
-      // Always use schedule's max_participants if it exists, otherwise fall back to class capacity
-      const maxParticipants = scheduleForGeneration.max_participants !== null && scheduleForGeneration.max_participants !== undefined 
-        ? scheduleForGeneration.max_participants 
-        : ((scheduleForGeneration.classes as any)?.max_capacity || 10);
+      const maxParticipants =
+        newTemplate.max_participants !== null && newTemplate.max_participants !== undefined
+          ? newTemplate.max_participants
+          : ((updatedSchedule.classes as { max_capacity?: number } | null)?.max_capacity || 10);
 
-      if (repetitionType === 'once') {
-        // One-time event
-        if (!scheduleForGeneration.schedule_date) {
-          return NextResponse.json({ 
-            error: 'No schedule_date for one-time event' 
-          }, { status: 400 });
-        }
-        coursesToInsert.push({
-          schedule_id: scheduleForGeneration.id,
-          class_id: scheduleForGeneration.class_id,
-          trainer_id: scheduleForGeneration.trainer_id,
-          course_date: scheduleForGeneration.schedule_date.split('T')[0],
-          start_time: scheduleForGeneration.start_time,
-          end_time: scheduleForGeneration.end_time,
-          max_participants: maxParticipants,
-          is_active: true,
-          status: 'scheduled',
-        });
-      } else {
-        // Recurring event
-        const startDate = scheduleForGeneration.start_date ? scheduleForGeneration.start_date.split('T')[0] : undefined;
-        const endDate = scheduleForGeneration.end_date ? scheduleForGeneration.end_date.split('T')[0] : undefined;
-        
-        if (!startDate || !endDate) {
-          return NextResponse.json({ 
-            error: 'Missing start_date or end_date for recurring event' 
-          }, { status: 400 });
-        }
-        
-        const start = new Date(startDate);
-        const end = new Date(endDate);
-        
-        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-          if (
-            (repetitionType === 'weekly' && d.getDay() === scheduleForGeneration.day_of_week) ||
-            (repetitionType === 'daily')
-          ) {
-            coursesToInsert.push({
-              schedule_id: scheduleForGeneration.id,
-              class_id: scheduleForGeneration.class_id,
-              trainer_id: scheduleForGeneration.trainer_id,
-              course_date: d.toISOString().split('T')[0],
-              start_time: scheduleForGeneration.start_time,
-              end_time: scheduleForGeneration.end_time,
-              max_participants: maxParticipants,
-              is_active: true,
-              status: 'scheduled',
-            });
+      const syncPayload = courseSyncPayloadFromSchedule(newTemplate);
+      const expectedSet = new Set(expectedDates);
+      const coursesByDate = new Map<string, CourseForSync[]>();
+      for (const course of existingCourses) {
+        const key = dateOnly(course.course_date);
+        const list = coursesByDate.get(key) || [];
+        list.push(course);
+        coursesByDate.set(key, list);
+      }
+
+      let updatedCourses = 0;
+      let removedCourses = 0;
+      let skippedCourses = 0;
+      const coursesToInsert: ReturnType<typeof newCourseRowFromSchedule>[] = [];
+      const keptCourseIds = new Set<number>();
+
+      for (const [courseDate, coursesOnDate] of coursesByDate) {
+        const protectedOnDate = coursesOnDate.filter((c) =>
+          isCourseProtectedFromScheduleSync(c, oldTemplate),
+        );
+        const unprotectedOnDate = coursesOnDate.filter(
+          (c) => !isCourseProtectedFromScheduleSync(c, oldTemplate),
+        );
+
+        // Keep all protected rows; among unprotected, keep at most one (prefer if date still expected).
+        const keeper =
+          protectedOnDate[0] ||
+          (expectedSet.has(courseDate) ? unprotectedOnDate[0] : undefined);
+
+        for (const course of coursesOnDate) {
+          const isProtected = isCourseProtectedFromScheduleSync(course, oldTemplate);
+
+          if (isProtected) {
+            skippedCourses++;
+            keptCourseIds.add(course.id);
+            continue;
           }
+
+          if (keeper && course.id === keeper.id && expectedSet.has(courseDate)) {
+            const { error: syncError } = await supabaseServer()
+              .from('courses')
+              .update(syncPayload)
+              .eq('id', course.id);
+
+            if (syncError) {
+              console.error('Error syncing course:', syncError);
+              return NextResponse.json({
+                error: 'Schedule updated but failed to sync related courses',
+                details: syncError.message,
+              }, { status: 500 });
+            }
+            updatedCourses++;
+            keptCourseIds.add(course.id);
+            continue;
+          }
+
+          // Duplicate on same date, or date no longer in template → remove empty future course
+          const { error: deleteError } = await supabaseServer()
+            .from('courses')
+            .delete()
+            .eq('id', course.id);
+
+          if (deleteError) {
+            console.error('Error removing obsolete course:', deleteError);
+            return NextResponse.json({
+              error: 'Schedule updated but failed to remove obsolete courses',
+              details: deleteError.message,
+            }, { status: 500 });
+          }
+          removedCourses++;
         }
       }
 
-      // Insert new courses
+      for (const courseDate of expectedDates) {
+        const existingOnDate = coursesByDate.get(courseDate) || [];
+        const stillKept = existingOnDate.some((c) => keptCourseIds.has(c.id));
+        if (stillKept) continue;
+        coursesToInsert.push(newCourseRowFromSchedule(newTemplate, courseDate, maxParticipants));
+      }
+
       if (coursesToInsert.length > 0) {
-        const { error: insertCoursesError } = await supabaseServer()
+        const { error: insertError } = await supabaseServer()
           .from('courses')
           .insert(coursesToInsert);
 
-        if (insertCoursesError) {
-          console.error('Error inserting new courses:', insertCoursesError);
-          return NextResponse.json({ 
-            error: 'Failed to generate new courses', 
-            details: insertCoursesError.message 
+        if (insertError) {
+          console.error('Error inserting missing courses:', insertError);
+          return NextResponse.json({
+            error: 'Schedule updated but failed to add missing courses',
+            details: insertError.message,
           }, { status: 500 });
         }
       }
 
-        console.log(`Successfully regenerated ${coursesToInsert.length} courses for schedule ${id}`);
-        
-        return NextResponse.json({
-          ...updatedSchedule,
-          regeneratedCourses: coursesToInsert.length,
-          message: `Schedule updated and ${coursesToInsert.length} courses regenerated successfully`
-        });
-
-      } catch (courseError) {
-        console.error('Error during course regeneration:', courseError);
-        return NextResponse.json({ 
-          error: 'Schedule updated but failed to regenerate courses', 
-          details: String(courseError) 
-        }, { status: 500 });
-      }
-    }
-
-    if (body.is_active === true && hasRegistrationsOrCheckins) {
-      // Keep course rows aligned with the schedule template (trainer, times, class, capacity).
-      // Without this, schedule edits only change `schedules` while `courses` stay stale → wrong
-      // course detail trainer and false "Course Modifications" vs schedule.
-      const courseSyncPayload: Record<string, unknown> = {
-        class_id: updatedSchedule.class_id,
-        trainer_id: updatedSchedule.trainer_id,
-        start_time: updatedSchedule.start_time,
-        end_time: updatedSchedule.end_time,
-        updated_at: new Date().toISOString(),
-      };
-      if (
-        updatedSchedule.max_participants !== null &&
-        updatedSchedule.max_participants !== undefined
-      ) {
-        courseSyncPayload.max_participants = updatedSchedule.max_participants;
-      }
-
-      const { error: syncCoursesError } = await supabaseServer()
-        .from('courses')
-        .update(courseSyncPayload)
-        .eq('schedule_id', id);
-
-      if (syncCoursesError) {
-        console.error('Error syncing courses with updated schedule:', syncCoursesError);
-        return NextResponse.json(
-          {
-            error: 'Schedule updated but failed to sync related courses',
-            details: syncCoursesError.message,
-          },
-          { status: 500 }
-        );
-      }
-
       return NextResponse.json({
         ...updatedSchedule,
-        regeneratedCourses: 0,
-        message:
-          'Schedule updated and related courses synced (trainer, times, class, capacity).',
+        updatedCourses,
+        addedCourses: coursesToInsert.length,
+        removedCourses,
+        skippedCourses,
+        regeneratedCourses: updatedCourses + coursesToInsert.length,
+        message: `Schedule updated: ${updatedCourses} courses updated, ${coursesToInsert.length} added, ${removedCourses} removed, ${skippedCourses} skipped (done / members / already edited).`,
       });
-    } else {
-      // Schedule is inactive, return success without regenerating courses
+    } catch (courseError) {
+      console.error('Error during course sync:', courseError);
       return NextResponse.json({
-        ...updatedSchedule,
-        regeneratedCourses: 0,
-        message: 'Schedule updated and set to inactive. Related courses have been deactivated.'
-      });
+        error: 'Schedule updated but failed to sync courses',
+        details: String(courseError),
+      }, { status: 500 });
     }
   } catch (error) {
     console.error('Error updating schedule:', error);
@@ -590,104 +555,73 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Authentication successful for user:', adminUser.email);
 
-    // Fetch the schedule
-  const { data: schedule, error } = await supabaseServer()
-    .from('schedules')
-    .select('*')
-    .eq('id', id)
-    .single();
-  if (error || !schedule) {
-    console.error('Schedule not found:', { id, error });
-    return NextResponse.json({ error: 'Schedule not found', details: error }, { status: 404 });
-  }
-  console.log('Fetched schedule:', schedule);
-
-  // Fetch class for max_capacity
-  const { data: classData } = await supabaseServer()
-    .from('classes')
-    .select('id, max_capacity')
-    .eq('id', schedule.class_id)
-    .single();
-  console.log('Fetched class:', classData);
-
-  // Prepare course generation
-  const coursesToInsert = [];
-  const repetitionType = schedule.repetition_type || 'once';
-  // Always use schedule's max_participants if it exists, otherwise fall back to class capacity
-  const maxParticipants = schedule.max_participants !== null && schedule.max_participants !== undefined 
-    ? schedule.max_participants 
-    : (classData?.max_capacity || 10);
-
-  if (repetitionType === 'once') {
-    // One-time event
-    if (!schedule.schedule_date) {
-      console.error('No schedule_date for one-time event:', schedule);
-      return NextResponse.json({ error: 'No schedule_date for one-time event' }, { status: 400 });
+    const { data: schedule, error } = await supabaseServer()
+      .from('schedules')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (error || !schedule) {
+      console.error('Schedule not found:', { id, error });
+      return NextResponse.json({ error: 'Schedule not found', details: error }, { status: 404 });
     }
-    coursesToInsert.push({
-      schedule_id: schedule.id,
-      class_id: schedule.class_id,
-      trainer_id: schedule.trainer_id,
-      course_date: schedule.schedule_date.split('T')[0],
-      start_time: schedule.start_time,
-      end_time: schedule.end_time,
-      max_participants: maxParticipants,
-      is_active: true,
-      status: 'scheduled',
-    });
-    console.log('Generated one-time course:', coursesToInsert[0]);
-  } else {
-    // Recurring event
-    const startDate = schedule.start_date ? schedule.start_date.split('T')[0] : undefined;
-    const endDate = schedule.end_date ? schedule.end_date.split('T')[0] : undefined;
-    if (!startDate || !endDate) {
-      console.error('Missing start_date or end_date for recurring event:', schedule);
-      return NextResponse.json({ error: 'Missing start_date or end_date for recurring event' }, { status: 400 });
+
+    const { data: classData } = await supabaseServer()
+      .from('classes')
+      .select('id, max_capacity')
+      .eq('id', schedule.class_id)
+      .single();
+
+    const { data: existingCourses, error: existingError } = await supabaseServer()
+      .from('courses')
+      .select('id, course_date')
+      .eq('schedule_id', id);
+
+    if (existingError) {
+      return NextResponse.json({ error: 'Failed to fetch existing courses', details: existingError }, { status: 500 });
     }
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const generatedDates = [];
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      if (
-        (repetitionType === 'weekly' && d.getDay() === schedule.day_of_week) ||
-        (repetitionType === 'daily')
-      ) {
-        const courseObj = {
-          schedule_id: schedule.id,
-          class_id: schedule.class_id,
-          trainer_id: schedule.trainer_id,
-          course_date: d.toISOString().split('T')[0],
-          start_time: schedule.start_time,
-          end_time: schedule.end_time,
-          max_participants: maxParticipants,
-          is_active: true,
-          status: 'scheduled',
-        };
-        coursesToInsert.push(courseObj);
-        generatedDates.push(courseObj.course_date);
-      }
+
+    const existingDates = new Set(
+      (existingCourses || []).map((c: { course_date: string }) => dateOnly(c.course_date)),
+    );
+
+    const template = schedule as ScheduleTemplate;
+    const expectedDates = buildExpectedCourseDates(template);
+    if (expectedDates.length === 0) {
+      return NextResponse.json({
+        error: template.repetition_type === 'once'
+          ? 'No schedule_date for one-time event'
+          : 'Missing start_date or end_date for recurring event',
+      }, { status: 400 });
     }
-    console.log('Generated recurring course dates:', generatedDates);
-  }
 
-  console.log('📝 Final coursesToInsert:', coursesToInsert.length, 'courses');
+    const maxParticipants =
+      schedule.max_participants !== null && schedule.max_participants !== undefined
+        ? schedule.max_participants
+        : (classData?.max_capacity || 10);
 
-  if (coursesToInsert.length === 0) {
-    console.error('❌ No courses to insert for schedule:', schedule);
-    return NextResponse.json({ error: 'No courses to insert' }, { status: 400 });
-  }
+    const coursesToInsert = expectedDates
+      .filter((courseDate) => !existingDates.has(courseDate))
+      .map((courseDate) => newCourseRowFromSchedule(template, courseDate, maxParticipants));
 
-  console.log('💾 Inserting courses into database...');
-  const { error: insertError } = await supabaseServer()
-    .from('courses')
-    .insert(coursesToInsert);
-  if (insertError) {
-    console.error('❌ Failed to insert courses:', insertError);
-    return NextResponse.json({ error: 'Failed to insert courses', details: insertError }, { status: 500 });
-  }
+    if (coursesToInsert.length === 0) {
+      return NextResponse.json({
+        success: true,
+        count: 0,
+        skippedExisting: existingDates.size,
+        message: 'All expected courses already exist',
+      });
+    }
 
-  console.log('✅ Successfully inserted', coursesToInsert.length, 'courses for schedule', id);
-  return NextResponse.json({ success: true, count: coursesToInsert.length });
+    const { error: insertError } = await supabaseServer()
+      .from('courses')
+      .insert(coursesToInsert);
+    if (insertError) {
+      console.error('❌ Failed to insert courses:', insertError);
+      return NextResponse.json({ error: 'Failed to insert courses', details: insertError }, { status: 500 });
+    }
+
+    console.log('✅ Successfully inserted', coursesToInsert.length, 'courses for schedule', id);
+    return NextResponse.json({ success: true, count: coursesToInsert.length });
   } catch (error) {
     console.error('Error generating courses:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

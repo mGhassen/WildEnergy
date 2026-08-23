@@ -10,20 +10,20 @@ export function useCreateScheduleWithCourses() {
   return useMutation({
     mutationFn: async (data: CreateScheduleData) => {
       console.log('🚀 Starting schedule creation with data:', data);
-      
+
       // Create the schedule
       const result = await scheduleApi.createSchedule(data);
       console.log('📅 Schedule created successfully:', result);
-      
+
       // Generate courses for the new schedule
       if (result?.id) {
         try {
           console.log('🔄 Generating courses for schedule:', result.id);
           console.log('🌐 Making POST request to:', `/api/admin/schedules/${result.id}`);
-          
+
           const courseResult = await apiRequest("POST", `/api/admin/schedules/${result.id}`);
           console.log('✅ Course generation result:', courseResult);
-          
+
           if (courseResult?.count > 0) {
             console.log(`🎉 Successfully generated ${courseResult.count} courses for schedule ${result.id}`);
           } else {
@@ -41,7 +41,7 @@ export function useCreateScheduleWithCourses() {
       } else {
         console.error('❌ No schedule ID returned from creation:', result);
       }
-      
+
       return result;
     },
     onSuccess: (result, variables, context) => {
@@ -68,30 +68,19 @@ export function useUpdateScheduleWithCourses() {
 
   return useMutation({
     mutationFn: async ({ scheduleId, data }: { scheduleId: number; data: UpdateScheduleData }) => {
-      // Update the schedule
-      const result = await scheduleApi.updateSchedule(scheduleId, data);
-      
-      // Regenerate courses for the updated schedule
-      if (result?.id) {
-        try {
-          const genResult = await apiRequest("POST", `/api/admin/schedules/${result.id}`);
-          return { ...result, regeneratedCourses: genResult?.regeneratedCourses || 0 };
-        } catch (err) {
-          console.error('Course regeneration failed:', err);
-          return result;
-        }
-      }
-      
-      return result;
+      // PUT already syncs courses (update / add missing / skip protected). Do not POST again.
+      return scheduleApi.updateSchedule(scheduleId, data);
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['schedules'] });
       queryClient.invalidateQueries({ queryKey: ['courses'] });
-      
-      const regeneratedCourses = data?.regeneratedCourses || 0;
+
+      const updated = data?.updatedCourses ?? 0;
+      const added = data?.addedCourses ?? 0;
+      const skipped = data?.skippedCourses ?? 0;
       toast({
         title: 'Schedule updated',
-        description: `Schedule updated and ${regeneratedCourses} course${regeneratedCourses !== 1 ? 's' : ''} regenerated`,
+        description: `${updated} updated, ${added} added, ${skipped} skipped (done / members / edited)`,
       });
     },
     onError: (error: any) => {
@@ -102,10 +91,10 @@ export function useUpdateScheduleWithCourses() {
           description: `This schedule has ${details.totalRegistrations || 0} registrations and ${details.totalCheckins || 0} check-ins. Please cancel all registrations first.`,
           variant: 'destructive',
         });
-      } else if (error.message?.includes('failed to regenerate courses')) {
+      } else if (error.message?.includes('failed to sync courses') || error.message?.includes('failed to regenerate courses')) {
         toast({
           title: 'Schedule updated with warning',
-          description: 'Schedule was updated but some courses could not be regenerated. Please check the schedule and regenerate courses manually.',
+          description: 'Schedule was updated but some courses could not be synced. Check the schedule detail.',
           variant: 'destructive',
         });
       } else {
@@ -132,11 +121,11 @@ export function useDeleteScheduleWithCourses() {
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['schedules'] });
       queryClient.invalidateQueries({ queryKey: ['courses'] });
-      
+
       const courseCount = data?.deletedCourses || 0;
       const activeCourseCount = data?.activeCourses || 0;
       const scheduleName = data?.scheduleName || 'Schedule';
-      
+
       toast({
         title: 'Schedule deleted',
         description: `Deleted ${scheduleName} and ${courseCount} related course${courseCount !== 1 ? 's' : ''} (${activeCourseCount} active)`,
