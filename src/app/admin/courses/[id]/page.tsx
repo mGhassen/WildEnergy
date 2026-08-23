@@ -441,9 +441,7 @@ export default function CourseDetailsPage() {
   );
   const canDeleteThisCourse = courseDeleteBlockReason === null;
 
-  const getCourseGroupId = () =>
-    courseData?.class?.category?.group?.id ??
-    courseData?.class?.category?.category_groups?.[0]?.group?.id;
+  const getCourseGroupId = () => courseData?.class?.category?.group?.id;
 
   const memberEligibleForCourse = (member: any) => {
     const courseGroupId = getCourseGroupId();
@@ -1068,9 +1066,7 @@ export default function CourseDetailsPage() {
                 </div>
               ) : (
                 getFilteredMembers().map((member: any) => {
-                  const courseGroupId =
-                    course?.class?.category?.group?.id ??
-                    course?.class?.category?.category_groups?.[0]?.group?.id;
+                  const courseGroupId = course?.class?.category?.group?.id;
                   const groupSession = member.groupSessions?.find((gs: any) => gs.group_id === courseGroupId);
                   const poolSession = (member.poolSessions || []).find((ps: any) =>
                     (ps.group_ids || []).includes(courseGroupId)
