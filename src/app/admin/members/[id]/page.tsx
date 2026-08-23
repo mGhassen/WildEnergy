@@ -638,9 +638,14 @@ export default function MemberDetailsPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-green-500">
+        <Card
+          className={`border-l-4 border-l-green-500 ${relevantSubscription ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}`}
+          onClick={relevantSubscription ? () => router.push(`/admin/subscriptions/${relevantSubscription.id}`) : undefined}
+        >
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Subscription Status</CardTitle>
+            <CardTitle className={`text-sm font-medium text-muted-foreground ${relevantSubscription ? 'hover:text-primary transition-colors' : ''}`}>
+              Subscription Status
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {relevantSubscription ? (
@@ -989,10 +994,23 @@ export default function MemberDetailsPage() {
             {/* Account Information (Read-only) */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Settings className="w-5 h-5" />
-                  Account Information
-                </CardTitle>
+                {member.account_id ? (
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/admin/accounts/${member.account_id}`)}
+                    className="text-left"
+                  >
+                    <CardTitle className="flex items-center gap-2 hover:text-primary transition-colors">
+                      <Settings className="w-5 h-5" />
+                      Account Information
+                    </CardTitle>
+                  </button>
+                ) : (
+                  <CardTitle className="flex items-center gap-2">
+                    <Settings className="w-5 h-5" />
+                    Account Information
+                  </CardTitle>
+                )}
                 <CardDescription>
                   Account settings can be edited in the account page
                 </CardDescription>
@@ -1043,7 +1061,13 @@ export default function MemberDetailsPage() {
                     <div key={subscription.id} className="border rounded-lg p-4">
                       <div className="flex justify-between items-start">
                         <div className="space-y-2">
-                          <h4 className="font-medium">{subscription.plan?.name || 'Unknown Plan'}</h4>
+                          <button
+                            type="button"
+                            onClick={() => router.push(`/admin/subscriptions/${subscription.id}`)}
+                            className="text-left font-medium hover:text-primary transition-colors"
+                          >
+                            {subscription.plan?.name || 'Unknown Plan'}
+                          </button>
                           <p className="text-sm text-muted-foreground">
                             {formatSubscriptionPeriod(subscription.startDate, subscription.endDate)}
                           </p>
@@ -1095,6 +1119,7 @@ export default function MemberDetailsPage() {
                     <thead>
                       <tr className="border-b">
                         <th className="text-left py-2">Date</th>
+                        <th className="text-left py-2">Subscription</th>
                         <th className="text-left py-2">Amount</th>
                         <th className="text-left py-2">Type</th>
                         <th className="text-left py-2">Status</th>
@@ -1103,20 +1128,36 @@ export default function MemberDetailsPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {payments.map((payment) => (
-                        <tr key={payment.id} className="border-b last:border-b-0">
-                          <td className="py-2">{formatDate(payment.payment_date)}</td>
-                          <td className="py-2 font-medium">{formatCurrency(payment.amount)}</td>
-                          <td className="py-2">{payment.payment_type || '-'}</td>
-                          <td className="py-2">
-                            <Badge className={getPaymentStatusColor(payment.payment_status)}>
-                              {payment.payment_status}
-                            </Badge>
-                          </td>
-                          <td className="py-2 font-mono text-xs">{payment.transaction_id || '-'}</td>
-                          <td className="py-2">{payment.notes || '-'}</td>
-                        </tr>
-                      ))}
+                      {payments.map((payment) => {
+                        const sub = subscriptions.find((s) => s.id === payment.subscription_id);
+                        return (
+                          <tr key={payment.id} className="border-b last:border-b-0">
+                            <td className="py-2">{formatDate(payment.payment_date)}</td>
+                            <td className="py-2">
+                              {payment.subscription_id ? (
+                                <button
+                                  type="button"
+                                  onClick={() => router.push(`/admin/subscriptions/${payment.subscription_id}`)}
+                                  className="font-medium hover:text-primary transition-colors text-left"
+                                >
+                                  {sub?.plan?.name || `Subscription #${payment.subscription_id}`}
+                                </button>
+                              ) : (
+                                '-'
+                              )}
+                            </td>
+                            <td className="py-2 font-medium">{formatCurrency(payment.amount)}</td>
+                            <td className="py-2">{payment.payment_type || '-'}</td>
+                            <td className="py-2">
+                              <Badge className={getPaymentStatusColor(payment.payment_status)}>
+                                {payment.payment_status}
+                              </Badge>
+                            </td>
+                            <td className="py-2 font-mono text-xs">{payment.transaction_id || '-'}</td>
+                            <td className="py-2">{payment.notes || '-'}</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -1144,13 +1185,25 @@ export default function MemberDetailsPage() {
             <CardContent>
               {registrations.length > 0 ? (
                 <div className="space-y-4">
-                  {registrations.map((registration) => (
+                  {registrations.map((registration) => {
+                    const courseId = registration.course?.id ?? registration.course_id;
+                    return (
                     <div key={registration.id} className="border rounded-lg p-4">
                       <div className="flex justify-between items-start">
                         <div className="space-y-2">
-                          <h4 className="font-medium">
-                            {registration.course?.class?.name || `Class ID: ${registration.course_id}`}
-                          </h4>
+                          {courseId ? (
+                            <button
+                              type="button"
+                              onClick={() => router.push(`/admin/courses/${courseId}`)}
+                              className="text-left font-medium hover:text-primary transition-colors"
+                            >
+                              {registration.course?.class?.name || `Class ID: ${registration.course_id}`}
+                            </button>
+                          ) : (
+                            <h4 className="font-medium">
+                              {registration.course?.class?.name || `Class ID: ${registration.course_id}`}
+                            </h4>
+                          )}
                           <p className="text-sm text-muted-foreground">
                             {registration.course?.course_date ?
                               formatDate(registration.course.course_date) :
@@ -1178,7 +1231,8 @@ export default function MemberDetailsPage() {
                         </div>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="text-center py-8">
@@ -1208,9 +1262,19 @@ export default function MemberDetailsPage() {
                     <div key={checkin.id} className="border rounded-lg p-4">
                       <div className="flex justify-between items-start">
                         <div className="space-y-2">
-                          <h4 className="font-medium">
-                            {checkin.course?.class?.name || `Check-in #${checkin.id}`}
-                          </h4>
+                          {checkin.course?.id ? (
+                            <button
+                              type="button"
+                              onClick={() => router.push(`/admin/courses/${checkin.course!.id}`)}
+                              className="text-left font-medium hover:text-primary transition-colors"
+                            >
+                              {checkin.course?.class?.name || `Check-in #${checkin.id}`}
+                            </button>
+                          ) : (
+                            <h4 className="font-medium">
+                              {checkin.course?.class?.name || `Check-in #${checkin.id}`}
+                            </h4>
+                          )}
                           <p className="text-sm text-muted-foreground">
                             {checkin.course?.course_date ?
                               formatDate(checkin.course.course_date) :

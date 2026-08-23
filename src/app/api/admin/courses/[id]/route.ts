@@ -153,11 +153,31 @@ export async function GET(
         .from('user_profiles')
         .select('member_id, first_name, last_name, email, phone')
         .in('member_id', allMemberIds);
-      
+
       if (members) {
         members.forEach(member => {
           memberDetails[member.member_id] = member;
         });
+      }
+
+      // Unlinked members (no account) are not in user_profiles — load via members + profiles
+      const missingIds = allMemberIds.filter(id => !memberDetails[id]);
+      if (missingIds.length > 0) {
+        const { data: unlinkedMembers } = await supabaseServer()
+          .from('members')
+          .select('id, profile_id, profiles(first_name, last_name, phone, profile_email)')
+          .in('id', missingIds);
+
+        for (const m of unlinkedMembers || []) {
+          const profile = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles;
+          memberDetails[m.id] = {
+            member_id: m.id,
+            first_name: profile?.first_name ?? null,
+            last_name: profile?.last_name ?? null,
+            email: profile?.profile_email ?? null,
+            phone: profile?.phone ?? null,
+          };
+        }
       }
     }
 
