@@ -1551,8 +1551,26 @@ export default function ScheduleDetailsPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Delete Confirmation Dialog */}
-      
+      <AlertDialog
+        open={editBlockedReason !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditBlockedReason(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cannot edit schedule</AlertDialogTitle>
+            <AlertDialogDescription>
+              {editBlockedReason ? describeScheduleEditBlock(editBlockedReason) : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setEditBlockedReason(null)}>
+              OK
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
