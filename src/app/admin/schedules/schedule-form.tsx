@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Form,
   FormControl,
@@ -22,10 +23,20 @@ import {
 import { DialogFooter } from "@/components/ui/dialog";
 import { UseFormReturn } from "react-hook-form";
 
+const WEEK_DAYS = [
+  { value: 0, label: "Sunday" },
+  { value: 1, label: "Monday" },
+  { value: 2, label: "Tuesday" },
+  { value: 3, label: "Wednesday" },
+  { value: 4, label: "Thursday" },
+  { value: 5, label: "Friday" },
+  { value: 6, label: "Saturday" },
+] as const;
+
 export interface ScheduleFormData {
   classId: number;
   trainerId: string;
-  dayOfWeek: number;
+  daysOfWeek: number[];
   startTime: string;
   endTime: string;
   maxParticipants: number;
@@ -39,7 +50,7 @@ export interface ScheduleFormData {
 export const scheduleFormDefaultValues: ScheduleFormData = {
   classId: 0,
   trainerId: "",
-  dayOfWeek: 1,
+  daysOfWeek: [1],
   startTime: "",
   endTime: "",
   maxParticipants: 10,
@@ -51,10 +62,16 @@ export const scheduleFormDefaultValues: ScheduleFormData = {
 };
 
 export function mapScheduleToApi(data: ScheduleFormData, classes: any[] = []) {
+  const days =
+    data.repetitionType === "weekly"
+      ? [...new Set(data.daysOfWeek ?? [])].sort((a, b) => a - b)
+      : [];
+
   return {
     class_id: data.classId,
     trainer_id: data.trainerId && data.trainerId.trim() !== "" ? data.trainerId : "",
-    day_of_week: data.dayOfWeek,
+    day_of_week: days[0] ?? data.daysOfWeek?.[0] ?? 1,
+    days_of_week: days.length ? days : undefined,
     start_time: data.startTime,
     end_time: data.endTime,
     max_participants: data.maxParticipants,
@@ -67,10 +84,18 @@ export function mapScheduleToApi(data: ScheduleFormData, classes: any[] = []) {
 }
 
 export function scheduleToFormValues(schedule: any): ScheduleFormData {
+  const day = schedule.dayOfWeek ?? schedule.day_of_week;
+  const days =
+    Array.isArray(schedule.daysOfWeek) && schedule.daysOfWeek.length
+      ? schedule.daysOfWeek
+      : Array.isArray(schedule.days_of_week) && schedule.days_of_week.length
+        ? schedule.days_of_week
+        : [day ?? 1];
+
   return {
     classId: schedule.classId || schedule.class_id || 0,
     trainerId: schedule.trainerId || schedule.trainer_id || "",
-    dayOfWeek: schedule.dayOfWeek || schedule.day_of_week || 1,
+    daysOfWeek: days.map(Number),
     startTime: schedule.startTime || schedule.start_time || "",
     endTime: schedule.endTime || schedule.end_time || "",
     maxParticipants: schedule.maxParticipants || schedule.max_participants || 10,
@@ -382,26 +407,38 @@ export function ScheduleForm({
                 {form.watch("repetitionType") === "weekly" && (
                   <FormField
                     control={form.control}
-                    name="dayOfWeek"
+                    name="daysOfWeek"
+                    rules={{
+                      validate: (value) =>
+                        (value?.length ?? 0) > 0 || "Select at least one day",
+                    }}
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Day of Week</FormLabel>
-                        <Select onValueChange={value => field.onChange(Number(value))} value={field.value !== undefined ? String(field.value) : ""}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select day of week" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="0">Sunday</SelectItem>
-                            <SelectItem value="1">Monday</SelectItem>
-                            <SelectItem value="2">Tuesday</SelectItem>
-                            <SelectItem value="3">Wednesday</SelectItem>
-                            <SelectItem value="4">Thursday</SelectItem>
-                            <SelectItem value="5">Friday</SelectItem>
-                            <SelectItem value="6">Saturday</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <FormLabel>Days of Week</FormLabel>
+                        <div className="grid grid-cols-2 gap-2 rounded-md border p-3">
+                          {WEEK_DAYS.map((day) => {
+                            const checked = field.value?.includes(day.value) ?? false;
+                            return (
+                              <label
+                                key={day.value}
+                                className="flex cursor-pointer items-center gap-2 text-sm"
+                              >
+                                <Checkbox
+                                  checked={checked}
+                                  onCheckedChange={(isChecked) => {
+                                    const current = field.value ?? [];
+                                    field.onChange(
+                                      isChecked
+                                        ? [...current, day.value].sort((a, b) => a - b)
+                                        : current.filter((d) => d !== day.value),
+                                    );
+                                  }}
+                                />
+                                {day.label}
+                              </label>
+                            );
+                          })}
+                        </div>
                         <FormMessage />
                       </FormItem>
                     )}
