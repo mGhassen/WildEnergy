@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { pickSubscriptionForCourse } from '@/lib/subscription-for-course';
 
 export async function GET(
   request: NextRequest,
@@ -197,13 +198,32 @@ export async function GET(
     const courseObj = Array.isArray(registration.courses) ? registration.courses[0] : registration.courses;
     console.log('courseObj:', courseObj);
 
-    // Get class information (with max_capacity, category, difficulty)
+    // Get class information (with max_capacity, category, difficulty, group for course-date sub match)
     const { data: classInfo } = await supabaseServer()
       .from('classes')
-      .select('id, name, max_capacity, category_id, difficulty, category:category_id (id, name)')
+      .select(`
+        id,
+        name,
+        max_capacity,
+        category_id,
+        difficulty,
+        category:category_id (
+          id,
+          name,
+          category_groups (
+            group:groups ( id )
+          )
+        )
+      `)
       .eq('id', courseObj?.class_id)
       .single();
     console.log('classInfo:', classInfo);
+
+    const categoryRel = Array.isArray(classInfo?.category)
+      ? classInfo.category[0]
+      : classInfo?.category;
+    const courseGroupId =
+      (categoryRel as any)?.category_groups?.[0]?.group?.id ?? null;
 
     // Get trainer information
     const { data: trainerInfo } = await supabaseServer()
@@ -225,41 +245,71 @@ export async function GET(
       .eq('id', courseObj?.trainer_id)
       .single();
 
-    // Get member's active subscription info with group sessions
+    // Subscription for this registration / course date (same rule as manage courses), not "active today"
     console.log('Check-in QR API - Looking for subscription for member_id:', registration.member_id);
-    const { data: activeSubscription, error: subError } = await supabaseServer()
-      .from('subscriptions')
-      .select(`
-        id, 
-        plan_id, 
-        status, 
-        start_date,
-        end_date,
-        plans (
-          name,
-          description,
-          price
-        ),
-        subscription_group_sessions (
-          group_id,
-          sessions_remaining,
-          total_sessions,
-          groups (
-            name
-          )
-        )
-      `)
-      .eq('member_id', registration.member_id)
-      .eq('status', 'active')
-      .order('end_date', { ascending: false })
-      .limit(1)
-      .single();
 
-    if (subError) {
-      console.log('Check-in QR API - Subscription query error:', subError);
-    } else {
-      console.log('Check-in QR API - Subscription found:', activeSubscription);
+    const subscriptionSelect = `
+      id,
+      plan_id,
+      status,
+      start_date,
+      end_date,
+      plans (
+        name,
+        description,
+        price
+      ),
+      subscription_group_sessions (
+        group_id,
+        sessions_remaining,
+        total_sessions,
+        groups (
+          name
+        )
+      ),
+      subscription_pool_sessions (
+        pool_id,
+        sessions_remaining,
+        plan_session_pools (
+          plan_session_pool_groups ( group_id )
+        )
+      )
+    `;
+
+    let coveringSubscription: any = null;
+
+    if (registration.subscription_id) {
+      // Prefer the sub already attached at registration (status may no longer be "active")
+      const { data: linkedSub, error: linkedSubError } = await supabaseServer()
+        .from('subscriptions')
+        .select(subscriptionSelect)
+        .eq('id', registration.subscription_id)
+        .eq('member_id', registration.member_id)
+        .single();
+
+      if (linkedSubError) {
+        console.log('Check-in QR API - Linked subscription query error:', linkedSubError);
+      }
+      coveringSubscription = linkedSub;
+    } else if (!isGuestRegistration && courseObj?.course_date) {
+      const { data: memberSubscriptions, error: subError } = await supabaseServer()
+        .from('subscriptions')
+        .select(subscriptionSelect)
+        .eq('member_id', registration.member_id)
+        .neq('status', 'cancelled');
+
+      if (subError) {
+        console.log('Check-in QR API - Subscription query error:', subError);
+      }
+
+      coveringSubscription = pickSubscriptionForCourse(
+        memberSubscriptions || [],
+        courseObj.course_date,
+        courseGroupId,
+      );
     }
+
+    console.log('Check-in QR API - Covering subscription:', coveringSubscription?.id ?? null);
 
     // Get registered and checked-in counts for this course (excluding cancelled)
     const { data: courseRegistrations } = await supabaseServer()
@@ -383,25 +433,32 @@ export async function GET(
         email: memberData.email,
         phone: memberData.phone,
         status: memberData.member_status || memberData.account_status,
-        activeSubscription: activeSubscription ? {
-          id: activeSubscription.id,
-          planName: (activeSubscription.plans as any)?.name,
-          planDescription: (activeSubscription.plans as any)?.description,
-          planPrice: (activeSubscription.plans as any)?.price,
+        activeSubscription: coveringSubscription ? {
+          id: coveringSubscription.id,
+          planName: (coveringSubscription.plans as any)?.name,
+          planDescription: (coveringSubscription.plans as any)?.description,
+          planPrice: (coveringSubscription.plans as any)?.price,
           planSessionCount: (() => {
-            // Calculate total sessions from all group sessions
-            const groupSessions = (activeSubscription as any)?.subscription_group_sessions || [];
+            const groupSessions = (coveringSubscription as any)?.subscription_group_sessions || [];
             return groupSessions.reduce((total: number, group: any) => total + (group.total_sessions || 0), 0);
           })(),
-          status: activeSubscription.status,
+          status: coveringSubscription.status,
           sessionsRemaining: (() => {
-            // Calculate total remaining sessions from all group sessions
-            const groupSessions = (activeSubscription as any)?.subscription_group_sessions || [];
-            return groupSessions.reduce((total: number, group: any) => total + (group.sessions_remaining || 0), 0);
+            const groupSessions = (coveringSubscription as any)?.subscription_group_sessions || [];
+            const poolSessions = (coveringSubscription as any)?.subscription_pool_sessions || [];
+            const groupTotal = groupSessions.reduce(
+              (total: number, group: any) => total + (group.sessions_remaining || 0),
+              0,
+            );
+            const poolTotal = poolSessions.reduce(
+              (total: number, pool: any) => total + (pool.sessions_remaining || 0),
+              0,
+            );
+            return groupTotal + poolTotal;
           })(),
-          startDate: activeSubscription.start_date,
-          endDate: activeSubscription.end_date,
-          groupSessions: (activeSubscription as any)?.subscription_group_sessions || []
+          startDate: coveringSubscription.start_date,
+          endDate: coveringSubscription.end_date,
+          groupSessions: (coveringSubscription as any)?.subscription_group_sessions || []
         } : null
       },
       course: {

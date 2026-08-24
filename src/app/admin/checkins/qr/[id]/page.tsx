@@ -437,7 +437,7 @@ export default function CheckinQRPage() {
                       <div className="mt-4 p-3 rounded-lg border border-primary/30 bg-primary/10">
                         <h4 className="font-semibold text-foreground mb-2 flex items-center">
                           <CheckCircle className="w-4 h-4 mr-1 text-primary" />
-                          Active subscription
+                          Subscription for this course
                         </h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-muted-foreground">
                           <div>
@@ -473,9 +473,9 @@ export default function CheckinQRPage() {
                       <div className="mt-4 p-3 rounded-lg border border-chart-4/35 bg-chart-4/10">
                         <h4 className="font-semibold text-foreground mb-1 flex items-center">
                           <AlertTriangle className="w-4 h-4 mr-1 text-chart-4" />
-                          No active subscription
+                          No subscription for this course
                         </h4>
-                        <p className="text-muted-foreground text-sm">This member does not have an active subscription.</p>
+                        <p className="text-muted-foreground text-sm">No subscription covered this course date.</p>
                       </div>
                     )}
 
@@ -656,15 +656,17 @@ export default function CheckinQRPage() {
                 {/* Decision Factors */}
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center justify-between p-2 rounded-md border border-chart-4/20 bg-card/90">
-                    <span className="font-medium text-foreground">Valid subscription</span>
+                    <span className="font-medium text-foreground">Subscription for course date</span>
                     <Badge variant={checkinInfo.member?.activeSubscription ? 'default' : 'destructive'}>
                       {checkinInfo.member?.activeSubscription ? 'Yes' : 'No'}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between p-2 rounded-md border border-chart-4/20 bg-card/90">
-                    <span className="font-medium text-foreground">Sessions available</span>
-                    <Badge variant={(checkinInfo.member?.activeSubscription?.sessionsRemaining || 0) > 0 ? 'default' : 'destructive'}>
-                      {(checkinInfo.member?.activeSubscription?.sessionsRemaining || 0) > 0 ? 'Yes' : 'No'}
+                    <span className="font-medium text-foreground">Sessions remaining</span>
+                    <Badge variant="secondary">
+                      {checkinInfo.registration?.isGuestRegistration
+                        ? 'N/A (guest)'
+                        : (checkinInfo.member?.activeSubscription?.sessionsRemaining ?? 'N/A')}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between p-2 rounded-md border border-chart-4/20 bg-card/90">
@@ -822,7 +824,7 @@ export default function CheckinQRPage() {
               <div className="space-y-2">
               <Button 
                 onClick={checkIn} 
-                  disabled={checkInMutation.isPending || (!checkinInfo?.member?.activeSubscription && !checkinInfo?.registration?.isGuestRegistration) || ((checkinInfo.member?.activeSubscription?.sessionsRemaining || 0) <= 0 && !checkinInfo?.registration?.isGuestRegistration)}
+                  disabled={checkInMutation.isPending || (!checkinInfo?.member?.activeSubscription && !checkinInfo?.registration?.isGuestRegistration)}
                   className="w-full h-12 text-lg font-semibold"
                   size="lg"
               >
@@ -847,12 +849,7 @@ export default function CheckinQRPage() {
                 
                 {!checkinInfo?.member?.activeSubscription && !checkinInfo?.registration?.isGuestRegistration && (
                   <div className="text-center text-sm text-destructive bg-destructive/10 border border-destructive/20 p-2 rounded-md">
-                    Cannot check in: no active subscription.
-                  </div>
-                )}
-                {(checkinInfo?.member?.activeSubscription?.sessionsRemaining || 0) <= 0 && checkinInfo?.member?.activeSubscription && !checkinInfo?.registration?.isGuestRegistration && (
-                  <div className="text-center text-sm text-destructive bg-destructive/10 border border-destructive/20 p-2 rounded-md">
-                    Cannot check in: no sessions remaining.
+                    Cannot check in: no subscription covering this course date.
                   </div>
                 )}
               </div>
