@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { formatDateTime } from "@/lib/date";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 
 interface CheckinInfo {
   member: {
@@ -116,24 +117,23 @@ export default function CheckinQRPage() {
     trainer: false
   });
 
-  // Function to check if this is a late check-in
-  const isLateCheckin = (): boolean => {
+  /** Admin choice — detection only suggests; does not force late. */
+  const [markAsLate, setMarkAsLate] = useState(false);
+
+  const isPastCourseStart = (): boolean => {
     if (!checkinInfo?.course) return false;
     
     const now = new Date();
     const courseDate = new Date(checkinInfo.course.course_date);
     const [startHours, startMinutes] = checkinInfo.course.start_time.split(':').map(Number);
     
-    // Set the course start time
     const courseStartTime = new Date(courseDate);
     courseStartTime.setHours(startHours, startMinutes, 0, 0);
     
-    // Check if current time is after course start time
     return now > courseStartTime;
   };
 
-  // Function to get late check-in message
-  const getLateCheckinMessage = (): string => {
+  const getPastStartMessage = (): string => {
     if (!checkinInfo?.course) return '';
     
     const now = new Date();
@@ -147,11 +147,11 @@ export default function CheckinQRPage() {
     const diffMinutes = Math.floor(diffMs / (1000 * 60));
     
     if (diffMinutes < 60) {
-      return `${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''} late`;
+      return `${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''} after start`;
     } else {
       const diffHours = Math.floor(diffMinutes / 60);
       const remainingMinutes = diffMinutes % 60;
-      return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ${remainingMinutes > 0 ? `${remainingMinutes} minute${remainingMinutes !== 1 ? 's' : ''}` : ''} late`;
+      return `${diffHours} hour${diffHours !== 1 ? 's' : ''}${remainingMinutes > 0 ? ` ${remainingMinutes} minute${remainingMinutes !== 1 ? 's' : ''}` : ''} after start`;
     }
   };
 
@@ -192,6 +192,7 @@ export default function CheckinQRPage() {
 
   useEffect(() => {
     checkInSucceededRef.current = false;
+    setMarkAsLate(false);
   }, [qrCode]);
 
   useEffect(() => {
@@ -364,17 +365,27 @@ export default function CheckinQRPage() {
             </>
           )}
 
-          {/* Late Check-in Alert */}
-          {status === 'info' && checkinInfo && isLateCheckin() && !checkinInfo.alreadyCheckedIn && (
-            <Alert className="border-chart-4/40 bg-chart-4/10">
-              <AlertTriangle className="h-4 w-4 text-chart-4" />
-              <AlertDescription className="text-muted-foreground">
-                <strong className="text-foreground">Late check-in</strong>
-                <br />
-                This member is checking in <strong className="text-foreground">{getLateCheckinMessage()}</strong> after the class start time (
-                {checkinInfo.course.start_time}).
-                <br />
-                <span className="text-sm">The registration status will be updated to &apos;attended&apos; when validated.</span>
+          {/* Past start — admin chooses whether to mark late */}
+          {status === 'info' && checkinInfo && isPastCourseStart() && !checkinInfo.alreadyCheckedIn && (
+            <Alert className={markAsLate ? "border-chart-4/40 bg-chart-4/10" : "border-border bg-muted/40"}>
+              <AlertTriangle className={`h-4 w-4 ${markAsLate ? "text-chart-4" : "text-muted-foreground"}`} />
+              <AlertDescription className="text-muted-foreground space-y-3">
+                <div>
+                  <strong className="text-foreground">Past class start</strong>
+                  <br />
+                  Now is <strong className="text-foreground">{getPastStartMessage()}</strong> (
+                  {checkinInfo.course.start_time}).
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="mark-as-late"
+                    checked={markAsLate}
+                    onCheckedChange={(checked) => setMarkAsLate(!!checked)}
+                  />
+                  <Label htmlFor="mark-as-late" className="text-sm font-medium text-foreground cursor-pointer">
+                    Mark as late check-in
+                  </Label>
+                </div>
               </AlertDescription>
             </Alert>
           )}
@@ -504,7 +515,7 @@ export default function CheckinQRPage() {
               {/* Course Information - Collapsible */}
               <div
                 className={`rounded-lg border ${
-                  isLateCheckin()
+                  markAsLate
                     ? "border-destructive/40 bg-destructive/10"
                     : "border-primary/35 bg-primary/10"
                 }`}
@@ -513,22 +524,22 @@ export default function CheckinQRPage() {
                   type="button"
                   onClick={() => toggleSection('course')}
                   className={`w-full p-4 text-left flex items-center justify-between transition-colors rounded-t-lg ${
-                    isLateCheckin() ? "hover:bg-destructive/15" : "hover:bg-primary/18"
+                    markAsLate ? "hover:bg-destructive/15" : "hover:bg-primary/18"
                   }`}
                 >
                   <h3 className="font-medium flex items-center text-foreground">
-                  <Calendar className={`w-4 h-4 mr-2 ${isLateCheckin() ? "text-destructive" : "text-primary"}`} />
+                  <Calendar className={`w-4 h-4 mr-2 ${markAsLate ? "text-destructive" : "text-primary"}`} />
                   Course information
-                  {isLateCheckin() && (
+                  {markAsLate && (
                       <Badge variant="destructive" className="ml-2">
                       Late check-in
                       </Badge>
                     )}
                   </h3>
                   {expandedSections.course ? (
-                    <ChevronDown className={`w-4 h-4 ${isLateCheckin() ? "text-destructive" : "text-primary"}`} />
+                    <ChevronDown className={`w-4 h-4 ${markAsLate ? "text-destructive" : "text-primary"}`} />
                   ) : (
-                    <ChevronRight className={`w-4 h-4 ${isLateCheckin() ? "text-destructive" : "text-primary"}`} />
+                    <ChevronRight className={`w-4 h-4 ${markAsLate ? "text-destructive" : "text-primary"}`} />
                   )}
                 </button>
                 
