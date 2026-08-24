@@ -44,6 +44,7 @@ import {
   AlertCircle,
   Wallet,
   GraduationCap,
+  QrCode,
 } from "lucide-react";
 import { formatDate, formatSubscriptionPeriod, isSubscriptionActiveByEndDate } from "@/lib/date";
 import { formatCurrency } from "@/lib/config";
@@ -1221,13 +1222,25 @@ export default function MemberDetailsPage() {
                             </p>
                           )}
                         </div>
-                        <div className="text-right space-y-2">
+                        <div className="flex flex-col items-end gap-2">
                           <Badge variant={registration.status === 'confirmed' ? 'default' : 'secondary'}>
                             {registration.status}
                           </Badge>
-                          <p className="text-xs text-muted-foreground">
-                            QR: {registration.qr_code?.substring(0, 8)}...
-                          </p>
+                          {registration.qr_code && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                router.push(
+                                  `/admin/checkins/qr/${encodeURIComponent(registration.qr_code)}`
+                                )
+                              }
+                              className="h-8 w-8 p-0"
+                              title="Open QR Check-in Page"
+                            >
+                              <QrCode className="w-4 h-4" />
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </div>
