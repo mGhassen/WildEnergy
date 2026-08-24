@@ -1008,7 +1008,7 @@ export default function CourseDetailsPage() {
             setShowOtherMembers(false);
             setSearchTerm('');
             setSelectedMembers([]);
-            setMemberGroupSelections({});
+            setMemberSubscriptionSelections({});
           }
         }}
       >
