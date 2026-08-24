@@ -360,6 +360,17 @@ export function getDayName(dayNumber: number): string {
   return days[dayNumber] || 'Inconnu';
 }
 
+export function formatDaysOfWeek(days: number[] | null | undefined, fallbackDay?: number | null): string {
+  const list =
+    Array.isArray(days) && days.length
+      ? [...new Set(days)].sort((a, b) => a - b)
+      : fallbackDay != null
+        ? [fallbackDay]
+        : [];
+  if (!list.length) return 'Inconnu';
+  return list.map(getDayName).join(', ');
+}
+
 /**
  * Get short day name from day number (0 = dim, 1 = lun, etc.)
  */

@@ -70,8 +70,8 @@ export function mapScheduleToApi(data: ScheduleFormData, classes: any[] = []) {
   return {
     class_id: data.classId,
     trainer_id: data.trainerId && data.trainerId.trim() !== "" ? data.trainerId : "",
-    day_of_week: days[0] ?? data.daysOfWeek?.[0] ?? 1,
-    days_of_week: days.length ? days : undefined,
+    day_of_week: days[0] ?? null,
+    days_of_week: days.length ? days : null,
     start_time: data.startTime,
     end_time: data.endTime,
     max_participants: data.maxParticipants,

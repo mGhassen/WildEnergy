@@ -119,10 +119,23 @@ export async function POST(req: NextRequest) {
     }
     const scheduleData = await req.json();
     console.log('Received schedule data:', scheduleData);
-    
+
+    const daysOfWeek: number[] | null =
+      Array.isArray(scheduleData.days_of_week) && scheduleData.days_of_week.length
+        ? [...new Set((scheduleData.days_of_week as number[]).map(Number))].sort((a, b) => a - b)
+        : scheduleData.day_of_week != null
+          ? [Number(scheduleData.day_of_week)]
+          : null;
+
+    const payload = {
+      ...scheduleData,
+      days_of_week: daysOfWeek,
+      day_of_week: daysOfWeek?.[0] ?? scheduleData.day_of_week ?? null,
+    };
+
     const { data: schedule, error } = await supabaseServer()
       .from('schedules')
-      .insert(scheduleData)
+      .insert(payload)
       .select('*')
       .single();
     if (error) {

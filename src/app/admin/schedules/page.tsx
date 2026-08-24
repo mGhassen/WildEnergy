@@ -26,7 +26,7 @@ import { useSubscriptions } from "@/hooks/useSubscriptions";
 import { useTrainers } from "@/hooks/useTrainers";
 import { useCourses } from "@/hooks/useCourse";
 import { Plus, Search, Edit, Trash2, Calendar, Users, TrendingUp, RepeatIcon, Clock, MapPin, Activity, MoreHorizontal, Eye } from "lucide-react";
-import { getDayName, formatTime } from "@/lib/date";
+import { getDayName, formatDaysOfWeek, formatTime } from "@/lib/date";
 import { registrationStatusBlocksDelete } from "@/lib/course-delete-rules";
 import { assertScheduleDeletableWithAutoCancel } from "@/lib/course-delete-cleanup";
 import {
@@ -176,6 +176,9 @@ export default function AdminSchedules() {
             </div>
             <div className="text-xs text-muted-foreground">
               {getRepetitionLabel(repetitionType)}
+              {repetitionType === 'weekly' && (
+                <> · {formatDaysOfWeek(row.daysOfWeek, row.dayOfWeek)}</>
+              )}
             </div>
             {/* Date range based on repetition type */}
             {repetitionType === 'once' ? (
@@ -401,6 +404,9 @@ export default function AdminSchedules() {
     startDate: sch.start_date ? sch.start_date.split('T')[0] : "",
     endDate: sch.end_date ? sch.end_date.split('T')[0] : "",
     dayOfWeek: Number(sch.day_of_week) || 1,
+    daysOfWeek: Array.isArray(sch.days_of_week) && sch.days_of_week.length
+      ? sch.days_of_week.map(Number)
+      : [Number(sch.day_of_week) || 1],
     repetitionType: sch.repetition_type || "once",
     isActive: Boolean(sch.is_active),
     trainer: sch.trainer ? {
@@ -543,7 +549,7 @@ export default function AdminSchedules() {
   }, [updateScheduleMutation.isSuccess, form]);
 
   const filteredSchedules = schedules?.filter((schedule: any) =>
-    `${schedule.class?.name} ${schedule.trainer?.firstName} ${schedule.trainer?.lastName} ${getDayName(schedule.dayOfWeek)}`
+    `${schedule.class?.name} ${schedule.trainer?.firstName} ${schedule.trainer?.lastName} ${formatDaysOfWeek(schedule.daysOfWeek, schedule.dayOfWeek)}`
       .toLowerCase()
       .includes(searchTerm.toLowerCase())
   ) || [];
@@ -670,7 +676,9 @@ export default function AdminSchedules() {
     form.reset({
       classId: schedule.classId || 0,
       trainerId: schedule.trainerId || "",
-      daysOfWeek: [schedule.dayOfWeek || 1],
+      daysOfWeek: schedule.daysOfWeek?.length
+        ? schedule.daysOfWeek
+        : [schedule.dayOfWeek || 1],
       startTime: schedule.startTime || "",
       endTime: schedule.endTime || "",
       maxParticipants: schedule.maxParticipants || 10,
@@ -744,7 +752,7 @@ export default function AdminSchedules() {
                 </div>
                 <div className="flex items-center gap-1">
                   <Badge variant="outline" className="text-xs">
-                    {schedule.scheduleDate ? formatEuropeanDate(schedule.scheduleDate) : getDayName(schedule.dayOfWeek)}
+                    {schedule.scheduleDate ? formatEuropeanDate(schedule.scheduleDate) : formatDaysOfWeek(schedule.daysOfWeek, schedule.dayOfWeek)}
                   </Badge>
                   <span>{formatTime(schedule.startTime)}-{formatTime(schedule.endTime)}</span>
                   <span className="text-xs text-muted-foreground">

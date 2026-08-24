@@ -87,6 +87,7 @@ export async function GET(request: NextRequest) {
       startTime: schedule.start_time,
       endTime: schedule.end_time,
       dayOfWeek: schedule.day_of_week,
+      daysOfWeek: schedule.days_of_week ?? (schedule.day_of_week != null ? [schedule.day_of_week] : []),
       repetitionType: schedule.repetition_type,
       scheduleDate: schedule.schedule_date ? schedule.schedule_date.split('T')[0] : "",
       startDate: schedule.start_date ? schedule.start_date.split('T')[0] : "",
@@ -148,6 +149,13 @@ export async function PUT(request: NextRequest) {
 
     const body = await request.json();
 
+    const daysOfWeek: number[] | null =
+      Array.isArray(body.days_of_week) && body.days_of_week.length
+        ? [...new Set((body.days_of_week as number[]).map(Number))].sort((a, b) => a - b)
+        : body.day_of_week != null
+          ? [Number(body.day_of_week)]
+          : null;
+
     const { data: oldSchedule, error: scheduleError } = await supabaseServer()
       .from('schedules')
       .select(`
@@ -155,6 +163,7 @@ export async function PUT(request: NextRequest) {
         class_id,
         trainer_id,
         day_of_week,
+        days_of_week,
         start_time,
         end_time,
         max_participants,
@@ -195,7 +204,8 @@ export async function PUT(request: NextRequest) {
       .update({
         class_id: body.class_id,
         trainer_id: body.trainer_id,
-        day_of_week: body.day_of_week,
+        day_of_week: daysOfWeek?.[0] ?? body.day_of_week ?? null,
+        days_of_week: daysOfWeek,
         start_time: body.start_time,
         end_time: body.end_time,
         max_participants: body.max_participants,

@@ -44,7 +44,7 @@ import {
   UserX,
   BarChart3
 } from "lucide-react";
-import { getDayName, formatTime } from "@/lib/date";
+import { getDayName, formatDaysOfWeek, formatTime } from "@/lib/date";
 import {
   assertCourseDeletableWithAutoCancel,
   assertScheduleDeletableWithAutoCancel,
@@ -95,8 +95,8 @@ function mapScheduleToApi(data: ScheduleFormData) {
   return {
     class_id: Number(data.classId),
     trainer_id: data.trainerId && data.trainerId.trim() !== "" ? data.trainerId : null,
-    day_of_week: days[0] ?? data.daysOfWeek?.[0] ?? 1,
-    days_of_week: days.length ? days : undefined,
+    day_of_week: days[0] ?? null,
+    days_of_week: days.length ? days : null,
     start_time: data.startTime,
     end_time: data.endTime,
     max_participants: data.maxParticipants,
@@ -321,7 +321,9 @@ export default function ScheduleDetailsPage() {
     form.reset({
       classId: schedule.class_id || 0,
       trainerId: schedule.trainer_id || "",
-      daysOfWeek: [schedule.day_of_week ?? 1],
+      daysOfWeek: Array.isArray(schedule.days_of_week) && schedule.days_of_week.length
+        ? schedule.days_of_week.map(Number)
+        : [schedule.day_of_week ?? 1],
       startTime: schedule.start_time,
       endTime: schedule.end_time,
       maxParticipants:
@@ -674,7 +676,9 @@ export default function ScheduleDetailsPage() {
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-muted-foreground" />
                 <span className="text-sm text-foreground">
-                  {schedule.schedule_date ? formatEuropeanDate(schedule.schedule_date) : getDayName(schedule.day_of_week)}
+                  {schedule.schedule_date
+                    ? formatEuropeanDate(schedule.schedule_date)
+                    : formatDaysOfWeek(schedule.days_of_week, schedule.day_of_week)}
                 </span>
               </div>
               <div className="flex items-center gap-2">

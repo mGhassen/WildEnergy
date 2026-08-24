@@ -122,6 +122,7 @@ export const schedules = pgTable("schedules", {
   classId: integer("class_id").notNull().references(() => classes.id),
   trainerId: integer("trainer_id").notNull().references(() => trainers.id),
   dayOfWeek: integer("day_of_week"), // 0-6 (Sunday-Saturday), null for one-time
+  daysOfWeek: integer("days_of_week").array(), // multi-day weekly
   startTime: time("start_time").notNull(),
   endTime: time("end_time").notNull(),
   maxParticipants: integer("max_participants").notNull().default(10),

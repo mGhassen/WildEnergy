@@ -5,6 +5,7 @@ export type ScheduleTemplate = {
   class_id: number;
   trainer_id: string | null;
   day_of_week: number | null;
+  days_of_week?: number[] | null;
   start_time: string;
   end_time: string;
   max_participants: number | null;
@@ -13,6 +14,17 @@ export type ScheduleTemplate = {
   start_date?: string | null;
   end_date?: string | null;
 };
+
+export function resolveWeeklyDays(
+  schedule: Pick<ScheduleTemplate, 'day_of_week' | 'days_of_week'>,
+): number[] {
+  const fromArray = (schedule.days_of_week || []).filter((d) => d >= 0 && d <= 6);
+  if (fromArray.length) return [...new Set(fromArray)].sort((a, b) => a - b);
+  if (schedule.day_of_week !== null && schedule.day_of_week !== undefined) {
+    return [schedule.day_of_week];
+  }
+  return [];
+}
 
 export type CourseForSync = {
   id: number;
@@ -103,9 +115,11 @@ export function buildExpectedCourseDates(schedule: ScheduleTemplate): string[] {
   const start = new Date(`${startDate}T12:00:00`);
   const end = new Date(`${endDate}T12:00:00`);
 
+  const weeklyDays = resolveWeeklyDays(schedule);
+
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
     if (
-      (repetitionType === 'weekly' && d.getDay() === schedule.day_of_week) ||
+      (repetitionType === 'weekly' && weeklyDays.includes(d.getDay())) ||
       repetitionType === 'daily'
     ) {
       dates.push(d.toISOString().split('T')[0]);

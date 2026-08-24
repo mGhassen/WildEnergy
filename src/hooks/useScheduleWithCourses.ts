@@ -3,44 +3,23 @@ import { scheduleApi, CreateScheduleData, UpdateScheduleData } from '@/lib/api/s
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 
-function resolveScheduleDays(data: CreateScheduleData | UpdateScheduleData): number[] {
-  const fromArray = data.days_of_week?.filter((d) => d >= 0 && d <= 6) ?? [];
-  if (fromArray.length) return [...new Set(fromArray)].sort((a, b) => a - b);
-  if (data.day_of_week !== undefined && data.day_of_week !== null) return [data.day_of_week];
-  return [1];
-}
-
-async function generateCoursesForSchedule(scheduleId: number) {
-  try {
-    await apiRequest('POST', `/api/admin/schedules/${scheduleId}`);
-  } catch (err) {
-    console.error('Course generation failed:', err);
-  }
-}
-
 export function useCreateScheduleWithCourses() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   return useMutation({
     mutationFn: async (data: CreateScheduleData) => {
-      const { days_of_week: _days, ...base } = data;
-      const days =
-        data.repetition_type === 'weekly' ? resolveScheduleDays(data) : [data.day_of_week ?? 1];
+      const result = await scheduleApi.createSchedule(data);
 
-      const results = [];
-      for (const day of days) {
-        const result = await scheduleApi.createSchedule({
-          ...base,
-          day_of_week: day,
-        });
-        if (result?.id) {
-          await generateCoursesForSchedule(result.id);
+      if (result?.id) {
+        try {
+          await apiRequest('POST', `/api/admin/schedules/${result.id}`);
+        } catch (err) {
+          console.error('Course generation failed:', err);
         }
-        results.push(result);
       }
 
-      return results[0];
+      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['schedules'] });
@@ -66,45 +45,8 @@ export function useUpdateScheduleWithCourses() {
 
   return useMutation({
     mutationFn: async ({ scheduleId, data }: { scheduleId: number; data: UpdateScheduleData }) => {
-      const { days_of_week: _days, ...base } = data;
-      const days =
-        data.repetition_type === 'weekly' || data.days_of_week?.length
-          ? resolveScheduleDays(data)
-          : data.day_of_week !== undefined
-            ? [data.day_of_week]
-            : [];
-
-      const [primaryDay, ...extraDays] = days.length ? days : [data.day_of_week ?? 1];
-
       // PUT already syncs courses (update / add missing / skip protected). Do not POST again.
-      const result = await scheduleApi.updateSchedule(scheduleId, {
-        ...base,
-        day_of_week: primaryDay as number,
-      });
-
-      // Extra checked days → sibling schedules (same class/time/range)
-      if (data.repetition_type === 'weekly' && extraDays.length > 0) {
-        for (const day of extraDays) {
-          const created = await scheduleApi.createSchedule({
-            class_id: data.class_id!,
-            trainer_id: data.trainer_id || '',
-            day_of_week: day,
-            start_time: data.start_time!,
-            end_time: data.end_time!,
-            max_participants: data.max_participants!,
-            is_active: data.is_active,
-            repetition_type: data.repetition_type || 'weekly',
-            schedule_date: data.schedule_date ?? undefined,
-            start_date: data.start_date ?? undefined,
-            end_date: data.end_date ?? undefined,
-          });
-          if (created?.id) {
-            await generateCoursesForSchedule(created.id);
-          }
-        }
-      }
-
-      return result;
+      return scheduleApi.updateSchedule(scheduleId, data);
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['schedules'] });
@@ -149,7 +91,6 @@ export function useDeleteScheduleWithCourses() {
 
   return useMutation({
     mutationFn: async (scheduleId: number) => {
-      // Delete the schedule (this will also delete related courses)
       const result = await scheduleApi.deleteSchedule(scheduleId);
       return result;
     },

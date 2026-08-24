@@ -5,6 +5,7 @@ export interface Schedule {
   class_id: number;
   trainer_id: string; // Changed to string for UUID
   day_of_week: number;
+  days_of_week?: number[];
   start_time: string;
   end_time: string;
   max_participants: number;
@@ -35,9 +36,8 @@ export interface Schedule {
 export interface CreateScheduleData {
   class_id: number;
   trainer_id: string; // Changed to string for UUID
-  day_of_week: number;
-  /** When set (weekly), create one schedule per day */
-  days_of_week?: number[];
+  day_of_week: number | null;
+  days_of_week?: number[] | null;
   start_time: string;
   end_time: string;
   max_participants: number;
@@ -51,9 +51,8 @@ export interface CreateScheduleData {
 export interface UpdateScheduleData {
   class_id?: number;
   trainer_id?: string | null;
-  day_of_week?: number;
-  /** Extra days become additional schedules on update */
-  days_of_week?: number[];
+  day_of_week?: number | null;
+  days_of_week?: number[] | null;
   start_time?: string;
   end_time?: string;
   max_participants?: number;
@@ -74,13 +73,11 @@ export const scheduleApi = {
   },
 
   async createSchedule(data: CreateScheduleData): Promise<Schedule> {
-    const { days_of_week: _days, ...payload } = data;
-    return apiRequest('POST', '/api/admin/schedules', payload);
+    return apiRequest('POST', '/api/admin/schedules', data);
   },
 
   async updateSchedule(scheduleId: number, data: UpdateScheduleData): Promise<Schedule> {
-    const { days_of_week: _days, ...payload } = data;
-    return apiRequest('PUT', `/api/admin/schedules/${scheduleId}`, payload);
+    return apiRequest('PUT', `/api/admin/schedules/${scheduleId}`, data);
   },
 
   async deleteSchedule(scheduleId: number): Promise<void> {

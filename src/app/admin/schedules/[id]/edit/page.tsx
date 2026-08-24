@@ -63,6 +63,7 @@ export default function AdminEditSchedulePage() {
         class_id: schedule.class_id,
         trainer_id: schedule.trainer_id,
         day_of_week: schedule.day_of_week,
+        days_of_week: (schedule as any).days_of_week ?? null,
         start_time: schedule.start_time,
         end_time: schedule.end_time,
         max_participants: schedule.max_participants,
