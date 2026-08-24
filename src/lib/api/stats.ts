@@ -218,11 +218,36 @@ export type CustomQueryRequest = {
 
 export type CustomQueryResult = import('@/lib/stats/query-spec').QueryResultPayload;
 
+export type StatsBoardState = {
+  widgets: Array<{
+    id: string;
+    metricId: string;
+    params: Record<string, string>;
+    customQuery?: import('@/lib/stats/query-spec').CustomQuerySpec;
+  }>;
+  layouts: Array<{
+    i: string;
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    minW?: number;
+    minH?: number;
+    maxH?: number;
+  }>;
+};
+
 export const statsApi = {
   async getStats(filters: StatsFilters): Promise<AdminStatsResponse> {
     return apiRequest('GET', `/api/admin/stats?${toQuery(filters)}`);
   },
   async runCustomQuery(body: CustomQueryRequest): Promise<CustomQueryResult> {
     return apiRequest('POST', '/api/admin/stats/query', body);
+  },
+  async getBoard(tab: string): Promise<StatsBoardState> {
+    return apiRequest('GET', `/api/admin/stats/board?tab=${encodeURIComponent(tab)}`);
+  },
+  async saveBoard(tab: string, board: StatsBoardState): Promise<StatsBoardState> {
+    return apiRequest('PUT', `/api/admin/stats/board?tab=${encodeURIComponent(tab)}`, board);
   },
 };

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import GridLayout, { type Layout } from "react-grid-layout/legacy"
 import { useContainerWidth } from "react-grid-layout"
 import type { AdminStatsResponse } from "@/lib/api/stats"
+import { statsApi } from "@/lib/api/stats"
 import type { CustomQuerySpec } from "@/lib/stats/query-spec"
 import {
   CUSTOM_METRIC_ID,
@@ -24,6 +25,11 @@ import "react-grid-layout/css/styles.css"
 const COLS = 6
 const ROW_HEIGHT = 72
 const MARGIN: [number, number] = [12, 12]
+const PERSIST_DEBOUNCE_MS = 400
+
+function newWidgetId() {
+  return crypto.randomUUID()
+}
 
 function layoutForCustom(viz: CustomQuerySpec["viz"]): Pick<BoardLayoutItem, "w" | "h" | "maxH"> {
   if (viz === "kpi") return { w: 2, h: 2, maxH: 3 }
@@ -87,26 +93,70 @@ export function WidgetBoard({
   const [isAddWidgetOpen, setIsAddWidgetOpen] = useState(false)
   const boardTabRef = useRef(tab)
   const persistReadyRef = useRef(false)
+  const skipNextPersistRef = useRef(false)
+  const saveTimerRef = useRef<number | null>(null)
 
-  // Load board for the active tab; block saves until load finishes
   useEffect(() => {
     persistReadyRef.current = false
     boardTabRef.current = tab
-    setBoard(loadBoard(tab))
-    // Allow saves on next tick so we never persist a stale board under a new tab key
-    const id = window.setTimeout(() => {
-      persistReadyRef.current = true
-    }, 0)
+    skipNextPersistRef.current = true
+    setBoard(null)
+
+    let cancelled = false
+    ;(async () => {
+      try {
+        const remote = await statsApi.getBoard(tab)
+        if (cancelled || boardTabRef.current !== tab) return
+        skipNextPersistRef.current = true
+        setBoard(remote)
+        saveBoard(tab, remote)
+      } catch {
+        if (cancelled || boardTabRef.current !== tab) return
+        skipNextPersistRef.current = true
+        setBoard(loadBoard(tab))
+      } finally {
+        if (!cancelled && boardTabRef.current === tab) {
+          window.setTimeout(() => {
+            if (boardTabRef.current === tab) persistReadyRef.current = true
+          }, 0)
+        }
+      }
+    })()
+
     return () => {
-      window.clearTimeout(id)
+      cancelled = true
       persistReadyRef.current = false
+      if (saveTimerRef.current != null) {
+        window.clearTimeout(saveTimerRef.current)
+        saveTimerRef.current = null
+      }
     }
   }, [tab])
 
   useEffect(() => {
     if (!board || !persistReadyRef.current) return
     if (boardTabRef.current !== tab) return
+    if (skipNextPersistRef.current) {
+      skipNextPersistRef.current = false
+      return
+    }
+
     saveBoard(tab, board)
+
+    if (saveTimerRef.current != null) window.clearTimeout(saveTimerRef.current)
+    const snapshot = board
+    saveTimerRef.current = window.setTimeout(() => {
+      void statsApi.saveBoard(tab, snapshot).catch(() => {
+        // local cache already updated; retry on next change
+      })
+    }, PERSIST_DEBOUNCE_MS)
+
+    return () => {
+      if (saveTimerRef.current != null) {
+        window.clearTimeout(saveTimerRef.current)
+        saveTimerRef.current = null
+      }
+    }
   }, [board, tab])
 
   const applyLayout = useCallback((layout: Layout) => {
@@ -114,7 +164,6 @@ export function WidgetBoard({
     setBoard((prev) => {
       if (!prev) return prev
       if (sameLayout(prev.layouts, layout)) return prev
-      // Ignore partial layouts (e.g. unmount flicker) that would wipe the board
       if (layout.length < prev.layouts.length) return prev
       return {
         ...prev,
@@ -125,7 +174,6 @@ export function WidgetBoard({
 
   const onLayoutChange = useCallback(
     (layout: Layout) => {
-      // Ignore mount-time / compaction noise until persistence is armed
       if (!persistReadyRef.current) return
       applyLayout(layout)
     },
@@ -133,7 +181,7 @@ export function WidgetBoard({
   )
 
   const addTemplate = useCallback((metric: MetricDef) => {
-    const id = `${metric.id}__${Date.now().toString(36)}`
+    const id = newWidgetId()
     const isKpi = metric.viz === "kpi"
     setBoard((prev) => {
       if (!prev) return prev
@@ -161,7 +209,7 @@ export function WidgetBoard({
   }, [])
 
   const addCustom = useCallback((query: CustomQuerySpec) => {
-    const id = `${CUSTOM_METRIC_ID}__${Date.now().toString(36)}`
+    const id = newWidgetId()
     const size = layoutForCustom(query.viz)
     setBoard((prev) => {
       if (!prev) return prev

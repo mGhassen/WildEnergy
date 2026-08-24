@@ -927,18 +927,22 @@ function readStoredBoard(tab: StatsTab): BoardState | null {
     const raw = localStorage.getItem(key)
     if (!raw) continue
     try {
-      const parsed = JSON.parse(raw) as BoardState
-      if (!parsed?.widgets?.length || !parsed?.layouts?.length) continue
+      const parsed = JSON.parse(raw) as BoardState & { hydrated?: boolean }
+      if (!Array.isArray(parsed?.widgets) || !Array.isArray(parsed?.layouts)) continue
       const widgetIds = new Set(parsed.widgets.map((w) => w.id))
       const layouts = parsed.layouts.filter((l) => widgetIds.has(l.i))
-      if (layouts.length === 0) continue
+      // Empty board is valid once DB-hydrated (user cleared widgets)
+      if (layouts.length === 0 && parsed.widgets.length > 0) continue
+      if (layouts.length === 0 && !parsed.hydrated && parsed.widgets.length === 0) continue
       const normalized: BoardState = {
         widgets: parsed.widgets,
         layouts,
       }
-      // Migrate legacy keys forward
       if (key !== STORAGE_PREFIX + tab) {
-        localStorage.setItem(STORAGE_PREFIX + tab, JSON.stringify(normalized))
+        localStorage.setItem(
+          STORAGE_PREFIX + tab,
+          JSON.stringify({ ...normalized, hydrated: true }),
+        )
       }
       return normalized
     } catch {
@@ -948,6 +952,7 @@ function readStoredBoard(tab: StatsTab): BoardState | null {
   return null
 }
 
+/** Local cache only — source of truth is DB via /api/admin/stats/board */
 export function loadBoard(tab: StatsTab): BoardState {
   if (typeof window === "undefined") return defaultBoard(tab)
   try {
@@ -959,6 +964,8 @@ export function loadBoard(tab: StatsTab): BoardState {
 
 export function saveBoard(tab: StatsTab, state: BoardState) {
   if (typeof window === "undefined") return
-  if (!state.widgets.length || !state.layouts.length) return
-  localStorage.setItem(STORAGE_PREFIX + tab, JSON.stringify(state))
+  localStorage.setItem(
+    STORAGE_PREFIX + tab,
+    JSON.stringify({ ...state, hydrated: true }),
+  )
 }
