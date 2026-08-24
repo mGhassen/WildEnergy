@@ -282,9 +282,11 @@ export default function CourseDetailsPage() {
     (course as CourseDetails | undefined)?.class?.category?.group?.id ?? null;
 
   const defaultSubscriptionForMember = (member: any) => {
+    const courseDate = (course as CourseDetails | undefined)?.course_date;
+    if (!courseDate) return null;
     const picked = pickSubscriptionForCourse(
       member?.subscriptions,
-      (course as CourseDetails | undefined)?.course_date,
+      courseDate,
       courseGroupIdForSelection(),
     );
     return picked?.id ?? null;
