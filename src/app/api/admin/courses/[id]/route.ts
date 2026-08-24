@@ -381,7 +381,10 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid course ID' }, { status: 400 });
     }
 
-    const { memberIds, groupSelections = {} } = await req.json();
+    const {
+      memberIds,
+      subscriptionSelections = {},
+    } = await req.json();
     if (!Array.isArray(memberIds) || memberIds.length === 0) {
       return NextResponse.json({ error: 'Member IDs are required' }, { status: 400 });
     }
@@ -444,8 +447,9 @@ export async function POST(
 
     for (const memberId of newMemberIds) {
       try {
-        const isGuestRegistration = groupSelections[memberId] === -1;
-        
+        const selection = subscriptionSelections[memberId];
+        const isGuestRegistration = selection === -1;
+
         if (isGuestRegistration) {
           // Guest registration - create registration without session deduction
           const { data: registration, error: registrationError } = await supabaseServer()
@@ -501,8 +505,7 @@ export async function POST(
           });
 
         } else {
-          // Subscription valid on the course date (not "active today")
-          const preferredGroupId = groupSelections[memberId];
+          // Explicit sub id when chosen; otherwise auto-pick among covering usable subs
           const { data: memberSubscriptions, error: subsError } =
             await supabaseServer()
               .from('subscriptions')
@@ -535,14 +538,41 @@ export async function POST(
             continue;
           }
 
-          const coveringSubscription = pickSubscriptionForCourse(
-            memberSubscriptions || [],
-            course.course_date,
-            courseGroupId,
-            typeof preferredGroupId === 'number' && preferredGroupId > 0
-              ? preferredGroupId
-              : null,
-          );
+          let coveringSubscription = null as ReturnType<
+            typeof pickSubscriptionForCourse
+          >;
+
+          if (typeof selection === 'number' && selection > 0) {
+            const selected = (memberSubscriptions || []).find(
+              (s: any) => s.id === selection,
+            );
+            if (!selected) {
+              errors.push({
+                memberId,
+                error: 'Selected subscription not found for this member',
+              });
+              continue;
+            }
+            coveringSubscription = pickSubscriptionForCourse(
+              [selected],
+              course.course_date,
+              courseGroupId,
+            );
+            if (!coveringSubscription) {
+              errors.push({
+                memberId,
+                error:
+                  'Selected subscription does not cover this course or has no remaining sessions',
+              });
+              continue;
+            }
+          } else {
+            coveringSubscription = pickSubscriptionForCourse(
+              memberSubscriptions || [],
+              course.course_date,
+              courseGroupId,
+            );
+          }
 
           if (!coveringSubscription) {
             errors.push({

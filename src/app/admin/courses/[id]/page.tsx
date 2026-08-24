@@ -52,10 +52,11 @@ import {
   ChevronDown,
   X
 } from 'lucide-react';
-import { formatTime, formatDate } from '@/lib/date';
+import { formatTime, formatDate, formatDateRange } from '@/lib/date';
 import {
   memberCoversCourseOnDate,
-  subscriptionsCoveringCourseDate,
+  pickSubscriptionForCourse,
+  usableSubscriptionsForCourse,
 } from '@/lib/subscription-for-course';
 import {
   assertCourseDeletableWithAutoCancel,
@@ -253,7 +254,8 @@ export default function CourseDetailsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [expandedMembers, setExpandedMembers] = useState<Set<string>>(new Set());
-  const [memberGroupSelections, setMemberGroupSelections] = useState<Record<string, number>>({});
+  /** -1 = guest; >0 = subscription id. Auto-filled on select as default help. */
+  const [memberSubscriptionSelections, setMemberSubscriptionSelections] = useState<Record<string, number>>({});
   const [memberManagementOpen, setMemberManagementOpen] = useState(false);
   const [showOtherMembers, setShowOtherMembers] = useState(false);
   const courseId = params.id as string;
@@ -276,14 +278,38 @@ export default function CourseDetailsPage() {
   const addMembersToCourseMutation = useAddMembersToCourse();
   const cancelRegistrationMutation = useAdminCancelRegistration();
 
+  const courseGroupIdForSelection = () =>
+    (course as CourseDetails | undefined)?.class?.category?.group?.id ?? null;
+
+  const defaultSubscriptionForMember = (member: any) => {
+    const picked = pickSubscriptionForCourse(
+      member?.subscriptions,
+      (course as CourseDetails | undefined)?.course_date,
+      courseGroupIdForSelection(),
+    );
+    return picked?.id ?? null;
+  };
 
   // Member management functions
   const handleMemberSelect = (memberId: string) => {
-    setSelectedMembers(prev => 
-      prev.includes(memberId) 
-        ? prev.filter(id => id !== memberId)
-        : [...prev, memberId]
-    );
+    setSelectedMembers((prev) => {
+      if (prev.includes(memberId)) {
+        setMemberSubscriptionSelections((sels) => {
+          const next = { ...sels };
+          delete next[memberId];
+          return next;
+        });
+        return prev.filter((id) => id !== memberId);
+      }
+      const member = allMembers.find((m: any) => m.id === memberId);
+      const defaultSubId = defaultSubscriptionForMember(member);
+      setMemberSubscriptionSelections((sels) => ({
+        ...sels,
+        // No usable sub → guest; otherwise default pick as help
+        [memberId]: defaultSubId ?? -1,
+      }));
+      return [...prev, memberId];
+    });
   };
 
   const handleMemberExpand = (memberId: string) => {
@@ -299,33 +325,27 @@ export default function CourseDetailsPage() {
   };
 
   const handleAddMembers = () => {
-    const coveringIdsFor = (member: any) =>
-      new Set(
-        subscriptionsCoveringCourseDate(
-          member?.subscriptions,
-          courseData.course_date,
-        ).map((s) => s.id),
-      );
-
-    // Dedicated group sessions on a covering sub need an explicit group/guest pick
+    const courseDate = (course as CourseDetails | undefined)?.course_date;
     const membersNeedingSelection = selectedMembers.filter((memberId) => {
       const member = allMembers.find((m: any) => m.id === memberId);
-      if (!member) return false;
-      const coveringIds = coveringIdsFor(member);
-      return (member.groupSessions || []).some(
-        (gs: any) =>
-          coveringIds.has(gs.subscription_id) && gs.sessions_remaining > 0,
+      if (!member || !courseDate) return false;
+      return (
+        usableSubscriptionsForCourse(
+          member.subscriptions,
+          courseDate,
+          courseGroupIdForSelection(),
+        ).length > 0
       );
     });
 
     const membersWithoutSelection = membersNeedingSelection.filter(
-      (memberId) => !memberGroupSelections[memberId],
+      (memberId) => !memberSubscriptionSelections[memberId],
     );
 
     if (membersWithoutSelection.length > 0) {
       toast({
         title: 'Registration Selection Required',
-        description: `Please select either a subscription group or guest registration for ${membersWithoutSelection.length} member(s) with subscriptions covering this course.`,
+        description: `Please select a subscription or guest registration for ${membersWithoutSelection.length} member(s) with subscriptions covering this course.`,
         variant: 'destructive',
       });
       return;
@@ -341,7 +361,7 @@ export default function CourseDetailsPage() {
       courseId: course.id,
       data: { 
         memberIds: selectedMembers,
-        groupSelections: memberGroupSelections
+        subscriptionSelections: memberSubscriptionSelections,
       }
     }, {
       onSuccess: (result) => {
@@ -351,7 +371,7 @@ export default function CourseDetailsPage() {
         });
         setMemberManagementOpen(false);
         setSelectedMembers([]);
-        setMemberGroupSelections({});
+        setMemberSubscriptionSelections({});
       },
       onError: (error: any) => {
         console.error('Error adding members:', error);
@@ -387,11 +407,22 @@ export default function CourseDetailsPage() {
   };
 
   const handleSelectAll = () => {
-    setSelectedMembers(getFilteredMembers().map((member: any) => member.id));
+    const members = getFilteredMembers();
+    setSelectedMembers(members.map((member: any) => member.id));
+    setMemberSubscriptionSelections((prev) => {
+      const next = { ...prev };
+      for (const member of members) {
+        if (next[member.id]) continue;
+        const defaultSubId = defaultSubscriptionForMember(member);
+        next[member.id] = defaultSubId ?? -1;
+      }
+      return next;
+    });
   };
 
   const handleDeselectAll = () => {
     setSelectedMembers([]);
+    setMemberSubscriptionSelections({});
   };
 
   // Handle QR button click - navigate to QR check-in page
@@ -1061,36 +1092,31 @@ export default function CourseDetailsPage() {
               ) : (
                 getFilteredMembers().map((member: any) => {
                   const courseGroupId = courseData?.class?.category?.group?.id;
-                  const coveringIds = new Set(
-                    subscriptionsCoveringCourseDate(
-                      member.subscriptions,
-                      courseData.course_date,
-                    ).map((s) => s.id),
-                  );
-                  const groupSession = member.groupSessions?.find(
-                    (gs: any) =>
-                      gs.group_id === courseGroupId &&
-                      coveringIds.has(gs.subscription_id),
-                  );
-                  const poolSession = (member.poolSessions || []).find(
-                    (ps: any) =>
-                      (ps.group_ids || []).includes(courseGroupId) &&
-                      coveringIds.has(ps.subscription_id),
+                  const usableSubs = usableSubscriptionsForCourse(
+                    member.subscriptions,
+                    courseData.course_date,
+                    courseGroupId,
                   );
                   const remainingSessions =
-                    (groupSession?.sessions_remaining || 0) +
-                    (poolSession?.sessions_remaining || 0);
-                  const totalSessions =
-                    (groupSession?.total_sessions || 0) +
-                    (poolSession?.total_sessions || 0);
+                    usableSubs.reduce((sum, sub) => {
+                      const gs = (member.groupSessions || []).find(
+                        (g: any) =>
+                          g.subscription_id === sub.id &&
+                          g.group_id === courseGroupId,
+                      );
+                      const ps = (member.poolSessions || []).find(
+                        (p: any) =>
+                          p.subscription_id === sub.id &&
+                          (p.group_ids || []).includes(courseGroupId),
+                      );
+                      return (
+                        sum +
+                        (gs?.sessions_remaining || 0) +
+                        (ps?.sessions_remaining || 0)
+                      );
+                    }, 0);
                   const isExpanded = expandedMembers.has(member.id);
-                  const hasSubscriptions =
-                    (member.groupSessions || []).some((gs: any) =>
-                      coveringIds.has(gs.subscription_id),
-                    ) ||
-                    (member.poolSessions || []).some((ps: any) =>
-                      coveringIds.has(ps.subscription_id),
-                    );
+                  const hasUsableSubscriptions = usableSubs.length > 0;
                   
                   return (
                     <div
@@ -1106,6 +1132,7 @@ export default function CourseDetailsPage() {
                           <Checkbox
                             checked={selectedMembers.includes(member.id)}
                             onCheckedChange={() => handleMemberSelect(member.id)}
+                            onClick={(e) => e.stopPropagation()}
                           />
                           <Avatar>
                             <AvatarFallback>
@@ -1120,13 +1147,14 @@ export default function CourseDetailsPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          {/* Simple remaining sessions display */}
                           <div className="text-right">
                             <div className="text-sm font-medium">
                               {remainingSessions > 0 ? `${remainingSessions} sessions left` : 'No sessions'}
                             </div>
                             <div className="text-xs text-muted-foreground">
-                              {totalSessions > 0 ? `of ${totalSessions} total` : 'No subscription'}
+                              {hasUsableSubscriptions
+                                ? `${usableSubs.length} subscription${usableSubs.length !== 1 ? 's' : ''} usable`
+                                : 'No subscription'}
                             </div>
                           </div>
                           <Badge variant="outline" className="text-xs">
@@ -1149,7 +1177,6 @@ export default function CourseDetailsPage() {
                       {/* Expanded Member Details */}
                       {isExpanded && (
                         <div className="border-t bg-muted/20 p-4 space-y-4">
-                          {/* Member Info */}
                           <div className="grid grid-cols-2 gap-4 text-sm">
                             <div>
                               <span className="font-medium">Phone:</span> {member.phone || 'Not provided'}
@@ -1159,99 +1186,116 @@ export default function CourseDetailsPage() {
                             </div>
                           </div>
 
-                          {/* Registration Options */}
                           <div className="space-y-3">
-                            {/* Guest Registration Option */}
                             <div className="flex items-center space-x-2 p-3 border rounded-lg bg-blue-50 border-blue-200">
                               <Checkbox
                                 id={`guest-${member.id}`}
-                                checked={memberGroupSelections[member.id] === -1}
+                                checked={memberSubscriptionSelections[member.id] === -1}
                                 onCheckedChange={(checked) => {
                                   if (checked) {
-                                    setMemberGroupSelections(prev => ({
+                                    setMemberSubscriptionSelections((prev) => ({
                                       ...prev,
-                                      [member.id]: -1 // -1 indicates guest registration
+                                      [member.id]: -1,
                                     }));
                                   } else {
-                                    setMemberGroupSelections(prev => {
-                                      const newSelections = { ...prev };
-                                      delete newSelections[member.id];
-                                      return newSelections;
+                                    const defaultSubId = defaultSubscriptionForMember(member);
+                                    setMemberSubscriptionSelections((prev) => {
+                                      const next = { ...prev };
+                                      if (defaultSubId != null) next[member.id] = defaultSubId;
+                                      else delete next[member.id];
+                                      return next;
                                     });
                                   }
                                 }}
                               />
-                              <label 
+                              <label
                                 htmlFor={`guest-${member.id}`}
                                 className="flex-1 cursor-pointer"
                               >
                                 <div>
                                   <h5 className="font-medium text-sm text-blue-800">Register as Guest</h5>
                                   <p className="text-xs text-blue-600">
-                                    Register this member as a free guest (no subscription sessions will be used)
+                                    Free guest — no subscription sessions used
                                   </p>
                                 </div>
                               </label>
                             </div>
 
-                            {/* Subscription Groups Selection */}
-                            {hasSubscriptions && (
+                            {hasUsableSubscriptions && (
                               <div className="space-y-3">
                                 <div className="flex items-center gap-2">
                                   <Users className="w-4 h-4" />
-                                  <span className="font-medium text-sm">Or Select Subscription Group:</span>
+                                  <span className="font-medium text-sm">
+                                    Or select subscription:
+                                  </span>
                                 </div>
                                 <RadioGroup
-                                  value={memberGroupSelections[member.id] > 0 ? memberGroupSelections[member.id]?.toString() : ''}
+                                  value={
+                                    memberSubscriptionSelections[member.id] > 0
+                                      ? memberSubscriptionSelections[member.id]?.toString()
+                                      : ''
+                                  }
                                   onValueChange={(value) => {
-                                    setMemberGroupSelections(prev => ({
+                                    setMemberSubscriptionSelections((prev) => ({
                                       ...prev,
-                                      [member.id]: parseInt(value)
+                                      [member.id]: parseInt(value),
                                     }));
                                   }}
                                   className="space-y-2"
                                 >
-                                  {member.groupSessions?.filter((gs: any) => coveringIds.has(gs.subscription_id)).map((groupSession: any) => (
-                                    <div 
-                                      key={`${member.id}-${groupSession.group_id}`}
-                                      className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-muted/50 transition-colors"
-                                    >
-                                      <RadioGroupItem 
-                                        value={groupSession.group_id.toString()} 
-                                        id={`${member.id}-${groupSession.group_id}`}
-                                      />
-                                      <label 
-                                        htmlFor={`${member.id}-${groupSession.group_id}`}
-                                        className="flex-1 cursor-pointer"
+                                  {usableSubs.map((sub: any) => {
+                                    const dedicated = (member.groupSessions || []).find(
+                                      (gs: any) =>
+                                        gs.subscription_id === sub.id &&
+                                        gs.group_id === courseGroupId,
+                                    );
+                                    const pools = (member.poolSessions || []).filter(
+                                      (ps: any) =>
+                                        ps.subscription_id === sub.id &&
+                                        (ps.group_ids || []).includes(courseGroupId) &&
+                                        ps.sessions_remaining > 0,
+                                    );
+                                    return (
+                                      <div
+                                        key={`${member.id}-sub-${sub.id}`}
+                                        className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-muted/50 transition-colors"
                                       >
-                                        <div>
-                                          <h5 className="font-medium text-sm">{groupSession.group_name}</h5>
+                                        <RadioGroupItem
+                                          value={sub.id.toString()}
+                                          id={`${member.id}-sub-${sub.id}`}
+                                        />
+                                        <label
+                                          htmlFor={`${member.id}-sub-${sub.id}`}
+                                          className="flex-1 cursor-pointer"
+                                        >
+                                          <h5 className="font-medium text-sm">
+                                            Subscription #{sub.id}
+                                          </h5>
                                           <p className="text-xs text-muted-foreground">
-                                            {groupSession.sessions_remaining} sessions remaining of {groupSession.total_sessions} total
+                                            {formatDateRange(sub.start_date, sub.end_date)}
+                                            {sub.status ? ` · ${sub.status}` : ''}
                                           </p>
-                                        </div>
-                                      </label>
-                                    </div>
-                                  ))}
-                                  {(member.poolSessions || []).filter((ps: any) => coveringIds.has(ps.subscription_id)).map((poolSession: any) => (
-                                    <div
-                                      key={`${member.id}-pool-${poolSession.pool_id}`}
-                                      className="flex items-center space-x-3 p-3 border rounded-lg bg-muted/30"
-                                    >
-                                      <div className="flex-1">
-                                        <h5 className="font-medium text-sm">
-                                          Session pool
-                                          {poolSession.group_names?.length
-                                            ? ` (${poolSession.group_names.join(', ')})`
-                                            : ''}
-                                        </h5>
-                                        <p className="text-xs text-muted-foreground">
-                                          {poolSession.sessions_remaining} sessions remaining of {poolSession.total_sessions} total
-                                          {' · '}auto-used on register
-                                        </p>
+                                          {dedicated && (
+                                            <p className="text-xs text-muted-foreground mt-0.5">
+                                              {dedicated.group_name}: {dedicated.sessions_remaining}/{dedicated.total_sessions} dedicated
+                                            </p>
+                                          )}
+                                          {pools.map((poolSession: any) => (
+                                            <p
+                                              key={`${sub.id}-pool-${poolSession.pool_id}`}
+                                              className="text-xs text-muted-foreground mt-0.5"
+                                            >
+                                              Pool
+                                              {poolSession.group_names?.length
+                                                ? ` (${poolSession.group_names.join(', ')})`
+                                                : ''}
+                                              : {poolSession.sessions_remaining}/{poolSession.total_sessions}
+                                            </p>
+                                          ))}
+                                        </label>
                                       </div>
-                                    </div>
-                                  ))}
+                                    );
+                                  })}
                                 </RadioGroup>
                               </div>
                             )}
@@ -1274,45 +1318,44 @@ export default function CourseDetailsPage() {
                   Will be added to the course
                 </p>
                 {(() => {
-                  const membersWithSubscriptions = selectedMembers.filter(memberId => {
+                  const membersWithUsableSubs = selectedMembers.filter((memberId) => {
                     const member = allMembers.find((m: any) => m.id === memberId);
                     return (
-                      (member?.groupSessions && member.groupSessions.length > 0) ||
-                      (member?.poolSessions && member.poolSessions.length > 0)
+                      usableSubscriptionsForCourse(
+                        member?.subscriptions,
+                        courseData.course_date,
+                        getCourseGroupId(),
+                      ).length > 0
                     );
                   });
 
-                  const membersNeedingSelection = selectedMembers.filter(memberId => {
-                    const member = allMembers.find((m: any) => m.id === memberId);
-                    return member?.groupSessions && member.groupSessions.length > 0;
-                  });
-                  
-                  const membersWithoutSelection = membersNeedingSelection.filter(memberId => 
-                    !memberGroupSelections[memberId]
+                  const membersWithoutSelection = membersWithUsableSubs.filter(
+                    (memberId) => !memberSubscriptionSelections[memberId],
                   );
-                  
-                  const guestMembers = membersWithSubscriptions.filter(memberId =>
-                    memberGroupSelections[memberId] === -1
+
+                  const guestMembers = selectedMembers.filter(
+                    (memberId) => memberSubscriptionSelections[memberId] === -1,
                   );
-                  
-                  const subscriptionMembers = membersWithSubscriptions.filter(memberId =>
-                    (memberGroupSelections[memberId] && memberGroupSelections[memberId] > 0) ||
-                    (!memberGroupSelections[memberId] &&
-                      !(allMembers.find((m: any) => m.id === memberId)?.groupSessions?.length))
+
+                  const subscriptionMembers = selectedMembers.filter(
+                    (memberId) =>
+                      (memberSubscriptionSelections[memberId] ?? 0) > 0,
                   );
-                  
-                  if (membersWithSubscriptions.length > 0) {
+
+                  if (membersWithUsableSubs.length > 0) {
                     return (
                       <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
                         <p className="text-xs text-blue-800">
-                          ℹ️ <strong>Note:</strong> {membersWithSubscriptions.length} member{membersWithSubscriptions.length !== 1 ? 's have' : ' has'} subscription{membersWithSubscriptions.length !== 1 ? 's' : ''} with sessions.
+                          {membersWithUsableSubs.length} member
+                          {membersWithUsableSubs.length !== 1 ? 's have' : ' has'} usable
+                          subscription{membersWithUsableSubs.length !== 1 ? 's' : ''}.
                           {membersWithoutSelection.length > 0 ? (
                             <span className="block mt-1 text-red-600">
-                              ⚠️ {membersWithoutSelection.length} member{membersWithoutSelection.length !== 1 ? 's need' : ' needs'} registration selection. Click on the member{membersWithoutSelection.length !== 1 ? 's' : ''} to expand and select group or guest registration.
+                              {membersWithoutSelection.length} need a subscription or guest pick — expand to choose.
                             </span>
                           ) : (
                             <span className="block mt-1 text-green-600">
-                              ✅ Ready: {subscriptionMembers.length} using subscription{subscriptionMembers.length !== 1 ? 's' : ''}, {guestMembers.length} as guest{guestMembers.length !== 1 ? 's' : ''}.
+                              Ready: {subscriptionMembers.length} via subscription, {guestMembers.length} as guest.
                             </span>
                           )}
                         </p>
@@ -1322,7 +1365,7 @@ export default function CourseDetailsPage() {
                     return (
                       <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-md">
                         <p className="text-xs text-green-800">
-                          ✅ All selected members will be added as free guests (no subscription sessions).
+                          All selected members will be added as free guests (no subscription sessions).
                         </p>
                       </div>
                     );

@@ -69,25 +69,38 @@ export function subscriptionHasRemainingForGroup(
   });
 }
 
-/** Pick sub covering course date with remaining sessions for that group. */
+/** Covering subs with remaining sessions for the course group (dedicated or pool). */
+export function usableSubscriptionsForCourse<T extends SubscriptionLike>(
+  subscriptions: T[] | null | undefined,
+  courseDate: string | Date,
+  courseGroupId: number | null | undefined,
+): T[] {
+  const covering = subscriptionsCoveringCourseDate(subscriptions, courseDate);
+  if (courseGroupId == null) return [];
+  return covering.filter((s) =>
+    subscriptionHasRemainingForGroup(s, courseGroupId),
+  );
+}
+
+/** Default pick among usable covering subs — help only, not mandatory. */
 export function pickSubscriptionForCourse(
   subscriptions: SubscriptionLike[] | null | undefined,
   courseDate: string | Date,
   courseGroupId: number | null | undefined,
   preferredGroupId?: number | null,
 ): SubscriptionLike | null {
-  const covering = subscriptionsCoveringCourseDate(subscriptions, courseDate);
-  if (covering.length === 0) return null;
-
   const groupId =
     preferredGroupId && preferredGroupId > 0 ? preferredGroupId : courseGroupId;
 
-  if (groupId != null) {
-    return (
-      covering.find((s) => subscriptionHasRemainingForGroup(s, groupId)) ?? null
-    );
-  }
+  const usable = usableSubscriptionsForCourse(
+    subscriptions,
+    courseDate,
+    groupId,
+  );
+  if (usable.length > 0) return usable[0];
 
+  // No group match: fall back to any covering sub with remaining sessions
+  const covering = subscriptionsCoveringCourseDate(subscriptions, courseDate);
   return (
     covering.find(
       (s) =>

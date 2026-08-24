@@ -11,7 +11,8 @@ import { SessionData } from './auth';
 
 export interface AddMembersToCourseRequest {
   memberIds: string[];
-  groupSelections?: Record<string, number>;
+  /** -1 = guest; >0 = subscription id. Auto-pick used only when omitted. */
+  subscriptionSelections?: Record<string, number>;
 }
 
 export interface AddMembersToCourseResponse {
