@@ -715,7 +715,7 @@ export default function MemberDetailsPage() {
                 <Carousel
                   setApi={setSubscriptionCarouselApi}
                   opts={{ align: 'start', loop: featuredSubscriptions.length > 1 }}
-                  className="w-full"
+                  className={`w-full ${featuredSubscriptions.length > 1 ? 'px-8' : ''}`}
                 >
                   <CarouselContent className="-ml-0">
                     {featuredSubscriptions.map((subscription) => (
@@ -758,14 +758,8 @@ export default function MemberDetailsPage() {
                   </CarouselContent>
                   {featuredSubscriptions.length > 1 && (
                     <>
-                      <CarouselPrevious
-                        className="left-1 top-1/2 h-7 w-7 -translate-y-1/2 border bg-background/90 shadow-sm"
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                      <CarouselNext
-                        className="right-1 top-1/2 h-7 w-7 -translate-y-1/2 border bg-background/90 shadow-sm"
-                        onClick={(e) => e.stopPropagation()}
-                      />
+                      <CarouselPrevious className="left-0 top-1/2 h-7 w-7 -translate-y-1/2 border bg-background/90 shadow-sm" />
+                      <CarouselNext className="right-0 top-1/2 h-7 w-7 -translate-y-1/2 border bg-background/90 shadow-sm" />
                     </>
                   )}
                 </Carousel>
