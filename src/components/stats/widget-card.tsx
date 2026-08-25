@@ -436,7 +436,7 @@ export function WidgetCard({
   onUpdateCustom?: (query: CustomQuerySpec) => void
   onRemove: () => void
 }) {
-  const isCustom = widget.metricId === CUSTOM_METRIC_ID && !!widget.customQuery
+  const isCustom = widget.metricId === CUSTOM_METRIC_ID
   const [editOpen, setEditOpen] = useState(false)
 
   const customQuery = useQuery({
@@ -448,7 +448,7 @@ export function WidgetCard({
         to,
         compare,
       }),
-    enabled: isCustom,
+    enabled: isCustom && !!widget.customQuery,
     staleTime: 30_000,
   })
 
@@ -459,9 +459,11 @@ export function WidgetCard({
   }, [metric, data, widget.params, isCustom])
 
   if (isCustom) {
-    const q = widget.customQuery!
+    const q = widget.customQuery
     const payload = customQuery.data ? customResultToPayload(customQuery.data) : null
-    const description = `${q.base}${q.joins.length ? ` · ${q.joins.length} join(s)` : ""}${q.union ? " · union" : ""}`
+    const description = q
+      ? `${q.base}${q.joins.length ? ` · ${q.joins.length} join(s)` : ""}${q.union ? " · union" : ""}`
+      : "Missing formula"
 
     return (
       <>
@@ -475,27 +477,29 @@ export function WidgetCard({
               <GripVertical className="h-4 w-4" />
             </button>
             <div className="min-w-0 flex-1">
-              <CardTitle className="truncate text-sm font-semibold">{q.name}</CardTitle>
+              <CardTitle className="truncate text-sm font-semibold">
+                {q?.name || "Custom stat"}
+              </CardTitle>
               <p className="truncate text-[10px] uppercase tracking-wide text-muted-foreground">
-                Custom · {q.viz}
+                Custom · {q?.viz || "—"}
               </p>
             </div>
-            <div className="flex shrink-0 items-center gap-1">
+            <div className="flex shrink-0 items-center gap-0.5">
               <Button
                 type="button"
-                size="icon"
+                size="sm"
                 variant="ghost"
-                className="h-7 w-7 opacity-0 text-muted-foreground transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100"
+                className="h-7 gap-1 px-2 text-xs text-muted-foreground"
                 onClick={() => setEditOpen(true)}
-                aria-label="Edit custom stat"
               >
                 <Pencil className="h-3.5 w-3.5" />
+                Edit
               </Button>
               <Button
                 type="button"
                 size="icon"
                 variant="ghost"
-                className="h-7 w-7 opacity-0 text-muted-foreground transition-opacity hover:text-destructive group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100"
+                className="h-7 w-7 text-muted-foreground hover:text-destructive"
                 onClick={onRemove}
                 aria-label="Remove widget"
               >
@@ -504,7 +508,11 @@ export function WidgetCard({
             </div>
           </CardHeader>
           <CardContent className="min-h-0 flex-1 p-3">
-            {customQuery.isLoading ? (
+            {!q ? (
+              <div className="text-xs text-muted-foreground">
+                No formula — click Edit to define one
+              </div>
+            ) : customQuery.isLoading ? (
               <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
                 Loading…
               </div>
@@ -523,22 +531,25 @@ export function WidgetCard({
           </CardContent>
         </Card>
         <Dialog open={editOpen} onOpenChange={setEditOpen}>
-          <DialogContent className="max-w-xl">
+          <DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Edit custom stat</DialogTitle>
+              <DialogTitle>Edit custom formula</DialogTitle>
             </DialogHeader>
-            <CustomStatWizard
-              from={from}
-              to={to}
-              compare={compare}
-              initial={q}
-              submitLabel="Save"
-              onCancel={() => setEditOpen(false)}
-              onSubmit={(next) => {
-                onUpdateCustom?.(next)
-                setEditOpen(false)
-              }}
-            />
+            {editOpen ? (
+              <CustomStatWizard
+                key={widget.id}
+                from={from}
+                to={to}
+                compare={compare}
+                initial={q}
+                submitLabel="Save"
+                onCancel={() => setEditOpen(false)}
+                onSubmit={(next) => {
+                  onUpdateCustom?.(next)
+                  setEditOpen(false)
+                }}
+              />
+            ) : null}
           </DialogContent>
         </Dialog>
       </>
