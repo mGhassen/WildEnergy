@@ -351,6 +351,7 @@ export function WidgetBoard({
                   to={to}
                   onChangeParams={(params) => changeParams(widget.id, params)}
                   onUpdateCustom={(query) => updateCustom(widget.id, query)}
+                  onAddCustom={addCustom}
                   onRemove={() => removeWidget(widget.id)}
                 />
               </div>

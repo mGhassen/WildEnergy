@@ -425,6 +425,7 @@ export function WidgetCard({
   to,
   onChangeParams,
   onUpdateCustom,
+  onAddCustom,
   onRemove,
 }: {
   widget: BoardWidget
@@ -434,6 +435,7 @@ export function WidgetCard({
   to: string
   onChangeParams: (params: Record<string, string>) => void
   onUpdateCustom?: (query: CustomQuerySpec) => void
+  onAddCustom?: (query: CustomQuerySpec) => void
   onRemove: () => void
 }) {
   const isCustom = widget.metricId === CUSTOM_METRIC_ID
@@ -574,60 +576,94 @@ export function WidgetCard({
   const title = "title" in templatePayload ? templatePayload.title : metric.label
 
   return (
-    <Card className="group flex h-full flex-col overflow-hidden shadow-none">
-      <CardHeader className="flex flex-row items-start gap-2 space-y-0 border-b px-3 py-2">
-        <button
-          type="button"
-          className="drag-handle mt-0.5 cursor-grab opacity-0 text-muted-foreground transition-opacity active:cursor-grabbing group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100"
-          aria-label="Drag widget"
-        >
-          <GripVertical className="h-4 w-4" />
-        </button>
-        <div className="min-w-0 flex-1">
-          <CardTitle className="truncate text-sm font-semibold">{title}</CardTitle>
-          <p className="truncate text-[10px] uppercase tracking-wide text-muted-foreground">
-            {metric.object}
-          </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-1">
-          {(metric.params || []).map((p) => (
-            <Select
-              key={p.key}
-              value={widget.params[p.key] ?? p.defaultValue}
-              onValueChange={(v) => onChangeParams({ ...widget.params, [p.key]: v })}
-            >
-              <SelectTrigger className="h-7 w-[110px] text-[11px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {p.options.map((o) => (
-                  <SelectItem key={o.value} value={o.value} className="text-xs">
-                    {o.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ))}
-          <Button
+    <>
+      <Card className="group flex h-full flex-col overflow-hidden shadow-none">
+        <CardHeader className="flex flex-row items-start gap-2 space-y-0 border-b px-3 py-2">
+          <button
             type="button"
-            size="icon"
-            variant="ghost"
-            className="h-7 w-7 opacity-0 text-muted-foreground transition-opacity hover:text-destructive group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100"
-            onClick={onRemove}
-            aria-label="Remove widget"
+            className="drag-handle mt-0.5 cursor-grab opacity-0 text-muted-foreground transition-opacity active:cursor-grabbing group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100"
+            aria-label="Drag widget"
           >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent className="min-h-0 flex-1 p-3">
-        <WidgetBody
-          payload={templatePayload}
-          viz={metric.viz}
-          compare={compare}
-          description={metric.description}
-        />
-      </CardContent>
-    </Card>
+            <GripVertical className="h-4 w-4" />
+          </button>
+          <div className="min-w-0 flex-1">
+            <CardTitle className="truncate text-sm font-semibold">{title}</CardTitle>
+            <p className="truncate text-[10px] uppercase tracking-wide text-muted-foreground">
+              {metric.object}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-0.5">
+            {(metric.params || []).map((p) => (
+              <Select
+                key={p.key}
+                value={widget.params[p.key] ?? p.defaultValue}
+                onValueChange={(v) => onChangeParams({ ...widget.params, [p.key]: v })}
+              >
+                <SelectTrigger className="h-7 w-[110px] text-[11px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {p.options.map((o) => (
+                    <SelectItem key={o.value} value={o.value} className="text-xs">
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ))}
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-7 gap-1 px-2 text-xs text-muted-foreground"
+              onClick={() => setEditOpen(true)}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              Edit
+            </Button>
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7 text-muted-foreground hover:text-destructive"
+              onClick={onRemove}
+              aria-label="Remove widget"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="min-h-0 flex-1 p-3">
+          <WidgetBody
+            payload={templatePayload}
+            viz={metric.viz}
+            compare={compare}
+            description={metric.description}
+          />
+        </CardContent>
+      </Card>
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>New custom formula</DialogTitle>
+          </DialogHeader>
+          {editOpen ? (
+            <CustomStatWizard
+              key={`fork-${widget.id}`}
+              from={from}
+              to={to}
+              compare={compare}
+              initial={null}
+              submitLabel="Add as custom"
+              onCancel={() => setEditOpen(false)}
+              onSubmit={(next) => {
+                onAddCustom?.(next)
+                setEditOpen(false)
+              }}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
