@@ -347,6 +347,37 @@ export default function MemberDetailsPage() {
     return sum + Math.max(0, planPrice - paid);
   }, 0);
 
+  const paidPayments = payments.filter((p) => p.payment_status === 'paid');
+  const totalPaid = paidPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  const pendingPaymentsTotal = payments
+    .filter((p) => p.payment_status === 'pending')
+    .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  const lastPayment = paidPayments
+    .slice()
+    .sort((a, b) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime())[0];
+  const netPosition = (Number(member.credit) || 0) - outstandingDebit;
+
+  const memberStatusLabel =
+    member.status === 'active' ? 'Active' :
+    member.status === 'archived' ? 'Pending Approval' :
+    member.status === 'pending' ? 'Pending Confirmation' :
+    member.status === 'suspended' ? 'Suspended' :
+    member.status;
+
+  const MemberStatusIcon =
+    member.status === 'active' ? CheckCircle :
+    member.status === 'suspended' ? XCircle :
+    member.status === 'pending' || member.status === 'archived' ? Clock :
+    AlertCircle;
+
+  const subscriptionStatusLabel = relevantSubscription
+    ? (relevantSubscription.status === 'active' ? 'Active' :
+       relevantSubscription.status === 'expired' ? 'Expired' :
+       relevantSubscription.status === 'pending' ? 'Pending' :
+       relevantSubscription.status === 'cancelled' ? 'Cancelled' :
+       relevantSubscription.status)
+    : 'Inactive';
+
   const handleEditMember = () => {
     setIsEditing(true);
   };
@@ -624,44 +655,65 @@ export default function MemberDetailsPage() {
       </div>
 
       {/* Status and Credit Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <Card className="border-l-4 border-l-blue-500">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Member Status</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Badge className={getMemberStatusColor(member.status)}>
-              {member.status === 'active' && '✅ Active'}
-              {member.status === 'archived' && '⏳ Pending Approval'}
-              {member.status === 'pending' && '📧 Pending Confirmation'}
-              {member.status === 'suspended' && '🚫 Suspended'}
-            </Badge>
-          </CardContent>
-        </Card>
-
-        <Card
-          className={`border-l-4 border-l-green-500 ${relevantSubscription ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}`}
-          onClick={relevantSubscription ? () => router.push(`/admin/subscriptions/${relevantSubscription.id}`) : undefined}
-        >
-          <CardHeader className="pb-2">
-            <CardTitle className={`text-sm font-medium text-muted-foreground ${relevantSubscription ? 'hover:text-primary transition-colors' : ''}`}>
-              Subscription Status
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+              <Activity className="w-3.5 h-3.5" />
+              Status Overview
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            {relevantSubscription ? (
-              <Badge className={getSubscriptionStatusColor(relevantSubscription.status)}>
-                {relevantSubscription.status === 'active' && '💳 Active'}
-                {relevantSubscription.status === 'expired' && '❌ Expired'}
-                {relevantSubscription.status === 'pending' && '⏳ Pending'}
-                {relevantSubscription.status === 'cancelled' && '🚫 Cancelled'}
-                {!['active', 'expired', 'pending', 'cancelled'].includes(relevantSubscription.status) && relevantSubscription.status}
-              </Badge>
-            ) : (
-              <Badge className={getSubscriptionStatusColor('inactive')}>
-                Inactive
-              </Badge>
-            )}
+          <CardContent className="space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 space-y-1">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Member</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge className={getMemberStatusColor(member.status)}>
+                    <MemberStatusIcon className="w-3 h-3 mr-1" />
+                    {memberStatusLabel}
+                  </Badge>
+                  {member.isBlacklisted && (
+                    <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+                      <Ban className="w-3 h-3 mr-1" />
+                      Blacklisted
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div
+              className={`rounded-md border bg-muted/30 p-2.5 space-y-1.5 ${relevantSubscription ? 'cursor-pointer hover:bg-muted/50 transition-colors' : ''}`}
+              onClick={relevantSubscription ? () => router.push(`/admin/subscriptions/${relevantSubscription.id}`) : undefined}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Subscription</p>
+                <Badge className={getSubscriptionStatusColor(relevantSubscription?.status || 'inactive')}>
+                  <CreditCard className="w-3 h-3 mr-1" />
+                  {subscriptionStatusLabel}
+                </Badge>
+              </div>
+              {relevantSubscription ? (
+                <>
+                  <p className="text-sm font-medium truncate">
+                    {relevantSubscription.plan?.name || `Subscription #${relevantSubscription.id}`}
+                  </p>
+                  <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                    <span className="truncate">
+                      {formatSubscriptionPeriod(relevantSubscription.startDate, relevantSubscription.endDate)}
+                    </span>
+                    {relevantSubscription.plan?.price != null && (
+                      <span className="font-medium tabular-nums shrink-0">
+                        {formatCurrency(relevantSubscription.plan.price)}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-primary font-medium">View subscription →</p>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">No subscription on file</p>
+              )}
+            </div>
           </CardContent>
         </Card>
 
@@ -713,20 +765,70 @@ export default function MemberDetailsPage() {
           <CardContent>
             <div className="space-y-2">
               <div className="flex items-baseline justify-between gap-3">
+                <p className="text-xs text-muted-foreground">Net position</p>
+                <p className={`text-xl font-bold tabular-nums ${netPosition >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                  {formatCurrency(netPosition)}
+                </p>
+              </div>
+              <div className="flex items-baseline justify-between gap-3">
                 <p className="text-xs text-muted-foreground">Credit</p>
-                <p className="text-xl font-bold tabular-nums text-emerald-600">
+                <p className="text-sm font-semibold tabular-nums text-emerald-600">
                   {formatCurrency(member.credit)}
                 </p>
               </div>
               <div className="flex items-baseline justify-between gap-3">
-                <p className="text-xs text-muted-foreground">Debit</p>
-                <p className="text-xl font-bold tabular-nums text-red-600">
+                <p className="text-xs text-muted-foreground">Outstanding debit</p>
+                <p className="text-sm font-semibold tabular-nums text-red-600">
                   {formatCurrency(outstandingDebit)}
                 </p>
               </div>
             </div>
             <p className="text-xs text-muted-foreground mt-2">
               Click to manage credit →
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card
+          className="border-l-4 border-l-amber-500 cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => setActiveTab('payments')}
+        >
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+              <DollarSign className="w-3.5 h-3.5" />
+              Payments Summary
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <div className="flex items-baseline justify-between gap-3">
+                <p className="text-xs text-muted-foreground">Total paid</p>
+                <p className="text-xl font-bold tabular-nums text-foreground">
+                  {formatCurrency(totalPaid)}
+                </p>
+              </div>
+              <div className="flex items-baseline justify-between gap-3">
+                <p className="text-xs text-muted-foreground">Paid / all</p>
+                <p className="text-sm font-semibold tabular-nums">
+                  {paidPayments.length}
+                  <span className="text-muted-foreground font-normal"> / {payments.length}</span>
+                </p>
+              </div>
+              <div className="flex items-baseline justify-between gap-3">
+                <p className="text-xs text-muted-foreground">Pending</p>
+                <p className={`text-sm font-semibold tabular-nums ${pendingPaymentsTotal > 0 ? 'text-amber-600' : 'text-muted-foreground'}`}>
+                  {formatCurrency(pendingPaymentsTotal)}
+                </p>
+              </div>
+              <div className="flex items-baseline justify-between gap-3">
+                <p className="text-xs text-muted-foreground">Last payment</p>
+                <p className="text-sm font-medium tabular-nums truncate">
+                  {lastPayment ? formatDate(lastPayment.payment_date) : '—'}
+                </p>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Click to view payments →
             </p>
           </CardContent>
         </Card>
