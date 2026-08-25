@@ -58,6 +58,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Loader2, Save, X, Ban } from "lucide-react";
 import { BlacklistRibbon } from "@/components/blacklist-ribbon";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+  type CarouselApi,
+} from "@/components/ui/carousel";
 
 // Types
 interface Member {
@@ -195,6 +203,8 @@ export default function MemberDetailsPage() {
 
   const [activeTab, setActiveTab] = useState("overview");
   const [isEditing, setIsEditing] = useState(false);
+  const [subscriptionCarouselApi, setSubscriptionCarouselApi] = useState<CarouselApi>();
+  const [subscriptionSlide, setSubscriptionSlide] = useState(0);
 
   // Fetch member details
   const { data: memberDetails, isLoading, error } = useMemberDetails(memberId);
@@ -325,19 +335,37 @@ export default function MemberDetailsPage() {
   const checkins = memberDetails.checkins as Checkin[];
   const payments = memberDetails.payments as Payment[];
 
-  // Get the most relevant subscription
-  const getRelevantSubscription = (subscriptions: Subscription[]) => {
-    if (!subscriptions || subscriptions.length === 0) return null;
-    const active = subscriptions.find(sub => sub.status === 'active' && isSubscriptionActiveByEndDate(sub.endDate));
-    if (active) return active;
-    return subscriptions.slice().sort((a, b) => {
+  // Prefer all currently active subscriptions; fall back to most recent if none
+  const getFeaturedSubscriptions = (subscriptions: Subscription[]) => {
+    if (!subscriptions || subscriptions.length === 0) return [];
+    const active = subscriptions.filter(
+      (sub) => sub.status === 'active' && isSubscriptionActiveByEndDate(sub.endDate)
+    );
+    if (active.length > 0) {
+      return active.slice().sort((a, b) => {
+        const aDate = a.endDate ? new Date(a.endDate).getTime() : 0;
+        const bDate = b.endDate ? new Date(b.endDate).getTime() : 0;
+        return bDate - aDate;
+      });
+    }
+    return [subscriptions.slice().sort((a, b) => {
       const aDate = a.endDate ? new Date(a.endDate).getTime() : 0;
       const bDate = b.endDate ? new Date(b.endDate).getTime() : 0;
       return bDate - aDate;
-    })[0];
+    })[0]];
   };
 
-  const relevantSubscription = getRelevantSubscription(subscriptions);
+  const featuredSubscriptions = getFeaturedSubscriptions(subscriptions);
+
+  useEffect(() => {
+    if (!subscriptionCarouselApi) return;
+    const onSelect = () => setSubscriptionSlide(subscriptionCarouselApi.selectedScrollSnap());
+    onSelect();
+    subscriptionCarouselApi.on('select', onSelect);
+    return () => {
+      subscriptionCarouselApi.off('select', onSelect);
+    };
+  }, [subscriptionCarouselApi]);
 
   const outstandingDebit = subscriptions.reduce((sum, sub) => {
     const planPrice = Number(sub.plan?.price) || 0;
@@ -370,13 +398,13 @@ export default function MemberDetailsPage() {
     member.status === 'pending' || member.status === 'archived' ? Clock :
     AlertCircle;
 
-  const subscriptionStatusLabel = relevantSubscription
-    ? (relevantSubscription.status === 'active' ? 'Active' :
-       relevantSubscription.status === 'expired' ? 'Expired' :
-       relevantSubscription.status === 'pending' ? 'Pending' :
-       relevantSubscription.status === 'cancelled' ? 'Cancelled' :
-       relevantSubscription.status)
-    : 'Inactive';
+  const getSubscriptionStatusLabel = (status: string) => {
+    if (status === 'active') return 'Active';
+    if (status === 'expired') return 'Expired';
+    if (status === 'pending') return 'Pending';
+    if (status === 'cancelled') return 'Cancelled';
+    return status;
+  };
 
   const handleEditMember = () => {
     setIsEditing(true);
@@ -682,38 +710,95 @@ export default function MemberDetailsPage() {
               </div>
             </div>
 
-            <div
-              className={`rounded-md border bg-muted/30 p-2.5 space-y-1.5 ${relevantSubscription ? 'cursor-pointer hover:bg-muted/50 transition-colors' : ''}`}
-              onClick={relevantSubscription ? () => router.push(`/admin/subscriptions/${relevantSubscription.id}`) : undefined}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Subscription</p>
-                <Badge className={getSubscriptionStatusColor(relevantSubscription?.status || 'inactive')}>
-                  <CreditCard className="w-3 h-3 mr-1" />
-                  {subscriptionStatusLabel}
-                </Badge>
-              </div>
-              {relevantSubscription ? (
-                <>
-                  <p className="text-sm font-medium truncate">
-                    {relevantSubscription.plan?.name || `Subscription #${relevantSubscription.id}`}
-                  </p>
-                  <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                    <span className="truncate">
-                      {formatSubscriptionPeriod(relevantSubscription.startDate, relevantSubscription.endDate)}
-                    </span>
-                    {relevantSubscription.plan?.price != null && (
-                      <span className="font-medium tabular-nums shrink-0">
-                        {formatCurrency(relevantSubscription.plan.price)}
-                      </span>
-                    )}
+            {featuredSubscriptions.length > 0 ? (
+              <div className="space-y-2">
+                <Carousel
+                  setApi={setSubscriptionCarouselApi}
+                  opts={{ align: 'start', loop: featuredSubscriptions.length > 1 }}
+                  className="w-full"
+                >
+                  <CarouselContent className="-ml-0">
+                    {featuredSubscriptions.map((subscription) => (
+                      <CarouselItem key={subscription.id} className="pl-0 basis-full">
+                        <div
+                          className="rounded-md border bg-muted/30 p-2.5 space-y-1.5 cursor-pointer hover:bg-muted/50 transition-colors"
+                          onClick={() => router.push(`/admin/subscriptions/${subscription.id}`)}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              Subscription
+                              {featuredSubscriptions.length > 1 && (
+                                <span className="ml-1.5 normal-case tracking-normal text-muted-foreground/80">
+                                  {subscriptionSlide + 1}/{featuredSubscriptions.length}
+                                </span>
+                              )}
+                            </p>
+                            <Badge className={getSubscriptionStatusColor(subscription.status)}>
+                              <CreditCard className="w-3 h-3 mr-1" />
+                              {getSubscriptionStatusLabel(subscription.status)}
+                            </Badge>
+                          </div>
+                          <p className="text-sm font-medium truncate">
+                            {subscription.plan?.name || `Subscription #${subscription.id}`}
+                          </p>
+                          <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                            <span className="truncate">
+                              {formatSubscriptionPeriod(subscription.startDate, subscription.endDate)}
+                            </span>
+                            {subscription.plan?.price != null && (
+                              <span className="font-medium tabular-nums shrink-0">
+                                {formatCurrency(subscription.plan.price)}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-primary font-medium">View subscription →</p>
+                        </div>
+                      </CarouselItem>
+                    ))}
+                  </CarouselContent>
+                  {featuredSubscriptions.length > 1 && (
+                    <>
+                      <CarouselPrevious
+                        className="left-1 top-1/2 h-7 w-7 -translate-y-1/2 border bg-background/90 shadow-sm"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      <CarouselNext
+                        className="right-1 top-1/2 h-7 w-7 -translate-y-1/2 border bg-background/90 shadow-sm"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </>
+                  )}
+                </Carousel>
+                {featuredSubscriptions.length > 1 && (
+                  <div className="flex items-center justify-center gap-1.5">
+                    {featuredSubscriptions.map((subscription, index) => (
+                      <button
+                        key={subscription.id}
+                        type="button"
+                        aria-label={`Go to subscription ${index + 1}`}
+                        className={`h-1.5 rounded-full transition-all ${
+                          index === subscriptionSlide
+                            ? 'w-4 bg-primary'
+                            : 'w-1.5 bg-muted-foreground/30 hover:bg-muted-foreground/50'
+                        }`}
+                        onClick={() => subscriptionCarouselApi?.scrollTo(index)}
+                      />
+                    ))}
                   </div>
-                  <p className="text-[11px] text-primary font-medium">View subscription →</p>
-                </>
-              ) : (
+                )}
+              </div>
+            ) : (
+              <div className="rounded-md border bg-muted/30 p-2.5 space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Subscription</p>
+                  <Badge className={getSubscriptionStatusColor('inactive')}>
+                    <CreditCard className="w-3 h-3 mr-1" />
+                    Inactive
+                  </Badge>
+                </div>
                 <p className="text-sm text-muted-foreground">No subscription on file</p>
-              )}
-            </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
