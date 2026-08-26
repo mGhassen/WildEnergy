@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import {
+  courseDateDivergesFromSchedule,
+  courseIsEditedVsSchedule,
+  type ScheduleTemplate,
+} from '@/lib/schedule-course-sync';
 
 export async function GET(req: NextRequest) {
   try {
@@ -41,11 +46,14 @@ export async function GET(req: NextRequest) {
           class_id,
           trainer_id,
           day_of_week,
+          days_of_week,
           start_time,
           end_time,
           max_participants,
           repetition_type,
           schedule_date,
+          start_date,
+          end_date,
           is_active
         )
       `)
@@ -76,12 +84,10 @@ export async function GET(req: NextRequest) {
         max_participants: schedule.max_participants
       } : 'No schedule');
       
-      const isEdited = schedule ? (
-        course.trainer_id !== schedule.trainer_id ||
-        course.start_time !== schedule.start_time ||
-        course.end_time !== schedule.end_time ||
-        course.max_participants !== schedule.max_participants
-      ) : false;
+      const isEdited = schedule
+        ? courseIsEditedVsSchedule(course, schedule) ||
+          courseDateDivergesFromSchedule(course, schedule as ScheduleTemplate)
+        : false;
       
       console.log('Is edited:', isEdited);
 
@@ -140,12 +146,61 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
     const courseData = await req.json();
+    const scheduleId = Number(courseData.schedule_id);
+    const classId = Number(courseData.class_id);
+    const courseDate = typeof courseData.course_date === 'string'
+      ? courseData.course_date.split('T')[0]
+      : '';
+    const startTime = courseData.start_time;
+    const endTime = courseData.end_time;
+    const maxParticipants = Number(courseData.max_participants);
+
+    if (!scheduleId || !classId || !courseDate || !startTime || !endTime || !maxParticipants) {
+      return NextResponse.json({
+        error: 'schedule_id, class_id, course_date, start_time, end_time, and max_participants are required',
+      }, { status: 400 });
+    }
+
+    const { data: schedule, error: scheduleError } = await supabaseServer()
+      .from('schedules')
+      .select('id')
+      .eq('id', scheduleId)
+      .single();
+    if (scheduleError || !schedule) {
+      return NextResponse.json({ error: 'Schedule not found' }, { status: 404 });
+    }
+
+    const { data: existingOnDate } = await supabaseServer()
+      .from('courses')
+      .select('id')
+      .eq('schedule_id', scheduleId)
+      .eq('course_date', courseDate)
+      .limit(1);
+    if (existingOnDate && existingOnDate.length > 0) {
+      return NextResponse.json({
+        error: 'This schedule already has a course on that date',
+      }, { status: 409 });
+    }
+
+    const row = {
+      schedule_id: scheduleId,
+      class_id: classId,
+      trainer_id: courseData.trainer_id || null,
+      course_date: courseDate,
+      start_time: startTime,
+      end_time: endTime,
+      max_participants: maxParticipants,
+      status: courseData.status || 'scheduled',
+      is_active: courseData.is_active !== false,
+    };
+
     const { data: course, error } = await supabaseServer()
       .from('courses')
-      .insert(courseData)
+      .insert(row)
       .select('*')
       .single();
     if (error) {
+      console.error('Failed to create course:', error);
       return NextResponse.json({ error: 'Failed to create course' }, { status: 500 });
     }
     return NextResponse.json({ success: true, course });

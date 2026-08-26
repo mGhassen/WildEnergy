@@ -14,8 +14,8 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Course } from '@/lib/api/courses';
-import { formatTime } from '@/lib/date';
-import { AlertTriangle, Clock, Users, User, Edit } from 'lucide-react';
+import { formatTime, toDateKey } from '@/lib/date';
+import { AlertTriangle, Calendar, Clock, Users, User, Edit } from 'lucide-react';
 
 interface CourseEditDialogProps {
   course: Course;
@@ -33,6 +33,7 @@ export function CourseEditDialog({ course, isOpen, onClose }: CourseEditDialogPr
     resolver: zodResolver(editCourseSchema),
     defaultValues: {
       trainer_id: String(course.trainer_id),
+      course_date: toDateKey(course.course_date) || '',
       start_time: course.start_time,
       end_time: course.end_time,
       max_participants: course.max_participants,
@@ -47,6 +48,7 @@ export function CourseEditDialog({ course, isOpen, onClose }: CourseEditDialogPr
         courseId: course.id,
         data: {
           trainer_id: data.trainer_id,
+          course_date: data.course_date,
           start_time: data.start_time,
           end_time: data.end_time,
           max_participants: data.max_participants,
@@ -175,6 +177,24 @@ export function CourseEditDialog({ course, isOpen, onClose }: CourseEditDialogPr
                         <span className="text-orange-600">Original:</span> {getOriginalValue('maxParticipants')}
                       </div>
                     )}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Course Date */}
+              <FormField
+                control={form.control}
+                name="course_date"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4" />
+                      Date
+                    </FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}

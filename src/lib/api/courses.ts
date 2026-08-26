@@ -30,6 +30,7 @@ export interface AddMembersToCourseResponse {
 
 export interface Course {
   id: number;
+  schedule_id?: number;
   class_id: number;
   trainer_id: string;
   course_date: string;

@@ -3,6 +3,11 @@ import { supabaseServer, createSupabaseClient } from '@/lib/supabase';
 import { deleteCourseWithRegistrationCleanup } from '@/lib/course-delete-cleanup';
 import { editCourseSchema } from '@/shared/zod-schemas';
 import { pickSubscriptionForCourse } from '@/lib/subscription-for-course';
+import {
+  courseDateDivergesFromSchedule,
+  courseIsEditedVsSchedule,
+  type ScheduleTemplate,
+} from '@/lib/schedule-course-sync';
 
 export async function GET(
   req: NextRequest,
@@ -68,6 +73,7 @@ export async function GET(
           class_id,
           trainer_id,
           day_of_week,
+          days_of_week,
           start_time,
           end_time,
           max_participants,
@@ -221,12 +227,10 @@ export async function GET(
       max_participants: schedule.max_participants
     } : 'No schedule');
     
-    const isEdited = schedule ? (
-      course.trainer_id !== schedule.trainer_id ||
-      course.start_time !== schedule.start_time ||
-      course.end_time !== schedule.end_time ||
-      course.max_participants !== schedule.max_participants
-    ) : false;
+    const isEdited = schedule
+      ? courseIsEditedVsSchedule(course, schedule) ||
+        courseDateDivergesFromSchedule(course, schedule as ScheduleTemplate)
+      : false;
     
     console.log('Individual Is edited:', isEdited);
 

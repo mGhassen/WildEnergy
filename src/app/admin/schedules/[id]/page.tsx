@@ -28,6 +28,7 @@ import { useCourses, useBulkUpdateCourses, useBulkDeleteCourses } from "@/hooks/
 import { 
   ArrowLeft, 
   Calendar, 
+  CalendarPlus,
   Clock, 
   Users, 
   TrendingUp, 
@@ -58,6 +59,7 @@ import {
   type ScheduleEditBlockReason,
 } from "@/lib/schedule-course-sync";
 import { useToast } from "@/hooks/use-toast";
+import { AddCourseToScheduleDialog } from "@/components/add-course-to-schedule-dialog";
 
 // Utility function for European date formatting (DD/MM/YYYY)
 const formatEuropeanDate = (dateString: string) => {
@@ -170,6 +172,7 @@ export default function ScheduleDetailsPage() {
   const [selectedCourseIds, setSelectedCourseIds] = useState<number[]>([]);
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
   const [bulkEditDialogOpen, setBulkEditDialogOpen] = useState(false);
+  const [addCourseDialogOpen, setAddCourseDialogOpen] = useState(false);
   const [editBlockedReason, setEditBlockedReason] = useState<ScheduleEditBlockReason | null>(null);
   const [deleteBlockedInfo, setDeleteBlockedInfo] = useState<ScheduleDeleteBlockInfo | null>(null);
   const [bulkCourseOverrides, setBulkCourseOverrides] = useState<{
@@ -848,11 +851,10 @@ export default function ScheduleDetailsPage() {
         </CardContent>
       </Card>
 
-      {/* Recent Courses */}
-      {scheduleCourses.length > 0 && (
-        <Card>
+      {/* Courses */}
+      <Card>
           <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3">
               <div>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Calendar className="w-5 h-5" />
@@ -862,9 +864,14 @@ export default function ScheduleDetailsPage() {
                   All courses for this schedule
                 </CardDescription>
               </div>
+              <Button size="sm" onClick={() => setAddCourseDialogOpen(true)}>
+                <CalendarPlus className="w-4 h-4 mr-2" />
+                Add course
+              </Button>
             </div>
             
             {/* Filters and Search */}
+            {scheduleCourses.length > 0 && (
             <div className="flex flex-col sm:flex-row gap-3 mt-4">
               <div className="flex-1">
                 <Input
@@ -887,6 +894,7 @@ export default function ScheduleDetailsPage() {
                 </SelectContent>
               </Select>
             </div>
+            )}
 
             {selectedCourseIds.length > 0 && (
               <div className="flex flex-wrap items-center gap-2 mt-3 p-3 bg-primary/10 rounded-lg border border-border">
@@ -1177,23 +1185,46 @@ export default function ScheduleDetailsPage() {
             ) : (
               <div className="text-center py-8 text-muted-foreground">
                 <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>No courses found matching your criteria</p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setCoursesFilter('all');
-                    setCoursesSearchTerm('');
-                    setCoursesPage(1);
-                  }}
-                  className="mt-2"
-                >
-                  Clear Filters
-                </Button>
+                <p>
+                  {scheduleCourses.length === 0
+                    ? "No courses yet for this schedule"
+                    : "No courses found matching your criteria"}
+                </p>
+                {scheduleCourses.length === 0 ? (
+                  <Button
+                    size="sm"
+                    className="mt-2"
+                    onClick={() => setAddCourseDialogOpen(true)}
+                  >
+                    <CalendarPlus className="w-4 h-4 mr-2" />
+                    Add course
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setCoursesFilter('all');
+                      setCoursesSearchTerm('');
+                      setCoursesPage(1);
+                    }}
+                    className="mt-2"
+                  >
+                    Clear Filters
+                  </Button>
+                )}
               </div>
             )}
           </CardContent>
         </Card>
+
+      {schedule && (
+        <AddCourseToScheduleDialog
+          schedule={schedule}
+          existingCourseDates={scheduleCourses.map((c: any) => c.course_date)}
+          isOpen={addCourseDialogOpen}
+          onClose={() => setAddCourseDialogOpen(false)}
+        />
       )}
 
       <Dialog open={bulkEditDialogOpen} onOpenChange={(open) => { if (!open) { setBulkEditDialogOpen(false); setBulkDeleteDialogOpen(false); } }}>

@@ -88,6 +88,16 @@ export function courseIsEditedVsSchedule(
   );
 }
 
+/** True when course was moved off the schedule's expected occurrence dates. */
+export function courseDateDivergesFromSchedule(
+  course: Pick<CourseForSync, 'course_date'>,
+  schedule: ScheduleTemplate,
+): boolean {
+  const expected = buildExpectedCourseDates(schedule);
+  if (expected.length === 0) return false;
+  return !expected.includes(dateOnly(course.course_date));
+}
+
 export function isCourseProtectedFromScheduleSync(
   course: CourseForSync,
   oldSchedule: ScheduleTemplate,
@@ -95,7 +105,8 @@ export function isCourseProtectedFromScheduleSync(
   return (
     courseIsDone(course) ||
     courseHasMembers(course) ||
-    courseIsEditedVsSchedule(course, oldSchedule)
+    courseIsEditedVsSchedule(course, oldSchedule) ||
+    courseDateDivergesFromSchedule(course, oldSchedule)
   );
 }
 
@@ -195,6 +206,7 @@ export function getScheduleEditBlockReason(params: {
   for (const course of params.courses) {
     if (params.courseHasMembers(course.id)) return 'members';
     if (courseIsDone(course)) return 'done';
+    // Date-outside-recurrence (manual add) must not lock schedule edits — sync already keeps those rows.
     if (course.isEdited === true || courseIsEditedVsSchedule(course, params.schedule)) {
       return 'edited';
     }

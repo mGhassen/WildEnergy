@@ -121,6 +121,7 @@ export const insertCourseSchema = z.object({
 
 export const editCourseSchema = z.object({
   trainer_id: z.string().min(1, 'Trainer is required'),
+  course_date: z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/, 'Must be YYYY-MM-DD'),
   start_time: z.string().min(1, 'Start time is required'),
   end_time: z.string().min(1, 'End time is required'),
   max_participants: z.number().min(1, 'Max participants must be at least 1'),
