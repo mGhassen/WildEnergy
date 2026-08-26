@@ -35,7 +35,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const { name, description, category_id, difficulty, duration, max_capacity, equipment, is_active } = await request.json();
+    const { name, description, category_id, difficulty, duration, max_capacity, equipment, is_active, color } = await request.json();
 
     // Validate required fields
     if (!name || !duration || !max_capacity) {
@@ -46,6 +46,7 @@ export async function PATCH(request: NextRequest) {
       name: name.trim(),
       description: description ? String(description).trim() : null,
       category_id: category_id ? Number(category_id) : null,
+      color: color ? String(color).trim() : null,
       difficulty: Array.isArray(difficulty) && difficulty.length > 0
         ? difficulty
         : ['beginner'],

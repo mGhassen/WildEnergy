@@ -5,6 +5,7 @@ export interface Class {
   name: string;
   description?: string;
   category_id: number;
+  color?: string;
   schedule_id: number;
   start_date: string;
   end_date: string;
@@ -52,6 +53,7 @@ export interface CreateAdminClassData {
   name: string;
   description?: string;
   category_id: number | null;
+  color: string;
   difficulty: string[];
   duration: number;
   max_capacity: number;
@@ -63,6 +65,7 @@ export interface UpdateAdminClassData {
   name?: string;
   description?: string;
   category_id?: number | null;
+  color?: string;
   difficulty?: string[];
   duration?: number;
   max_capacity?: number;

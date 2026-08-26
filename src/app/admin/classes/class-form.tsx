@@ -32,10 +32,72 @@ import {
 export const classFormSchema = insertClassSchema;
 export type ClassFormData = z.infer<typeof classFormSchema>;
 
+const FALLBACK_BASE_COLOR = "#64748b";
+
+function clamp(n: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, n));
+}
+
+function hexToHsl(hex: string): { h: number; s: number; l: number } {
+  const raw = hex.replace("#", "");
+  const full =
+    raw.length === 3
+      ? raw
+          .split("")
+          .map((c) => c + c)
+          .join("")
+      : raw;
+  const r = parseInt(full.slice(0, 2), 16) / 255;
+  const g = parseInt(full.slice(2, 4), 16) / 255;
+  const b = parseInt(full.slice(4, 6), 16) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return { h: 0, s: 0, l: l * 100 };
+
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h = 0;
+  if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+  else if (max === g) h = ((b - r) / d + 2) / 6;
+  else h = ((r - g) / d + 4) / 6;
+  return { h: h * 360, s: s * 100, l: l * 100 };
+}
+
+function hslToHex(h: number, s: number, l: number): string {
+  const sat = s / 100;
+  const light = l / 100;
+  const a = sat * Math.min(light, 1 - light);
+  const f = (n: number) => {
+    const k = (n + h / 30) % 12;
+    const color = light - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+    return Math.round(255 * color)
+      .toString(16)
+      .padStart(2, "0");
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
+}
+
+/** Random shade in the same hue family as the category color. */
+export function shadeFromCategoryColor(baseHex?: string | null) {
+  const cleaned = (baseHex || "").trim().replace(/^#/, "");
+  const normalized =
+    /^[0-9a-fA-F]{3}$|^[0-9a-fA-F]{6}$/.test(cleaned)
+      ? `#${cleaned}`
+      : FALLBACK_BASE_COLOR;
+
+  const { h, s, l } = hexToHsl(normalized);
+  const nextH = (h + (Math.random() * 24 - 12) + 360) % 360;
+  const nextS = clamp(s + (Math.random() * 28 - 10), 40, 90);
+  const nextL = clamp(l + (Math.random() * 28 - 14), 32, 62);
+  return hslToHex(nextH, nextS, nextL);
+}
+
 export const classFormDefaultValues: ClassFormData = {
   name: "",
   description: "",
   categoryId: null,
+  color: shadeFromCategoryColor(FALLBACK_BASE_COLOR),
   difficulty: ["beginner"],
   durationMinutes: 60,
   maxCapacity: 20,
@@ -48,6 +110,7 @@ export function mapClassToApi(data: ClassFormData) {
     name: data.name,
     description: data.description,
     category_id: data.categoryId ? Number(data.categoryId) : null,
+    color: data.color,
     difficulty: data.difficulty,
     duration: data.durationMinutes,
     max_capacity: data.maxCapacity,
@@ -58,7 +121,7 @@ export function mapClassToApi(data: ClassFormData) {
 
 type ClassFormProps = {
   form: UseFormReturn<ClassFormData>;
-  categories: Array<{ id: number; name: string }>;
+  categories: Array<{ id: number; name: string; color?: string | null }>;
   onSubmit: (data: ClassFormData) => void;
   submitLabel: string;
   isSubmitting?: boolean;
@@ -119,9 +182,19 @@ export function ClassForm({
                 onValueChange={(value) => {
                   if (value === "none") {
                     field.onChange(null);
-                  } else {
-                    field.onChange(Number(value));
+                    form.setValue(
+                      "color",
+                      shadeFromCategoryColor(FALLBACK_BASE_COLOR),
+                    );
+                    return;
                   }
+                  const categoryId = Number(value);
+                  field.onChange(categoryId);
+                  const category = categories.find((c) => c.id === categoryId);
+                  form.setValue(
+                    "color",
+                    shadeFromCategoryColor(category?.color),
+                  );
                 }}
                 value={field.value?.toString() || "none"}
               >
@@ -139,6 +212,26 @@ export function ClassForm({
                   ))}
                 </SelectContent>
               </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="color"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Color</FormLabel>
+              <FormControl>
+                <div className="flex space-x-2">
+                  <Input
+                    type="color"
+                    className="w-12 h-10 p-1 rounded border"
+                    {...field}
+                  />
+                  <Input placeholder="#3b82f6" {...field} className="flex-1" />
+                </div>
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}
@@ -261,6 +354,9 @@ export function classToFormValues(classItem: {
   description?: string | null;
   categoryId?: number | null;
   category_id?: number | null;
+  color?: string | null;
+  category?: { color?: string | null } | null;
+  categories?: { color?: string | null } | null;
   difficulty?: string | string[] | null;
   durationMinutes?: number;
   duration?: number;
@@ -270,10 +366,13 @@ export function classToFormValues(classItem: {
   isActive?: boolean;
   is_active?: boolean;
 }): ClassFormData {
+  const categoryColor =
+    classItem.category?.color ?? classItem.categories?.color ?? null;
   return {
     name: classItem.name,
     description: classItem.description ?? "",
     categoryId: classItem.categoryId ?? classItem.category_id ?? null,
+    color: classItem.color || shadeFromCategoryColor(categoryColor),
     difficulty: normalizeDifficulties(classItem.difficulty),
     durationMinutes: classItem.durationMinutes ?? classItem.duration ?? 60,
     maxCapacity: classItem.maxCapacity ?? classItem.max_capacity ?? 20,

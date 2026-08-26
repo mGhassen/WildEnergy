@@ -11,6 +11,7 @@ import {
   classFormDefaultValues,
   classFormSchema,
   mapClassToApi,
+  shadeFromCategoryColor,
   type ClassFormData,
 } from "../class-form";
 
@@ -24,7 +25,10 @@ export default function AdminNewClassPage() {
 
   const form = useForm<ClassFormData>({
     resolver: zodResolver(classFormSchema),
-    defaultValues: classFormDefaultValues,
+    defaultValues: {
+      ...classFormDefaultValues,
+      color: shadeFromCategoryColor(),
+    },
   });
 
   const handleSubmit = (data: ClassFormData) => {

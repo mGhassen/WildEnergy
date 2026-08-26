@@ -76,28 +76,22 @@ export default function AdminClasses() {
     resetPage();
   }, [searchTerm]);
 
-  const getCategoryColor = (categoryId: number, classItem: any) => {
-    let category = classItem?.categories;
-    if (!category || !category.color) {
-      category = categories.find((cat: any) => cat && cat.id === categoryId);
-    }
-    if (category && category.color) {
-      const hex = category.color.replace("#", "");
-      const r = parseInt(hex.substr(0, 2), 16);
-      const g = parseInt(hex.substr(2, 2), 16);
-      const b = parseInt(hex.substr(4, 2), 16);
-      const lightR = Math.round(r + (255 - r) * 0.35);
-      const lightG = Math.round(g + (255 - g) * 0.35);
-      const lightB = Math.round(b + (255 - b) * 0.35);
-      const mutedR = Math.round(r * 0.3 + 100 * 0.1);
-      const mutedG = Math.round(g * 0.3 + 100 * 0.1);
-      const mutedB = Math.round(b * 0.3 + 100 * 0.1);
-      return {
-        backgroundColor: `rgb(${lightR}, ${lightG}, ${lightB})`,
-        color: `rgb(${mutedR}, ${mutedG}, ${mutedB})`,
-      };
-    }
-    return { backgroundColor: "#f8fafc", color: "#64748b" };
+  const getClassColor = (classItem: any) => {
+    const hexColor = classItem?.color || "#94a3b8";
+    const hex = hexColor.replace("#", "");
+    const r = parseInt(hex.substr(0, 2), 16);
+    const g = parseInt(hex.substr(2, 2), 16);
+    const b = parseInt(hex.substr(4, 2), 16);
+    const lightR = Math.round(r + (255 - r) * 0.35);
+    const lightG = Math.round(g + (255 - g) * 0.35);
+    const lightB = Math.round(b + (255 - b) * 0.35);
+    const mutedR = Math.round(r * 0.3 + 100 * 0.1);
+    const mutedG = Math.round(g * 0.3 + 100 * 0.1);
+    const mutedB = Math.round(b * 0.3 + 100 * 0.1);
+    return {
+      backgroundColor: `rgb(${lightR}, ${lightG}, ${lightB})`,
+      color: `rgb(${mutedR}, ${mutedG}, ${mutedB})`,
+    };
   };
 
   return (
@@ -156,23 +150,10 @@ export default function AdminClasses() {
                       <div className="flex items-center space-x-3">
                         <div
                           className="w-12 h-12 rounded-lg flex items-center justify-center"
-                          style={getCategoryColor(
-                            classItem.categoryId,
-                            classItem,
-                          )}
+                          style={getClassColor(classItem)}
                         >
                           <span className="text-xs font-medium">
-                            {classItem.categories?.name
-                              ?.charAt(0)
-                              ?.toUpperCase() ||
-                              categories
-                                .find(
-                                  (cat: any) =>
-                                    cat && cat.id === classItem.categoryId,
-                                )
-                                ?.name?.charAt(0)
-                                ?.toUpperCase() ||
-                              "C"}
+                            {classItem.name?.charAt(0)?.toUpperCase() || "C"}
                           </span>
                         </div>
                         <div>

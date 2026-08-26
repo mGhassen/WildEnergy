@@ -84,6 +84,7 @@ export const insertClassSchema = z.object({
   name: z.string().min(1, 'Class name is required'),
   description: z.string().optional(),
   categoryId: z.union([z.number().min(1), z.null()]).optional(),
+  color: z.string().min(1, 'Color is required'),
   difficulty: z
     .array(z.enum(['beginner', 'intermediate', 'advanced']))
     .min(1, 'Select at least one difficulty'),

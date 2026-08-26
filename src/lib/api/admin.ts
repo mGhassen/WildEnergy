@@ -6,6 +6,7 @@ export interface AdminClass {
   name: string;
   description?: string;
   category_id: number;
+  color?: string;
   schedule_id: number;
   start_date: string;
   end_date: string;
