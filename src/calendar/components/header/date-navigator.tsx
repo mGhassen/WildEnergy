@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import { formatDate } from "date-fns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -65,7 +65,7 @@ export function DateNavigator({ view, events }: IProps) {
               {rangeText(view, selectedDate)}
             </button>
           </PopoverTrigger>
-          <PopoverContent align="start" className="w-auto p-0">
+          <PopoverContent align="start" className="w-96 p-0">
             <Calendar
               mode="single"
               selected={selectedDate}
@@ -74,7 +74,8 @@ export function DateNavigator({ view, events }: IProps) {
               fromYear={2020}
               toYear={2035}
               defaultMonth={selectedDate}
-              className="[--cell-size:2.75rem]"
+              className="w-full"
+              style={{ "--cell-size": "3rem" } as CSSProperties}
             />
           </PopoverContent>
         </Popover>
