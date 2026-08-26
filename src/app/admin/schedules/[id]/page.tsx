@@ -1086,12 +1086,11 @@ export default function ScheduleDetailsPage() {
                                   View Details
                                 </Link>
                               </DropdownMenuItem>
-                              <DropdownMenuItem
-                                className="flex items-center gap-2"
-                                onSelect={() => openBulkEdit([course.id])}
-                              >
-                                <Edit className="w-4 h-4" />
-                                Edit course
+                              <DropdownMenuItem asChild>
+                                <Link href={`/admin/courses/${course.id}/edit`} className="flex items-center gap-2">
+                                  <Edit className="w-4 h-4" />
+                                  Edit course
+                                </Link>
                               </DropdownMenuItem>
                               <DropdownMenuItem asChild>
                                 <Link href={`/admin/registrations?courseId=${course.id}`} className="flex items-center gap-2">
