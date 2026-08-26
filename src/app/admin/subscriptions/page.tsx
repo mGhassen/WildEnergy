@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { useSubscriptions, useManualRefundSessions } from "@/hooks/useSubscriptions";
+import { useSubscriptions } from "@/hooks/useSubscriptions";
 import { useMembers } from "@/hooks/useMembers";
 import { usePlans } from "@/hooks/usePlans";
 import { usePayments } from "@/hooks/usePayments";
@@ -322,17 +322,6 @@ export default function AdminSubscriptions() {
         return "Cancelled";
       default:
         return status;
-    }
-  };
-
-  const manualRefundMutation = useManualRefundSessions();
-
-  const handleManualRefund = (subscription: Subscription) => {
-    if (subscription.id) {
-      manualRefundMutation.mutate({
-        subscriptionId: subscription.id,
-        sessionsToRefund: 1,
-      });
     }
   };
 
@@ -1008,14 +997,13 @@ export default function AdminSubscriptions() {
                             <DropdownMenuItem
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleManualRefund(subscription);
+                                router.push(
+                                  `/admin/subscriptions/${subscription.id}/refund-session`,
+                                );
                               }}
-                              disabled={manualRefundMutation.isPending}
                             >
                               <RefreshCw className="w-4 h-4 mr-2" />
-                              {manualRefundMutation.isPending
-                                ? "Refunding..."
-                                : "Refund 1 Session"}
+                              Refund 1 Session
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={(e) => {

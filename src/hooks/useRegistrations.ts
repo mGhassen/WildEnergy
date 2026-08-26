@@ -136,8 +136,20 @@ export function useAdminCancelRegistration() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: ({ registrationId, refundSession }: { registrationId: number; refundSession?: boolean }) => 
-      registrationApi.adminCancelRegistration(registrationId, refundSession),
+    mutationFn: ({
+      registrationId,
+      refundSession,
+      refundSubscriptionId,
+    }: {
+      registrationId: number;
+      refundSession?: boolean;
+      refundSubscriptionId?: number;
+    }) =>
+      registrationApi.adminCancelRegistration(
+        registrationId,
+        refundSession,
+        refundSubscriptionId,
+      ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/member/registrations'] });
       queryClient.invalidateQueries({ queryKey: ['/api/courses'] });

@@ -99,7 +99,8 @@ export async function GET(
         status,
         notes,
         qr_code,
-        member_id
+        member_id,
+        subscription_id
       `)
       .eq('course_id', course.id);
 

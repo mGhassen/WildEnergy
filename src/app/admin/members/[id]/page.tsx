@@ -45,6 +45,7 @@ import {
   Wallet,
   GraduationCap,
   QrCode,
+  RefreshCw,
 } from "lucide-react";
 import { formatDate, formatSubscriptionPeriod, isSubscriptionActiveByEndDate } from "@/lib/date";
 import { formatCurrency } from "@/lib/config";
@@ -623,6 +624,14 @@ export default function MemberDetailsPage() {
                   <DropdownMenuItem onClick={handleManageCredit}>
                     <Wallet className="w-4 h-4 mr-2" />
                     Manage Credit
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() =>
+                      router.push(`/admin/members/${memberId}/refund-session`)
+                    }
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Refund Session
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleCreateTrainer}>

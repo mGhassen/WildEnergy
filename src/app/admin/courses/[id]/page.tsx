@@ -388,7 +388,16 @@ export default function CourseDetailsPage() {
 
   const handleCancelRegistration = (registration: any) => {
     const memberName = `${registration.member?.first_name || 'Unknown'} ${registration.member?.last_name || 'Member'}`;
-    router.push(`/admin/courses/${courseId}/cancel?registrationId=${registration.id}&memberName=${encodeURIComponent(memberName)}`);
+    const memberId = registration.member_id || registration.member?.id || '';
+    const qs = new URLSearchParams({
+      registrationId: String(registration.id),
+      memberName,
+      memberId: String(memberId),
+    });
+    if (registration.subscription_id) {
+      qs.set('subscriptionId', String(registration.subscription_id));
+    }
+    router.push(`/admin/courses/${courseId}/cancel?${qs.toString()}`);
   };
 
 

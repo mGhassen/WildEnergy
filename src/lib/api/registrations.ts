@@ -130,8 +130,21 @@ export const registrationApi = {
     return apiRequest('POST', `/api/admin/registrations/${registrationId}/check-out`);
   },
 
-  async adminCancelRegistration(registrationId: number, refundSession?: boolean): Promise<any> {
-    return apiRequest('POST', `/api/admin/registrations/${registrationId}/cancel`, refundSession !== undefined ? { refundSession } : {});
+  async adminCancelRegistration(
+    registrationId: number,
+    refundSession?: boolean,
+    refundSubscriptionId?: number,
+  ): Promise<any> {
+    const body: { refundSession?: boolean; refundSubscriptionId?: number } = {};
+    if (refundSession !== undefined) body.refundSession = refundSession;
+    if (refundSubscriptionId !== undefined) {
+      body.refundSubscriptionId = refundSubscriptionId;
+    }
+    return apiRequest(
+      'POST',
+      `/api/admin/registrations/${registrationId}/cancel`,
+      Object.keys(body).length ? body : undefined,
+    );
   },
 
   async approveRegistration(registrationId: number): Promise<any> {

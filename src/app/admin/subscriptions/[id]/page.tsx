@@ -21,8 +21,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useManualRefundSessions } from "@/hooks/useSubscriptions";
-import { useToast } from "@/hooks/use-toast";
 import { Payment } from "@/lib/api/payments";
 import { CardSkeleton } from "@/components/skeletons";
 
@@ -80,15 +78,12 @@ export default function AdminSubscriptionDetails() {
   const params = useParams();
   const router = useRouter();
   const subscriptionId = params.id as string;
-  const { toast } = useToast();
 
   const { data: subscriptions, isLoading: loadingSubscriptions } =
     useSubscriptions();
   const { data: members = [], isLoading: loadingMembers } = useMembers();
   const { data: plans = [], isLoading: loadingPlans } = usePlans();
   const { data: payments = [], isLoading: loadingPayments } = usePayments();
-
-  const manualRefundMutation = useManualRefundSessions();
 
   const mappedMembers = useMemo(() => {
     return Array.isArray(members)
@@ -137,45 +132,6 @@ export default function AdminSubscriptionDetails() {
   const planPrice = Number(subscription?.plan?.price) || 0;
   const remainingAmount = Math.max(0, planPrice - totalPaid);
   const isFullyPaid = remainingAmount === 0;
-
-  const handleManualRefund = () => {
-    if (!subscription?.id) return;
-
-    const refundableGroups =
-      subscription.subscription_group_sessions?.filter(
-        (gs: any) => gs.sessions_remaining < gs.total_sessions,
-      ) || [];
-    const refundablePools =
-      (subscription as any).subscription_pool_sessions?.filter(
-        (ps: any) => ps.sessions_remaining < ps.total_sessions,
-      ) || [];
-
-    if (refundableGroups.length === 0 && refundablePools.length === 0) {
-      toast({
-        title: "Cannot refund sessions",
-        description:
-          "All sessions are already at maximum capacity. No sessions can be refunded.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (refundableGroups.length === 1 && refundablePools.length === 0) {
-      manualRefundMutation.mutate({
-        subscriptionId: subscription.id,
-        sessionsToRefund: 1,
-        groupId: refundableGroups[0].group_id,
-      });
-    } else if (refundablePools.length === 1 && refundableGroups.length === 0) {
-      manualRefundMutation.mutate({
-        subscriptionId: subscription.id,
-        sessionsToRefund: 1,
-        poolId: refundablePools[0].pool_id,
-      });
-    } else {
-      router.push(`/admin/subscriptions/${subscriptionId}/refund-session`);
-    }
-  };
 
   const handleEditPayment = (payment: Payment) => {
     router.push(`/admin/payments/${payment.id}/edit?from=${encodeURIComponent(`/admin/subscriptions/${subscriptionId}`)}`);
@@ -267,13 +223,14 @@ export default function AdminSubscriptionDetails() {
                 Session Management
               </div>
               <DropdownMenuItem
-                onClick={handleManualRefund}
-                disabled={manualRefundMutation.isPending}
+                onClick={() =>
+                  router.push(
+                    `/admin/subscriptions/${subscriptionId}/refund-session`,
+                  )
+                }
               >
                 <RefreshCw className="w-4 h-4 mr-2" />
-                {manualRefundMutation.isPending
-                  ? "Refunding..."
-                  : "Refund 1 Session"}
+                Refund 1 Session
               </DropdownMenuItem>
 
               <DropdownMenuItem

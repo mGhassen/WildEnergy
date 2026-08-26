@@ -174,10 +174,14 @@ export default function ScheduleCalendar({
       setIsUnvalidateOpen(false);
       setConfirmUnregisterId(null);
       setConfirmUnvalidateId(null);
+      setAdminRefundSubscriptionId(null);
     }
   };
   const closeDialog = () => onOpenChange(false);
   const [adminRefundSession, setAdminRefundSession] = useState(true);
+  const [adminRefundSubscriptionId, setAdminRefundSubscriptionId] = useState<
+    number | null
+  >(null);
 
   useEffect(() => {
     if (!isDetailsOpen && !isRegistrationModalOpen && !isUnregisterOpen && !isUnvalidateOpen) {
@@ -710,9 +714,34 @@ export default function ScheduleCalendar({
   // Update adminRefundSession when dialog opens
   const handleUnregisterClick = (registrationId: number) => {
     const isLate = isLateCancellation(registrationId);
-    setAdminRefundSession(!isLate); // Default: refund if not late, forfeit if late
-    setConfirmUnregisterId(registrationId); setIsUnregisterOpen(true);
+    const registration = registrations.find((reg) => reg.id === registrationId) as any;
+    const memberId = registration?.member_id || registration?.member?.id;
+    const defaultSubId = registration?.subscription_id
+      ? Number(registration.subscription_id)
+      : null;
+    const memberSubs = memberId
+      ? (subscriptions as any[]).filter(
+          (sub: any) => String(sub.member_id) === String(memberId),
+        )
+      : [];
+    setAdminRefundSession(!isLate);
+    setAdminRefundSubscriptionId(
+      defaultSubId || (memberSubs[0]?.id != null ? Number(memberSubs[0].id) : null),
+    );
+    setConfirmUnregisterId(registrationId);
+    setIsUnregisterOpen(true);
   };
+
+  const unregisterTarget = confirmUnregisterId
+    ? (registrations.find((reg) => reg.id === Number(confirmUnregisterId)) as any)
+    : null;
+  const unregisterMemberId =
+    unregisterTarget?.member_id || unregisterTarget?.member?.id || null;
+  const unregisterMemberSubs = unregisterMemberId
+    ? (subscriptions as any[]).filter(
+        (sub: any) => String(sub.member_id) === String(unregisterMemberId),
+      )
+    : [];
 
   return (
     <div className="space-y-6">
@@ -1030,6 +1059,40 @@ export default function ScheduleCalendar({
                   {isLateCancellation(Number(confirmUnregisterId)) ? 'Override: Refund session to member' : 'Refund session to member'}
                 </Label>
               </div>
+              {adminRefundSession && (
+                <div className="space-y-2">
+                  <Label>Refund into subscription</Label>
+                  {unregisterMemberSubs.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      No subscriptions found for this member.
+                    </p>
+                  ) : (
+                    <Select
+                      value={
+                        adminRefundSubscriptionId != null
+                          ? String(adminRefundSubscriptionId)
+                          : undefined
+                      }
+                      onValueChange={(v) =>
+                        setAdminRefundSubscriptionId(Number(v))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select subscription" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {unregisterMemberSubs.map((sub: any) => (
+                          <SelectItem key={sub.id} value={String(sub.id)}>
+                            {sub.plan?.name || `Subscription #${sub.id}`} ·{" "}
+                            {sub.status} · {formatDate(sub.start_date)} →{" "}
+                            {formatDate(sub.end_date)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+              )}
             </div>
           )}
           <AlertDialogFooter>
@@ -1038,11 +1101,15 @@ export default function ScheduleCalendar({
               onClick={() => {
                 if (confirmUnregisterId) {
                   const isLate = isLateCancellation(Number(confirmUnregisterId));
-                  const defaultRefund = !isLate; // Default: refund if not late
+                  const defaultRefund = !isLate;
                   const refundSession = user?.isAdmin ? adminRefundSession : defaultRefund;
                   unregisterMemberMutation.mutate({ 
                     registrationId: Number(confirmUnregisterId), 
-                    refundSession: user?.isAdmin ? refundSession : undefined 
+                    refundSession: user?.isAdmin ? refundSession : undefined,
+                    refundSubscriptionId:
+                      user?.isAdmin && refundSession && adminRefundSubscriptionId
+                        ? adminRefundSubscriptionId
+                        : undefined,
                   });
                 }
                 closeDialog();

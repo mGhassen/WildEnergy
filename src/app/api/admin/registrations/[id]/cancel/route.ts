@@ -75,16 +75,23 @@ export async function POST(
     const cutoffTime = new Date(courseDateTime.getTime() - (24 * 60 * 60 * 1000));
     const isWithin24Hours = now >= cutoffTime;
 
-    // Admin can override refund logic
+    // Admin can override refund logic and target subscription
     let refundSession: boolean | undefined = undefined;
+    let refundSubscriptionId: number | undefined = undefined;
     if (userProfile.is_admin) {
       try {
         const body = await req.json();
         if (typeof body.refundSession === 'boolean') {
           refundSession = body.refundSession;
         }
+        if (typeof body.refundSubscriptionId === 'number' && Number.isFinite(body.refundSubscriptionId)) {
+          refundSubscriptionId = body.refundSubscriptionId;
+        }
       } catch {}
     }
+
+    const targetSubscriptionId =
+      refundSubscriptionId ?? registration.subscription_id ?? null;
 
     // Use the stored procedure to handle cancellation with session refund
     const { data: result, error: procedureError } = await supabaseServer ()
@@ -92,7 +99,7 @@ export async function POST(
         p_registration_id: registrationId,
         p_user_id: registration.member_id,
         p_is_within_24_hours: isWithin24Hours,
-        p_subscription_id: registration.subscription_id,
+        p_subscription_id: targetSubscriptionId,
         p_force_refund: refundSession
       });
 
