@@ -486,16 +486,16 @@ export function WidgetCard({
                 Custom · {q?.viz || "—"}
               </p>
             </div>
-            <div className="flex shrink-0 items-center gap-0.5">
+            <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
               <Button
                 type="button"
-                size="sm"
+                size="icon"
                 variant="ghost"
-                className="h-7 gap-1 px-2 text-xs text-muted-foreground"
+                className="h-7 w-7 text-muted-foreground"
                 onClick={() => setEditOpen(true)}
+                aria-label="Edit widget"
               >
                 <Pencil className="h-3.5 w-3.5" />
-                Edit
               </Button>
               <Button
                 type="button"
@@ -611,26 +611,28 @@ export function WidgetCard({
                 </SelectContent>
               </Select>
             ))}
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              className="h-7 gap-1 px-2 text-xs text-muted-foreground"
-              onClick={() => setEditOpen(true)}
-            >
-              <Pencil className="h-3.5 w-3.5" />
-              Edit
-            </Button>
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              className="h-7 w-7 text-muted-foreground hover:text-destructive"
-              onClick={onRemove}
-              aria-label="Remove widget"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
+            <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7 text-muted-foreground"
+                onClick={() => setEditOpen(true)}
+                aria-label="Edit widget"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                onClick={onRemove}
+                aria-label="Remove widget"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="min-h-0 flex-1 p-3">
