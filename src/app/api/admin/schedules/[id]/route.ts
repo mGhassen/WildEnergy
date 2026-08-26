@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import {
-  assertCourseDeletableWithAutoCancel,
   deleteCourseWithRegistrationCleanup,
+  describeScheduleDeleteBlock,
+  getScheduleDeleteBlock,
 } from '@/lib/course-delete-cleanup';
 import {
   buildExpectedCourseDates,
@@ -441,51 +442,41 @@ export async function DELETE(request: NextRequest) {
     const activeCoursesCount = schedule.courses?.filter((course: any) => 
       course.status === 'scheduled' || course.status === 'in_progress'
     ).length || 0;
-    
+
+    const allRegs: Array<{ course_id: number; id: number; status: string }> = [];
+    const allCheckins: Array<{ registration_id: number }> = [];
     for (const course of schedule.courses || []) {
-      const regs = (course.class_registrations || []).map((r: any) => ({
-        id: r.id,
-        status: r.status,
-        member_id: r.member_id,
-      }));
-      const checkinsForCourse: { registration_id: number }[] = [];
       for (const reg of course.class_registrations || []) {
-        const n = (reg.checkins || []).length;
-        for (let i = 0; i < n; i++) {
-          checkinsForCourse.push({ registration_id: reg.id });
+        allRegs.push({
+          course_id: course.id,
+          id: reg.id,
+          status: reg.status,
+        });
+        for (let i = 0; i < (reg.checkins || []).length; i++) {
+          allCheckins.push({ registration_id: reg.id });
         }
       }
-      const reason = assertCourseDeletableWithAutoCancel(
+    }
+
+    const deleteBlock = getScheduleDeleteBlock({
+      courseIds: (schedule.courses || []).map((c: any) => c.id),
+      registrations: allRegs,
+      checkins: allCheckins,
+    });
+    if (deleteBlock) {
+      return NextResponse.json(
         {
-          course_date: course.course_date,
-          start_time: course.start_time,
-        },
-        regs,
-        checkinsForCourse
-      );
-      if (reason) {
-        const message =
-          reason === 'checkins'
-            ? 'A course under this schedule has check-ins.'
-            : reason === 'attended'
-              ? 'A course has attended registrations.'
-              : reason === 'past_registered'
-                ? 'A course that has already started still has active registrations.'
-                : 'A registration is missing member data.';
-        return NextResponse.json(
-          {
-            error: 'Cannot delete schedule',
-            message,
-            details: {
-              reason,
-              coursesCount,
-              scheduleName: (schedule.classes as any)?.name || 'Unknown',
-              trainerName: 'Unknown',
-            },
+          error: 'Cannot delete schedule',
+          message: describeScheduleDeleteBlock(deleteBlock),
+          details: {
+            ...deleteBlock,
+            coursesCount,
+            scheduleName: (schedule.classes as any)?.name || 'Unknown',
+            trainerName: 'Unknown',
           },
-          { status: 400 }
-        );
-      }
+        },
+        { status: 400 }
+      );
     }
 
     // Get trainer user details

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { registrationStatusBlocksDelete } from "@/lib/course-delete-rules";
 
 export function courseStartHasPassed(
   courseDate: string,
@@ -6,6 +7,48 @@ export function courseStartHasPassed(
 ): boolean {
   const courseDateTime = new Date(`${courseDate}T${startTime}`);
   return new Date() >= courseDateTime;
+}
+
+export type ScheduleDeleteBlockInfo = {
+  registrationCount: number;
+  checkinCount: number;
+};
+
+/** Schedule delete is blocked when any course has active registrations or check-ins. */
+export function getScheduleDeleteBlockInfo(params: {
+  courseIds: number[];
+  registrations: Array<{ course_id: number; id: number; status: string }>;
+  checkins: Array<{ registration_id: number }>;
+}): ScheduleDeleteBlockInfo | null {
+  const courseIdSet = new Set(params.courseIds);
+  const scheduleRegs = params.registrations.filter((r) =>
+    courseIdSet.has(r.course_id),
+  );
+  const registrationCount = scheduleRegs.filter((r) =>
+    registrationStatusBlocksDelete(r.status),
+  ).length;
+  const regIds = new Set(scheduleRegs.map((r) => r.id));
+  const checkinCount = params.checkins.filter((c) =>
+    regIds.has(c.registration_id),
+  ).length;
+
+  if (registrationCount === 0 && checkinCount === 0) return null;
+  return { registrationCount, checkinCount };
+}
+
+export function describeScheduleDeleteBlock(info: ScheduleDeleteBlockInfo): string {
+  const parts: string[] = [];
+  if (info.registrationCount > 0) {
+    parts.push(
+      `${info.registrationCount} registration${info.registrationCount === 1 ? "" : "s"}`,
+    );
+  }
+  if (info.checkinCount > 0) {
+    parts.push(
+      `${info.checkinCount} check-in${info.checkinCount === 1 ? "" : "s"}`,
+    );
+  }
+  return `This schedule has ${parts.join(" and ")}. Cancel or remove them before deleting the schedule.`;
 }
 
 /** Client + server: when null, course can be deleted (possibly after server-side auto-cancel). */
@@ -59,6 +102,48 @@ export function assertScheduleDeletableWithAutoCancel(
     if (reason) return reason;
   }
   return null;
+}
+
+/** Schedule delete is blocked whenever any course still has roster/check-ins. */
+export type ScheduleDeleteBlockInfo = {
+  registeredCount: number;
+  attendedCount: number;
+  checkinCount: number;
+};
+
+export function getScheduleDeleteBlock(params: {
+  courseIds: number[];
+  registrations: Array<{ course_id: number; id: number; status: string }>;
+  checkins: Array<{ registration_id: number }>;
+}): ScheduleDeleteBlockInfo | null {
+  const courseIdSet = new Set(params.courseIds);
+  const regs = params.registrations.filter((r) => courseIdSet.has(r.course_id));
+  const registeredCount = regs.filter((r) => r.status === "registered").length;
+  const attendedCount = regs.filter((r) => r.status === "attended").length;
+  const regIds = new Set(regs.map((r) => r.id));
+  const checkinCount = params.checkins.filter(
+    (c) =>
+      typeof c.registration_id === "number" && regIds.has(c.registration_id)
+  ).length;
+
+  if (registeredCount === 0 && attendedCount === 0 && checkinCount === 0) {
+    return null;
+  }
+  return { registeredCount, attendedCount, checkinCount };
+}
+
+export function describeScheduleDeleteBlock(block: ScheduleDeleteBlockInfo): string {
+  const parts: string[] = [];
+  if (block.registeredCount > 0) {
+    parts.push(`${block.registeredCount} registration(s)`);
+  }
+  if (block.attendedCount > 0) {
+    parts.push(`${block.attendedCount} attended`);
+  }
+  if (block.checkinCount > 0) {
+    parts.push(`${block.checkinCount} check-in(s)`);
+  }
+  return `This schedule has ${parts.join(", ")}. Cancel or remove them first, then delete the schedule.`;
 }
 
 export function describeCourseDeleteBlockReason(reason: string): string {

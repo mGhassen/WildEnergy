@@ -28,7 +28,11 @@ import { useCourses } from "@/hooks/useCourse";
 import { Plus, Search, Edit, Trash2, Calendar, Users, TrendingUp, RepeatIcon, Clock, MapPin, Activity, MoreHorizontal, Eye } from "lucide-react";
 import { getDayName, formatDaysOfWeek, formatTime } from "@/lib/date";
 import { registrationStatusBlocksDelete } from "@/lib/course-delete-rules";
-import { assertScheduleDeletableWithAutoCancel } from "@/lib/course-delete-cleanup";
+import {
+  describeScheduleDeleteBlock,
+  getScheduleDeleteBlock,
+  type ScheduleDeleteBlockInfo,
+} from "@/lib/course-delete-cleanup";
 import {
   describeScheduleEditBlock,
   getScheduleEditBlockReason,
@@ -112,6 +116,7 @@ export default function AdminSchedules() {
   const [searchTerm, setSearchTerm] = useState("");
   const [scheduleToDelete, setScheduleToDelete] = useState<any>(null);
   const [editBlockedReason, setEditBlockedReason] = useState<ScheduleEditBlockReason | null>(null);
+  const [deleteBlockedInfo, setDeleteBlockedInfo] = useState<ScheduleDeleteBlockInfo | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const isMobile = useIsMobile();
@@ -307,21 +312,12 @@ export default function AdminSchedules() {
               <DropdownMenuItem
                 onClick={(e) => {
                   e.stopPropagation();
-                  const scheduleCourses = courses.filter((course: any) => course.schedule_id === row.id);
-                  const courseIds = scheduleCourses.map((course: any) => course.id);
-                  const scheduleRegistrations = registrations.filter((reg: any) => 
-                    courseIds.includes(reg.course_id)
-                  );
-                  
-                  const params = new URLSearchParams({
-                    scheduleId: row.id.toString(),
-                    status: 'registered,attended'
-                  });
-                  window.location.href = `/admin/registrations?${params.toString()}`;
+                  showCannotDelete(row.id);
                 }}
+                className="text-muted-foreground"
               >
-                <Users className="mr-2 h-4 w-4" />
-                View Registrations
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete (locked)
               </DropdownMenuItem>
             )}
           </DropdownMenuContent>
@@ -604,7 +600,7 @@ export default function AdminSchedules() {
     });
   };
 
-  const canDeleteSchedule = (scheduleId: number) => {
+  const getDeleteBlock = (scheduleId: number): ScheduleDeleteBlockInfo | null => {
     const scheduleCourses = courses.filter(
       (course: any) => course.schedule_id === scheduleId
     );
@@ -612,24 +608,24 @@ export default function AdminSchedules() {
     const scheduleRegs = registrations.filter((reg: any) =>
       courseIds.includes(reg.course_id)
     );
-    return (
-      assertScheduleDeletableWithAutoCancel(
-        scheduleCourses.map((c: any) => ({
-          id: c.id,
-          course_date: c.course_date,
-          start_time: c.start_time,
-        })),
-        scheduleRegs.map((r: any) => ({
-          course_id: r.course_id,
-          id: r.id,
-          status: r.status,
-          member_id: r.member_id ?? r.user_id,
-        })),
-        (checkins as any[]).map((ch: any) => ({
-          registration_id: ch.registration_id,
-        }))
-      ) === null
-    );
+    return getScheduleDeleteBlock({
+      courseIds,
+      registrations: scheduleRegs.map((r: any) => ({
+        course_id: r.course_id,
+        id: r.id,
+        status: r.status,
+      })),
+      checkins: (checkins as any[]).map((ch: any) => ({
+        registration_id: ch.registration_id ?? ch.registration?.id,
+      })),
+    });
+  };
+
+  const canDeleteSchedule = (scheduleId: number) => getDeleteBlock(scheduleId) === null;
+
+  const showCannotDelete = (scheduleId: number) => {
+    const block = getDeleteBlock(scheduleId);
+    if (block) setDeleteBlockedInfo(block);
   };
 
   const canEditSchedule = (schedule: any) => getEditBlockReason(schedule) === null;
@@ -824,23 +820,11 @@ export default function AdminSchedules() {
               <Button
                 size="sm"
                 variant="outline"
-                className="text-primary hover:text-primary/80"
-                onClick={() => {
-                  const scheduleCourses = courses.filter((course: any) => course.schedule_id === schedule.id);
-                  const courseIds = scheduleCourses.map((course: any) => course.id);
-                  const scheduleRegistrations = registrations.filter((reg: any) => 
-                    courseIds.includes(reg.course_id)
-                  );
-                  
-                  // Redirect to registrations page with filters
-                  const params = new URLSearchParams({
-                    scheduleId: schedule.id.toString(),
-                    status: 'registered,attended'
-                  });
-                  window.location.href = `/admin/registrations?${params.toString()}`;
-                }}
+                className="text-muted-foreground"
+                onClick={() => showCannotDelete(schedule.id)}
               >
-                View Registrations
+                <Trash2 className="w-3 h-3 mr-1" />
+                Delete locked
               </Button>
             )}
           </div>
@@ -896,6 +880,27 @@ export default function AdminSchedules() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogAction onClick={() => setEditBlockedReason(null)}>
+              OK
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={deleteBlockedInfo !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteBlockedInfo(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cannot delete schedule</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteBlockedInfo ? describeScheduleDeleteBlock(deleteBlockedInfo) : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setDeleteBlockedInfo(null)}>
               OK
             </AlertDialogAction>
           </AlertDialogFooter>

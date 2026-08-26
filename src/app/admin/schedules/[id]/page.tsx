@@ -47,7 +47,9 @@ import {
 import { getDayName, formatDaysOfWeek, formatTime } from "@/lib/date";
 import {
   assertCourseDeletableWithAutoCancel,
-  assertScheduleDeletableWithAutoCancel,
+  describeScheduleDeleteBlock,
+  getScheduleDeleteBlock,
+  type ScheduleDeleteBlockInfo,
 } from "@/lib/course-delete-cleanup";
 import { registrationStatusBlocksDelete } from "@/lib/course-delete-rules";
 import {
@@ -169,6 +171,7 @@ export default function ScheduleDetailsPage() {
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
   const [bulkEditDialogOpen, setBulkEditDialogOpen] = useState(false);
   const [editBlockedReason, setEditBlockedReason] = useState<ScheduleEditBlockReason | null>(null);
+  const [deleteBlockedInfo, setDeleteBlockedInfo] = useState<ScheduleDeleteBlockInfo | null>(null);
   const [bulkCourseOverrides, setBulkCourseOverrides] = useState<{
     status: BulkCourseStatus;
   }>({ status: "" });
@@ -401,21 +404,18 @@ export default function ScheduleDetailsPage() {
     });
   };
 
-  const canDeleteSchedule =
-    assertScheduleDeletableWithAutoCancel(
-      scheduleCourses.map((c: any) => ({
-        id: c.id,
-        course_date: c.course_date,
-        start_time: c.start_time,
-      })),
-      scheduleRegistrations.map((r: any) => ({
-        course_id: r.course_id,
-        id: r.id,
-        status: r.status,
-        member_id: r.member_id ?? r.user_id,
-      })),
-      checkins
-    ) === null;
+  const scheduleDeleteBlock = getScheduleDeleteBlock({
+    courseIds,
+    registrations: scheduleRegistrations.map((r: any) => ({
+      course_id: r.course_id,
+      id: r.id,
+      status: r.status,
+    })),
+    checkins: (checkins as any[]).map((ch: any) => ({
+      registration_id: ch.registration_id ?? ch.registration?.id,
+    })),
+  });
+  const canDeleteSchedule = scheduleDeleteBlock === null;
 
   const courseHasMembers = (courseId: number) => {
     const regs = scheduleRegistrations.filter((r: any) => r.course_id === courseId);
@@ -600,9 +600,14 @@ export default function ScheduleDetailsPage() {
                 Delete schedule
               </DropdownMenuItem>
             ) : (
-              <DropdownMenuItem disabled className="text-muted-foreground">
+              <DropdownMenuItem
+                onClick={() => {
+                  if (scheduleDeleteBlock) setDeleteBlockedInfo(scheduleDeleteBlock);
+                }}
+                className="text-muted-foreground"
+              >
                 <Trash2 className="mr-2 h-4 w-4" />
-                Delete schedule (blocked: check-ins, attended, or past roster)
+                Delete schedule (locked)
               </DropdownMenuItem>
             )}
           </DropdownMenuContent>
@@ -1569,6 +1574,27 @@ export default function ScheduleDetailsPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogAction onClick={() => setEditBlockedReason(null)}>
+              OK
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={deleteBlockedInfo !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteBlockedInfo(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cannot delete schedule</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteBlockedInfo ? describeScheduleDeleteBlock(deleteBlockedInfo) : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setDeleteBlockedInfo(null)}>
               OK
             </AlertDialogAction>
           </AlertDialogFooter>
