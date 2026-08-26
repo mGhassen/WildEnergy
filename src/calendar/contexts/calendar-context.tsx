@@ -76,7 +76,16 @@ export function CalendarProvider({
     return DEFAULT_HOUR_HEIGHT;
   });
 
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('calendar-selected-date');
+      if (saved) {
+        const parsed = new Date(saved);
+        if (!Number.isNaN(parsed.getTime())) return parsed;
+      }
+    }
+    return new Date();
+  });
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | "all">("all");
 
   // Use the events prop directly instead of local state
@@ -96,6 +105,12 @@ export function CalendarProvider({
       localStorage.setItem('calendar-hour-height', hourHeight.toString());
     }
   }, [hourHeight]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('calendar-selected-date', selectedDate.toISOString());
+    }
+  }, [selectedDate]);
 
   const handleSelectDate = (date: Date | undefined) => {
     if (!date) return;
