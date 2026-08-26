@@ -74,6 +74,7 @@ export function DateNavigator({ view, events }: IProps) {
               fromYear={2020}
               toYear={2035}
               defaultMonth={selectedDate}
+              className="[--cell-size:2.75rem]"
             />
           </PopoverContent>
         </Popover>
