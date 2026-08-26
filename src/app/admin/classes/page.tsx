@@ -25,6 +25,7 @@ import { useAdminClasses, useAdminCategories } from "@/hooks/useAdmin";
 import { TableSkeleton } from "@/components/skeletons";
 import { Plus, Search, Edit, Trash2, Clock } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { resolveGroupForClass } from "@/lib/resolve-class-group";
 
 export default function AdminClasses() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -36,9 +37,6 @@ export default function AdminClasses() {
 
   const classes = Array.isArray(rawClasses)
     ? rawClasses.map((cls: any) => {
-        const categoryGroups = cls.category?.category_groups || [];
-        const firstGroup =
-          categoryGroups.length > 0 ? categoryGroups[0].group : null;
         return {
           ...cls,
           categoryId: cls.category_id,
@@ -47,7 +45,7 @@ export default function AdminClasses() {
           isActive: cls.is_active,
           categories: {
             ...cls.category,
-            group: firstGroup,
+            group: resolveGroupForClass(cls),
           },
         };
       })

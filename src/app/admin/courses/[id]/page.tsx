@@ -139,11 +139,11 @@ interface CourseDetails {
       id: number;
       name: string;
       color: string;
-      group: {
+      group?: {
         id: number;
         name: string;
         color: string;
-      };
+      } | null;
     };
   };
   trainer: {
@@ -609,9 +609,11 @@ export default function CourseDetailsPage() {
                       style={{ backgroundColor: courseData.class.category.color }}
                     />
                     <span className="font-medium">{courseData.class.category.name}</span>
-                    <Badge variant="outline" className="text-xs">
-                      {courseData.class.category.group.name}
-                    </Badge>
+                    {courseData.class.category.group?.name && (
+                      <Badge variant="outline" className="text-xs">
+                        {courseData.class.category.group.name}
+                      </Badge>
+                    )}
                   </div>
                 </div>
                 <div>

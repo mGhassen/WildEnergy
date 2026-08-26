@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { resolveGroupForClass } from '@/lib/resolve-class-group';
 
 export async function GET(req: NextRequest) {
   try {
@@ -35,7 +36,13 @@ export async function GET(req: NextRequest) {
       .from('courses')
       .select(`
         *,
-        class:classes(id, name, description, category_id, duration, max_capacity, difficulty, category:categories(id, name, color)),
+        class:classes(
+          id, name, description, category_id, duration, max_capacity, difficulty,
+          category:categories(
+            id, name, color,
+            category_groups(group:groups(id, name, color))
+          )
+        ),
         trainer:trainers(
           id,
           account_id,
@@ -78,13 +85,16 @@ export async function GET(req: NextRequest) {
 
     // Transform the data to match the member page expectations
     const transformedCourses = (courses || []).map(course => {
+      const group = resolveGroupForClass(course.class);
       return {
         id: course.id,
         class: {
           id: course.class?.id,
           name: course.class?.name,
           description: course.class?.description,
-          category: course.class?.category,
+          category: course.class?.category
+            ? { ...course.class.category, group }
+            : course.class?.category,
           difficulty: course.class?.difficulty,
           maxCapacity: course.class?.max_capacity,
           duration: course.class?.duration

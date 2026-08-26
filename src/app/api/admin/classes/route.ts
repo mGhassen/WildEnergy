@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { resolveGroupForClass } from '@/lib/resolve-class-group';
 
 export async function GET(req: NextRequest) {
   try {
@@ -43,7 +44,13 @@ export async function GET(req: NextRequest) {
     if (error) {
       return NextResponse.json({ error: 'Failed to fetch classes' }, { status: 500 });
     }
-    return NextResponse.json(classes);
+    const withGroup = (classes || []).map((cls: any) => ({
+      ...cls,
+      category: cls.category
+        ? { ...cls.category, group: resolveGroupForClass(cls) }
+        : cls.category,
+    }));
+    return NextResponse.json(withGroup);
   } catch (error) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

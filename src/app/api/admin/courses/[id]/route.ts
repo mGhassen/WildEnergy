@@ -3,6 +3,7 @@ import { supabaseServer, createSupabaseClient } from '@/lib/supabase';
 import { deleteCourseWithRegistrationCleanup } from '@/lib/course-delete-cleanup';
 import { editCourseSchema } from '@/shared/zod-schemas';
 import { pickSubscriptionForCourse } from '@/lib/subscription-for-course';
+import { resolveGroupForClass, resolveGroupIdForClass } from '@/lib/resolve-class-group';
 import {
   courseDateDivergesFromSchedule,
   courseIsEditedVsSchedule,
@@ -193,17 +194,15 @@ export async function GET(
     const totalCheckins = checkins?.length || 0;
     const attendanceRate = totalRegistrations > 0 ? Math.round((totalCheckins / totalRegistrations) * 100) : 0;
 
-    // Process class data to include group information
+    // Class → session group by name match (not category_groups[0] — shared categories)
     let processedClass = course.class;
-    if (processedClass?.category?.category_groups) {
-      const categoryGroups = processedClass.category.category_groups;
-      const firstGroup = categoryGroups.length > 0 ? categoryGroups[0].group : null;
+    if (processedClass?.category) {
       processedClass = {
         ...processedClass,
         category: {
           ...processedClass.category,
-          group: firstGroup
-        }
+          group: resolveGroupForClass(processedClass),
+        },
       };
     }
 
@@ -404,10 +403,11 @@ export async function POST(
         course_date,
         class:classes(
           id,
+          name,
           category:categories(
             id,
             category_groups(
-              group:groups(id)
+              group:groups(id, name)
             )
           )
         )
@@ -419,8 +419,7 @@ export async function POST(
       return NextResponse.json({ error: 'Course not found' }, { status: 404 });
     }
 
-    const courseGroupId =
-      (course as any).class?.category?.category_groups?.[0]?.group?.id ?? null;
+    const courseGroupId = resolveGroupIdForClass((course as any).class);
 
     // Note: Admin registrations bypass capacity checks
     // Admins can register members even when course is at capacity

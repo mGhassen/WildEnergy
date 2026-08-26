@@ -25,7 +25,7 @@ import { CalendarProvider } from "@/calendar/contexts/calendar-context";
 import { ClientContainer } from "@/calendar/components/client-container";
 import { MobileClientContainer } from "@/components/mobile-client-container";
 import { convertCoursesToMemberEvents, createMemberUsers } from "@/calendar/utils/course-converter";
-import { subscriptionCoversCategory } from "@/lib/session-eligibility";
+import { subscriptionCoversGroup } from "@/lib/session-eligibility";
 import Link from "next/link";
 
 // Types for member classes page
@@ -33,6 +33,7 @@ interface Category {
   id: number;
   name: string;
   color: string;
+  group?: { id: number; name: string; color?: string };
 }
 
 interface Trainer {
@@ -186,11 +187,11 @@ function MemberClassesContent() {
   // Helper function to check if member can register for a course based on subscription group sessions
   const canRegisterForCourse = (course: Course) => {
     if (!activeSubscriptions.length) return false;
-    const categoryId = course.class?.category?.id;
-    if (!categoryId) return false;
+    const groupId = course.class?.category?.group?.id;
+    if (!groupId) return false;
 
     return activeSubscriptions.some((subscription) =>
-      subscriptionCoversCategory(subscription as any, categoryId),
+      subscriptionCoversGroup(subscription as any, groupId),
     );
   };
 

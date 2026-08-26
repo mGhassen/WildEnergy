@@ -28,7 +28,7 @@ import { useMemberRegistrations } from "@/hooks/useMemberRegistrations";
 import { useMemberSubscriptions } from "@/hooks/useMemberSubscriptions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { subscriptionCoversCategory } from "@/lib/session-eligibility";
+import { subscriptionCoversGroup } from "@/lib/session-eligibility";
 import { DashboardSkeleton } from "@/components/skeletons";
 
 function combineDateAndTime(dateStr: string, timeStr: string): Date {
@@ -102,11 +102,11 @@ export function MemberCourseDetailsView({
 
   const canRegisterForCourse = () => {
     if (!activeSubscriptions.length || !courseData) return false;
-    const categoryId = courseData.class?.category?.id;
-    if (!categoryId) return false;
+    const groupId = courseData.class?.category?.group?.id;
+    if (!groupId) return false;
 
     return activeSubscriptions.some((subscription) =>
-      subscriptionCoversCategory(subscription as any, categoryId),
+      subscriptionCoversGroup(subscription as any, groupId),
     );
   };
 

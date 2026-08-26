@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { resolveGroupIdForClass } from '@/lib/resolve-class-group';
 import { pickSubscriptionForCourse } from '@/lib/subscription-for-course';
 
 export async function GET(
@@ -211,7 +212,7 @@ export async function GET(
           id,
           name,
           category_groups (
-            group:groups ( id )
+            group:groups ( id, name )
           )
         )
       `)
@@ -222,8 +223,10 @@ export async function GET(
     const categoryRel = Array.isArray(classInfo?.category)
       ? classInfo.category[0]
       : classInfo?.category;
-    const courseGroupId =
-      (categoryRel as any)?.category_groups?.[0]?.group?.id ?? null;
+    const courseGroupId = resolveGroupIdForClass({
+      name: classInfo?.name,
+      category: categoryRel as any,
+    });
 
     // Get trainer information
     const { data: trainerInfo } = await supabaseServer()

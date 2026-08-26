@@ -1,4 +1,45 @@
 /**
+ * Whether a subscription can cover a specific session group (dedicated or pool).
+ * Prefer this over category matching when the course class resolves to a group.
+ */
+export function subscriptionCoversGroup(
+  subscription: {
+    subscription_group_sessions?: Array<{
+      group_id: number;
+      sessions_remaining: number;
+    }>;
+    subscription_pool_sessions?: Array<{
+      pool_id: number;
+      sessions_remaining: number;
+      plan_session_pools?:
+        | {
+            plan_session_pool_groups?: Array<{ group_id: number }>;
+          }
+        | Array<{
+            plan_session_pool_groups?: Array<{ group_id: number }>;
+          }>
+        | null;
+    }>;
+  },
+  groupId: number,
+): boolean {
+  const hasDedicated = (subscription.subscription_group_sessions || []).some(
+    (gs) => gs.group_id === groupId && gs.sessions_remaining > 0,
+  );
+  if (hasDedicated) return true;
+
+  return (subscription.subscription_pool_sessions || []).some((ps) => {
+    if (ps.sessions_remaining <= 0) return false;
+    const planPool = Array.isArray(ps.plan_session_pools)
+      ? ps.plan_session_pools[0]
+      : ps.plan_session_pools;
+    return (planPool?.plan_session_pool_groups || []).some(
+      (g) => g.group_id === groupId,
+    );
+  });
+}
+
+/**
  * Whether a subscription can cover a course category via dedicated group
  * sessions or package session pools.
  */
