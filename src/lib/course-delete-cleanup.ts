@@ -1,5 +1,4 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { registrationStatusBlocksDelete } from "@/lib/course-delete-rules";
 
 export function courseStartHasPassed(
   courseDate: string,
@@ -7,48 +6,6 @@ export function courseStartHasPassed(
 ): boolean {
   const courseDateTime = new Date(`${courseDate}T${startTime}`);
   return new Date() >= courseDateTime;
-}
-
-export type ScheduleDeleteBlockInfo = {
-  registrationCount: number;
-  checkinCount: number;
-};
-
-/** Schedule delete is blocked when any course has active registrations or check-ins. */
-export function getScheduleDeleteBlockInfo(params: {
-  courseIds: number[];
-  registrations: Array<{ course_id: number; id: number; status: string }>;
-  checkins: Array<{ registration_id: number }>;
-}): ScheduleDeleteBlockInfo | null {
-  const courseIdSet = new Set(params.courseIds);
-  const scheduleRegs = params.registrations.filter((r) =>
-    courseIdSet.has(r.course_id),
-  );
-  const registrationCount = scheduleRegs.filter((r) =>
-    registrationStatusBlocksDelete(r.status),
-  ).length;
-  const regIds = new Set(scheduleRegs.map((r) => r.id));
-  const checkinCount = params.checkins.filter((c) =>
-    regIds.has(c.registration_id),
-  ).length;
-
-  if (registrationCount === 0 && checkinCount === 0) return null;
-  return { registrationCount, checkinCount };
-}
-
-export function describeScheduleDeleteBlock(info: ScheduleDeleteBlockInfo): string {
-  const parts: string[] = [];
-  if (info.registrationCount > 0) {
-    parts.push(
-      `${info.registrationCount} registration${info.registrationCount === 1 ? "" : "s"}`,
-    );
-  }
-  if (info.checkinCount > 0) {
-    parts.push(
-      `${info.checkinCount} check-in${info.checkinCount === 1 ? "" : "s"}`,
-    );
-  }
-  return `This schedule has ${parts.join(" and ")}. Cancel or remove them before deleting the schedule.`;
 }
 
 /** Client + server: when null, course can be deleted (possibly after server-side auto-cancel). */
