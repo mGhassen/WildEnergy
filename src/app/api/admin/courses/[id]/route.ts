@@ -705,14 +705,19 @@ export async function PUT(
     }
     
     // Use the validated data directly (already in snake_case)
-    const allowedUpdates = validationResult.data;
+    const { trainer_id, status, ...rest } = validationResult.data;
+    const allowedUpdates: Record<string, unknown> = {
+      ...rest,
+      trainer_id: trainer_id?.trim() ? trainer_id : null,
+      updated_at: new Date().toISOString(),
+    };
+    if (status !== undefined) {
+      allowedUpdates.status = status;
+    }
 
     const { data: course, error } = await supabaseServer()
       .from('courses')
-      .update({
-        ...allowedUpdates,
-        updated_at: new Date().toISOString()
-      })
+      .update(allowedUpdates)
       .eq('id', courseId)
       .select('*')
       .single();
