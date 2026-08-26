@@ -251,6 +251,16 @@ export default function MemberDetailsPage() {
     }
   }, [memberDetails]);
 
+  useEffect(() => {
+    if (!subscriptionCarouselApi) return;
+    const onSelect = () => setSubscriptionSlide(subscriptionCarouselApi.selectedScrollSnap());
+    onSelect();
+    subscriptionCarouselApi.on('select', onSelect);
+    return () => {
+      subscriptionCarouselApi.off('select', onSelect);
+    };
+  }, [subscriptionCarouselApi]);
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -357,16 +367,6 @@ export default function MemberDetailsPage() {
   };
 
   const featuredSubscriptions = getFeaturedSubscriptions(subscriptions);
-
-  useEffect(() => {
-    if (!subscriptionCarouselApi) return;
-    const onSelect = () => setSubscriptionSlide(subscriptionCarouselApi.selectedScrollSnap());
-    onSelect();
-    subscriptionCarouselApi.on('select', onSelect);
-    return () => {
-      subscriptionCarouselApi.off('select', onSelect);
-    };
-  }, [subscriptionCarouselApi]);
 
   const outstandingDebit = subscriptions.reduce((sum, sub) => {
     const planPrice = Number(sub.plan?.price) || 0;
