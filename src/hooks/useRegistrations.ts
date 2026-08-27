@@ -92,6 +92,8 @@ export function useCheckInRegistration() {
       queryClient.invalidateQueries({ queryKey: ['registrations'] });
       queryClient.invalidateQueries({ queryKey: ['/api/checkins'] });
       queryClient.invalidateQueries({ queryKey: ['/api/member/registrations'] });
+      queryClient.invalidateQueries({ queryKey: ['course'] });
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
       toast({
         title: 'Check-in successful',
         description: 'Member has been successfully checked in.',

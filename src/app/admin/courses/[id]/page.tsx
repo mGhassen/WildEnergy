@@ -8,7 +8,7 @@ import {
   useDeleteCourse, 
   useAddMembersToCourse 
 } from '@/hooks/useCourse';
-import { useAdminCancelRegistration } from '@/hooks/useRegistrations';
+import { useAdminCancelRegistration, useCheckInRegistration } from '@/hooks/useRegistrations';
 import { useMembers, useCheckMemberSessions } from '@/hooks/useMembers';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -48,6 +48,8 @@ import {
   CheckSquare,
   Square,
   QrCode,
+  Check,
+  Eye,
   ChevronUp,
   ChevronDown,
   X
@@ -277,6 +279,7 @@ export default function CourseDetailsPage() {
   const deleteCourseMutation = useDeleteCourse();
   const addMembersToCourseMutation = useAddMembersToCourse();
   const cancelRegistrationMutation = useAdminCancelRegistration();
+  const checkInMutation = useCheckInRegistration();
 
   const courseGroupIdForSelection = () =>
     (course as CourseDetails | undefined)?.class?.category?.group?.id ?? null;
@@ -969,20 +972,6 @@ export default function CourseDetailsPage() {
                       >
                         <QrCode className="w-4 h-4" />
                       </Button>
-                      {registration.status === 'registered' && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleCancelRegistration(registration);
-                          }}
-                          className="h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
-                          title="Cancel Registration"
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      )}
                       <Badge 
                         variant="outline" 
                         className={`text-xs ${
@@ -1001,6 +990,51 @@ export default function CourseDetailsPage() {
                          registration.status === 'registered' ? 'Registered' :
                          registration.status}
                       </Badge>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            aria-label="Open registration actions"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                          <DropdownMenuItem onClick={(e) => handleQRClick(registration.qr_code, e)}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            View
+                          </DropdownMenuItem>
+                          {(registration.status === 'registered' || registration.status === 'absent') && (
+                            <DropdownMenuItem
+                              disabled={checkInMutation.isPending}
+                              onClick={() => checkInMutation.mutate(registration.id)}
+                            >
+                              <Check className="mr-2 h-4 w-4" />
+                              Check in
+                            </DropdownMenuItem>
+                          )}
+                          {registration.status === 'registered' && (
+                            <DropdownMenuItem
+                              onClick={() => handleCancelRegistration(registration)}
+                            >
+                              <X className="mr-2 h-4 w-4" />
+                              Cancel
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() =>
+                              router.push(`/admin/registrations/${registration.id}/delete`)
+                            }
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
                 );
