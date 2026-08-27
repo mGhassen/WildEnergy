@@ -7,6 +7,7 @@ import { DraggableEvent } from "@/calendar/components/dnd/draggable-event";
 import { EventWrapper } from "@/calendar/components/event-wrapper";
 
 import { cn } from "@/lib/utils";
+import { eventSurfaceStyle } from "@/calendar/helpers";
 
 import type { IEvent } from "@/calendar/interfaces";
 import type { VariantProps } from "class-variance-authority";
@@ -96,10 +97,16 @@ export function MonthEventBadge({ event, cellDate, eventCurrentDay, eventTotalDa
   return (
     <DraggableEvent event={event}>
       <EventWrapper event={event}>
-        <div role="button" tabIndex={0} className={eventBadgeClasses} onKeyDown={handleKeyDown}>
+        <div
+          role="button"
+          tabIndex={0}
+          className={eventBadgeClasses}
+          style={eventSurfaceStyle(event.hexColor, badgeVariant)}
+          onKeyDown={handleKeyDown}
+        >
           <div className="flex items-center gap-1.5 truncate">
             {!["middle", "last"].includes(position) && ["mixed", "dot"].includes(badgeVariant) && (
-              <svg width="8" height="8" viewBox="0 0 8 8" className="event-dot shrink-0">
+              <svg width="8" height="8" viewBox="0 0 8 8" className="event-dot shrink-0" style={event.hexColor ? { fill: event.hexColor } : undefined}>
                 <circle cx="4" cy="4" r="4" />
               </svg>
             )}

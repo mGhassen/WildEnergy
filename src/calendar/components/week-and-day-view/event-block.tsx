@@ -11,6 +11,7 @@ import QRGenerator from "@/components/qr-generator";
 import { Button } from "@/components/ui/button";
 
 import { cn } from "@/lib/utils";
+import { eventSurfaceStyle } from "@/calendar/helpers";
 
 import type { HTMLAttributes } from "react";
 import type { IEvent } from "@/calendar/interfaces";
@@ -95,10 +96,16 @@ export function EventBlock({ event, className }: IProps) {
     <>
       <DraggableEvent event={event}>
         <EventWrapper event={event}>
-          <div role="button" tabIndex={0} className={calendarWeekEventCardClasses} style={{ height: `${heightInPixels}px` }} onKeyDown={handleKeyDown}>
+          <div
+            role="button"
+            tabIndex={0}
+            className={calendarWeekEventCardClasses}
+            style={{ height: `${heightInPixels}px`, ...eventSurfaceStyle(event.hexColor, badgeVariant) }}
+            onKeyDown={handleKeyDown}
+          >
             <div className="flex items-center gap-1.5 truncate">
               {["mixed", "dot"].includes(badgeVariant) && (
-                <svg width="8" height="8" viewBox="0 0 8 8" className="event-dot shrink-0">
+                <svg width="8" height="8" viewBox="0 0 8 8" className="event-dot shrink-0" style={event.hexColor ? { fill: event.hexColor } : undefined}>
                   <circle cx="4" cy="4" r="4" />
                 </svg>
               )}

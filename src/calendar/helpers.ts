@@ -21,8 +21,10 @@ import {
   isWithinInterval,
 } from "date-fns";
 
+import type { CSSProperties } from "react";
+
 import type { ICalendarCell, IEvent } from "@/calendar/interfaces";
-import type { TCalendarView, TVisibleHours, TWorkingHours } from "@/calendar/types";
+import type { TBadgeVariant, TCalendarView, TVisibleHours, TWorkingHours } from "@/calendar/types";
 
 // ================ Header helper functions ================ //
 
@@ -257,4 +259,24 @@ export function getMonthCellEvents(date: Date, events: IEvent[], eventPositions:
       if (!a.isMultiDay && b.isMultiDay) return 1;
       return a.position - b.position;
     });
+}
+
+export function normalizeHex(hex?: string | null): string | undefined {
+  if (!hex) return undefined;
+  let value = hex.trim().replace(/^#/, "");
+  if (/^[0-9a-fA-F]{3}$/.test(value)) {
+    value = value.split("").map((char) => char + char).join("");
+  }
+  if (!/^[0-9a-fA-F]{6}$/.test(value)) return undefined;
+  return `#${value}`;
+}
+
+export function eventSurfaceStyle(hex?: string | null, badgeVariant?: TBadgeVariant): CSSProperties | undefined {
+  const normalized = normalizeHex(hex);
+  if (!normalized || badgeVariant === "dot") return undefined;
+  return {
+    backgroundColor: `${normalized}22`,
+    borderColor: `${normalized}66`,
+    color: normalized,
+  };
 }

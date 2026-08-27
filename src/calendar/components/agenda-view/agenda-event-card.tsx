@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { EventWrapper } from "@/calendar/components/event-wrapper";
 import QRGenerator from "@/components/qr-generator";
 
+import { eventSurfaceStyle } from "@/calendar/helpers";
+
 import type { IEvent } from "@/calendar/interfaces";
 import type { VariantProps } from "class-variance-authority";
 
@@ -86,11 +88,17 @@ export function AgendaEventCard({ event, eventCurrentDay, eventTotalDays }: IPro
   return (
     <>
       <EventWrapper event={event}>
-        <div role="button" tabIndex={0} className={agendaEventCardClasses} onKeyDown={handleKeyDown}>
+        <div
+          role="button"
+          tabIndex={0}
+          className={agendaEventCardClasses}
+          style={eventSurfaceStyle(event.hexColor, badgeVariant)}
+          onKeyDown={handleKeyDown}
+        >
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-1.5">
               {["mixed", "dot"].includes(badgeVariant) && (
-                <svg width="8" height="8" viewBox="0 0 8 8" className="event-dot shrink-0">
+                <svg width="8" height="8" viewBox="0 0 8 8" className="event-dot shrink-0" style={event.hexColor ? { fill: event.hexColor } : undefined}>
                   <circle cx="4" cy="4" r="4" />
                 </svg>
               )}

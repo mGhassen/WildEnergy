@@ -1,5 +1,6 @@
 import type { IEvent } from "@/calendar/interfaces";
 import type { TEventColor } from "@/calendar/types";
+import { normalizeHex } from "@/calendar/helpers";
 
 interface CourseData {
   id: number;
@@ -7,6 +8,7 @@ interface CourseData {
     id: number;
     name: string;
     description?: string;
+    color?: string | null;
     category?: {
       id: number;
       name: string;
@@ -40,41 +42,37 @@ interface RegistrationData {
   qr_code?: string;
 }
 
-// Color mapping for consistent color assignment
-const getEventColor = (category?: { color: string }): TEventColor => {
-  if (!category?.color) {
-    console.log('No category color found, using default blue');
-    return "blue";
+function resolveCourseHex(course: { class?: { color?: string | null; category?: { color?: string | null } | null } }): string | undefined {
+  return normalizeHex(course.class?.color || course.class?.category?.color);
+}
+
+function namedColorFromHex(hex?: string): TEventColor {
+  if (!hex) return "blue";
+  const value = hex.replace(/^#/, "");
+  const r = parseInt(value.slice(0, 2), 16) / 255;
+  const g = parseInt(value.slice(2, 4), 16) / 255;
+  const b = parseInt(value.slice(4, 6), 16) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  const d = max - min;
+  const s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+  if (s < 0.12) return "gray";
+  let h = 0;
+  if (d !== 0) {
+    switch (max) {
+      case r: h = ((g - b) / d + (g < b ? 6 : 0)) * 60; break;
+      case g: h = ((b - r) / d + 2) * 60; break;
+      default: h = ((r - g) / d + 4) * 60; break;
+    }
   }
-  
-  console.log('Category color:', category.color);
-  
-  const colorMap: Record<string, TEventColor> = {
-    '#FF0000': 'red',
-    '#00FF00': 'green', 
-    '#0000FF': 'blue',
-    '#FFFF00': 'yellow',
-    '#FF00FF': 'purple',
-    '#FFA500': 'orange',
-    '#808080': 'gray',
-    '#FFD700': 'yellow', // Gold
-    '#FF69B4': 'purple', // Hot pink
-    '#00CED1': 'blue',   // Dark turquoise
-    '#32CD32': 'green',  // Lime green
-    '#FF6347': 'orange', // Tomato
-    '#9370DB': 'purple', // Medium purple
-    '#20B2AA': 'green',  // Light sea green
-    '#FF1493': 'purple', // Deep pink
-    '#00BFFF': 'blue',   // Deep sky blue
-    '#FF8C00': 'orange', // Dark orange
-    '#DC143C': 'red',    // Crimson
-    '#8B008B': 'purple', // Dark magenta
-  };
-  
-  const mappedColor = colorMap[category.color.toUpperCase()] || 'blue';
-  console.log('Mapped color:', mappedColor);
-  return mappedColor;
-};
+  if (h < 15 || h >= 345) return "red";
+  if (h < 45) return "orange";
+  if (h < 75) return "yellow";
+  if (h < 165) return "green";
+  if (h < 255) return "blue";
+  return "purple";
+}
 
 // Convert courses to calendar events for member view
 export const convertCoursesToMemberEvents = (
@@ -127,13 +125,16 @@ export const convertCoursesToMemberEvents = (
       continue; // Skip invalid courses
     }
 
+    const hexColor = resolveCourseHex(course);
+
     validEvents.push({
       id: course.id,
       title: course.class?.name || 'Unknown Class',
       description: `${course.class?.description || ''}\n\nInstructor: ${instructorName}\nDifficulty: ${Array.isArray(course.class?.difficulty) ? course.class.difficulty.join(', ') : (course.class?.difficulty || 'Unknown')}\nDuration: ${course.class?.duration || 60} minutes`,
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString(),
-      color: getEventColor(course.class?.category),
+      color: namedColorFromHex(hexColor),
+      hexColor,
       user: {
         id: course.trainer?.id?.toString() || 'unknown',
         name: instructorName,
@@ -198,13 +199,16 @@ export const convertCoursesToAdminEvents = (courses: any[]): IEvent[] => {
       continue; // Skip invalid courses
     }
 
+    const hexColor = resolveCourseHex(course);
+
     validEvents.push({
       id: course.id,
       title: course.class?.name || 'Unknown Class',
       description: `${course.class?.description || ''}\n\nInstructor: ${instructorName}\nParticipants: ${course.current_participants || course.currentParticipants || 0}/${course.max_participants || course.maxParticipants || 0}\nStatus: ${course.status || 'scheduled'}`,
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString(),
-      color: getEventColor(course.class?.category),
+      color: namedColorFromHex(hexColor),
+      hexColor,
       user: {
         id: course.trainer?.id?.toString() || 'unknown',
         name: instructorName,

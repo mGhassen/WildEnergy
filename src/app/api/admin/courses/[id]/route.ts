@@ -47,6 +47,7 @@ export async function GET(
           equipment,
           difficulty,
           is_active,
+          color,
           category:categories(
             id,
             name,

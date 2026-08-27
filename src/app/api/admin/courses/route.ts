@@ -30,6 +30,7 @@ export async function GET(req: NextRequest) {
           category_id, 
           duration, 
           max_capacity,
+          color,
           category:categories(id, name, color)
         ),
         trainer:trainers(
