@@ -11,34 +11,33 @@ import QRGenerator from "@/components/qr-generator";
 import { Button } from "@/components/ui/button";
 
 import { cn } from "@/lib/utils";
-import { eventSurfaceStyle } from "@/calendar/helpers";
+import { eventSurfaceClass, eventSurfaceStyle } from "@/calendar/helpers";
 
 import type { HTMLAttributes } from "react";
 import type { IEvent } from "@/calendar/interfaces";
 import type { VariantProps } from "class-variance-authority";
 
 const calendarWeekEventCardVariants = cva(
-  "flex select-none flex-col gap-0.5 truncate whitespace-nowrap rounded-md border px-2 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+  "flex cursor-pointer select-none flex-col gap-0.5 truncate whitespace-nowrap rounded-md border px-2 py-1.5 text-xs transition-colors hover:shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
   {
     variants: {
       color: {
-        // Colored and mixed variants
-        blue: "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300 [&_.event-dot]:fill-blue-600",
-        green: "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-300 [&_.event-dot]:fill-green-600",
-        red: "border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300 [&_.event-dot]:fill-red-600",
-        yellow: "border-yellow-200 bg-yellow-50 text-yellow-700 dark:border-yellow-800 dark:bg-yellow-950 dark:text-yellow-300 [&_.event-dot]:fill-yellow-600",
-        purple: "border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-800 dark:bg-purple-950 dark:text-purple-300 [&_.event-dot]:fill-purple-600",
-        orange: "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-800 dark:bg-orange-950 dark:text-orange-300 [&_.event-dot]:fill-orange-600",
-        gray: "border-neutral-200 bg-neutral-50 text-neutral-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 [&_.event-dot]:fill-neutral-600",
+        none: "",
+        blue: "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300 dark:hover:bg-blue-900 [&_.event-dot]:fill-blue-600",
+        green: "border-green-200 bg-green-50 text-green-700 hover:bg-green-100 dark:border-green-800 dark:bg-green-950 dark:text-green-300 dark:hover:bg-green-900 [&_.event-dot]:fill-green-600",
+        red: "border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900 [&_.event-dot]:fill-red-600",
+        yellow: "border-yellow-200 bg-yellow-50 text-yellow-700 hover:bg-yellow-100 dark:border-yellow-800 dark:bg-yellow-950 dark:text-yellow-300 dark:hover:bg-yellow-900 [&_.event-dot]:fill-yellow-600",
+        purple: "border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 dark:border-purple-800 dark:bg-purple-950 dark:text-purple-300 dark:hover:bg-purple-900 [&_.event-dot]:fill-purple-600",
+        orange: "border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100 dark:border-orange-800 dark:bg-orange-950 dark:text-orange-300 dark:hover:bg-orange-900 [&_.event-dot]:fill-orange-600",
+        gray: "border-neutral-200 bg-neutral-50 text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 [&_.event-dot]:fill-neutral-600",
 
-        // Dot variants
-        "blue-dot": "bg-neutral-50 dark:bg-neutral-900 [&_.event-dot]:fill-blue-600",
-        "green-dot": "bg-neutral-50 dark:bg-neutral-900 [&_.event-dot]:fill-green-600",
-        "red-dot": "bg-neutral-50 dark:bg-neutral-900 [&_.event-dot]:fill-red-600",
-        "orange-dot": "bg-neutral-50 dark:bg-neutral-900 [&_.event-dot]:fill-orange-600",
-        "purple-dot": "bg-neutral-50 dark:bg-neutral-900 [&_.event-dot]:fill-purple-600",
-        "yellow-dot": "bg-neutral-50 dark:bg-neutral-900 [&_.event-dot]:fill-yellow-600",
-        "gray-dot": "bg-neutral-50 dark:bg-neutral-900 [&_.event-dot]:fill-neutral-600",
+        "blue-dot": "bg-neutral-50 hover:bg-neutral-100 dark:bg-neutral-900 dark:hover:bg-neutral-800 [&_.event-dot]:fill-blue-600",
+        "green-dot": "bg-neutral-50 hover:bg-neutral-100 dark:bg-neutral-900 dark:hover:bg-neutral-800 [&_.event-dot]:fill-green-600",
+        "red-dot": "bg-neutral-50 hover:bg-neutral-100 dark:bg-neutral-900 dark:hover:bg-neutral-800 [&_.event-dot]:fill-red-600",
+        "orange-dot": "bg-neutral-50 hover:bg-neutral-100 dark:bg-neutral-900 dark:hover:bg-neutral-800 [&_.event-dot]:fill-orange-600",
+        "purple-dot": "bg-neutral-50 hover:bg-neutral-100 dark:bg-neutral-900 dark:hover:bg-neutral-800 [&_.event-dot]:fill-purple-600",
+        "yellow-dot": "bg-neutral-50 hover:bg-neutral-100 dark:bg-neutral-900 dark:hover:bg-neutral-800 [&_.event-dot]:fill-yellow-600",
+        "gray-dot": "bg-neutral-50 hover:bg-neutral-100 dark:bg-neutral-900 dark:hover:bg-neutral-800 [&_.event-dot]:fill-neutral-600",
       },
       isRegistered: {
         true: "border-l-4 border-l-green-500",
@@ -65,7 +64,13 @@ export function EventBlock({ event, className }: IProps) {
   const durationInMinutes = differenceInMinutes(end, start);
   const heightInPixels = (durationInMinutes / 60) * 96 - 8;
 
-  const color = (badgeVariant === "dot" ? `${event.color}-dot` : event.color) as VariantProps<typeof calendarWeekEventCardVariants>["color"];
+  const color = (
+    event.hexColor
+      ? "none"
+      : badgeVariant === "dot"
+        ? `${event.color}-dot`
+        : event.color
+  ) as VariantProps<typeof calendarWeekEventCardVariants>["color"];
 
   const calendarWeekEventCardClasses = cn(
     calendarWeekEventCardVariants({ 
@@ -73,7 +78,8 @@ export function EventBlock({ event, className }: IProps) {
       isRegistered: event.isRegistered || false,
       className 
     }), 
-    durationInMinutes < 35 && "py-0 justify-center"
+    durationInMinutes < 35 && "py-0 justify-center",
+    eventSurfaceClass(event.hexColor, badgeVariant)
   );
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -100,7 +106,7 @@ export function EventBlock({ event, className }: IProps) {
             role="button"
             tabIndex={0}
             className={calendarWeekEventCardClasses}
-            style={{ height: `${heightInPixels}px`, ...eventSurfaceStyle(event.hexColor, badgeVariant) }}
+            style={{ height: `${heightInPixels}px`, ...eventSurfaceStyle(event.hexColor) }}
             onKeyDown={handleKeyDown}
           >
             <div className="flex items-center gap-1.5 truncate">

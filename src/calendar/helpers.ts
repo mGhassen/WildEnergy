@@ -271,12 +271,13 @@ export function normalizeHex(hex?: string | null): string | undefined {
   return `#${value}`;
 }
 
-export function eventSurfaceStyle(hex?: string | null, badgeVariant?: TBadgeVariant): CSSProperties | undefined {
+export function eventSurfaceStyle(hex?: string | null): CSSProperties | undefined {
   const normalized = normalizeHex(hex);
-  if (!normalized || badgeVariant === "dot") return undefined;
-  return {
-    backgroundColor: `${normalized}22`,
-    borderColor: `${normalized}66`,
-    color: normalized,
-  };
+  if (!normalized) return undefined;
+  return { ["--event-color"]: normalized } as CSSProperties;
+}
+
+export function eventSurfaceClass(hex?: string | null, badgeVariant?: TBadgeVariant): string | undefined {
+  if (!normalizeHex(hex) || badgeVariant === "dot") return undefined;
+  return "border-[color-mix(in_srgb,var(--event-color)_55%,transparent)] bg-[color-mix(in_srgb,var(--event-color)_22%,hsl(var(--background)))] text-[var(--event-color)] hover:bg-[color-mix(in_srgb,var(--event-color)_36%,hsl(var(--background)))] hover:shadow-sm transition-colors";
 }

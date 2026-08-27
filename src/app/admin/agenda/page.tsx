@@ -80,8 +80,8 @@ export default function AdminAgenda() {
 
   // Convert courses to events
   const events = useMemo(() => {
-    return convertCoursesToAdminEvents(courses || []);
-  }, [courses]);
+    return convertCoursesToAdminEvents(courses || [], classes || []);
+  }, [courses, classes]);
 
   // Create users from trainers
   const users = useMemo(() => createAdminUsers(trainers || []), [trainers]);

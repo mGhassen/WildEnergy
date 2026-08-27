@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button";
 import { EventWrapper } from "@/calendar/components/event-wrapper";
 import QRGenerator from "@/components/qr-generator";
 
-import { eventSurfaceStyle } from "@/calendar/helpers";
+import { cn } from "@/lib/utils";
+import { eventSurfaceClass, eventSurfaceStyle } from "@/calendar/helpers";
 
 import type { IEvent } from "@/calendar/interfaces";
 import type { VariantProps } from "class-variance-authority";
@@ -21,6 +22,7 @@ const agendaEventCardVariants = cva(
   {
     variants: {
       color: {
+        none: "",
         blue: "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300 dark:hover:bg-blue-900 [&_.event-dot]:fill-blue-600",
         green: "border-green-200 bg-green-50 text-green-700 hover:bg-green-100 dark:border-green-800 dark:bg-green-950 dark:text-green-300 dark:hover:bg-green-900 [&_.event-dot]:fill-green-600",
         red: "border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900 [&_.event-dot]:fill-red-600",
@@ -62,12 +64,21 @@ export function AgendaEventCard({ event, eventCurrentDay, eventTotalDays }: IPro
   const startDate = parseISO(event.startDate);
   const endDate = parseISO(event.endDate);
 
-  const color = (badgeVariant === "dot" ? `${event.color}-dot` : event.color) as VariantProps<typeof agendaEventCardVariants>["color"];
+  const color = (
+    event.hexColor
+      ? "none"
+      : badgeVariant === "dot"
+        ? `${event.color}-dot`
+        : event.color
+  ) as VariantProps<typeof agendaEventCardVariants>["color"];
 
-  const agendaEventCardClasses = agendaEventCardVariants({ 
-    color, 
-    isRegistered: event.isRegistered || false 
-  });
+  const agendaEventCardClasses = cn(
+    agendaEventCardVariants({
+      color,
+      isRegistered: event.isRegistered || false,
+    }),
+    eventSurfaceClass(event.hexColor, badgeVariant)
+  );
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" || e.key === " ") {
@@ -92,7 +103,7 @@ export function AgendaEventCard({ event, eventCurrentDay, eventTotalDays }: IPro
           role="button"
           tabIndex={0}
           className={agendaEventCardClasses}
-          style={eventSurfaceStyle(event.hexColor, badgeVariant)}
+          style={eventSurfaceStyle(event.hexColor)}
           onKeyDown={handleKeyDown}
         >
           <div className="flex flex-col gap-2">

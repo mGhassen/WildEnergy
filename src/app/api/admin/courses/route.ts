@@ -24,13 +24,7 @@ export async function GET(req: NextRequest) {
       .select(`
         *,
         class:classes(
-          id, 
-          name, 
-          description, 
-          category_id, 
-          duration, 
-          max_capacity,
-          color,
+          *,
           category:categories(id, name, color)
         ),
         trainer:trainers(

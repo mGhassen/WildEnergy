@@ -42,8 +42,20 @@ interface RegistrationData {
   qr_code?: string;
 }
 
-function resolveCourseHex(course: { class?: { color?: string | null; category?: { color?: string | null } | null } }): string | undefined {
-  return normalizeHex(course.class?.color || course.class?.category?.color);
+function resolveCourseHex(
+  course: any,
+  classById?: Map<number, any>
+): string | undefined {
+  const nested = course.class ?? course.classes;
+  const classObj = Array.isArray(nested) ? nested[0] : nested;
+  const fromCatalog = classById?.get(course.class_id ?? course.classId ?? classObj?.id);
+  return normalizeHex(
+    classObj?.color ||
+    fromCatalog?.color ||
+    classObj?.category?.color ||
+    classObj?.categories?.color ||
+    fromCatalog?.category?.color
+  );
 }
 
 function namedColorFromHex(hex?: string): TEventColor {
@@ -77,10 +89,12 @@ function namedColorFromHex(hex?: string): TEventColor {
 // Convert courses to calendar events for member view
 export const convertCoursesToMemberEvents = (
   courses: any[], 
-  registrations: RegistrationData[] = []
+  registrations: RegistrationData[] = [],
+  classCatalog: any[] = []
 ): IEvent[] => {
   if (!courses || !Array.isArray(courses)) return [];
 
+  const classById = new Map(classCatalog.map((item) => [item.id, item]));
   const validEvents: IEvent[] = [];
   
   for (const course of courses) {
@@ -125,7 +139,7 @@ export const convertCoursesToMemberEvents = (
       continue; // Skip invalid courses
     }
 
-    const hexColor = resolveCourseHex(course);
+    const hexColor = resolveCourseHex(course, classById);
 
     validEvents.push({
       id: course.id,
@@ -153,9 +167,10 @@ export const convertCoursesToMemberEvents = (
 };
 
 // Convert courses to calendar events for admin view
-export const convertCoursesToAdminEvents = (courses: any[]): IEvent[] => {
+export const convertCoursesToAdminEvents = (courses: any[], classCatalog: any[] = []): IEvent[] => {
   if (!courses || !Array.isArray(courses)) return [];
 
+  const classById = new Map(classCatalog.map((item) => [item.id, item]));
   console.log('Converting admin courses to events:', courses.length);
   const validEvents: IEvent[] = [];
   
@@ -199,7 +214,7 @@ export const convertCoursesToAdminEvents = (courses: any[]): IEvent[] => {
       continue; // Skip invalid courses
     }
 
-    const hexColor = resolveCourseHex(course);
+    const hexColor = resolveCourseHex(course, classById);
 
     validEvents.push({
       id: course.id,

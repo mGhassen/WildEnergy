@@ -7,18 +7,19 @@ import { DraggableEvent } from "@/calendar/components/dnd/draggable-event";
 import { EventWrapper } from "@/calendar/components/event-wrapper";
 
 import { cn } from "@/lib/utils";
-import { eventSurfaceStyle } from "@/calendar/helpers";
+import { eventSurfaceClass, eventSurfaceStyle } from "@/calendar/helpers";
 
 import type { IEvent } from "@/calendar/interfaces";
 import type { VariantProps } from "class-variance-authority";
 
 const eventBadgeVariants = cva(
-  "mx-1 flex size-auto h-6.5 select-none items-center justify-between gap-1.5 truncate whitespace-nowrap rounded-md border px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+  "mx-1 flex size-auto h-6.5 cursor-pointer select-none items-center justify-between gap-1.5 truncate whitespace-nowrap rounded-md border px-2 text-xs transition-colors hover:shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
   {
     variants: {
       color: {
+        none: "",
         // Colored and mixed variants
-        blue: "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300 [&_.event-dot]:fill-blue-600",
+        blue: "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300 dark:hover:bg-blue-900 [&_.event-dot]:fill-blue-600",
         green: "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-300 [&_.event-dot]:fill-green-600",
         red: "border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300 [&_.event-dot]:fill-red-600",
         yellow: "border-yellow-200 bg-yellow-50 text-yellow-700 dark:border-yellow-800 dark:bg-yellow-950 dark:text-yellow-300 [&_.event-dot]:fill-yellow-600",
@@ -83,9 +84,18 @@ export function MonthEventBadge({ event, cellDate, eventCurrentDay, eventTotalDa
 
   const renderBadgeText = ["first", "none"].includes(position);
 
-  const color = (badgeVariant === "dot" ? `${event.color}-dot` : event.color) as VariantProps<typeof eventBadgeVariants>["color"];
+  const color = (
+    event.hexColor
+      ? "none"
+      : badgeVariant === "dot"
+        ? `${event.color}-dot`
+        : event.color
+  ) as VariantProps<typeof eventBadgeVariants>["color"];
 
-  const eventBadgeClasses = cn(eventBadgeVariants({ color, multiDayPosition: position, className }));
+  const eventBadgeClasses = cn(
+    eventBadgeVariants({ color, multiDayPosition: position, className }),
+    eventSurfaceClass(event.hexColor, badgeVariant)
+  );
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" || e.key === " ") {
@@ -101,7 +111,7 @@ export function MonthEventBadge({ event, cellDate, eventCurrentDay, eventTotalDa
           role="button"
           tabIndex={0}
           className={eventBadgeClasses}
-          style={eventSurfaceStyle(event.hexColor, badgeVariant)}
+          style={eventSurfaceStyle(event.hexColor)}
           onKeyDown={handleKeyDown}
         >
           <div className="flex items-center gap-1.5 truncate">

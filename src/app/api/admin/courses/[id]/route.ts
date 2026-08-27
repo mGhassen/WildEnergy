@@ -39,15 +39,7 @@ export async function GET(
       .select(`
         *,
         class:classes(
-          id, 
-          name, 
-          description, 
-          duration, 
-          max_capacity, 
-          equipment,
-          difficulty,
-          is_active,
-          color,
+          *,
           category:categories(
             id,
             name,
