@@ -2,8 +2,6 @@ import { startOfWeek, addDays, format, parseISO, isSameDay, areIntervalsOverlapp
 
 import { useCalendar } from "@/calendar/contexts/calendar-context";
 
-import { ScrollArea } from "@/components/ui/scroll-area";
-
 import { EventBlock } from "@/calendar/components/week-and-day-view/event-block";
 import { CalendarTimeline } from "@/calendar/components/week-and-day-view/calendar-time-line";
 import { WeekViewMultiDayEventsRow } from "@/calendar/components/week-and-day-view/week-view-multi-day-events-row";
@@ -19,6 +17,9 @@ interface IProps {
   multiDayEvents: IEvent[];
 }
 
+const DAY_MIN_WIDTH_PX = 160;
+const HOURS_WIDTH_PX = 72; // w-18
+
 export function CalendarWeekView({ singleDayEvents, multiDayEvents }: IProps) {
   const { selectedDate, workingHours, visibleHours, hourHeight } = useCalendar();
 
@@ -29,6 +30,7 @@ export function CalendarWeekView({ singleDayEvents, multiDayEvents }: IProps) {
 
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const gridMinWidth = HOURS_WIDTH_PX + DAY_MIN_WIDTH_PX * 7;
 
   return (
     <>
@@ -37,32 +39,36 @@ export function CalendarWeekView({ singleDayEvents, multiDayEvents }: IProps) {
         <p>Please switch to daily or monthly view.</p>
       </div>
 
-      <div className="hidden flex-col sm:flex">
-        <div>
-          <WeekViewMultiDayEventsRow selectedDate={selectedDate} multiDayEvents={multiDayEvents} />
+      <div className="hidden h-[736px] overflow-auto sm:block">
+        <div style={{ minWidth: `max(100%, ${gridMinWidth}px)` }}>
+          <div className="sticky top-0 z-20 bg-background">
+            <WeekViewMultiDayEventsRow selectedDate={selectedDate} multiDayEvents={multiDayEvents} dayMinWidth={DAY_MIN_WIDTH_PX} />
 
-          {/* Week header */}
-          <div className="relative z-20 flex border-b">
-            <div className="w-18"></div>
-            <div className="grid flex-1 grid-cols-7 divide-x border-l">
-              {weekDays.map((day, index) => {
-                const isToday = day.toDateString() === new Date().toDateString();
-                return (
-                  <span key={index} className={`py-2 text-center text-xs font-medium ${isToday ? 'border-b-2 border-primary text-primary' : 'text-muted-foreground'}`}>
-                    {format(day, "EE")} <span className={`ml-1 font-semibold ${isToday ? 'text-primary' : 'text-foreground'}`}>{format(day, "d")}</span>
-                  </span>
-                );
-              })}
+            <div className="relative z-20 flex border-b">
+              <div className="sticky left-0 z-30 w-18 shrink-0 bg-background" />
+              <div className="grid flex-1 grid-cols-7 divide-x border-l">
+                {weekDays.map((day, index) => {
+                  const isToday = day.toDateString() === new Date().toDateString();
+                  return (
+                    <span
+                      key={index}
+                      className={`py-2 text-center text-xs font-medium ${isToday ? "border-b-2 border-primary text-primary" : "text-muted-foreground"}`}
+                      style={{ minWidth: DAY_MIN_WIDTH_PX }}
+                    >
+                      {format(day, "EE")}{" "}
+                      <span className={`ml-1 font-semibold ${isToday ? "text-primary" : "text-foreground"}`}>{format(day, "d")}</span>
+                    </span>
+                  );
+                })}
+              </div>
             </div>
           </div>
-        </div>
 
-        <ScrollArea className="h-[736px] max-h-[736px]" type="always">
-          <div className="flex overflow-hidden">
-            {/* Hours column */}
-            <ResizableHourSidebar displayHours={displayHours} view="week" />
+          <div className="flex">
+            <div className="sticky left-0 z-10 shrink-0 bg-background">
+              <ResizableHourSidebar displayHours={displayHours} view="week" />
+            </div>
 
-            {/* Week grid */}
             <div className="relative flex-1 border-l">
               <div className="grid grid-cols-7 divide-x">
                 {weekDays.map((day, dayIndex) => {
@@ -75,7 +81,11 @@ export function CalendarWeekView({ singleDayEvents, multiDayEvents }: IProps) {
                   const groupedEvents = groupEvents(dayEvents);
 
                   return (
-                    <div key={dayIndex} className={`relative ${isToday ? 'border-l-2 border-r-2 border-primary' : ''}`}>
+                    <div
+                      key={dayIndex}
+                      className={`relative ${isToday ? "border-l-2 border-r-2 border-primary" : ""}`}
+                      style={{ minWidth: DAY_MIN_WIDTH_PX }}
+                    >
                       {displayHours.map((hour, index) => {
                         const isDisabled = !isWorkingHour(day, hour, workingHours);
 
@@ -119,7 +129,7 @@ export function CalendarWeekView({ singleDayEvents, multiDayEvents }: IProps) {
               <CalendarTimeline firstVisibleHour={earliestEventHour} lastVisibleHour={latestEventHour} selectedDate={selectedDate} view="week" />
             </div>
           </div>
-        </ScrollArea>
+        </div>
       </div>
     </>
   );

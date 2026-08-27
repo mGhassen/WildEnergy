@@ -779,8 +779,8 @@ export default function MemberDetailsPage() {
                   </CarouselContent>
                   {featuredSubscriptions.length > 1 && (
                     <>
-                      <CarouselPrevious className="left-1.5 top-1/2 h-7 w-7 -translate-y-1/2 border bg-background/95 shadow-sm opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100" />
-                      <CarouselNext className="right-1.5 top-1/2 h-7 w-7 -translate-y-1/2 border bg-background/95 shadow-sm opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100" />
+                      <CarouselPrevious className="left-0 top-1/2 h-6 w-6 -translate-x-full -translate-y-1/2 border bg-background/95 shadow-sm opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100" />
+                      <CarouselNext className="right-0 top-1/2 h-6 w-6 translate-x-full -translate-y-1/2 border bg-background/95 shadow-sm opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100" />
                     </>
                   )}
                 </Carousel>

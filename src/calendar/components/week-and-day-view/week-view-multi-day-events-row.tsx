@@ -8,9 +8,10 @@ import type { IEvent } from "@/calendar/interfaces";
 interface IProps {
   selectedDate: Date;
   multiDayEvents: IEvent[];
+  dayMinWidth?: number;
 }
 
-export function WeekViewMultiDayEventsRow({ selectedDate, multiDayEvents }: IProps) {
+export function WeekViewMultiDayEventsRow({ selectedDate, multiDayEvents, dayMinWidth = 160 }: IProps) {
   const weekStart = startOfWeek(selectedDate);
   const weekEnd = endOfWeek(selectedDate);
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
@@ -78,11 +79,11 @@ export function WeekViewMultiDayEventsRow({ selectedDate, multiDayEvents }: IPro
   }
 
   return (
-    <div className="hidden overflow-hidden sm:flex">
-      <div className="w-18 border-b"></div>
+    <div className="hidden sm:flex">
+      <div className="sticky left-0 z-30 w-18 shrink-0 border-b bg-background"></div>
       <div className="grid flex-1 grid-cols-7 divide-x border-b border-l">
         {weekDays.map((day, dayIndex) => (
-          <div key={day.toISOString()} className="flex h-full flex-col gap-1 py-1">
+          <div key={day.toISOString()} className="flex h-full flex-col gap-1 py-1" style={{ minWidth: dayMinWidth }}>
             {eventRows.map((row, rowIndex) => {
               const event = row.find(e => e.startIndex <= dayIndex && e.endIndex >= dayIndex);
 
