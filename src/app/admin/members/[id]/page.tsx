@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { useMemberDetails } from "@/hooks/useMemberDetails";
 import { useUpdateMemberDetails } from "@/hooks/useUpdateMemberDetails";
-import { useCreateAccountFromMember } from "@/hooks/useCreateAccountFromMember";
+import { useUpdateSubscription } from "@/hooks/useSubscriptions";
 import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft,
@@ -29,7 +29,6 @@ import {
   XCircle,
   AlertTriangle,
   Download,
-  Send,
   User,
   MapPin,
   Briefcase,
@@ -46,8 +45,12 @@ import {
   GraduationCap,
   QrCode,
   RefreshCw,
+  Eye,
+  Copy,
+  ExternalLink,
+  Search,
 } from "lucide-react";
-import { formatDate, formatSubscriptionPeriod, isSubscriptionActiveByEndDate } from "@/lib/date";
+import { formatDate, formatSubscriptionPeriod, isSubscriptionActiveByEndDate, subscriptionDaysRemaining, subscriptionDurationDays } from "@/lib/date";
 import { formatCurrency } from "@/lib/config";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { TableSkeleton } from "@/components/skeletons";
@@ -90,6 +93,13 @@ interface Member {
   account_id?: string;
 }
 
+interface CourseTrainer {
+  id: string | number;
+  specialization?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+}
+
 interface Subscription {
   id: number;
   member_id: string;
@@ -97,10 +107,16 @@ interface Subscription {
   startDate: string;
   endDate: string;
   status: string;
+  notes?: string;
+  payment_method?: string;
+  sessionsRemaining?: number;
+  sessionsTotal?: number;
   plan?: {
     id: number;
     name: string;
     price: number;
+    duration_days?: number;
+    sessions_included?: number;
   };
 }
 
@@ -108,6 +124,7 @@ interface Registration {
   id: number;
   course_id: number;
   member_id: string;
+  subscription_id?: number;
   status: string;
   registration_date: string;
   qr_code: string;
@@ -121,12 +138,17 @@ interface Registration {
       id: number;
       name: string;
     };
+    trainer?: CourseTrainer | null;
   };
 }
 
 interface Checkin {
   id: number;
   checkin_time: string;
+  session_consumed?: boolean;
+  notes?: string;
+  registration_id?: number | null;
+  qr_code?: string | null;
   course?: {
     id: number;
     course_date: string;
@@ -136,6 +158,7 @@ interface Checkin {
       id: number;
       name: string;
     };
+    trainer?: CourseTrainer | null;
   };
 }
 
@@ -149,6 +172,8 @@ interface Payment {
   payment_date: string;
   transaction_id?: string;
   notes?: string;
+  discount?: number;
+  due_date?: string;
 }
 
 // Helper functions
@@ -196,22 +221,72 @@ const getPaymentStatusColor = (status: string) => {
   }
 };
 
+const getRegistrationStatusColor = (status: string) => {
+  switch (status) {
+    case 'confirmed':
+    case 'registered':
+    case 'attended':
+      return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+    case 'cancelled':
+      return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+    case 'absent':
+      return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+    default:
+      return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+  }
+};
+
+const formatTrainerName = (trainer?: CourseTrainer | null): string | null => {
+  if (!trainer) return null;
+  const name = [trainer.firstName, trainer.lastName].filter(Boolean).join(' ').trim();
+  return name || trainer.specialization || null;
+};
+
+const RowMenuButton = ({ children }: { children: ReactNode }) => (
+  <DropdownMenu>
+    <DropdownMenuTrigger asChild>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-8 w-8 p-0 shrink-0"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <MoreHorizontal className="w-4 h-4" />
+        <span className="sr-only">Open menu</span>
+      </Button>
+    </DropdownMenuTrigger>
+    <DropdownMenuContent align="end" className="w-52" onCloseAutoFocus={(e) => e.preventDefault()}>
+      {children}
+    </DropdownMenuContent>
+  </DropdownMenu>
+);
+
 export default function MemberDetailsPage() {
   const router = useRouter();
   const params = useParams();
   const isMobile = useIsMobile();
   const memberId = params.id as string;
+  const queryClient = useQueryClient();
 
   const [activeTab, setActiveTab] = useState("overview");
   const [isEditing, setIsEditing] = useState(false);
   const [subscriptionCarouselApi, setSubscriptionCarouselApi] = useState<CarouselApi>();
   const [subscriptionSlide, setSubscriptionSlide] = useState(0);
+  const [subscriptionStatusFilter, setSubscriptionStatusFilter] = useState("all");
+  const [subscriptionSearch, setSubscriptionSearch] = useState("");
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState("all");
+  const [paymentSearch, setPaymentSearch] = useState("");
+  const [scheduleStatusFilter, setScheduleStatusFilter] = useState("all");
+  const [scheduleSearch, setScheduleSearch] = useState("");
+  const [activitySearch, setActivitySearch] = useState("");
+  const [activitySessionFilter, setActivitySessionFilter] = useState("all");
 
   // Fetch member details
   const { data: memberDetails, isLoading, error } = useMemberDetails(memberId);
 
   // Account linking hooks
   const updateMemberMutation = useUpdateMemberDetails();
+  const updateSubscriptionMutation = useUpdateSubscription();
   const { toast } = useToast();
 
   // Edit form state
@@ -345,6 +420,73 @@ export default function MemberDetailsPage() {
   const registrations = memberDetails.registrations as Registration[];
   const checkins = memberDetails.checkins as Checkin[];
   const payments = memberDetails.payments as Payment[];
+
+  const subscriptionSearchQ = subscriptionSearch.trim().toLowerCase();
+  const filteredSubscriptions = subscriptions.filter((sub) => {
+    if (subscriptionStatusFilter !== 'all' && sub.status !== subscriptionStatusFilter) return false;
+    if (!subscriptionSearchQ) return true;
+    return (
+      sub.plan?.name?.toLowerCase().includes(subscriptionSearchQ) ||
+      sub.notes?.toLowerCase().includes(subscriptionSearchQ) ||
+      sub.payment_method?.toLowerCase().includes(subscriptionSearchQ) ||
+      String(sub.id).includes(subscriptionSearchQ)
+    );
+  });
+
+  const paymentSearchQ = paymentSearch.trim().toLowerCase();
+  const filteredPayments = payments.filter((payment) => {
+    if (paymentStatusFilter !== 'all' && payment.payment_status !== paymentStatusFilter) return false;
+    if (!paymentSearchQ) return true;
+    const sub = subscriptions.find((s) => s.id === payment.subscription_id);
+    return (
+      sub?.plan?.name?.toLowerCase().includes(paymentSearchQ) ||
+      payment.payment_type?.toLowerCase().includes(paymentSearchQ) ||
+      payment.transaction_id?.toLowerCase().includes(paymentSearchQ) ||
+      payment.notes?.toLowerCase().includes(paymentSearchQ) ||
+      String(payment.id).includes(paymentSearchQ)
+    );
+  });
+
+  const scheduleSearchQ = scheduleSearch.trim().toLowerCase();
+  const filteredRegistrations = registrations.filter((reg) => {
+    if (scheduleStatusFilter !== 'all' && reg.status !== scheduleStatusFilter) return false;
+    if (!scheduleSearchQ) return true;
+    const trainer = formatTrainerName(reg.course?.trainer);
+    return (
+      reg.course?.class?.name?.toLowerCase().includes(scheduleSearchQ) ||
+      trainer?.toLowerCase().includes(scheduleSearchQ) ||
+      reg.notes?.toLowerCase().includes(scheduleSearchQ) ||
+      String(reg.id).includes(scheduleSearchQ)
+    );
+  });
+
+  const activitySearchQ = activitySearch.trim().toLowerCase();
+  const filteredCheckins = checkins.filter((checkin) => {
+    if (activitySessionFilter === 'consumed' && !checkin.session_consumed) return false;
+    if (activitySessionFilter === 'not_consumed' && checkin.session_consumed) return false;
+    if (!activitySearchQ) return true;
+    const trainer = formatTrainerName(checkin.course?.trainer);
+    return (
+      checkin.course?.class?.name?.toLowerCase().includes(activitySearchQ) ||
+      trainer?.toLowerCase().includes(activitySearchQ) ||
+      checkin.notes?.toLowerCase().includes(activitySearchQ) ||
+      String(checkin.id).includes(activitySearchQ)
+    );
+  });
+
+  const copyText = async (value: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast({ title: 'Copied', description: `${label} copied to clipboard.` });
+    } catch {
+      toast({ title: 'Copy failed', description: 'Could not copy to clipboard.', variant: 'destructive' });
+    }
+  };
+
+  const handleSubscriptionStatusChange = async (subscriptionId: number, status: 'cancelled' | 'active') => {
+    await updateSubscriptionMutation.mutateAsync({ subscriptionId, data: { status } });
+    queryClient.invalidateQueries({ queryKey: ['member-details', memberId] });
+  };
 
   // Prefer all currently active subscriptions; fall back to most recent if none
   const getFeaturedSubscriptions = (subscriptions: Subscription[]) => {
@@ -560,6 +702,10 @@ export default function MemberDetailsPage() {
                 <h1 className="text-2xl font-bold text-foreground">
                   {member.firstName} {member.lastName}
                 </h1>
+                <Badge className={getMemberStatusColor(member.status)}>
+                  <MemberStatusIcon className="w-3 h-3 mr-1" />
+                  {memberStatusLabel}
+                </Badge>
                 {member.isBlacklisted && (
                   <BlacklistRibbon orientation="horizontal" />
                 )}
@@ -701,48 +847,18 @@ export default function MemberDetailsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 space-y-1">
-                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Member</p>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Badge className={getMemberStatusColor(member.status)}>
-                    <MemberStatusIcon className="w-3 h-3 mr-1" />
-                    {memberStatusLabel}
-                  </Badge>
-                  {member.isBlacklisted && (
-                    <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
-                      <Ban className="w-3 h-3 mr-1" />
-                      Blacklisted
-                    </Badge>
-                  )}
-                </div>
-              </div>
-            </div>
-
             {featuredSubscriptions.length > 0 ? (
-              <div className={`group relative ${featuredSubscriptions.length > 1 ? 'pb-2.5' : ''}`}>
-                {featuredSubscriptions.length > 2 && (
-                  <div
-                    aria-hidden
-                    className="pointer-events-none absolute inset-x-3 top-2.5 bottom-0 rounded-md border bg-muted/30"
-                  />
-                )}
-                {featuredSubscriptions.length > 1 && (
-                  <div
-                    aria-hidden
-                    className="pointer-events-none absolute inset-x-1.5 top-1.5 bottom-1 rounded-md border bg-muted/50"
-                  />
-                )}
+              <div className="group relative">
                 <Carousel
                   setApi={setSubscriptionCarouselApi}
                   opts={{ align: 'start', loop: featuredSubscriptions.length > 1 }}
-                  className="relative z-[1] w-full"
+                  className="w-full"
                 >
                   <CarouselContent className="-ml-0">
                     {featuredSubscriptions.map((subscription) => (
                       <CarouselItem key={subscription.id} className="pl-0 basis-full">
                         <div
-                          className="rounded-md border bg-muted/30 p-2.5 space-y-1.5 cursor-pointer hover:bg-muted/50 transition-colors"
+                          className="space-y-1.5 cursor-pointer"
                           onClick={() => router.push(`/admin/subscriptions/${subscription.id}`)}
                         >
                           <div className="flex items-center justify-between gap-2">
@@ -786,7 +902,7 @@ export default function MemberDetailsPage() {
                 </Carousel>
               </div>
             ) : (
-              <div className="rounded-md border bg-muted/30 p-2.5 space-y-1.5">
+              <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Subscription</p>
                   <Badge className={getSubscriptionStatusColor('inactive')}>
@@ -921,10 +1037,18 @@ export default function MemberDetailsPage() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>
-          <TabsTrigger value="payments">Payments</TabsTrigger>
-          <TabsTrigger value="schedules">Schedules</TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger>
+          <TabsTrigger value="subscriptions">
+            Subscriptions{subscriptions.length > 0 ? ` (${subscriptions.length})` : ''}
+          </TabsTrigger>
+          <TabsTrigger value="payments">
+            Payments{payments.length > 0 ? ` (${payments.length})` : ''}
+          </TabsTrigger>
+          <TabsTrigger value="schedules">
+            Schedules{registrations.length > 0 ? ` (${registrations.length})` : ''}
+          </TabsTrigger>
+          <TabsTrigger value="activity">
+            Activity{checkins.length > 0 ? ` (${checkins.length})` : ''}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -1231,56 +1355,170 @@ export default function MemberDetailsPage() {
 
         <TabsContent value="subscriptions" className="space-y-6">
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CreditCard className="w-5 h-5" />
-                Subscription History
-              </CardTitle>
-              <CardDescription>
-                All subscription plans and their current status
-              </CardDescription>
+            <CardHeader className="space-y-4">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <CreditCard className="w-5 h-5" />
+                    Subscriptions ({subscriptions.length})
+                  </CardTitle>
+                  <CardDescription>
+                    Plans, remaining sessions, and status
+                  </CardDescription>
+                </div>
+              </div>
+              {subscriptions.length > 0 && (
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      value={subscriptionSearch}
+                      onChange={(e) => setSubscriptionSearch(e.target.value)}
+                      placeholder="Search plan, notes, method…"
+                      className="pl-8"
+                    />
+                  </div>
+                  <Select value={subscriptionStatusFilter} onValueChange={setSubscriptionStatusFilter}>
+                    <SelectTrigger className="w-full sm:w-44">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All statuses</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="expired">Expired</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </CardHeader>
             <CardContent>
-              {subscriptions.length > 0 ? (
-                <div className="space-y-4">
-                  {subscriptions.map((subscription) => (
-                    <div key={subscription.id} className="border rounded-lg p-4">
-                      <div className="flex justify-between items-start">
-                        <div className="space-y-2">
-                          <button
-                            type="button"
-                            onClick={() => router.push(`/admin/subscriptions/${subscription.id}`)}
-                            className="text-left font-medium hover:text-primary transition-colors"
-                          >
-                            {subscription.plan?.name || 'Unknown Plan'}
-                          </button>
-                          <p className="text-sm text-muted-foreground">
-                            {formatSubscriptionPeriod(subscription.startDate, subscription.endDate)}
-                          </p>
-                          {subscription.plan && (
-                            <p className="text-sm text-muted-foreground">
-                              Price: {formatCurrency(subscription.plan.price)}
-                            </p>
-                          )}
-                        </div>
-                        <div className="text-right space-y-2">
-                          <Badge className={getSubscriptionStatusColor(subscription.status)}>
-                            {subscription.status}
-                          </Badge>
-                          {subscription.plan && (
-                            <p className="text-sm font-medium">
-                              {formatCurrency(subscription.plan.price)}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
+              {subscriptions.length === 0 ? (
                 <div className="text-center py-8">
                   <CreditCard className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground">No subscription history found</p>
+                </div>
+              ) : filteredSubscriptions.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">No subscriptions match your filters</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {filteredSubscriptions.map((subscription) => {
+                    const daysLeft = subscriptionDaysRemaining(subscription.endDate);
+                    const duration = subscription.plan?.duration_days
+                      ?? subscriptionDurationDays(subscription.startDate, subscription.endDate);
+                    const sessionsRemaining = subscription.sessionsRemaining ?? 0;
+                    const sessionsTotal = subscription.sessionsTotal ?? 0;
+                    return (
+                      <div
+                        key={subscription.id}
+                        className="flex items-start gap-3 border rounded-lg p-4 hover:bg-muted/30 transition-colors"
+                      >
+                        <div className="min-w-0 flex-1 space-y-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => router.push(`/admin/subscriptions/${subscription.id}`)}
+                              className="text-left font-medium hover:text-primary transition-colors truncate"
+                            >
+                              {subscription.plan?.name || 'Unknown Plan'}
+                            </button>
+                            <Badge className={getSubscriptionStatusColor(subscription.status)}>
+                              {subscription.status}
+                            </Badge>
+                          </div>
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                            <span className="inline-flex items-center gap-1">
+                              <Calendar className="w-3.5 h-3.5" />
+                              {formatSubscriptionPeriod(subscription.startDate, subscription.endDate)}
+                            </span>
+                            {duration > 0 && (
+                              <span className="inline-flex items-center gap-1">
+                                <Clock className="w-3.5 h-3.5" />
+                                {duration}d plan
+                              </span>
+                            )}
+                            {subscription.status === 'active' && (
+                              <span className="inline-flex items-center gap-1">
+                                <TrendingUp className="w-3.5 h-3.5" />
+                                {daysLeft}d left
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                            {subscription.plan && (
+                              <span className="font-medium">{formatCurrency(subscription.plan.price)}</span>
+                            )}
+                            {sessionsTotal > 0 && (
+                              <span className="text-muted-foreground">
+                                Sessions {sessionsRemaining}/{sessionsTotal}
+                              </span>
+                            )}
+                            {subscription.payment_method && (
+                              <span className="text-muted-foreground capitalize">
+                                {subscription.payment_method}
+                              </span>
+                            )}
+                          </div>
+                          {subscription.notes && (
+                            <p className="text-sm text-muted-foreground line-clamp-2">
+                              {subscription.notes}
+                            </p>
+                          )}
+                        </div>
+                        <RowMenuButton>
+                          <DropdownMenuItem
+                            onSelect={() => router.push(`/admin/subscriptions/${subscription.id}`)}
+                          >
+                            <Eye className="w-4 h-4 mr-2" />
+                            View subscription
+                          </DropdownMenuItem>
+                          {subscription.plan_id && (
+                            <DropdownMenuItem
+                              onSelect={() => router.push(`/admin/plans/${subscription.plan_id}`)}
+                            >
+                              <ExternalLink className="w-4 h-4 mr-2" />
+                              View plan
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem
+                            onSelect={() => router.push(`/admin/subscriptions/${subscription.id}/edit`)}
+                          >
+                            <Edit className="w-4 h-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          {(subscription.status === 'active' || subscription.status === 'pending') && (
+                            <DropdownMenuItem
+                              onSelect={() => handleSubscriptionStatusChange(subscription.id, 'cancelled')}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <XCircle className="w-4 h-4 mr-2" />
+                              Cancel
+                            </DropdownMenuItem>
+                          )}
+                          {subscription.status === 'cancelled' && (
+                            <DropdownMenuItem
+                              onSelect={() => handleSubscriptionStatusChange(subscription.id, 'active')}
+                            >
+                              <RefreshCw className="w-4 h-4 mr-2" />
+                              Reactivate
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem
+                            onSelect={() => router.push(`/admin/subscriptions/${subscription.id}/delete`)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </RowMenuButton>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
@@ -1289,68 +1527,157 @@ export default function MemberDetailsPage() {
 
         <TabsContent value="payments" className="space-y-6">
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <DollarSign className="w-5 h-5" />
-                Payment History
-              </CardTitle>
-              <CardDescription>
-                All payments made by this member
-              </CardDescription>
+            <CardHeader className="space-y-4">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <DollarSign className="w-5 h-5" />
+                  Payments ({payments.length})
+                </CardTitle>
+                <CardDescription>
+                  Payment history for this member
+                </CardDescription>
+              </div>
+              {payments.length > 0 && (
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      value={paymentSearch}
+                      onChange={(e) => setPaymentSearch(e.target.value)}
+                      placeholder="Search type, transaction, notes…"
+                      className="pl-8"
+                    />
+                  </div>
+                  <Select value={paymentStatusFilter} onValueChange={setPaymentStatusFilter}>
+                    <SelectTrigger className="w-full sm:w-44">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All statuses</SelectItem>
+                      <SelectItem value="paid">Paid</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="failed">Failed</SelectItem>
+                      <SelectItem value="refunded">Refunded</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </CardHeader>
             <CardContent>
-              {payments.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full text-sm">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left py-2">Date</th>
-                        <th className="text-left py-2">Subscription</th>
-                        <th className="text-left py-2">Amount</th>
-                        <th className="text-left py-2">Type</th>
-                        <th className="text-left py-2">Status</th>
-                        <th className="text-left py-2">Transaction ID</th>
-                        <th className="text-left py-2">Notes</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {payments.map((payment) => {
-                        const sub = subscriptions.find((s) => s.id === payment.subscription_id);
-                        return (
-                          <tr key={payment.id} className="border-b last:border-b-0">
-                            <td className="py-2">{formatDate(payment.payment_date)}</td>
-                            <td className="py-2">
-                              {payment.subscription_id ? (
-                                <button
-                                  type="button"
-                                  onClick={() => router.push(`/admin/subscriptions/${payment.subscription_id}`)}
-                                  className="font-medium hover:text-primary transition-colors text-left"
-                                >
-                                  {sub?.plan?.name || `Subscription #${payment.subscription_id}`}
-                                </button>
-                              ) : (
-                                '-'
-                              )}
-                            </td>
-                            <td className="py-2 font-medium">{formatCurrency(payment.amount)}</td>
-                            <td className="py-2">{payment.payment_type || '-'}</td>
-                            <td className="py-2">
-                              <Badge className={getPaymentStatusColor(payment.payment_status)}>
-                                {payment.payment_status}
-                              </Badge>
-                            </td>
-                            <td className="py-2 font-mono text-xs">{payment.transaction_id || '-'}</td>
-                            <td className="py-2">{payment.notes || '-'}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
+              {payments.length === 0 ? (
                 <div className="text-center py-8">
                   <DollarSign className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground">No payment history found</p>
+                </div>
+              ) : filteredPayments.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">No payments match your filters</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {filteredPayments.map((payment) => {
+                    const sub = subscriptions.find((s) => s.id === payment.subscription_id);
+                    return (
+                      <div
+                        key={payment.id}
+                        className="flex items-start gap-3 border rounded-lg p-4 hover:bg-muted/30 transition-colors"
+                      >
+                        <div className="min-w-0 flex-1 space-y-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-medium tabular-nums">
+                              {formatCurrency(payment.amount)}
+                            </span>
+                            <Badge className={getPaymentStatusColor(payment.payment_status)}>
+                              {payment.payment_status}
+                            </Badge>
+                            {payment.payment_type && (
+                              <Badge variant="outline" className="capitalize">
+                                {payment.payment_type}
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                            <span className="inline-flex items-center gap-1">
+                              <Calendar className="w-3.5 h-3.5" />
+                              {formatDate(payment.payment_date)}
+                            </span>
+                            {payment.subscription_id ? (
+                              <button
+                                type="button"
+                                onClick={() => router.push(`/admin/subscriptions/${payment.subscription_id}`)}
+                                className="hover:text-primary transition-colors text-left"
+                              >
+                                {sub?.plan?.name || `Subscription #${payment.subscription_id}`}
+                              </button>
+                            ) : (
+                              <span>No subscription</span>
+                            )}
+                            {Number(payment.discount) > 0 && (
+                              <span>Discount {formatCurrency(payment.discount!)}</span>
+                            )}
+                            {payment.due_date && (
+                              <span>Due {formatDate(payment.due_date)}</span>
+                            )}
+                          </div>
+                          {payment.transaction_id && (
+                            <p className="text-xs font-mono text-muted-foreground truncate">
+                              TX: {payment.transaction_id}
+                            </p>
+                          )}
+                          {payment.notes && (
+                            <p className="text-sm text-muted-foreground line-clamp-2">
+                              {payment.notes}
+                            </p>
+                          )}
+                        </div>
+                        <RowMenuButton>
+                          {payment.subscription_id && (
+                            <DropdownMenuItem
+                              onSelect={() => router.push(`/admin/subscriptions/${payment.subscription_id}`)}
+                            >
+                              <Eye className="w-4 h-4 mr-2" />
+                              View subscription
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem
+                            onSelect={() => router.push(`/admin/payments/${payment.id}/edit`)}
+                          >
+                            <Edit className="w-4 h-4 mr-2" />
+                            Edit payment
+                          </DropdownMenuItem>
+                          {payment.transaction_id && (
+                            <DropdownMenuItem
+                              onSelect={() => copyText(payment.transaction_id!, 'Transaction ID')}
+                            >
+                              <Copy className="w-4 h-4 mr-2" />
+                              Copy transaction ID
+                            </DropdownMenuItem>
+                          )}
+                          {payment.notes && (
+                            <DropdownMenuItem
+                              onSelect={() =>
+                                toast({
+                                  title: 'Payment notes',
+                                  description: payment.notes,
+                                })
+                              }
+                            >
+                              <FileText className="w-4 h-4 mr-2" />
+                              View notes
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onSelect={() => router.push(`/admin/payments/${payment.id}/delete`)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </RowMenuButton>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
@@ -1359,83 +1686,154 @@ export default function MemberDetailsPage() {
 
         <TabsContent value="schedules" className="space-y-6">
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="w-5 h-5" />
-                Class Registrations
-              </CardTitle>
-              <CardDescription>
-                All class registrations and schedules
-              </CardDescription>
+            <CardHeader className="space-y-4">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="w-5 h-5" />
+                  Class Registrations ({registrations.length})
+                </CardTitle>
+                <CardDescription>
+                  Registered courses and schedule history
+                </CardDescription>
+              </div>
+              {registrations.length > 0 && (
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      value={scheduleSearch}
+                      onChange={(e) => setScheduleSearch(e.target.value)}
+                      placeholder="Search class, trainer, notes…"
+                      className="pl-8"
+                    />
+                  </div>
+                  <Select value={scheduleStatusFilter} onValueChange={setScheduleStatusFilter}>
+                    <SelectTrigger className="w-full sm:w-44">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All statuses</SelectItem>
+                      <SelectItem value="confirmed">Confirmed</SelectItem>
+                      <SelectItem value="registered">Registered</SelectItem>
+                      <SelectItem value="attended">Attended</SelectItem>
+                      <SelectItem value="absent">Absent</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </CardHeader>
             <CardContent>
-              {registrations.length > 0 ? (
-                <div className="space-y-4">
-                  {registrations.map((registration) => {
+              {registrations.length === 0 ? (
+                <div className="text-center py-8">
+                  <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">No class registrations found</p>
+                </div>
+              ) : filteredRegistrations.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">No registrations match your filters</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {filteredRegistrations.map((registration) => {
                     const courseId = registration.course?.id ?? registration.course_id;
+                    const trainerName = formatTrainerName(registration.course?.trainer);
+                    const className = registration.course?.class?.name || `Class ID: ${registration.course_id}`;
                     return (
-                    <div key={registration.id} className="border rounded-lg p-4">
-                      <div className="flex justify-between items-start">
-                        <div className="space-y-2">
-                          {courseId ? (
-                            <button
-                              type="button"
-                              onClick={() => router.push(`/admin/courses/${courseId}`)}
-                              className="text-left font-medium hover:text-primary transition-colors"
-                            >
-                              {registration.course?.class?.name || `Class ID: ${registration.course_id}`}
-                            </button>
-                          ) : (
-                            <h4 className="font-medium">
-                              {registration.course?.class?.name || `Class ID: ${registration.course_id}`}
-                            </h4>
-                          )}
-                          <p className="text-sm text-muted-foreground">
-                            {registration.course?.course_date ?
-                              formatDate(registration.course.course_date) :
-                              formatDate(registration.registration_date)
-                            }
+                      <div
+                        key={registration.id}
+                        className="flex items-start gap-3 border rounded-lg p-4 hover:bg-muted/30 transition-colors"
+                      >
+                        <div className="min-w-0 flex-1 space-y-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            {courseId ? (
+                              <button
+                                type="button"
+                                onClick={() => router.push(`/admin/courses/${courseId}`)}
+                                className="text-left font-medium hover:text-primary transition-colors truncate"
+                              >
+                                {className}
+                              </button>
+                            ) : (
+                              <h4 className="font-medium truncate">{className}</h4>
+                            )}
+                            <Badge className={getRegistrationStatusColor(registration.status)}>
+                              {registration.status}
+                            </Badge>
+                          </div>
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                            <span className="inline-flex items-center gap-1">
+                              <Calendar className="w-3.5 h-3.5" />
+                              {registration.course?.course_date
+                                ? formatDate(registration.course.course_date)
+                                : formatDate(registration.registration_date)}
+                            </span>
+                            {registration.course?.start_time && registration.course?.end_time && (
+                              <span className="inline-flex items-center gap-1">
+                                <Clock className="w-3.5 h-3.5" />
+                                {registration.course.start_time} – {registration.course.end_time}
+                              </span>
+                            )}
+                            {trainerName && (
+                              <span className="inline-flex items-center gap-1">
+                                <GraduationCap className="w-3.5 h-3.5" />
+                                {trainerName}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Registered {formatDate(registration.registration_date)}
                           </p>
-                          {registration.course?.start_time && registration.course?.end_time && (
-                            <p className="text-sm text-muted-foreground">
-                              {registration.course.start_time} - {registration.course.end_time}
-                            </p>
-                          )}
                           {registration.notes && (
-                            <p className="text-sm text-muted-foreground">
-                              Notes: {registration.notes}
+                            <p className="text-sm text-muted-foreground line-clamp-2">
+                              {registration.notes}
                             </p>
                           )}
                         </div>
-                        <div className="flex flex-col items-end gap-2">
-                          <Badge variant={registration.status === 'confirmed' ? 'default' : 'secondary'}>
-                            {registration.status}
-                          </Badge>
+                        <RowMenuButton>
+                          {courseId && (
+                            <DropdownMenuItem
+                              onSelect={() => router.push(`/admin/courses/${courseId}`)}
+                            >
+                              <Eye className="w-4 h-4 mr-2" />
+                              View course
+                            </DropdownMenuItem>
+                          )}
                           {registration.qr_code && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
+                            <DropdownMenuItem
+                              onSelect={() =>
                                 router.push(
                                   `/admin/checkins/qr/${encodeURIComponent(registration.qr_code)}`
                                 )
                               }
-                              className="h-8 w-8 p-0"
-                              title="Open QR Check-in Page"
                             >
-                              <QrCode className="w-4 h-4" />
-                            </Button>
+                              <QrCode className="w-4 h-4 mr-2" />
+                              Open QR check-in
+                            </DropdownMenuItem>
                           )}
-                        </div>
+                          {courseId && registration.status !== 'cancelled' && (
+                            <DropdownMenuItem
+                              onSelect={() => {
+                                const qs = new URLSearchParams({
+                                  registrationId: String(registration.id),
+                                  memberId: member.id,
+                                  memberName: `${member.firstName} ${member.lastName}`.trim(),
+                                });
+                                if (registration.subscription_id) {
+                                  qs.set('subscriptionId', String(registration.subscription_id));
+                                }
+                                router.push(`/admin/courses/${courseId}/cancel?${qs.toString()}`);
+                              }}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <XCircle className="w-4 h-4 mr-2" />
+                              Cancel registration
+                            </DropdownMenuItem>
+                          )}
+                        </RowMenuButton>
                       </div>
-                    </div>
                     );
                   })}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">No class registrations found</p>
                 </div>
               )}
             </CardContent>
@@ -1444,64 +1842,150 @@ export default function MemberDetailsPage() {
 
         <TabsContent value="activity" className="space-y-6">
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Activity className="w-5 h-5" />
-                Check-in History
-              </CardTitle>
-              <CardDescription>
-                All check-ins and activity history
-              </CardDescription>
+            <CardHeader className="space-y-4">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="w-5 h-5" />
+                  Check-in History ({checkins.length})
+                </CardTitle>
+                <CardDescription>
+                  Attendance and session consumption
+                </CardDescription>
+              </div>
+              {checkins.length > 0 && (
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      value={activitySearch}
+                      onChange={(e) => setActivitySearch(e.target.value)}
+                      placeholder="Search class, trainer, notes…"
+                      className="pl-8"
+                    />
+                  </div>
+                  <Select value={activitySessionFilter} onValueChange={setActivitySessionFilter}>
+                    <SelectTrigger className="w-full sm:w-48">
+                      <SelectValue placeholder="Session" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All check-ins</SelectItem>
+                      <SelectItem value="consumed">Session consumed</SelectItem>
+                      <SelectItem value="not_consumed">Session not consumed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </CardHeader>
             <CardContent>
-              {checkins.length > 0 ? (
-                <div className="space-y-4">
-                  {checkins.map((checkin) => (
-                    <div key={checkin.id} className="border rounded-lg p-4">
-                      <div className="flex justify-between items-start">
-                        <div className="space-y-2">
-                          {checkin.course?.id ? (
-                            <button
-                              type="button"
-                              onClick={() => router.push(`/admin/courses/${checkin.course!.id}`)}
-                              className="text-left font-medium hover:text-primary transition-colors"
-                            >
-                              {checkin.course?.class?.name || `Check-in #${checkin.id}`}
-                            </button>
-                          ) : (
-                            <h4 className="font-medium">
-                              {checkin.course?.class?.name || `Check-in #${checkin.id}`}
-                            </h4>
-                          )}
-                          <p className="text-sm text-muted-foreground">
-                            {checkin.course?.course_date ?
-                              formatDate(checkin.course.course_date) :
-                              formatDateTime(checkin.checkin_time)
-                            }
-                          </p>
-                          {checkin.course?.start_time && checkin.course?.end_time && (
-                            <p className="text-sm text-muted-foreground">
-                              {checkin.course.start_time} - {checkin.course.end_time}
-                            </p>
-                          )}
-                          <p className="text-sm text-muted-foreground">
-                            Check-in: {formatDateTime(checkin.checkin_time)}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                            <CheckCircle className="w-3 h-3 mr-1" />
-                            Checked In
-                          </Badge>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
+              {checkins.length === 0 ? (
                 <div className="text-center py-8">
                   <Activity className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground">No check-in history found</p>
+                </div>
+              ) : filteredCheckins.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">No check-ins match your filters</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {filteredCheckins.map((checkin) => {
+                    const courseId = checkin.course?.id;
+                    const trainerName = formatTrainerName(checkin.course?.trainer);
+                    const className = checkin.course?.class?.name || `Check-in #${checkin.id}`;
+                    const methodLabel = checkin.notes?.toLowerCase().includes('qr')
+                      ? 'QR check-in'
+                      : checkin.notes
+                        ? 'Manual / noted'
+                        : 'Check-in';
+                    return (
+                      <div
+                        key={checkin.id}
+                        className="flex items-start gap-3 border rounded-lg p-4 hover:bg-muted/30 transition-colors"
+                      >
+                        <div className="min-w-0 flex-1 space-y-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            {courseId ? (
+                              <button
+                                type="button"
+                                onClick={() => router.push(`/admin/courses/${courseId}`)}
+                                className="text-left font-medium hover:text-primary transition-colors truncate"
+                              >
+                                {className}
+                              </button>
+                            ) : (
+                              <h4 className="font-medium truncate">{className}</h4>
+                            )}
+                            <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              Checked In
+                            </Badge>
+                            {checkin.session_consumed === false && (
+                              <Badge variant="outline">Session kept</Badge>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                            <span className="inline-flex items-center gap-1">
+                              <Calendar className="w-3.5 h-3.5" />
+                              {checkin.course?.course_date
+                                ? formatDate(checkin.course.course_date)
+                                : formatDateTime(checkin.checkin_time)}
+                            </span>
+                            {checkin.course?.start_time && checkin.course?.end_time && (
+                              <span className="inline-flex items-center gap-1">
+                                <Clock className="w-3.5 h-3.5" />
+                                {checkin.course.start_time} – {checkin.course.end_time}
+                              </span>
+                            )}
+                            {trainerName && (
+                              <span className="inline-flex items-center gap-1">
+                                <GraduationCap className="w-3.5 h-3.5" />
+                                {trainerName}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                            <span>Check-in: {formatDateTime(checkin.checkin_time)}</span>
+                            <span>{methodLabel}</span>
+                          </div>
+                          {checkin.notes && (
+                            <p className="text-sm text-muted-foreground line-clamp-2">
+                              {checkin.notes}
+                            </p>
+                          )}
+                        </div>
+                        <RowMenuButton>
+                          {courseId && (
+                            <DropdownMenuItem
+                              onSelect={() => router.push(`/admin/courses/${courseId}`)}
+                            >
+                              <Eye className="w-4 h-4 mr-2" />
+                              View course
+                            </DropdownMenuItem>
+                          )}
+                          {courseId && checkin.registration_id && (
+                            <DropdownMenuItem
+                              onSelect={() => router.push(`/admin/courses/${courseId}`)}
+                            >
+                              <Users className="w-4 h-4 mr-2" />
+                              View registration
+                            </DropdownMenuItem>
+                          )}
+                          {checkin.qr_code && (
+                            <DropdownMenuItem
+                              onSelect={() =>
+                                router.push(
+                                  `/admin/checkins/qr/${encodeURIComponent(checkin.qr_code!)}`
+                                )
+                              }
+                            >
+                              <QrCode className="w-4 h-4 mr-2" />
+                              Open QR page
+                            </DropdownMenuItem>
+                          )}
+                        </RowMenuButton>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </CardContent>

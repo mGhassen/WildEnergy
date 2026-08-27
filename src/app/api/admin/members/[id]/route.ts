@@ -154,7 +154,17 @@ export async function GET(
         plans (
           id,
           name,
-          price
+          price,
+          duration_days,
+          sessions_included
+        ),
+        subscription_group_sessions (
+          sessions_remaining,
+          total_sessions
+        ),
+        subscription_pool_sessions (
+          sessions_remaining,
+          total_sessions
         )
       `)
       .eq('member_id', id)
@@ -171,9 +181,18 @@ export async function GET(
           start_time,
           end_time,
           class_id,
+          trainer_id,
           classes (
             id,
             name
+          ),
+          trainer:trainers (
+            id,
+            specialization,
+            profiles:profile_id (
+              first_name,
+              last_name
+            )
           )
         )
       `)
@@ -187,6 +206,7 @@ export async function GET(
         *,
         class_registrations (
           id,
+          qr_code,
           courses (
             id,
             course_date,
@@ -195,6 +215,14 @@ export async function GET(
             classes (
               id,
               name
+            ),
+            trainer:trainers (
+              id,
+              specialization,
+              profiles:profile_id (
+                first_name,
+                last_name
+              )
             )
           )
         )
@@ -234,52 +262,99 @@ export async function GET(
         createdAt: memberCreatedAt,
         isUnlinked: member.account_id === null // Flag to indicate if member is unlinked
       },
-      subscriptions: subscriptions?.map(sub => ({
-        id: sub.id,
-        member_id: sub.member_id,
-        plan_id: sub.plan_id,
-        startDate: sub.start_date,
-        endDate: sub.end_date,
-        status: sub.status,
-        plan: sub.plans ? {
-          id: sub.plans.id,
-          name: sub.plans.name,
-          price: sub.plans.price
-        } : null
-      })) || [],
-      registrations: registrations?.map(reg => ({
-        id: reg.id,
-        course_id: reg.course_id,
-        member_id: reg.member_id,
-        status: reg.status,
-        registration_date: reg.registration_date,
-        qr_code: reg.qr_code,
-        notes: reg.notes,
-        course: reg.courses ? {
-          id: reg.courses.id,
-          course_date: reg.courses.course_date,
-          start_time: reg.courses.start_time,
-          end_time: reg.courses.end_time,
-          class: reg.courses.classes ? {
-            id: reg.courses.classes.id,
-            name: reg.courses.classes.name
+      subscriptions: subscriptions?.map(sub => {
+        const groupSessions = sub.subscription_group_sessions || [];
+        const poolSessions = sub.subscription_pool_sessions || [];
+        const sessionsRemaining =
+          groupSessions.reduce((sum: number, s: any) => sum + (s.sessions_remaining || 0), 0) +
+          poolSessions.reduce((sum: number, s: any) => sum + (s.sessions_remaining || 0), 0);
+        const sessionsTotal =
+          groupSessions.reduce((sum: number, s: any) => sum + (s.total_sessions || 0), 0) +
+          poolSessions.reduce((sum: number, s: any) => sum + (s.total_sessions || 0), 0);
+
+        return {
+          id: sub.id,
+          member_id: sub.member_id,
+          plan_id: sub.plan_id,
+          startDate: sub.start_date,
+          endDate: sub.end_date,
+          status: sub.status,
+          notes: sub.notes,
+          payment_method: sub.payment_method,
+          sessionsRemaining,
+          sessionsTotal,
+          plan: sub.plans ? {
+            id: sub.plans.id,
+            name: sub.plans.name,
+            price: sub.plans.price,
+            duration_days: sub.plans.duration_days,
+            sessions_included: sub.plans.sessions_included,
           } : null
-        } : null
-      })) || [],
-      checkins: checkins?.map(checkin => ({
-        id: checkin.id,
-        checkin_time: checkin.checkin_time,
-        course: checkin.class_registrations?.courses ? {
-          id: checkin.class_registrations.courses.id,
-          course_date: checkin.class_registrations.courses.course_date,
-          start_time: checkin.class_registrations.courses.start_time,
-          end_time: checkin.class_registrations.courses.end_time,
-          class: checkin.class_registrations.courses.classes ? {
-            id: checkin.class_registrations.courses.classes.id,
-            name: checkin.class_registrations.courses.classes.name
+        };
+      }) || [],
+      registrations: registrations?.map(reg => {
+        const trainer = reg.courses?.trainer;
+        const trainerProfile = Array.isArray(trainer?.profiles)
+          ? trainer.profiles[0]
+          : trainer?.profiles;
+        return {
+          id: reg.id,
+          course_id: reg.course_id,
+          member_id: reg.member_id,
+          subscription_id: reg.subscription_id,
+          status: reg.status,
+          registration_date: reg.registration_date,
+          qr_code: reg.qr_code,
+          notes: reg.notes,
+          course: reg.courses ? {
+            id: reg.courses.id,
+            course_date: reg.courses.course_date,
+            start_time: reg.courses.start_time,
+            end_time: reg.courses.end_time,
+            class: reg.courses.classes ? {
+              id: reg.courses.classes.id,
+              name: reg.courses.classes.name
+            } : null,
+            trainer: trainer ? {
+              id: trainer.id,
+              specialization: trainer.specialization,
+              firstName: trainerProfile?.first_name || null,
+              lastName: trainerProfile?.last_name || null,
+            } : null,
           } : null
-        } : null
-      })) || [],
+        };
+      }) || [],
+      checkins: checkins?.map(checkin => {
+        const course = checkin.class_registrations?.courses;
+        const trainer = course?.trainer;
+        const trainerProfile = Array.isArray(trainer?.profiles)
+          ? trainer.profiles[0]
+          : trainer?.profiles;
+        return {
+          id: checkin.id,
+          checkin_time: checkin.checkin_time,
+          session_consumed: checkin.session_consumed,
+          notes: checkin.notes,
+          registration_id: checkin.registration_id || checkin.class_registrations?.id || null,
+          qr_code: checkin.class_registrations?.qr_code || null,
+          course: course ? {
+            id: course.id,
+            course_date: course.course_date,
+            start_time: course.start_time,
+            end_time: course.end_time,
+            class: course.classes ? {
+              id: course.classes.id,
+              name: course.classes.name
+            } : null,
+            trainer: trainer ? {
+              id: trainer.id,
+              specialization: trainer.specialization,
+              firstName: trainerProfile?.first_name || null,
+              lastName: trainerProfile?.last_name || null,
+            } : null,
+          } : null
+        };
+      }) || [],
       payments: payments?.map(payment => ({
         id: payment.id,
         subscription_id: payment.subscription_id,
@@ -289,7 +364,9 @@ export async function GET(
         payment_status: payment.payment_status,
         payment_date: payment.payment_date,
         transaction_id: payment.transaction_id,
-        notes: payment.notes
+        notes: payment.notes,
+        discount: payment.discount,
+        due_date: payment.due_date,
       })) || []
     };
 
