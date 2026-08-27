@@ -63,11 +63,10 @@ export async function POST(
       return NextResponse.json({ error: 'You can only cancel your own registrations' }, { status: 403 });
     }
 
-    // Check if course is in the past
     const courseDateTime = new Date(`${registration.course.course_date}T${registration.course.start_time}`);
     const now = new Date();
-    
-    if (now >= courseDateTime) {
+
+    if (!userProfile.is_admin && now >= courseDateTime) {
       return NextResponse.json({ error: 'Cannot cancel registration for a course that has already started' }, { status: 400 });
     }
 

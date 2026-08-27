@@ -9,7 +9,69 @@ async function getUserFromToken(token: string) {
     .select('*')
     .eq('email', user.email)
     .single();
-  return userProfile;
+    return userProfile;
+}
+
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const registrationId = parseInt(id);
+
+    if (!registrationId || isNaN(registrationId)) {
+      return NextResponse.json({ error: 'Invalid registration ID' }, { status: 400 });
+    }
+
+    const authHeader = req.headers.get('authorization');
+    const token = authHeader?.split(' ')[1];
+    if (!token) {
+      return NextResponse.json({ error: 'No token provided' }, { status: 401 });
+    }
+
+    const userProfile = await getUserFromToken(token);
+    if (!userProfile) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+    }
+    if (!userProfile.is_admin) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
+
+    const { data: registration, error } = await supabaseServer()
+      .from('class_registrations')
+      .select(`
+        *,
+        course:courses(
+          id,
+          course_date,
+          start_time,
+          end_time,
+          class:classes(name, description, category:categories(name))
+        )
+      `)
+      .eq('id', registrationId)
+      .single();
+
+    if (error || !registration) {
+      return NextResponse.json({ error: 'Registration not found' }, { status: 404 });
+    }
+
+    let member = null;
+    if (registration.member_id) {
+      const { data: profile } = await supabaseServer()
+        .from('user_profiles')
+        .select('member_id, first_name, last_name, email')
+        .eq('member_id', registration.member_id)
+        .maybeSingle();
+      member = profile;
+    }
+
+    return NextResponse.json({ ...registration, member });
+  } catch (error) {
+    console.error('GET registration error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 }
 
 export async function DELETE(

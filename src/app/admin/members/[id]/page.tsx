@@ -720,11 +720,23 @@ export default function MemberDetailsPage() {
             </div>
 
             {featuredSubscriptions.length > 0 ? (
-              <div className="space-y-2">
+              <div className={`group relative ${featuredSubscriptions.length > 1 ? 'pb-2.5' : ''}`}>
+                {featuredSubscriptions.length > 2 && (
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-x-3 top-2.5 bottom-0 rounded-md border bg-muted/30"
+                  />
+                )}
+                {featuredSubscriptions.length > 1 && (
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-x-1.5 top-1.5 bottom-1 rounded-md border bg-muted/50"
+                  />
+                )}
                 <Carousel
                   setApi={setSubscriptionCarouselApi}
                   opts={{ align: 'start', loop: featuredSubscriptions.length > 1 }}
-                  className={`w-full ${featuredSubscriptions.length > 1 ? 'px-8' : ''}`}
+                  className="relative z-[1] w-full"
                 >
                   <CarouselContent className="-ml-0">
                     {featuredSubscriptions.map((subscription) => (
@@ -767,28 +779,11 @@ export default function MemberDetailsPage() {
                   </CarouselContent>
                   {featuredSubscriptions.length > 1 && (
                     <>
-                      <CarouselPrevious className="left-0 top-1/2 h-7 w-7 -translate-y-1/2 border bg-background/90 shadow-sm" />
-                      <CarouselNext className="right-0 top-1/2 h-7 w-7 -translate-y-1/2 border bg-background/90 shadow-sm" />
+                      <CarouselPrevious className="left-1.5 top-1/2 h-7 w-7 -translate-y-1/2 border bg-background/95 shadow-sm opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100" />
+                      <CarouselNext className="right-1.5 top-1/2 h-7 w-7 -translate-y-1/2 border bg-background/95 shadow-sm opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100" />
                     </>
                   )}
                 </Carousel>
-                {featuredSubscriptions.length > 1 && (
-                  <div className="flex items-center justify-center gap-1.5">
-                    {featuredSubscriptions.map((subscription, index) => (
-                      <button
-                        key={subscription.id}
-                        type="button"
-                        aria-label={`Go to subscription ${index + 1}`}
-                        className={`h-1.5 rounded-full transition-all ${
-                          index === subscriptionSlide
-                            ? 'w-4 bg-primary'
-                            : 'w-1.5 bg-muted-foreground/30 hover:bg-muted-foreground/50'
-                        }`}
-                        onClick={() => subscriptionCarouselApi?.scrollTo(index)}
-                      />
-                    ))}
-                  </div>
-                )}
               </div>
             ) : (
               <div className="rounded-md border bg-muted/30 p-2.5 space-y-1.5">
