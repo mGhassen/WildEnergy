@@ -1,11 +1,10 @@
-import { Calendar, Clock, User } from "lucide-react";
-import { parseISO, areIntervalsOverlapping, format } from "date-fns";
+import { useState } from "react";
+import { parseISO, areIntervalsOverlapping, format, isSameDay } from "date-fns";
 
 import { useCalendar } from "@/calendar/contexts/calendar-context";
 
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Calendar as ShadcnCalendar } from "@/components/ui/calendar";
-import { Button } from "@/components/ui/button";
 
 import { EventBlock } from "@/calendar/components/week-and-day-view/event-block";
 import { CalendarTimeline } from "@/calendar/components/week-and-day-view/calendar-time-line";
@@ -13,7 +12,7 @@ import { DayViewMultiDayEventsRow } from "@/calendar/components/week-and-day-vie
 import { ResizableHourSidebar } from "@/calendar/components/week-and-day-view/resizable-hour-sidebar";
 
 import { cn } from "@/lib/utils";
-import { groupEvents, getEventBlockStyle, isWorkingHour, getCurrentEvents, getVisibleHours } from "@/calendar/helpers";
+import { groupEvents, getEventBlockStyle, isWorkingHour, getVisibleHours } from "@/calendar/helpers";
 
 import type { IEvent } from "@/calendar/interfaces";
 
@@ -22,24 +21,22 @@ interface IProps {
   multiDayEvents: IEvent[];
 }
 
+function getEventsForDate(events: IEvent[], date: Date) {
+  return events.filter(event => isSameDay(parseISO(event.startDate), date));
+}
+
 export function CalendarDayView({ singleDayEvents, multiDayEvents }: IProps) {
   const { selectedDate, setSelectedDate, users, visibleHours, workingHours, hourHeight } = useCalendar();
+  const [hoveredDate, setHoveredDate] = useState<Date | undefined>();
 
   const { hours, earliestEventHour, latestEventHour } = getVisibleHours(visibleHours, singleDayEvents);
 
   // Fallback hours if none are generated - show full day from 6am to 11pm
   const displayHours = hours.length > 0 ? hours : Array.from({ length: 18 }, (_, i) => i + 6);
 
-  const currentEvents = getCurrentEvents(singleDayEvents);
-
-  const dayEvents = singleDayEvents.filter(event => {
-    const eventDate = parseISO(event.startDate);
-    return (
-      eventDate.getDate() === selectedDate.getDate() &&
-      eventDate.getMonth() === selectedDate.getMonth() &&
-      eventDate.getFullYear() === selectedDate.getFullYear()
-    );
-  });
+  const dayEvents = getEventsForDate(singleDayEvents, selectedDate);
+  const sidebarDate = hoveredDate ?? selectedDate;
+  const sidebarEvents = getEventsForDate(singleDayEvents, sidebarDate);
 
   const groupedEvents = groupEvents(dayEvents);
 
@@ -113,7 +110,18 @@ export function CalendarDayView({ singleDayEvents, multiDayEvents }: IProps) {
           <ShadcnCalendar
             mode="single"
             selected={selectedDate}
-            onSelect={setSelectedDate}
+            onSelect={date => {
+              setSelectedDate(date);
+              setHoveredDate(undefined);
+            }}
+            onDayMouseEnter={date => setHoveredDate(date)}
+            onDayMouseLeave={() => setHoveredDate(undefined)}
+            modifiers={{
+              preview: date => hoveredDate !== undefined && isSameDay(date, hoveredDate) && !isSameDay(date, selectedDate),
+            }}
+            modifiersClassNames={{
+              preview: "bg-accent/60 text-accent-foreground rounded-md",
+            }}
             captionLayout="dropdown"
             fromYear={2020}
             toYear={2030}
@@ -129,7 +137,7 @@ export function CalendarDayView({ singleDayEvents, multiDayEvents }: IProps) {
 
         <div className="border-t px-4 py-3">
           <div className="text-sm font-medium mb-3">
-            {selectedDate?.toLocaleDateString("en-US", {
+            {sidebarDate.toLocaleDateString("en-US", {
               day: "numeric",
               month: "long",
               year: "numeric",
@@ -137,8 +145,8 @@ export function CalendarDayView({ singleDayEvents, multiDayEvents }: IProps) {
           </div>
 
           <div className="flex w-full flex-col gap-2">
-            {dayEvents.length > 0 ? (
-              dayEvents.map((event) => {
+            {sidebarEvents.length > 0 ? (
+              sidebarEvents.map((event) => {
                 const user = users.find(user => user.id === event.user.id);
                 
                 return (

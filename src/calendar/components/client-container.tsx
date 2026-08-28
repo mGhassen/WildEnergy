@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { isSameDay, parseISO } from "date-fns";
 
 import { useCalendar } from "@/calendar/contexts/calendar-context";
+import { useCalendarSwipeNavigation } from "@/calendar/hooks/use-calendar-swipe-navigation";
 
 import { DndProviderWrapper } from "@/calendar/components/dnd/dnd-provider";
 
@@ -21,6 +22,7 @@ interface IProps {
 
 export function ClientContainer({ view }: IProps) {
   const { selectedDate, selectedCategoryId, events } = useCalendar();
+  const swipeNavigationRef = useCalendarSwipeNavigation(view);
 
   const filteredEvents = useMemo(() => {
     return events.filter(event => {
@@ -81,7 +83,10 @@ export function ClientContainer({ view }: IProps) {
       <CalendarHeader view={view} events={filteredEvents} />
 
       <DndProviderWrapper>
-        <div className={view === "day" ? "h-[calc(100vh-200px)] min-h-[600px]" : "h-[800px]"}>
+        <div
+          ref={swipeNavigationRef}
+          className={view === "day" ? "h-[calc(100vh-200px)] min-h-[600px]" : "h-[800px]"}
+        >
           {view === "day" && <CalendarDayView singleDayEvents={singleDayEvents} multiDayEvents={multiDayEvents} />}
           {view === "month" && <CalendarMonthView singleDayEvents={singleDayEvents} multiDayEvents={multiDayEvents} />}
           {view === "week" && <CalendarWeekView singleDayEvents={singleDayEvents} multiDayEvents={multiDayEvents} />}
