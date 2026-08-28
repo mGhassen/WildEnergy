@@ -405,6 +405,21 @@ export default function CourseDetailsPage() {
     router.push(`/admin/courses/${courseId}/cancel?${qs.toString()}`);
   };
 
+  const handleDeleteRegistration = (registration: any) => {
+    const memberName = `${registration.member?.first_name || 'Unknown'} ${registration.member?.last_name || 'Member'}`;
+    const memberId = registration.member_id || registration.member?.id || '';
+    const qs = new URLSearchParams({
+      registrationId: String(registration.id),
+      memberName,
+      memberId: String(memberId),
+      status: String(registration.status || ''),
+    });
+    if (registration.subscription_id) {
+      qs.set('subscriptionId', String(registration.subscription_id));
+    }
+    router.push(`/admin/courses/${courseId}/delete-registration?${qs.toString()}`);
+  };
+
   const handleRestoreRegistration = (registration: any) => {
     const memberName = `${registration.member?.first_name || 'Unknown'} ${registration.member?.last_name || 'Member'}`;
     const memberId = registration.member_id || registration.member?.id || '';
@@ -900,6 +915,13 @@ export default function CourseDetailsPage() {
                                     Restore
                                   </DropdownMenuItem>
                                 )}
+                                <DropdownMenuItem
+                                  className="text-destructive focus:text-destructive"
+                                  onClick={() => handleDeleteRegistration(registration)}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Delete
+                                </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </div>

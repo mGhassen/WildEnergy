@@ -174,6 +174,47 @@ export function useAdminCancelRegistration() {
   });
 }
 
+export function useAdminDeleteRegistration() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: ({
+      registrationId,
+      refundSession,
+      refundSubscriptionId,
+    }: {
+      registrationId: number;
+      refundSession?: boolean;
+      refundSubscriptionId?: number;
+    }) =>
+      registrationApi.adminDeleteRegistration(
+        registrationId,
+        refundSession,
+        refundSubscriptionId,
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/member/registrations'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/courses'] });
+      queryClient.invalidateQueries({ queryKey: ['course'] });
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
+      queryClient.invalidateQueries({ queryKey: ['registrations'] });
+      queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
+      toast({
+        title: 'Registration deleted',
+        description: 'The registration has been permanently deleted.',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to delete registration',
+        description: error.message || 'Please try again',
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
 export function useAdminRestoreRegistration() {
   const queryClient = useQueryClient();
   const { toast } = useToast();

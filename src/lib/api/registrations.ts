@@ -143,6 +143,23 @@ export const registrationApi = {
     );
   },
 
+  async adminDeleteRegistration(
+    registrationId: number,
+    refundSession?: boolean,
+    refundSubscriptionId?: number,
+  ): Promise<any> {
+    const body: { refundSession?: boolean; refundSubscriptionId?: number } = {};
+    if (refundSession !== undefined) body.refundSession = refundSession;
+    if (refundSubscriptionId !== undefined) {
+      body.refundSubscriptionId = refundSubscriptionId;
+    }
+    return apiRequest(
+      'DELETE',
+      `/api/admin/registrations/${registrationId}`,
+      Object.keys(body).length ? body : undefined,
+    );
+  },
+
   async adminRestoreRegistration(
     registrationId: number,
     consumeSession?: boolean,

@@ -199,21 +199,24 @@ export async function DELETE(
       return NextResponse.json({ error: 'Failed to delete registration' }, { status: 500 });
     }
 
-    const courseRaw = registration.course as
-      | { id: number; current_participants: number; max_participants: number }
-      | { id: number; current_participants: number; max_participants: number }[]
-      | null;
-    const course = Array.isArray(courseRaw) ? courseRaw[0] : courseRaw;
-    if (course?.id != null) {
-      const newParticipantCount = Math.max(0, (course.current_participants ?? 0) - 1);
+    // Cancel already decremented participants — don't do it again.
+    if (registration.status !== 'cancelled') {
+      const courseRaw = registration.course as
+        | { id: number; current_participants: number; max_participants: number }
+        | { id: number; current_participants: number; max_participants: number }[]
+        | null;
+      const course = Array.isArray(courseRaw) ? courseRaw[0] : courseRaw;
+      if (course?.id != null) {
+        const newParticipantCount = Math.max(0, (course.current_participants ?? 0) - 1);
 
-      const { error: updateError } = await supabaseServer()
-        .from('courses')
-        .update({ current_participants: newParticipantCount })
-        .eq('id', course.id);
+        const { error: updateError } = await supabaseServer()
+          .from('courses')
+          .update({ current_participants: newParticipantCount })
+          .eq('id', course.id);
 
-      if (updateError) {
-        console.error('Error updating course participant count:', updateError);
+        if (updateError) {
+          console.error('Error updating course participant count:', updateError);
+        }
       }
     }
 
