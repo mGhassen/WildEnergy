@@ -143,6 +143,21 @@ export const registrationApi = {
     );
   },
 
+  async adminRestoreRegistration(
+    registrationId: number,
+    consumeSession?: boolean,
+    subscriptionId?: number,
+  ): Promise<any> {
+    const body: { consumeSession?: boolean; subscriptionId?: number } = {};
+    if (consumeSession !== undefined) body.consumeSession = consumeSession;
+    if (subscriptionId !== undefined) body.subscriptionId = subscriptionId;
+    return apiRequest(
+      'POST',
+      `/api/admin/registrations/${registrationId}/restore`,
+      Object.keys(body).length ? body : undefined,
+    );
+  },
+
   async approveRegistration(registrationId: number): Promise<any> {
     return apiRequest('POST', `/api/admin/registrations/${registrationId}/approve`);
   },

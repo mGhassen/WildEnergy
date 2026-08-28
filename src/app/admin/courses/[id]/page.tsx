@@ -405,6 +405,27 @@ export default function CourseDetailsPage() {
     router.push(`/admin/courses/${courseId}/cancel?${qs.toString()}`);
   };
 
+  const handleRestoreRegistration = (registration: any) => {
+    const memberName = `${registration.member?.first_name || 'Unknown'} ${registration.member?.last_name || 'Member'}`;
+    const memberId = registration.member_id || registration.member?.id || '';
+    const qs = new URLSearchParams({
+      registrationId: String(registration.id),
+      memberName,
+      memberId: String(memberId),
+    });
+    if (registration.subscription_id) {
+      qs.set('subscriptionId', String(registration.subscription_id));
+    }
+    if (course?.course_date) {
+      qs.set('courseDate', String(course.course_date).slice(0, 10));
+    }
+    const groupId = course?.class?.category?.group?.id;
+    if (groupId != null) {
+      qs.set('courseGroupId', String(groupId));
+    }
+    router.push(`/admin/courses/${courseId}/restore?${qs.toString()}`);
+  };
+
 
   // Function to check if a member has remaining sessions for this course's group
   const checkMemberSessionsMutation = useCheckMemberSessions();
@@ -865,6 +886,14 @@ export default function CourseDetailsPage() {
                                   >
                                     <X className="mr-2 h-4 w-4" />
                                     Cancel
+                                  </DropdownMenuItem>
+                                )}
+                                {registration.status === 'cancelled' && (
+                                  <DropdownMenuItem
+                                    onClick={() => handleRestoreRegistration(registration)}
+                                  >
+                                    <Check className="mr-2 h-4 w-4" />
+                                    Restore
                                   </DropdownMenuItem>
                                 )}
                               </DropdownMenuContent>

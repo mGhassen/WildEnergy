@@ -174,6 +174,48 @@ export function useAdminCancelRegistration() {
   });
 }
 
+export function useAdminRestoreRegistration() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: ({
+      registrationId,
+      consumeSession,
+      subscriptionId,
+    }: {
+      registrationId: number;
+      consumeSession?: boolean;
+      subscriptionId?: number;
+    }) =>
+      registrationApi.adminRestoreRegistration(
+        registrationId,
+        consumeSession,
+        subscriptionId,
+      ),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/member/registrations'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/courses'] });
+      queryClient.invalidateQueries({ queryKey: ['course'] });
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
+      queryClient.invalidateQueries({ queryKey: ['registrations'] });
+      queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
+      toast({
+        title: 'Registration restored',
+        description:
+          data?.message || 'The cancelled registration has been restored.',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to restore registration',
+        description: error.message || 'Please try again',
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
 export function useUpdateRegistration() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
