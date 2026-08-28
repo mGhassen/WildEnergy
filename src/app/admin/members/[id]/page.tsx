@@ -11,7 +11,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useMemberDetails } from "@/hooks/useMemberDetails";
 import { useUpdateMemberDetails } from "@/hooks/useUpdateMemberDetails";
 import { useUpdateSubscription } from "@/hooks/useSubscriptions";
+import { useClientPagination } from "@/hooks/useClientPagination";
 import { useToast } from "@/hooks/use-toast";
+import { ListPagination } from "@/components/list-pagination";
 import {
   ArrowLeft,
   MoreVertical,
@@ -260,6 +262,55 @@ const RowMenuButton = ({ children }: { children: ReactNode }) => (
     </DropdownMenuContent>
   </DropdownMenu>
 );
+
+function MemberTabPaginatedList<T>({
+  items,
+  itemLabel,
+  filterKey,
+  renderItem,
+}: {
+  items: T[];
+  itemLabel: string;
+  filterKey: string;
+  renderItem: (item: T) => ReactNode;
+}) {
+  const {
+    paginatedItems,
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalPages,
+    totalItems,
+    rangeStart,
+    rangeEnd,
+    resetPage,
+  } = useClientPagination(items);
+
+  useEffect(() => {
+    resetPage();
+  }, [filterKey, resetPage]);
+
+  return (
+    <>
+      <div className="space-y-3">
+        {paginatedItems.map((item) => renderItem(item))}
+      </div>
+      <ListPagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        pageSize={pageSize}
+        totalItems={totalItems}
+        rangeStart={rangeStart}
+        rangeEnd={rangeEnd}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={setPageSize}
+        itemLabel={itemLabel}
+        className="-mx-6 mt-4"
+      />
+    </>
+  );
+}
 
 export default function MemberDetailsPage() {
   const router = useRouter();
@@ -1405,8 +1456,11 @@ export default function MemberDetailsPage() {
                   <p className="text-muted-foreground">No subscriptions match your filters</p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {filteredSubscriptions.map((subscription) => {
+                <MemberTabPaginatedList
+                  items={filteredSubscriptions}
+                  itemLabel="subscriptions"
+                  filterKey={`${subscriptionSearch}|${subscriptionStatusFilter}`}
+                  renderItem={(subscription) => {
                     const daysLeft = subscriptionDaysRemaining(subscription.endDate);
                     const duration = subscription.plan?.duration_days
                       ?? subscriptionDurationDays(subscription.startDate, subscription.endDate);
@@ -1518,8 +1572,8 @@ export default function MemberDetailsPage() {
                         </RowMenuButton>
                       </div>
                     );
-                  })}
-                </div>
+                  }}
+                />
               )}
             </CardContent>
           </Card>
@@ -1574,8 +1628,11 @@ export default function MemberDetailsPage() {
                   <p className="text-muted-foreground">No payments match your filters</p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {filteredPayments.map((payment) => {
+                <MemberTabPaginatedList
+                  items={filteredPayments}
+                  itemLabel="payments"
+                  filterKey={`${paymentSearch}|${paymentStatusFilter}`}
+                  renderItem={(payment) => {
                     const sub = subscriptions.find((s) => s.id === payment.subscription_id);
                     return (
                       <div
@@ -1677,8 +1734,8 @@ export default function MemberDetailsPage() {
                         </RowMenuButton>
                       </div>
                     );
-                  })}
-                </div>
+                  }}
+                />
               )}
             </CardContent>
           </Card>
@@ -1734,8 +1791,11 @@ export default function MemberDetailsPage() {
                   <p className="text-muted-foreground">No registrations match your filters</p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {filteredRegistrations.map((registration) => {
+                <MemberTabPaginatedList
+                  items={filteredRegistrations}
+                  itemLabel="registrations"
+                  filterKey={`${scheduleSearch}|${scheduleStatusFilter}`}
+                  renderItem={(registration) => {
                     const courseId = registration.course?.id ?? registration.course_id;
                     const trainerName = formatTrainerName(registration.course?.trainer);
                     const className = registration.course?.class?.name || `Class ID: ${registration.course_id}`;
@@ -1833,8 +1893,8 @@ export default function MemberDetailsPage() {
                         </RowMenuButton>
                       </div>
                     );
-                  })}
-                </div>
+                  }}
+                />
               )}
             </CardContent>
           </Card>
@@ -1887,8 +1947,11 @@ export default function MemberDetailsPage() {
                   <p className="text-muted-foreground">No check-ins match your filters</p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {filteredCheckins.map((checkin) => {
+                <MemberTabPaginatedList
+                  items={filteredCheckins}
+                  itemLabel="check-ins"
+                  filterKey={`${activitySearch}|${activitySessionFilter}`}
+                  renderItem={(checkin) => {
                     const courseId = checkin.course?.id;
                     const trainerName = formatTrainerName(checkin.course?.trainer);
                     const className = checkin.course?.class?.name || `Check-in #${checkin.id}`;
@@ -1985,8 +2048,8 @@ export default function MemberDetailsPage() {
                         </RowMenuButton>
                       </div>
                     );
-                  })}
-                </div>
+                  }}
+                />
               )}
             </CardContent>
           </Card>
