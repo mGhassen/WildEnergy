@@ -11,7 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Loader2, AlertTriangle, Check, Eye, MoreHorizontal, Trash2 } from "lucide-react";
+import { Loader2, AlertTriangle, Check, Eye, MoreHorizontal, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   useRegistrations,
@@ -44,6 +44,29 @@ export default function AdminRegistrations() {
         variant: "destructive",
       });
     }
+  };
+
+  const handleCancel = (registration: any) => {
+    const courseId = registration.course_id || registration.course?.id;
+    if (!courseId) {
+      toast({
+        title: "Error",
+        description: "No course found for this registration",
+        variant: "destructive",
+      });
+      return;
+    }
+    const memberName = `${registration.member?.first_name || "Unknown"} ${registration.member?.last_name || "Member"}`;
+    const memberId = registration.member_id || registration.member?.id || "";
+    const qs = new URLSearchParams({
+      registrationId: String(registration.id),
+      memberName,
+      memberId: String(memberId),
+    });
+    if (registration.subscription_id) {
+      qs.set("subscriptionId", String(registration.subscription_id));
+    }
+    router.push(`/admin/courses/${courseId}/cancel?${qs.toString()}`);
   };
 
   const getStatusBadge = (status: string) => {
@@ -169,15 +192,15 @@ export default function AdminRegistrations() {
                 Check in
               </DropdownMenuItem>
             )}
-            <DropdownMenuItem
-              className="text-destructive focus:text-destructive"
-              onClick={() =>
-                router.push(`/admin/registrations/${row.id}/delete`)
-              }
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
-            </DropdownMenuItem>
+            {row.status !== "cancelled" && (
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onClick={() => handleCancel(row)}
+              >
+                <X className="mr-2 h-4 w-4" />
+                Cancel
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       ),

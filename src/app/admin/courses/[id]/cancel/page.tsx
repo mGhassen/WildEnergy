@@ -42,7 +42,7 @@ export default function AdminCourseCancelRegistrationPage() {
   const memberSubs = useMemo(() => {
     if (!memberId || !Array.isArray(subscriptions)) return [];
     return (subscriptions as any[])
-      .filter((s) => s.member_id === memberId)
+      .filter((s) => String(s.member_id) === String(memberId))
       .sort((a, b) => String(b.end_date).localeCompare(String(a.end_date)));
   }, [subscriptions, memberId]);
 
@@ -65,7 +65,7 @@ export default function AdminCourseCancelRegistrationPage() {
   return (
     <RouteDialog
       title="Cancel Registration"
-      description={`Cancel ${memberName}'s registration. Optionally refund a session to a chosen subscription.`}
+      description={`Cancel ${memberName}'s registration. Choose whether to refund a session.`}
       closeHref={closeHref}
       className="sm:max-w-md"
     >
@@ -87,7 +87,7 @@ export default function AdminCourseCancelRegistrationPage() {
               <Label>Refund into subscription</Label>
               {memberSubs.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No subscriptions found for this member.
+                  No subscriptions found for this member. Uncheck refund to cancel without restoring a session.
                 </p>
               ) : (
                 <Select
@@ -122,7 +122,7 @@ export default function AdminCourseCancelRegistrationPage() {
               disabled={
                 !Number.isFinite(registrationId) ||
                 cancelRegistrationMutation.isPending ||
-                (refundSession && memberSubs.length > 0 && !refundSubscriptionId)
+                (refundSession && !refundSubscriptionId)
               }
               onClick={() => {
                 cancelRegistrationMutation.mutate(

@@ -107,6 +107,9 @@ export async function DELETE(
       .select(`
         id,
         member_id,
+        subscription_id,
+        status,
+        course_id,
         course:courses(
           id,
           current_participants,
@@ -119,6 +122,58 @@ export async function DELETE(
     if (fetchError || !registration) {
       console.error('Delete registration fetch:', fetchError);
       return NextResponse.json({ error: 'Registration not found' }, { status: 404 });
+    }
+
+    let refundSession = registration.status !== 'cancelled';
+    let refundSubscriptionId: number | undefined = undefined;
+    try {
+      const body = await req.json();
+      if (typeof body.refundSession === 'boolean') {
+        refundSession = body.refundSession;
+      }
+      if (typeof body.refundSubscriptionId === 'number' && Number.isFinite(body.refundSubscriptionId)) {
+        refundSubscriptionId = body.refundSubscriptionId;
+      }
+    } catch {}
+
+    if (refundSession) {
+      const targetSubscriptionId =
+        refundSubscriptionId ?? registration.subscription_id ?? null;
+      if (!targetSubscriptionId || !registration.member_id || !registration.course_id) {
+        return NextResponse.json(
+          { error: 'Select a subscription to refund the session' },
+          { status: 400 }
+        );
+      }
+
+      const { data: refundResult, error: refundError } = await supabaseServer().rpc(
+        'refund_group_session',
+        {
+          p_user_id: registration.member_id,
+          p_course_id: registration.course_id,
+          p_subscription_id: targetSubscriptionId,
+        }
+      );
+
+      let refundJson: any = refundResult;
+      if (typeof refundResult === 'string') {
+        try {
+          refundJson = JSON.parse(refundResult);
+        } catch {
+          refundJson = null;
+        }
+      }
+      if (refundError || refundJson?.success !== true) {
+        return NextResponse.json(
+          {
+            error:
+              refundJson?.error ||
+              refundError?.message ||
+              'Failed to refund session',
+          },
+          { status: 400 }
+        );
+      }
     }
 
     const { error: checkinsDeleteError } = await supabaseServer()

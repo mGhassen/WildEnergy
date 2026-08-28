@@ -158,6 +158,7 @@ export function useAdminCancelRegistration() {
       queryClient.invalidateQueries({ queryKey: ['course'] });
       queryClient.invalidateQueries({ queryKey: ['courses'] });
       queryClient.invalidateQueries({ queryKey: ['registrations'] });
+      queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
       toast({
         title: 'Registration cancelled',
         description: 'The registration has been successfully cancelled.',
@@ -191,31 +192,6 @@ export function useUpdateRegistration() {
     onError: (error: any) => {
       toast({
         title: 'Failed to update registration',
-        description: error.message || 'Please try again',
-        variant: 'destructive',
-      });
-    },
-  });
-}
-
-export function useDeleteRegistration() {
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-
-  return useMutation({
-    mutationFn: (registrationId: number) => registrationApi.deleteRegistration(registrationId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['registrations'] });
-      queryClient.invalidateQueries({ queryKey: ['course'] });
-      queryClient.invalidateQueries({ queryKey: ['courses'] });
-      toast({
-        title: 'Registration deleted',
-        description: 'The registration has been successfully deleted.',
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: 'Failed to delete registration',
         description: error.message || 'Please try again',
         variant: 'destructive',
       });

@@ -8,7 +8,7 @@ import {
   useDeleteCourse, 
   useAddMembersToCourse 
 } from '@/hooks/useCourse';
-import { useAdminCancelRegistration, useCheckInRegistration } from '@/hooks/useRegistrations';
+import { useCheckInRegistration } from '@/hooks/useRegistrations';
 import { useMembers, useCheckMemberSessions } from '@/hooks/useMembers';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -271,7 +271,6 @@ export default function CourseDetailsPage() {
     }
   }, [searchParams, courseId, router]);
 
-  const [registrationToCancel, setRegistrationToCancel] = useState<{ id: number; memberName: string } | null>(null);
   const [participantsPage, setParticipantsPage] = useState(1);
   const PARTICIPANTS_PER_PAGE = 12;
 
@@ -282,7 +281,6 @@ export default function CourseDetailsPage() {
 
   const deleteCourseMutation = useDeleteCourse();
   const addMembersToCourseMutation = useAddMembersToCourse();
-  const cancelRegistrationMutation = useAdminCancelRegistration();
   const checkInMutation = useCheckInRegistration();
 
   const courseGroupIdForSelection = () =>
@@ -861,7 +859,7 @@ export default function CourseDetailsPage() {
                                     Check in
                                   </DropdownMenuItem>
                                 )}
-                                {registration.status === 'registered' && (
+                                {registration.status !== 'cancelled' && (
                                   <DropdownMenuItem
                                     onClick={() => handleCancelRegistration(registration)}
                                   >
@@ -869,15 +867,6 @@ export default function CourseDetailsPage() {
                                     Cancel
                                   </DropdownMenuItem>
                                 )}
-                                <DropdownMenuItem
-                                  className="text-destructive focus:text-destructive"
-                                  onClick={() =>
-                                    router.push(`/admin/registrations/${registration.id}/delete`)
-                                  }
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  Delete
-                                </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </div>

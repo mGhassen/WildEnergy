@@ -97,10 +97,6 @@ export const registrationApi = {
     return apiRequest('PUT', `/api/admin/registrations/${registrationId}`, data);
   },
 
-  async deleteRegistration(registrationId: number): Promise<void> {
-    return apiRequest('DELETE', `/api/admin/registrations/${registrationId}`);
-  },
-
   async registerForClass(classId: number, data: { subscription_id?: number }): Promise<Registration> {
     return apiRequest('POST', `/api/member/registrations`, { courseId: classId });
   },

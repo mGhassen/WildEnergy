@@ -50,7 +50,7 @@ export async function POST(
         )
       `)
       .eq('id', registrationId)
-      .eq('status', 'registered')
+      .in('status', ['registered', 'absent', 'attended'])
       .single();
 
     if (regError || !registration) {
@@ -74,8 +74,8 @@ export async function POST(
     const cutoffTime = new Date(courseDateTime.getTime() - (24 * 60 * 60 * 1000));
     const isWithin24Hours = now >= cutoffTime;
 
-    // Admin can override refund logic and target subscription
-    let refundSession: boolean | undefined = undefined;
+    // Admin always decides refund (default: refund). Members follow 24h rule.
+    let refundSession: boolean | undefined = userProfile.is_admin ? true : undefined;
     let refundSubscriptionId: number | undefined = undefined;
     if (userProfile.is_admin) {
       try {
@@ -92,6 +92,13 @@ export async function POST(
     const targetSubscriptionId =
       refundSubscriptionId ?? registration.subscription_id ?? null;
 
+    if (userProfile.is_admin && refundSession && !targetSubscriptionId) {
+      return NextResponse.json(
+        { error: 'Select a subscription to refund the session' },
+        { status: 400 }
+      );
+    }
+
     // Use the stored procedure to handle cancellation with session refund
     const { data: result, error: procedureError } = await supabaseServer ()
       .rpc('cancel_registration_with_updates', {
@@ -104,7 +111,10 @@ export async function POST(
 
     if (procedureError) {
       console.error('Cancellation procedure error:', procedureError);
-      return NextResponse.json({ error: 'Failed to cancel registration' }, { status: 500 });
+      return NextResponse.json(
+        { error: procedureError.message || 'Failed to cancel registration' },
+        { status: 500 }
+      );
     }
 
     console.log('Cancellation successful:', result);

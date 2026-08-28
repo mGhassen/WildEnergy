@@ -713,7 +713,6 @@ export default function ScheduleCalendar({
 
   // Update adminRefundSession when dialog opens
   const handleUnregisterClick = (registrationId: number) => {
-    const isLate = isLateCancellation(registrationId);
     const registration = registrations.find((reg) => reg.id === registrationId) as any;
     const memberId = registration?.member_id || registration?.member?.id;
     const defaultSubId = registration?.subscription_id
@@ -724,7 +723,7 @@ export default function ScheduleCalendar({
           (sub: any) => String(sub.member_id) === String(memberId),
         )
       : [];
-    setAdminRefundSession(!isLate);
+    setAdminRefundSession(true);
     setAdminRefundSubscriptionId(
       defaultSubId || (memberSubs[0]?.id != null ? Number(memberSubs[0].id) : null),
     );
@@ -1064,7 +1063,7 @@ export default function ScheduleCalendar({
                   <Label>Refund into subscription</Label>
                   {unregisterMemberSubs.length === 0 ? (
                     <p className="text-xs text-muted-foreground">
-                      No subscriptions found for this member.
+                      No subscriptions found for this member. Uncheck refund to unregister without restoring a session.
                     </p>
                   ) : (
                     <Select
@@ -1098,11 +1097,13 @@ export default function ScheduleCalendar({
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => closeDialog()}>Cancel</AlertDialogCancel>
             <AlertDialogAction
+              disabled={
+                unregisterMemberMutation.isPending ||
+                (!!user?.isAdmin && adminRefundSession && !adminRefundSubscriptionId)
+              }
               onClick={() => {
                 if (confirmUnregisterId) {
-                  const isLate = isLateCancellation(Number(confirmUnregisterId));
-                  const defaultRefund = !isLate;
-                  const refundSession = user?.isAdmin ? adminRefundSession : defaultRefund;
+                  const refundSession = user?.isAdmin ? adminRefundSession : true;
                   unregisterMemberMutation.mutate({ 
                     registrationId: Number(confirmUnregisterId), 
                     refundSession: user?.isAdmin ? refundSession : undefined,
