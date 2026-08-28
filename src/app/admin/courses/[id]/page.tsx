@@ -546,7 +546,11 @@ export default function CourseDetailsPage() {
 
   const getAvailableMembers = () => {
     if (!courseData || !allMembers) return [];
-    const registeredIds = courseData.registrations.map(r => r.member?.id).filter(Boolean);
+    // Cancelled regs must not block re-registration
+    const registeredIds = courseData.registrations
+      .filter((r) => r.status !== 'cancelled')
+      .map((r) => r.member?.id)
+      .filter(Boolean);
     return allMembers.filter((member: any) => !registeredIds.includes(member.id));
   };
 
