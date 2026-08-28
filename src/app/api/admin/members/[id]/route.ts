@@ -147,7 +147,7 @@ export async function GET(
     const memberCreatedAt = memberRow?.created_at ?? member.created_at ?? null;
 
     // Get subscriptions using member_id
-    const { data: subscriptions } = await supabaseServer()
+    const { data: subscriptions, error: subscriptionsError } = await supabaseServer()
       .from('subscriptions')
       .select(`
         *,
@@ -155,8 +155,7 @@ export async function GET(
           id,
           name,
           price,
-          duration_days,
-          sessions_included
+          duration_days
         ),
         subscription_group_sessions (
           sessions_remaining,
@@ -170,8 +169,12 @@ export async function GET(
       .eq('member_id', id)
       .order('created_at', { ascending: false });
 
+    if (subscriptionsError) {
+      console.error('Error fetching member subscriptions:', subscriptionsError);
+    }
+
     // Get class registrations using member_id
-    const { data: registrations } = await supabaseServer()
+    const { data: registrations, error: registrationsError } = await supabaseServer()
       .from('class_registrations')
       .select(`
         *,
@@ -199,8 +202,12 @@ export async function GET(
       .eq('member_id', id)
       .order('registration_date', { ascending: false });
 
+    if (registrationsError) {
+      console.error('Error fetching member registrations:', registrationsError);
+    }
+
     // Get check-ins using member_id
-    const { data: checkins } = await supabaseServer()
+    const { data: checkins, error: checkinsError } = await supabaseServer()
       .from('checkins')
       .select(`
         *,
@@ -229,6 +236,10 @@ export async function GET(
       `)
       .eq('member_id', id)
       .order('checkin_time', { ascending: false });
+
+    if (checkinsError) {
+      console.error('Error fetching member checkins:', checkinsError);
+    }
 
     // Get payments using member_id
     const { data: payments } = await supabaseServer()
@@ -288,7 +299,6 @@ export async function GET(
             name: sub.plans.name,
             price: sub.plans.price,
             duration_days: sub.plans.duration_days,
-            sessions_included: sub.plans.sessions_included,
           } : null
         };
       }) || [],

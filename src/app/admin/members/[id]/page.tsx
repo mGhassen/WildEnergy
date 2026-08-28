@@ -14,6 +14,7 @@ import { useUpdateSubscription } from "@/hooks/useSubscriptions";
 import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft,
+  MoreVertical,
   MoreHorizontal,
   Edit,
   Trash2,
@@ -116,7 +117,6 @@ interface Subscription {
     name: string;
     price: number;
     duration_days?: number;
-    sessions_included?: number;
   };
 }
 
@@ -251,7 +251,7 @@ const RowMenuButton = ({ children }: { children: ReactNode }) => (
         className="h-8 w-8 p-0 shrink-0"
         onClick={(e) => e.stopPropagation()}
       >
-        <MoreHorizontal className="w-4 h-4" />
+        <MoreVertical className="w-4 h-4" />
         <span className="sr-only">Open menu</span>
       </Button>
     </DropdownMenuTrigger>
