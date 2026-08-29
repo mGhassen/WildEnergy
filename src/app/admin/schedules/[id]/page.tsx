@@ -161,6 +161,35 @@ function inferBulkStatusFromSelection(selectedIds: number[], allCourses: any[]):
   return "";
 }
 
+function getCheckinRegistrationId(checkin: {
+  registrationId?: number;
+  registration_id?: number;
+  registration?: { id?: number };
+}): number | undefined {
+  const id = checkin.registrationId ?? checkin.registration_id ?? checkin.registration?.id;
+  return typeof id === "number" ? id : undefined;
+}
+
+function normalizeCheckinsForDeleteRules(checkins: any[]): Array<{ registration_id: number }> {
+  return checkins.flatMap((ch) => {
+    const id = getCheckinRegistrationId(ch);
+    return id != null ? [{ registration_id: id }] : [];
+  });
+}
+
+function countCourseAttended(courseId: number, registrations: any[], checkins: any[]): number {
+  const courseRegs = registrations.filter((r) => r.course_id === courseId);
+  const regIds = new Set(courseRegs.map((r) => r.id));
+  const checkedInIds = new Set(
+    checkins
+      .map(getCheckinRegistrationId)
+      .filter((id): id is number => id != null && regIds.has(id))
+  );
+  return courseRegs.filter(
+    (r) => r.status === "attended" || checkedInIds.has(r.id)
+  ).length;
+}
+
 export default function ScheduleDetailsPage() {
   const params = useParams();
   const router = useRouter();
@@ -239,7 +268,7 @@ export default function ScheduleDetailsPage() {
             status: r.status,
             member_id: r.member_id ?? r.user_id,
           })),
-          checkins
+          normalizeCheckinsForDeleteRules(checkins)
         ) === null
       );
     });
@@ -414,9 +443,7 @@ export default function ScheduleDetailsPage() {
       id: r.id,
       status: r.status,
     })),
-    checkins: (checkins as any[]).map((ch: any) => ({
-      registration_id: ch.registration_id ?? ch.registration?.id,
-    })),
+    checkins: normalizeCheckinsForDeleteRules(checkins),
   });
   const canDeleteSchedule = scheduleDeleteBlock === null;
 
@@ -424,9 +451,10 @@ export default function ScheduleDetailsPage() {
     const regs = scheduleRegistrations.filter((r: any) => r.course_id === courseId);
     if (regs.some((r: any) => registrationStatusBlocksDelete(r.status))) return true;
     const regIds = new Set(regs.map((r: any) => r.id));
-    return (checkins as any[]).some(
-      (ch: any) => regIds.has(ch.registration_id) || regIds.has(ch.registration?.id),
-    );
+    return (checkins as any[]).some((ch: any) => {
+      const regId = getCheckinRegistrationId(ch);
+      return regId != null && regIds.has(regId);
+    });
   };
 
   const getEditBlockReason = (): ScheduleEditBlockReason | null => {
@@ -978,11 +1006,8 @@ export default function ScheduleDetailsPage() {
                   {paginatedCourses.map((course: any) => {
                     // Get course-specific data
                     const courseRegistrations = registrations.filter((reg: any) => reg.course_id === course.id);
-                    const courseCheckins = checkins.filter((checkin: any) => 
-                      courseRegistrations.some((reg: any) => reg.id === checkin.registration_id)
-                    );
                     const registeredCount = courseRegistrations.length;
-                    const attendedCount = courseCheckins.length;
+                    const attendedCount = countCourseAttended(course.id, registrations, checkins);
                     const maxCapacity = course.max_participants || schedule.max_participants || 0;
                     const attendanceRate = registeredCount > 0 ? Math.round((attendedCount / registeredCount) * 100) : 0;
                     const capacityRate = maxCapacity > 0 ? Math.round((registeredCount / maxCapacity) * 100) : 0;
