@@ -59,10 +59,29 @@ export async function GET(req: NextRequest) {
           .from('user_profiles')
           .select('member_id, first_name, last_name, email')
           .in('member_id', memberIds);
-        
+
         if (members) {
           members.forEach(member => {
             memberDetails[member.member_id] = member;
+          });
+        }
+
+        // user_profiles only covers linked accounts; fill unlinked from members + profiles
+        const missingIds = memberIds.filter((id: string) => !memberDetails[id]);
+        if (missingIds.length > 0) {
+          const { data: unlinked } = await supabaseServer()
+            .from('members')
+            .select('id, profiles(first_name, last_name, profile_email)')
+            .in('id', missingIds);
+
+          (unlinked || []).forEach((m: any) => {
+            const profile = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles;
+            memberDetails[m.id] = {
+              member_id: m.id,
+              first_name: profile?.first_name || null,
+              last_name: profile?.last_name || null,
+              email: profile?.profile_email || null,
+            };
           });
         }
       }
