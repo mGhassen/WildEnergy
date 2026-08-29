@@ -26,6 +26,35 @@ export interface Subscription {
     duration_days: number;
     sessions_included: number;
   };
+  registrations?: SubscriptionRegistration[];
+}
+
+export interface SubscriptionRegistration {
+  id: number;
+  status: string;
+  registration_date: string;
+  notes?: string | null;
+  qr_code?: string;
+  subscription_id?: number | null;
+  session_source?: 'dedicated' | 'pool' | null;
+  group_id?: number | null;
+  pool_id?: number | null;
+  course?: {
+    id: number;
+    course_date: string;
+    start_time?: string;
+    end_time?: string;
+    class?: { id: number; name: string } | null;
+  } | null;
+  checkins?: Array<{ id: number; checkin_time: string }>;
+  group?: { id: number; name: string; color?: string } | null;
+  pool?: {
+    id: number;
+    plan_session_pool_groups?: Array<{
+      group_id: number;
+      groups?: { id: number; name: string; color?: string } | null;
+    }>;
+  } | null;
 }
 
 export interface CreateSubscriptionData {

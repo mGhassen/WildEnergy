@@ -100,7 +100,18 @@ export async function GET(
         notes,
         qr_code,
         member_id,
-        subscription_id
+        subscription_id,
+        session_source,
+        group_id,
+        pool_id,
+        group:groups!class_registrations_group_id_fkey(id, name, color),
+        pool:plan_session_pools!class_registrations_pool_id_fkey(
+          id,
+          plan_session_pool_groups(
+            group_id,
+            groups(id, name, color)
+          )
+        )
       `)
       .eq('course_id', course.id);
 

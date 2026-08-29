@@ -155,9 +155,46 @@ export async function GET(request: NextRequest) {
       ? await getMemberCreditBalance(memberRow.id)
       : 0;
 
+    const { data: registrations, error: regError } = await supabaseServer()
+      .from('class_registrations')
+      .select(`
+        id,
+        status,
+        registration_date,
+        notes,
+        qr_code,
+        subscription_id,
+        session_source,
+        group_id,
+        pool_id,
+        course:courses(
+          id,
+          course_date,
+          start_time,
+          end_time,
+          class:classes(id, name)
+        ),
+        checkins(id, checkin_time),
+        group:groups!class_registrations_group_id_fkey(id, name, color),
+        pool:plan_session_pools!class_registrations_pool_id_fkey(
+          id,
+          plan_session_pool_groups(
+            group_id,
+            groups(id, name, color)
+          )
+        )
+      `)
+      .eq('subscription_id', subscriptionId)
+      .order('registration_date', { ascending: false });
+
+    if (regError) {
+      console.error('Subscription registrations fetch error:', regError);
+    }
+
     return NextResponse.json({
       ...rest,
       plan,
+      registrations: registrations || [],
       member: memberRow
         ? {
             member_id: memberRow.id,

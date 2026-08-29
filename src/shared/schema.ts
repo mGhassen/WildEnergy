@@ -190,6 +190,9 @@ export const classRegistrations = pgTable("class_registrations", {
   status: text("status").notNull().default("registered"), // 'registered', 'attended', 'cancelled', 'absent'
   notes: text("notes"),
   subscriptionId: integer("subscription_id").references(() => subscriptions.id),
+  sessionSource: text("session_source"), // 'dedicated' | 'pool' | null (guest/legacy)
+  groupId: integer("group_id").references(() => groups.id),
+  poolId: integer("pool_id"), // plan_session_pools.id when session_source = pool
 });
 
 // Check-ins table

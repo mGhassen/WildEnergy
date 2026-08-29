@@ -4,15 +4,16 @@ import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Edit, Trash2, CreditCard, RefreshCw, MoreVertical } from "lucide-react";
-import { useSubscriptions } from "@/hooks/useSubscriptions";
+import { ArrowLeft, Edit, Trash2, CreditCard, RefreshCw, MoreVertical, CalendarCheck } from "lucide-react";
+import { useSubscriptions, useSubscription } from "@/hooks/useSubscriptions";
 import { usePayments } from "@/hooks/usePayments";
 import { useMembers } from "@/hooks/useMembers";
 import { usePlans } from "@/hooks/usePlans";
 import { SubscriptionDetails } from "@/components/subscription-details";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { formatDate } from "@/lib/date";
+import { formatDate, formatDateTime, formatTime } from "@/lib/date";
 import { formatCurrency } from "@/lib/config";
+import { formatRegistrationSessionSource } from "@/lib/registration-session-source";
 import { useMemo } from "react";
 import {
   DropdownMenu,
@@ -81,6 +82,8 @@ export default function AdminSubscriptionDetails() {
 
   const { data: subscriptions, isLoading: loadingSubscriptions } =
     useSubscriptions();
+  const { data: subscriptionDetail, isLoading: loadingSubscriptionDetail } =
+    useSubscription(Number.isFinite(parseInt(subscriptionId, 10)) ? parseInt(subscriptionId, 10) : 0);
   const { data: members = [], isLoading: loadingMembers } = useMembers();
   const { data: plans = [], isLoading: loadingPlans } = usePlans();
   const { data: payments = [], isLoading: loadingPayments } = usePayments();
@@ -145,8 +148,13 @@ export default function AdminSubscriptionDetails() {
     return formatCurrency(Number(price));
   };
 
+  const subscriptionRegistrations = useMemo(() => {
+    return subscriptionDetail?.registrations || [];
+  }, [subscriptionDetail]);
+
   if (
     loadingSubscriptions ||
+    loadingSubscriptionDetail ||
     loadingMembers ||
     loadingPlans ||
     loadingPayments
@@ -285,6 +293,9 @@ export default function AdminSubscriptionDetails() {
       <Tabs defaultValue="details" className="w-full">
         <TabsList className="mb-6">
           <TabsTrigger value="details">Details</TabsTrigger>
+          <TabsTrigger value="sessions">
+            Sessions ({subscriptionRegistrations.length})
+          </TabsTrigger>
           <TabsTrigger value="payments">Payments</TabsTrigger>
         </TabsList>
 
@@ -300,6 +311,110 @@ export default function AdminSubscriptionDetails() {
               email: subscription.member?.email,
             }}
           />
+        </TabsContent>
+
+        <TabsContent value="sessions">
+          <Card className="shadow-none border-none bg-transparent">
+            <CardHeader className="p-0 mb-4">
+              <div className="flex items-center gap-2">
+                <CalendarCheck className="w-5 h-5 text-primary" />
+                <CardTitle className="text-lg">Registered Sessions</CardTitle>
+              </div>
+              <p className="text-sm text-muted-foreground mt-1">
+                Courses registered against this subscription, with check-in and
+                session pool used.
+              </p>
+            </CardHeader>
+            <CardContent className="p-0">
+              {subscriptionRegistrations.length === 0 ? (
+                <div className="pt-3 border-t">
+                  <p className="text-sm text-muted-foreground">
+                    No courses registered on this subscription yet.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-[32rem] overflow-y-auto pr-1">
+                  {subscriptionRegistrations.map((reg) => {
+                    const checkin = Array.isArray(reg.checkins)
+                      ? reg.checkins[0]
+                      : null;
+                    const sessionLabel =
+                      formatRegistrationSessionSource(reg);
+                    const className =
+                      reg.course?.class?.name || "Course";
+                    const courseDate = reg.course?.course_date;
+
+                    return (
+                      <div
+                        key={reg.id}
+                        className="border rounded-lg p-3 text-sm bg-muted/30 shadow-sm cursor-pointer hover:bg-muted/50 transition-colors"
+                        onClick={() => {
+                          if (reg.course?.id) {
+                            router.push(`/admin/courses/${reg.course.id}`);
+                          }
+                        }}
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                          <div className="min-w-0 space-y-1">
+                            <div className="font-medium text-foreground">
+                              {className}
+                            </div>
+                            <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3 gap-y-1">
+                              {courseDate && (
+                                <span>
+                                  {formatDate(courseDate)}
+                                  {reg.course?.start_time
+                                    ? ` · ${formatTime(reg.course.start_time)}`
+                                    : ""}
+                                  {reg.course?.end_time
+                                    ? `–${formatTime(reg.course.end_time)}`
+                                    : ""}
+                                </span>
+                              )}
+                              <span className="font-mono">
+                                REG-{String(reg.id).padStart(5, "0")}
+                              </span>
+                              <span>
+                                Registered {formatDateTime(reg.registration_date)}
+                              </span>
+                            </div>
+                            <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3 gap-y-1">
+                              {sessionLabel && (
+                                <span className="text-foreground/80">
+                                  {sessionLabel}
+                                </span>
+                              )}
+                              {checkin?.checkin_time ? (
+                                <span>
+                                  Checked in {formatDateTime(checkin.checkin_time)}
+                                </span>
+                              ) : (
+                                <span>Not checked in</span>
+                              )}
+                            </div>
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className={`text-xs shrink-0 capitalize ${
+                              reg.status === "attended"
+                                ? "bg-blue-100 text-blue-800 border-blue-200"
+                                : reg.status === "absent"
+                                  ? "bg-red-100 text-red-800 border-red-200"
+                                  : reg.status === "cancelled"
+                                    ? "bg-gray-100 text-gray-600 border-gray-200"
+                                    : "bg-gray-100 text-gray-800 border-gray-200"
+                            }`}
+                          >
+                            {reg.status}
+                          </Badge>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="payments">

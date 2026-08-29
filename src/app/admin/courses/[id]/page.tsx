@@ -55,6 +55,7 @@ import {
   X
 } from 'lucide-react';
 import { formatTime, formatDate, formatDateRange, formatDateTime } from '@/lib/date';
+import { formatRegistrationSessionSource } from '@/lib/registration-session-source';
 import {
   memberCoversCourseOnDate,
   pickSubscriptionForCourse,
@@ -179,6 +180,17 @@ interface CourseDetails {
     notes?: string;
     qr_code: string;
     subscription_id?: number | null;
+    session_source?: 'dedicated' | 'pool' | null;
+    group_id?: number | null;
+    pool_id?: number | null;
+    group?: { id: number; name: string; color?: string } | null;
+    pool?: {
+      id: number;
+      plan_session_pool_groups?: Array<{
+        group_id: number;
+        groups?: { id: number; name: string; color?: string } | null;
+      }>;
+    } | null;
     member: {
       id: string;
       first_name: string;
@@ -799,6 +811,8 @@ export default function CourseDetailsPage() {
                           c.registration_id === registration.id ||
                           c.member?.id === registration.member?.id
                       );
+                      const sessionLabel =
+                        formatRegistrationSessionSource(registration);
 
                       return (
                         <div 
@@ -829,11 +843,23 @@ export default function CourseDetailsPage() {
                                 <span>
                                   Registered {formatDateTime(registration.registration_date)}
                                 </span>
-                                <span>
-                                  {registration.subscription_id
-                                    ? `Subscription #${registration.subscription_id}`
-                                    : 'Guest'}
-                                </span>
+                                {registration.subscription_id ? (
+                                  <button
+                                    type="button"
+                                    className="hover:underline text-foreground/80"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      router.push(
+                                        `/admin/subscriptions/${registration.subscription_id}`,
+                                      );
+                                    }}
+                                  >
+                                    Subscription #{registration.subscription_id}
+                                  </button>
+                                ) : (
+                                  <span>Guest</span>
+                                )}
+                                {sessionLabel && <span>{sessionLabel}</span>}
                                 {checkin?.checkin_time && (
                                   <span>
                                     Checked in {formatDateTime(checkin.checkin_time)}
