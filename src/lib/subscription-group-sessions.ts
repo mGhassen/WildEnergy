@@ -62,17 +62,86 @@ export async function resetSubscriptionGroupSessionsForPlan(
 }
 
 /**
+ * Replay registrations for every subscription on a plan (single DB round-trip).
+ */
+export async function reconcilePlanSubscriptionSessions(
+  supabase: SupabaseClient,
+  planId: number | string,
+  fixRegistrations = true
+): Promise<{ data: unknown; error: unknown }> {
+  const { data, error } = await supabase.rpc('reconcile_plan_subscription_sessions', {
+    p_plan_id: Number(planId),
+    p_fix_registrations: fixRegistrations,
+  });
+
+  if (!error) {
+    return { data, error: null };
+  }
+
+  const message = error.message || String(error);
+  if (!message.includes('reconcile_plan_subscription_sessions')) {
+    return { data, error };
+  }
+
+  // Fallback until migration 20260830180311 is applied on this environment
+  const { data: subscriptions, error: fetchError } = await supabase
+    .from('subscriptions')
+    .select('id')
+    .eq('plan_id', planId);
+
+  if (fetchError) {
+    return { data: null, error: fetchError };
+  }
+
+  for (const sub of subscriptions || []) {
+    const { error: subError } = await reconcileSubscriptionSessions(
+      supabase,
+      sub.id,
+      fixRegistrations
+    );
+    if (subError) {
+      return { data: null, error: subError };
+    }
+  }
+
+  return {
+    data: {
+      success: true,
+      plan_id: Number(planId),
+      subscriptions_processed: subscriptions?.length ?? 0,
+      fallback: true,
+    },
+    error: null,
+  };
+}
+
+/**
  * Ensure every subscription on a plan has group/pool session rows for current
  * plan_groups and plan_session_pools.
  *
- * When pools were rewritten (new plan_session_pools ids), pass reconcile: true
- * so usage is rebuilt from class_registrations instead of resetting to full.
+ * When pools were edited, pass reconcile: true to rebuild balances from registrations.
  */
 export async function ensureGroupSessionsForPlanSubscriptions(
   supabase: SupabaseClient,
   planId: number | string,
   options?: { reconcile?: boolean }
 ): Promise<{ error: unknown; failedSubscriptionId?: number }> {
+  if (options?.reconcile) {
+    const { data, error } = await reconcilePlanSubscriptionSessions(supabase, planId, true);
+    if (error) {
+      return { error };
+    }
+    const result = data as { success?: boolean; failures?: unknown } | null;
+    if (result && result.success === false) {
+      return {
+        error: new Error(
+          `Session reconcile failed for plan ${planId}: ${JSON.stringify(result.failures ?? result)}`
+        ),
+      };
+    }
+    return { error: null };
+  }
+
   const { data: subscriptions, error: fetchError } = await supabase
     .from('subscriptions')
     .select('id')
@@ -83,18 +152,6 @@ export async function ensureGroupSessionsForPlanSubscriptions(
   }
 
   for (const sub of subscriptions || []) {
-    if (options?.reconcile) {
-      const { error } = await reconcileSubscriptionSessions(supabase, sub.id, true);
-      if (error) {
-        console.error(
-          `Failed to reconcile sessions for subscription ${sub.id}:`,
-          error
-        );
-        return { error, failedSubscriptionId: sub.id };
-      }
-      continue;
-    }
-
     const { error } = await ensureSubscriptionGroupSessions(supabase, sub.id);
     if (error) {
       console.error(`Failed to ensure group sessions for subscription ${sub.id}:`, error);

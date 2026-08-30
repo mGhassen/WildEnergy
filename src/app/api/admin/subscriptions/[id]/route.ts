@@ -136,12 +136,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    try {
-      await ensureSubscriptionGroupSessions(supabaseServer() as any, subscriptionId);
-    } catch (ensureError) {
-      console.error('ensureSubscriptionGroupSessions on GET:', ensureError);
-    }
-
     const memberRow = Array.isArray(sub.members) ? sub.members[0] : sub.members;
     const { members: _members, ...rest } = sub;
     const plan = rest.plan

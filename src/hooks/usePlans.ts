@@ -50,6 +50,8 @@ export function useUpdatePlan() {
     onSuccess: (_, { planId }) => {
       queryClient.invalidateQueries({ queryKey: ['plan', planId] });
       queryClient.invalidateQueries({ queryKey: ['plans'] });
+      queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
+      queryClient.invalidateQueries({ queryKey: ['subscription'] });
       toast({
         title: 'Plan updated',
         description: 'The plan has been successfully updated.',

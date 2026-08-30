@@ -147,7 +147,13 @@ export const planFormSchema = z
     ),
     planSessionPools: z.array(
       z.object({
-        id: z.coerce.number().optional(),
+        id: z.preprocess(
+          (val) =>
+            val === "" || val === null || val === undefined || val === 0
+              ? undefined
+              : Number(val),
+          z.number().positive().optional(),
+        ),
         sessionCount: z.number().min(1, "Session count must be at least 1"),
         isFree: z.boolean(),
         groupIds: z

@@ -88,13 +88,7 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
     const rewritingGroups = planGroups !== undefined;
     const rewritingPools = planSessionPools !== undefined;
 
-    const { count: linkedSubscriptionCount } = await supabaseServer()
-      .from('subscriptions')
-      .select('id', { count: 'exact', head: true })
-      .eq('plan_id', id);
-
-    const hasLinkedSubscriptions = (linkedSubscriptionCount ?? 0) > 0;
-    const needsReconcile = rewritingPools && hasLinkedSubscriptions;
+    const needsReconcile = rewritingPools;
 
     let poolSync: Awaited<ReturnType<typeof syncPlanSessionPoolRows>> | null = null;
 

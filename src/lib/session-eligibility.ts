@@ -136,6 +136,27 @@ export function totalPlanSessionCount(plan: {
   return dedicated + pooled;
 }
 
+type PoolSessionRow = {
+  pool_id?: number;
+  sessions_remaining?: number;
+  total_sessions?: number;
+};
+
+/** Match subscription pool balance to a plan pool (handles stale pool_id after plan edits). */
+export function findPoolSessionForPlan(
+  poolSessions: PoolSessionRow[] | undefined,
+  planPoolId: number,
+  planPoolCount: number
+): PoolSessionRow | undefined {
+  const sessions = poolSessions || [];
+  const direct = sessions.find((ps) => ps.pool_id === planPoolId);
+  if (direct) return direct;
+  if (planPoolCount === 1 && sessions.length === 1) {
+    return sessions[0];
+  }
+  return undefined;
+}
+
 export function totalRemainingSessions(subscription: {
   subscription_group_sessions?: Array<{
     group_id?: number;
@@ -174,7 +195,10 @@ export function totalRemainingSessions(subscription: {
     subscription.subscription_pool_sessions
       ?.filter((p) => {
         if (!hasPlan) return true;
-        return p.pool_id != null && planPoolIds.has(p.pool_id);
+        if (p.pool_id != null && planPoolIds.has(p.pool_id)) return true;
+        // Single-pool plan: balance row may still reference a replaced pool id
+        const planPoolCount = subscription.plan?.plan_session_pools?.length ?? 0;
+        return planPoolCount === 1;
       })
       .reduce((sum, p) => sum + (p.sessions_remaining || 0), 0) || 0;
 

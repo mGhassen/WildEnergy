@@ -12,6 +12,7 @@ import { CreditCard, Info, Users, Plus, AlertTriangle } from "lucide-react";
 import {
   totalPlanSessionCount,
   totalRemainingSessions as sumRemainingSessions,
+  findPoolSessionForPlan,
 } from "@/lib/session-eligibility";
 
 interface Plan {
@@ -494,8 +495,10 @@ export function SubscriptionDetails({
                     })}
 
                     {planPools.map((pool: any) => {
-                      const poolSession = poolSessions.find(
-                        (ps: any) => ps.pool_id === pool.id,
+                      const poolSession = findPoolSessionForPlan(
+                        poolSessions,
+                        pool.id,
+                        planPools.length,
                       );
                       const memberships =
                         pool.plan_session_pool_groups ||

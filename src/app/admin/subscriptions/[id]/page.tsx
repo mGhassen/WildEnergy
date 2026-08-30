@@ -117,10 +117,26 @@ export default function AdminSubscriptionDetails() {
   }, [subscriptions, mappedMembers, plans]);
 
   const subscription = useMemo(() => {
-    return mappedSubscriptions.find(
-      (sub: Subscription) => sub.id === parseInt(subscriptionId),
+    const fromList = mappedSubscriptions.find(
+      (sub: Subscription) => sub.id === parseInt(subscriptionId, 10),
     );
-  }, [mappedSubscriptions, subscriptionId]);
+    if (subscriptionDetail) {
+      return {
+        ...fromList,
+        ...subscriptionDetail,
+        plan: subscriptionDetail.plan ?? fromList?.plan ?? null,
+        subscription_group_sessions:
+          subscriptionDetail.subscription_group_sessions ??
+          fromList?.subscription_group_sessions ??
+          [],
+        subscription_pool_sessions:
+          subscriptionDetail.subscription_pool_sessions ??
+          fromList?.subscription_pool_sessions ??
+          [],
+      };
+    }
+    return fromList;
+  }, [mappedSubscriptions, subscriptionId, subscriptionDetail]);
 
   const getPaymentsForSubscription = (id: number) => {
     return payments.filter((payment) => payment.subscription_id === id);
