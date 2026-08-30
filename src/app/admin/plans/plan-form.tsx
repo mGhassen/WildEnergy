@@ -147,13 +147,7 @@ export const planFormSchema = z
     ),
     planSessionPools: z.array(
       z.object({
-        id: z.preprocess(
-          (val) =>
-            val === "" || val === null || val === undefined || val === 0
-              ? undefined
-              : Number(val),
-          z.number().positive().optional(),
-        ),
+        id: z.number().positive().optional(),
         sessionCount: z.number().min(1, "Session count must be at least 1"),
         isFree: z.boolean(),
         groupIds: z
@@ -392,7 +386,19 @@ export function PlanForm({
                     control={form.control}
                     name={`planSessionPools.${index}.id`}
                     render={({ field: idField }) => (
-                      <input type="hidden" {...idField} value={idField.value ?? ""} />
+                      <input
+                        type="hidden"
+                        name={idField.name}
+                        ref={idField.ref}
+                        value={idField.value ?? ""}
+                        onBlur={idField.onBlur}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          idField.onChange(
+                            raw === "" ? undefined : Number(raw),
+                          );
+                        }}
+                      />
                     )}
                   />
                   <div className="flex items-end gap-3">
