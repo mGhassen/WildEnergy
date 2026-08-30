@@ -56,13 +56,13 @@ interface IProps extends HTMLAttributes<HTMLDivElement>, Omit<VariantProps<typeo
 }
 
 export function EventBlock({ event, className }: IProps) {
-  const { badgeVariant, registrations } = useCalendar();
+  const { badgeVariant, registrations, hourHeight } = useCalendar();
   const [selectedQR, setSelectedQR] = useState<string | null>(null);
 
   const start = parseISO(event.startDate);
   const end = parseISO(event.endDate);
   const durationInMinutes = differenceInMinutes(end, start);
-  const heightInPixels = (durationInMinutes / 60) * 96 - 8;
+  const heightInPixels = (durationInMinutes / 60) * hourHeight - 8;
 
   const color = (
     event.hexColor
