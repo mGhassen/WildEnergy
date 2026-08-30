@@ -5,6 +5,10 @@ import {
   courseIsEditedVsSchedule,
   type ScheduleTemplate,
 } from '@/lib/schedule-course-sync';
+import {
+  batchResolveTrainerProfiles,
+  enrichTrainerWithProfile,
+} from '@/lib/resolve-trainer-profile';
 
 export async function GET(req: NextRequest) {
   try {
@@ -30,6 +34,7 @@ export async function GET(req: NextRequest) {
         trainer:trainers(
           id,
           account_id,
+          profile_id,
           specialization,
           experience_years,
           bio,
@@ -59,6 +64,11 @@ export async function GET(req: NextRequest) {
     }
 
     // Process courses to add comparison data with schedule
+    const trainerProfiles = await batchResolveTrainerProfiles(
+      supabaseServer(),
+      (courses || []).map((course) => course.trainer),
+    );
+
     const processedCourses = (courses || []).map(course => {
       const schedule = course.schedule;
       
@@ -107,6 +117,7 @@ export async function GET(req: NextRequest) {
 
       return {
         ...course,
+        trainer: enrichTrainerWithProfile(course.trainer, trainerProfiles),
         isEdited,
         differences
       };

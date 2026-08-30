@@ -147,6 +147,7 @@ export const planFormSchema = z
     ),
     planSessionPools: z.array(
       z.object({
+        id: z.number().optional(),
         sessionCount: z.number().min(1, "Session count must be at least 1"),
         isFree: z.boolean(),
         groupIds: z
@@ -488,6 +489,7 @@ export function toApiPlanPayload(data: PlanFormData) {
       })) || [],
     planSessionPools:
       data.planSessionPools?.map((pool) => ({
+        ...(pool.id ? { id: pool.id } : {}),
         sessionCount: pool.sessionCount,
         isFree: pool.isFree || false,
         groupIds: pool.groupIds,
@@ -509,6 +511,7 @@ export function planToFormValues(plan: {
     is_free?: boolean;
   }>;
   plan_session_pools?: Array<{
+    id: number;
     session_count: number;
     is_free?: boolean;
     plan_session_pool_groups?: Array<{ group_id: number }>;
@@ -528,6 +531,7 @@ export function planToFormValues(plan: {
       })) || [],
     planSessionPools:
       plan.plan_session_pools?.map((pool) => ({
+        id: pool.id,
         sessionCount: pool.session_count,
         isFree: pool.is_free || false,
         groupIds:

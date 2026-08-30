@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import {
+  batchResolveTrainerProfiles,
+  enrichTrainerWithProfile,
+} from '@/lib/resolve-trainer-profile';
 
 export async function GET(req: NextRequest) {
   try {
@@ -68,7 +72,13 @@ export async function GET(req: NextRequest) {
         ),
         trainer:trainers(
           id,
-          profile:profiles(first_name, last_name)
+          account_id,
+          profile_id,
+          specialization,
+          experience_years,
+          bio,
+          certification,
+          status
         )
       `)
       .in('status', ['scheduled'])
@@ -82,8 +92,21 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch upcoming courses' }, { status: 500 });
     }
 
+    const normalizeTrainer = (trainer: unknown) =>
+      Array.isArray(trainer) ? trainer[0] : trainer;
+
+    const trainerProfiles = await batchResolveTrainerProfiles(
+      supabaseServer(),
+      (upcomingCourses || []).map((course) => normalizeTrainer(course.trainer)),
+    );
+
+    const enrichedUpcomingCourses = (upcomingCourses || []).map((course) => ({
+      ...course,
+      trainer: enrichTrainerWithProfile(normalizeTrainer(course.trainer), trainerProfiles),
+    }));
+
     // Filter courses that are starting within the next hour or are overdue
-    const coursesNeedingCheck = (upcomingCourses || []).filter((course: any) => {
+    const coursesNeedingCheck = enrichedUpcomingCourses.filter((course: any) => {
       const courseDateTime = new Date(`${course.course_date}T${course.start_time}`);
       const timeDiff = courseDateTime.getTime() - now.getTime();
       const hoursUntilStart = timeDiff / (1000 * 60 * 60);

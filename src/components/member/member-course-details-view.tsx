@@ -29,6 +29,7 @@ import { useMemberSubscriptions } from "@/hooks/useMemberSubscriptions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { subscriptionCoversGroup } from "@/lib/session-eligibility";
+import { formatTrainerDisplayName } from "@/lib/format-trainer-name";
 import { DashboardSkeleton } from "@/components/skeletons";
 
 function combineDateAndTime(dateStr: string, timeStr: string): Date {
@@ -254,7 +255,7 @@ export function MemberCourseDetailsView({
             <div className="flex-1 min-w-0">
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1">
                 <div className="text-lg font-semibold truncate">
-                  {`${courseData.trainer?.user?.first_name || "Unknown"} ${courseData.trainer?.user?.last_name || "Trainer"}`}
+                  {formatTrainerDisplayName(courseData.trainer)}
                 </div>
                 <Badge variant="secondary" className="text-xs w-fit">
                   Instructor

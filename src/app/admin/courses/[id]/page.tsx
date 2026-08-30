@@ -56,6 +56,7 @@ import {
 } from 'lucide-react';
 import { formatTime, formatDate, formatDateRange, formatDateTime } from '@/lib/date';
 import { formatRegistrationSessionSource } from '@/lib/registration-session-source';
+import { formatTrainerDisplayName } from '@/lib/format-trainer-name';
 import {
   memberCoversCourseOnDate,
   pickSubscriptionForCourse,
@@ -248,48 +249,13 @@ const getDifficultyColor = (difficulty: string) => {
 };
 
 const getTrainerName = (
-  trainerData: any,
+  trainerData: unknown,
   courseData?: CourseDetails,
-  role?: 'original' | 'current',
 ) => {
   if (trainerData && typeof trainerData === 'object') {
-    const first =
-      'first_name' in trainerData
-        ? (trainerData as { first_name?: string }).first_name
-        : undefined;
-    const last =
-      'last_name' in trainerData
-        ? (trainerData as { last_name?: string }).last_name
-        : undefined;
-    const member =
-      'member' in trainerData
-        ? (trainerData as { member?: { first_name?: string; last_name?: string } }).member
-        : undefined;
-    const resolvedFirst = first ?? member?.first_name;
-    const resolvedLast = last ?? member?.last_name;
-    if (resolvedFirst || resolvedLast) {
-      return `${resolvedFirst || 'Unknown'} ${resolvedLast || 'Trainer'}`;
-    }
+    return formatTrainerDisplayName(trainerData);
   }
-
-  if (role === 'current' || (!role && typeof trainerData !== 'number' && typeof trainerData !== 'string')) {
-    const trainer = courseData?.trainer;
-    if (trainer?.member) {
-      return `${trainer.member.first_name || 'Unknown'} ${trainer.member.last_name || 'Trainer'}`;
-    }
-  }
-
-  if (typeof trainerData === 'number' || typeof trainerData === 'string') {
-    if (role === 'current') {
-      const trainer = courseData?.trainer;
-      if (trainer?.member) {
-        return `${trainer.member.first_name || 'Unknown'} ${trainer.member.last_name || 'Trainer'}`;
-      }
-    }
-    return 'Unknown Trainer';
-  }
-
-  return 'Unknown Trainer';
+  return formatTrainerDisplayName(courseData?.trainer);
 };
 
 export default function CourseDetailsPage() {
@@ -768,7 +734,7 @@ export default function CourseDetailsPage() {
                 <div className="flex-1 space-y-2">
                   <div>
                     <h3 className="text-lg font-semibold">
-                      {courseData.trainer.member?.first_name || 'Unknown'} {courseData.trainer.member?.last_name || 'Trainer'}
+                      {formatTrainerDisplayName(courseData.trainer)}
                     </h3>
                     <p className="text-muted-foreground">{courseData.trainer.specialization}</p>
                   </div>
@@ -1147,9 +1113,9 @@ export default function CourseDetailsPage() {
                       <div>
                         <label className="text-sm font-medium text-orange-800">Trainer Changed</label>
                         <div className="text-sm text-orange-700">
-                          <span className="line-through">{getTrainerName(courseData.differences.trainer.original, courseData, 'original')}</span>
+                          <span className="line-through">{getTrainerName(courseData.differences.trainer.original, courseData)}</span>
                           <span className="mx-2">→</span>
-                          <span className="font-medium">{getTrainerName(courseData.differences.trainer.current, courseData, 'current')}</span>
+                          <span className="font-medium">{getTrainerName(courseData.differences.trainer.current, courseData)}</span>
                         </div>
                       </div>
                     </div>

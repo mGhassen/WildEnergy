@@ -1,6 +1,7 @@
 import type { IEvent } from "@/calendar/interfaces";
 import type { TEventColor } from "@/calendar/types";
 import { normalizeHex } from "@/calendar/helpers";
+import { formatTrainerDisplayName } from "@/lib/format-trainer-name";
 
 interface CourseData {
   id: number;
@@ -103,9 +104,7 @@ export const convertCoursesToMemberEvents = (
       reg.course_id === course.id && reg.status === 'registered'
     );
     
-    const instructorName = course.trainer?.user ? 
-      `${course.trainer.user.first_name} ${course.trainer.user.last_name}` : 
-      course.trainer?.specialization || 'Unknown Trainer';
+    const instructorName = formatTrainerDisplayName(course.trainer);
 
     // Create start and end dates using correct field names (snake_case from API)
     const courseDate = course.course_date || course.courseDate;
@@ -180,7 +179,7 @@ export const convertCoursesToAdminEvents = (courses: any[], classCatalog: any[] 
       class: course.class,
       category: course.class?.category
     });
-    const instructorName = course.trainer?.specialization || 'Unknown Trainer';
+    const instructorName = formatTrainerDisplayName(course.trainer);
 
     // Create start and end dates using correct field names (snake_case from API)
     const courseDate = course.course_date || course.courseDate;
@@ -251,7 +250,7 @@ export const createAdminUsers = (trainers: any[]) => {
   if (!trainers || !Array.isArray(trainers)) return [];
   return trainers.map((trainer: any) => ({
     id: trainer.id.toString(),
-    name: trainer.specialization || 'Unknown Trainer',
+    name: formatTrainerDisplayName(trainer),
     picturePath: null
   }));
 };

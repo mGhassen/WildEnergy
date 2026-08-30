@@ -333,7 +333,7 @@ export default function AdminSubscriptionDetails() {
                   </p>
                 </div>
               ) : (
-                <div className="space-y-2 max-h-[32rem] overflow-y-auto pr-1">
+                <div className="space-y-2">
                   {subscriptionRegistrations.map((reg) => {
                     const checkin = Array.isArray(reg.checkins)
                       ? reg.checkins[0]
@@ -458,7 +458,7 @@ export default function AdminSubscriptionDetails() {
                   </p>
                 </div>
               ) : (
-                <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                <div className="space-y-2">
                   {subscriptionPayments.map((payment) => (
                     <div
                       key={payment.id}

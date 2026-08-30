@@ -109,11 +109,20 @@ export function groupEvents(dayEvents: IEvent[]) {
   return groups;
 }
 
-export function getEventBlockStyle(event: IEvent, day: Date, groupIndex: number, groupSize: number, visibleHoursRange?: { from: number; to: number }) {
+export function getEventBlockStyle(
+  event: IEvent,
+  day: Date,
+  groupIndex: number,
+  groupSize: number,
+  visibleHoursRange?: { from: number; to: number },
+  hourHeight = 48
+) {
   const startDate = parseISO(event.startDate);
-  const dayStart = new Date(day.setHours(0, 0, 0, 0));
+  const endDate = parseISO(event.endDate);
+  const dayStart = startOfDay(day);
   const eventStart = startDate < dayStart ? dayStart : startDate;
   const startMinutes = differenceInMinutes(eventStart, dayStart);
+  const durationMinutes = differenceInMinutes(endDate, startDate);
 
   let top;
 
@@ -126,10 +135,11 @@ export function getEventBlockStyle(event: IEvent, day: Date, groupIndex: number,
     top = (startMinutes / 1440) * 100;
   }
 
+  const height = (durationMinutes / 60) * hourHeight;
   const width = 100 / groupSize;
   const left = groupIndex * width;
 
-  return { top: `${top}%`, width: `${width}%`, left: `${left}%` };
+  return { top: `${top}%`, height: `${height}px`, width: `${width}%`, left: `${left}%` };
 }
 
 export function isWorkingHour(day: Date, hour: number, workingHours: TWorkingHours) {

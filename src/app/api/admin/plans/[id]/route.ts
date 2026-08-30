@@ -3,6 +3,8 @@ import { supabaseServer } from '@/lib/supabase';
 import { ensureGroupSessionsForPlanSubscriptions } from '@/lib/subscription-group-sessions';
 import {
   PLAN_WITH_GROUPS_AND_POOLS_SELECT,
+  applyPlanSessionPoolMemberships,
+  syncPlanSessionPoolRows,
   validatePlanAllocations,
 } from '@/lib/plan-session-pools';
 
@@ -82,20 +84,31 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
     }
 
     let shouldSyncSessions = false;
+    let needsReconcile = false;
 
     const rewritingGroups = planGroups !== undefined;
     const rewritingPools = planSessionPools !== undefined;
 
-    // When rewriting both, clear pools first so exclusivity triggers don't fire
-    // while moving a group between dedicated and shared allocations.
+    let poolSync: Awaited<ReturnType<typeof syncPlanSessionPoolRows>> | null = null;
+
     if (rewritingPools) {
-      const { error: deletePoolsError } = await supabaseServer()
-        .from('plan_session_pools')
-        .delete()
-        .eq('plan_id', id);
-      if (deletePoolsError) {
-        return NextResponse.json({ error: 'Failed to delete existing session pools' }, { status: 500 });
+      poolSync = await syncPlanSessionPoolRows(
+        supabaseServer(),
+        Number(id),
+        planSessionPools
+      );
+      if (poolSync.error) {
+        const message =
+          poolSync.error instanceof Error
+            ? poolSync.error.message
+            : 'Failed to update session pools';
+        return NextResponse.json({ error: message }, { status: 500 });
       }
+      needsReconcile =
+        poolSync.membershipChanged ||
+        poolSync.deletedPoolIds.length > 0 ||
+        poolSync.createdPoolIds.length > 0;
+      shouldSyncSessions = true;
     }
 
     if (rewritingGroups) {
@@ -127,51 +140,23 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
       shouldSyncSessions = true;
     }
 
-    if (rewritingPools) {
-      // Pools already deleted above; insert fresh rows
-      for (const pool of planSessionPools) {
-        const groupIds = (pool.groupIds || []).filter((gid: number) => gid > 0);
-        if (groupIds.length < 1) {
-          return NextResponse.json({
-            error: 'Each pool must include at least 1 group',
-          }, { status: 400 });
-        }
-
-        const { data: createdPool, error: poolError } = await supabaseServer()
-          .from('plan_session_pools')
-          .insert({
-            plan_id: id,
-            session_count: pool.sessionCount,
-            is_free: pool.isFree || false,
-          })
-          .select('id')
-          .single();
-
-        if (poolError || !createdPool) {
-          return NextResponse.json({ error: 'Failed to update session pools' }, { status: 500 });
-        }
-
-        const memberships = groupIds.map((groupId: number) => ({
-          pool_id: createdPool.id,
-          plan_id: Number(id),
-          group_id: groupId,
-        }));
-
-        const { error: membersError } = await supabaseServer()
-          .from('plan_session_pool_groups')
-          .insert(memberships);
-
-        if (membersError) {
-          return NextResponse.json({ error: 'Failed to update session pool groups' }, { status: 500 });
-        }
+    if (rewritingPools && poolSync) {
+      const { error: membershipError } = await applyPlanSessionPoolMemberships(
+        supabaseServer(),
+        Number(id),
+        planSessionPools,
+        poolSync.poolIds
+      );
+      if (membershipError) {
+        return NextResponse.json({ error: 'Failed to update session pool groups' }, { status: 500 });
       }
-      shouldSyncSessions = true;
     }
 
     if (shouldSyncSessions) {
       const { error: syncError } = await ensureGroupSessionsForPlanSubscriptions(
         supabaseServer(),
-        id
+        id,
+        { reconcile: needsReconcile }
       );
       if (syncError) {
         console.error('Error syncing subscription sessions after plan update:', syncError);

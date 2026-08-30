@@ -35,7 +35,7 @@ export function EventWrapper({ event, children }: EventWrapperProps) {
             handleEventClick();
           }
         }}
-        className="cursor-pointer"
+        className="h-full cursor-pointer"
       >
         {children}
       </div>

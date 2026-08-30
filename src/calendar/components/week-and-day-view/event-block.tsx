@@ -56,13 +56,12 @@ interface IProps extends HTMLAttributes<HTMLDivElement>, Omit<VariantProps<typeo
 }
 
 export function EventBlock({ event, className }: IProps) {
-  const { badgeVariant, registrations, hourHeight } = useCalendar();
+  const { badgeVariant, registrations } = useCalendar();
   const [selectedQR, setSelectedQR] = useState<string | null>(null);
 
   const start = parseISO(event.startDate);
   const end = parseISO(event.endDate);
   const durationInMinutes = differenceInMinutes(end, start);
-  const heightInPixels = (durationInMinutes / 60) * hourHeight - 8;
 
   const color = (
     event.hexColor
@@ -105,8 +104,8 @@ export function EventBlock({ event, className }: IProps) {
           <div
             role="button"
             tabIndex={0}
-            className={calendarWeekEventCardClasses}
-            style={{ height: `${heightInPixels}px`, ...eventSurfaceStyle(event.hexColor) }}
+            className={cn("h-full w-full", calendarWeekEventCardClasses)}
+            style={eventSurfaceStyle(event.hexColor)}
             onKeyDown={handleKeyDown}
           >
             <div className="flex items-center gap-1.5 truncate">

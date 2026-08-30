@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { resolveGroupForClass } from '@/lib/resolve-class-group';
+import { resolveTrainerProfile } from '@/lib/resolve-trainer-profile';
 
 export async function GET(
   req: NextRequest,
@@ -55,6 +56,7 @@ export async function GET(
         trainer:trainers(
           id,
           account_id,
+          profile_id,
           specialization,
           experience_years,
           bio,
@@ -77,23 +79,10 @@ export async function GET(
       return NextResponse.json({ error: 'Course not found' }, { status: 404 });
     }
 
-    // Fetch trainer details
-    let trainerDetails = {
-      first_name: 'Unknown',
-      last_name: 'Trainer'
-    };
-    
-    if (course.trainer?.account_id) {
-      const { data: trainer } = await supabaseServer()
-        .from('user_profiles')
-        .select('account_id, first_name, last_name')
-        .eq('account_id', course.trainer.account_id)
-        .single();
-      
-      if (trainer) {
-        trainerDetails = trainer;
-      }
-    }
+    const trainerDetails = await resolveTrainerProfile(
+      supabaseServer(),
+      course.trainer,
+    );
 
     const group = resolveGroupForClass(course.class);
     const transformedCourse = {
@@ -111,7 +100,10 @@ export async function GET(
       },
       trainer: {
         id: course.trainer?.id,
-        user: trainerDetails
+        user: {
+          first_name: trainerDetails?.first_name ?? null,
+          last_name: trainerDetails?.last_name ?? null,
+        },
       },
       courseDate: course.course_date,
       startTime: course.start_time,

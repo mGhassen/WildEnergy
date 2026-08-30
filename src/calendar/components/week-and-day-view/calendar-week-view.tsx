@@ -90,7 +90,7 @@ export function CalendarWeekView({ singleDayEvents, multiDayEvents }: IProps) {
 
                       {groupedEvents.map((group, groupIndex) =>
                         group.map(event => {
-                          let style = getEventBlockStyle(event, day, groupIndex, groupedEvents.length, { from: earliestEventHour, to: latestEventHour });
+                          let style = getEventBlockStyle(event, day, groupIndex, groupedEvents.length, { from: earliestEventHour, to: latestEventHour }, hourHeight);
                           const hasOverlap = groupedEvents.some(
                             (otherGroup, otherIndex) =>
                               otherIndex !== groupIndex &&
@@ -105,7 +105,7 @@ export function CalendarWeekView({ singleDayEvents, multiDayEvents }: IProps) {
                           if (!hasOverlap) style = { ...style, width: "100%", left: "0%" };
 
                           return (
-                            <div key={event.id} className="absolute p-1" style={style}>
+                            <div key={event.id} className="absolute px-1" style={style}>
                               <EventBlock event={event} />
                             </div>
                           );

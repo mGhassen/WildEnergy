@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { resolveGroupForClass } from '@/lib/resolve-class-group';
+import {
+  batchResolveTrainerProfiles,
+  enrichTrainerWithProfile,
+} from '@/lib/resolve-trainer-profile';
 
 export async function GET(req: NextRequest) {
   try {
@@ -46,6 +50,7 @@ export async function GET(req: NextRequest) {
         trainer:trainers(
           id,
           account_id,
+          profile_id,
           specialization,
           experience_years,
           bio,
@@ -66,26 +71,15 @@ export async function GET(req: NextRequest) {
 
     console.log('Raw courses from database:', courses?.length);
 
-    // Fetch trainer details separately
-    const trainerAccountIds = courses?.map(c => c.trainer?.account_id).filter(Boolean) || [];
-    let trainerDetails: Record<string, any> = {};
-    
-    if (trainerAccountIds.length > 0) {
-      const { data: trainers } = await supabaseServer()
-        .from('user_profiles')
-        .select('account_id, first_name, last_name')
-        .in('account_id', trainerAccountIds);
-      
-      if (trainers) {
-        trainers.forEach(trainer => {
-          trainerDetails[trainer.account_id] = trainer;
-        });
-      }
-    }
+    const trainerProfiles = await batchResolveTrainerProfiles(
+      supabaseServer(),
+      (courses || []).map((course) => course.trainer),
+    );
 
     // Transform the data to match the member page expectations
     const transformedCourses = (courses || []).map(course => {
       const group = resolveGroupForClass(course.class);
+      const enrichedTrainer = enrichTrainerWithProfile(course.trainer, trainerProfiles);
       return {
         id: course.id,
         class: {
@@ -100,11 +94,11 @@ export async function GET(req: NextRequest) {
           duration: course.class?.duration
         },
         trainer: {
-          id: course.trainer?.id,
-          user: trainerDetails[course.trainer?.account_id] || {
-            first_name: 'Unknown',
-            last_name: 'Trainer'
-          }
+          id: enrichedTrainer?.id,
+          user: {
+            first_name: enrichedTrainer?.first_name ?? enrichedTrainer?.member?.first_name ?? null,
+            last_name: enrichedTrainer?.last_name ?? enrichedTrainer?.member?.last_name ?? null,
+          },
         },
         courseDate: course.course_date,
         startTime: course.start_time,

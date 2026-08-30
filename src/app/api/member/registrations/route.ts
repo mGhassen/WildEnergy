@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import {
+  batchResolveTrainerProfiles,
+  enrichTrainerWithProfile,
+} from '@/lib/resolve-trainer-profile';
 
 async function getUserFromToken(token: string) {
   const { data: { user }, error: authError } = await supabaseServer().auth.getUser(token);
@@ -51,6 +55,7 @@ export async function GET(req: NextRequest) {
           trainer:trainers(
             id,
             account_id,
+            profile_id,
             specialization,
             experience_years
           )
@@ -64,25 +69,15 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch registrations' }, { status: 500 });
     }
 
-    // Fetch trainer details separately
-    const trainerAccountIds = registrations?.map(r => r.course?.trainer?.account_id).filter(Boolean) || [];
-    let trainerDetails: Record<string, any> = {};
-    
-    if (trainerAccountIds.length > 0) {
-      const { data: trainers } = await supabaseServer()
-        .from('user_profiles')
-        .select('account_id, first_name, last_name')
-        .in('account_id', trainerAccountIds);
-      
-      if (trainers) {
-        trainers.forEach(trainer => {
-          trainerDetails[trainer.account_id] = trainer;
-        });
-      }
-    }
+    const trainerProfiles = await batchResolveTrainerProfiles(
+      supabaseServer(),
+      (registrations || []).map((registration) => registration.course?.trainer),
+    );
 
     // Transform the data to match the expected interface
-    const transformedRegistrations = registrations?.map(reg => ({
+    const transformedRegistrations = registrations?.map(reg => {
+      const enrichedTrainer = enrichTrainerWithProfile(reg.course?.trainer, trainerProfiles);
+      return {
       id: reg.id,
       course_id: reg.course_id,
       user_id: reg.member_id,
@@ -92,15 +87,16 @@ export async function GET(req: NextRequest) {
       notes: reg.notes,
       course: reg.course ? {
         ...reg.course,
-        trainer: reg.course.trainer ? {
-          id: reg.course.trainer.id,
-          user: trainerDetails[reg.course.trainer.account_id] || {
-            first_name: 'Unknown',
-            last_name: 'Trainer'
-          }
+        trainer: enrichedTrainer ? {
+          id: enrichedTrainer.id,
+          user: {
+            first_name: enrichedTrainer.first_name ?? enrichedTrainer.member?.first_name ?? null,
+            last_name: enrichedTrainer.last_name ?? enrichedTrainer.member?.last_name ?? null,
+          },
         } : null
       } : null
-    })) || [];
+    };
+    }) || [];
 
     return NextResponse.json(transformedRegistrations);
   } catch (error) {

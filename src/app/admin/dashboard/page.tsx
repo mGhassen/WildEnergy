@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Users, UserCheck, TrendingUp, Calendar, Clock, ChevronLeft, ChevronRight, AlertCircle, CheckCircle2, ArrowRight } from "lucide-react";
 import { formatDateTime, formatTime, formatDate } from "@/lib/date";
+import { formatTrainerDisplayName } from "@/lib/format-trainer-name";
 import { useState } from "react";
 import { useAdminDashboardStats } from "@/hooks/useAdmin";
 import { useCheckins } from "@/hooks/useCheckins";
@@ -280,7 +281,7 @@ export default function AdminDashboard() {
                           <div>
                             <p className="text-sm font-medium">{course.class.name}</p>
                             <p className="text-xs text-muted-foreground">
-                              {course.trainer?.profile?.first_name || 'Unknown'} {course.trainer?.profile?.last_name || 'Trainer'}
+                              {formatTrainerDisplayName(course.trainer)}
                             </p>
                           </div>
                         </div>
