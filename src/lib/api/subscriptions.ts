@@ -1,6 +1,46 @@
 import { apiRequest } from '@/lib/queryClient';
 import { isSubscriptionActiveByEndDate } from '@/lib/date';
 
+export interface SubscriptionGroupSession {
+  id: number;
+  group_id: number;
+  sessions_remaining: number;
+  total_sessions: number;
+  group?: {
+    id: number;
+    name: string;
+    description?: string;
+    color?: string;
+  } | null;
+  groups?: {
+    id: number;
+    name: string;
+    description?: string;
+    color?: string;
+  } | null;
+}
+
+export interface SubscriptionPoolSession {
+  id: number;
+  pool_id: number;
+  sessions_remaining: number;
+  total_sessions: number;
+  plan_session_pools?: {
+    id: number;
+    session_count: number;
+    is_free?: boolean;
+    plan_session_pool_groups?: Array<{
+      group_id: number;
+      groups?: {
+        id: number;
+        name: string;
+        description?: string;
+        color?: string;
+      } | null;
+    }>;
+  } | null;
+}
+
 export interface Subscription {
   id: number;
   member_id: string;
@@ -26,6 +66,8 @@ export interface Subscription {
     duration_days: number;
     sessions_included: number;
   };
+  subscription_group_sessions?: SubscriptionGroupSession[];
+  subscription_pool_sessions?: SubscriptionPoolSession[];
   registrations?: SubscriptionRegistration[];
 }
 
