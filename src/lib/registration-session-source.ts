@@ -1,5 +1,4 @@
-/** Format how a registration consumed a subscription session. */
-export function formatRegistrationSessionSource(reg: {
+type RegistrationSessionInput = {
   session_source?: string | null;
   group?: { name?: string | null } | null | Array<{ name?: string | null }>;
   groups?: { name?: string | null } | null | Array<{ name?: string | null }>;
@@ -21,13 +20,22 @@ export function formatRegistrationSessionSource(reg: {
       groups?: { name?: string | null } | null;
     }> | null;
   }>;
-}): string | null {
-  const source = reg.session_source;
-  if (!source) return null;
+};
+
+export type RegistrationSessionSourceDetails = {
+  source: string | null;
+  consumedGroupName: string | null;
+  poolGroupNames: string[];
+};
+
+export function parseRegistrationSessionSource(
+  reg: RegistrationSessionInput,
+): RegistrationSessionSourceDetails {
+  const source = reg.session_source ?? null;
 
   const rawGroup = reg.group || reg.groups;
   const group = Array.isArray(rawGroup) ? rawGroup[0] : rawGroup;
-  const groupName = group?.name || null;
+  const consumedGroupName = group?.name || null;
 
   const rawPool = reg.pool || reg.plan_session_pools;
   const pool = Array.isArray(rawPool) ? rawPool[0] : rawPool;
@@ -35,15 +43,31 @@ export function formatRegistrationSessionSource(reg: {
     .map((m) => m.groups?.name)
     .filter(Boolean) as string[];
 
+  return { source, consumedGroupName, poolGroupNames };
+}
+
+/** Compact one-line label for inline lists. */
+export function formatRegistrationSessionSource(
+  reg: RegistrationSessionInput,
+): string | null {
+  const { source, consumedGroupName, poolGroupNames } =
+    parseRegistrationSessionSource(reg);
+  if (!source) return null;
+
   if (source === "dedicated") {
-    return groupName ? `Dedicated · ${groupName}` : "Dedicated";
+    return consumedGroupName ? `Dedicated · ${consumedGroupName}` : "Dedicated";
   }
 
   if (source === "pool") {
-    if (poolGroupNames.length > 0) {
+    if (poolGroupNames.length === 0) {
+      return consumedGroupName ? `Pool · ${consumedGroupName}` : "Pool";
+    }
+    if (poolGroupNames.length <= 2) {
       return `Pool · ${poolGroupNames.join(", ")}`;
     }
-    return groupName ? `Pool · ${groupName}` : "Pool";
+    const primary = consumedGroupName || poolGroupNames[0];
+    const extra = poolGroupNames.length - 1;
+    return `Pool · ${primary} (+${extra})`;
   }
 
   return source;

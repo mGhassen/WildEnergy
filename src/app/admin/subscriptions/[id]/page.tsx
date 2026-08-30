@@ -11,9 +11,9 @@ import { useMembers } from "@/hooks/useMembers";
 import { usePlans } from "@/hooks/usePlans";
 import { SubscriptionDetails } from "@/components/subscription-details";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { formatDate, formatDateTime, formatTime } from "@/lib/date";
+import { formatDate } from "@/lib/date";
 import { formatCurrency } from "@/lib/config";
-import { formatRegistrationSessionSource } from "@/lib/registration-session-source";
+import { SubscriptionRegistrationCard } from "@/components/subscription-registration-card";
 import { useMemo } from "react";
 import {
   DropdownMenu,
@@ -349,84 +349,18 @@ export default function AdminSubscriptionDetails() {
                   </p>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  {subscriptionRegistrations.map((reg) => {
-                    const checkin = Array.isArray(reg.checkins)
-                      ? reg.checkins[0]
-                      : null;
-                    const sessionLabel =
-                      formatRegistrationSessionSource(reg);
-                    const className =
-                      reg.course?.class?.name || "Course";
-                    const courseDate = reg.course?.course_date;
-
-                    return (
-                      <div
-                        key={reg.id}
-                        className="border rounded-lg p-3 text-sm bg-muted/30 shadow-sm cursor-pointer hover:bg-muted/50 transition-colors"
-                        onClick={() => {
-                          if (reg.course?.id) {
-                            router.push(`/admin/courses/${reg.course.id}`);
-                          }
-                        }}
-                      >
-                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
-                          <div className="min-w-0 space-y-1">
-                            <div className="font-medium text-foreground">
-                              {className}
-                            </div>
-                            <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3 gap-y-1">
-                              {courseDate && (
-                                <span>
-                                  {formatDate(courseDate)}
-                                  {reg.course?.start_time
-                                    ? ` · ${formatTime(reg.course.start_time)}`
-                                    : ""}
-                                  {reg.course?.end_time
-                                    ? `–${formatTime(reg.course.end_time)}`
-                                    : ""}
-                                </span>
-                              )}
-                              <span className="font-mono">
-                                REG-{String(reg.id).padStart(5, "0")}
-                              </span>
-                              <span>
-                                Registered {formatDateTime(reg.registration_date)}
-                              </span>
-                            </div>
-                            <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3 gap-y-1">
-                              {sessionLabel && (
-                                <span className="text-foreground/80">
-                                  {sessionLabel}
-                                </span>
-                              )}
-                              {checkin?.checkin_time ? (
-                                <span>
-                                  Checked in {formatDateTime(checkin.checkin_time)}
-                                </span>
-                              ) : (
-                                <span>Not checked in</span>
-                              )}
-                            </div>
-                          </div>
-                          <Badge
-                            variant="outline"
-                            className={`text-xs shrink-0 capitalize ${
-                              reg.status === "attended"
-                                ? "bg-blue-100 text-blue-800 border-blue-200"
-                                : reg.status === "absent"
-                                  ? "bg-red-100 text-red-800 border-red-200"
-                                  : reg.status === "cancelled"
-                                    ? "bg-gray-100 text-gray-600 border-gray-200"
-                                    : "bg-gray-100 text-gray-800 border-gray-200"
-                            }`}
-                          >
-                            {reg.status}
-                          </Badge>
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div className="space-y-3">
+                  {subscriptionRegistrations.map((reg) => (
+                    <SubscriptionRegistrationCard
+                      key={reg.id}
+                      registration={reg}
+                      onClick={
+                        reg.course?.id
+                          ? () => router.push(`/admin/courses/${reg.course!.id}`)
+                          : undefined
+                      }
+                    />
+                  ))}
                 </div>
               )}
             </CardContent>
