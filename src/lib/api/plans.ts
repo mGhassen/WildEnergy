@@ -67,6 +67,7 @@ export interface CreatePlanData {
     isFree: boolean;
   }[];
   planSessionPools?: {
+    id?: number;
     sessionCount: number;
     isFree: boolean;
     groupIds: number[];
@@ -85,6 +86,7 @@ export interface UpdatePlanData {
     isFree: boolean;
   }[];
   planSessionPools?: {
+    id?: number;
     sessionCount: number;
     isFree: boolean;
     groupIds: number[];

@@ -72,7 +72,7 @@ export async function ensureGroupSessionsForPlanSubscriptions(
   supabase: SupabaseClient,
   planId: number | string,
   options?: { reconcile?: boolean }
-): Promise<{ error: unknown }> {
+): Promise<{ error: unknown; failedSubscriptionId?: number }> {
   const { data: subscriptions, error: fetchError } = await supabase
     .from('subscriptions')
     .select('id')
@@ -90,6 +90,7 @@ export async function ensureGroupSessionsForPlanSubscriptions(
           `Failed to reconcile sessions for subscription ${sub.id}:`,
           error
         );
+        return { error, failedSubscriptionId: sub.id };
       }
       continue;
     }
@@ -97,6 +98,7 @@ export async function ensureGroupSessionsForPlanSubscriptions(
     const { error } = await ensureSubscriptionGroupSessions(supabase, sub.id);
     if (error) {
       console.error(`Failed to ensure group sessions for subscription ${sub.id}:`, error);
+      return { error, failedSubscriptionId: sub.id };
     }
   }
 

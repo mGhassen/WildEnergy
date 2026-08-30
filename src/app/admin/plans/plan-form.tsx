@@ -147,7 +147,7 @@ export const planFormSchema = z
     ),
     planSessionPools: z.array(
       z.object({
-        id: z.number().optional(),
+        id: z.coerce.number().optional(),
         sessionCount: z.number().min(1, "Session count must be at least 1"),
         isFree: z.boolean(),
         groupIds: z
@@ -382,6 +382,13 @@ export function PlanForm({
             <div className="divide-y">
               {poolFields.map((field, index) => (
                 <div key={field.id} className="py-4 space-y-3 first:pt-2">
+                  <FormField
+                    control={form.control}
+                    name={`planSessionPools.${index}.id`}
+                    render={({ field: idField }) => (
+                      <input type="hidden" {...idField} value={idField.value ?? ""} />
+                    )}
+                  />
                   <div className="flex items-end gap-3">
                     <div className="text-sm font-medium text-muted-foreground w-14 shrink-0 pb-2">
                       Pool {index + 1}
@@ -489,7 +496,7 @@ export function toApiPlanPayload(data: PlanFormData) {
       })) || [],
     planSessionPools:
       data.planSessionPools?.map((pool) => ({
-        ...(pool.id ? { id: pool.id } : {}),
+        ...(pool.id != null && pool.id > 0 ? { id: pool.id } : {}),
         sessionCount: pool.sessionCount,
         isFree: pool.isFree || false,
         groupIds: pool.groupIds,

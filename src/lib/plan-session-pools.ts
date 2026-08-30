@@ -74,6 +74,27 @@ function membershipKey(groupIds: number[]): string {
   return [...groupIds].sort((a, b) => a - b).join(',');
 }
 
+/**
+ * When the client omits pool ids (old deploy / RHF dropped them), match payload
+ * pools to existing rows by stable sorted order instead of delete-all + insert.
+ */
+export function assignPoolIdsFromExisting(
+  existingPools: Array<{ id: number; session_count: number }>,
+  pools: PlanSessionPoolInput[]
+): PlanSessionPoolInput[] {
+  const sorted = [...existingPools].sort((a, b) => a.id - b.id);
+
+  return pools.map((pool, index) => {
+    if (pool.id != null && pool.id > 0) {
+      return pool;
+    }
+    if (index < sorted.length) {
+      return { ...pool, id: sorted[index].id };
+    }
+    return pool;
+  });
+}
+
 async function adjustSubscriptionPoolTotals(
   supabase: SupabaseLike,
   poolId: number,
@@ -164,6 +185,8 @@ export async function syncPlanSessionPoolRows(
     return { error: fetchError, ...empty };
   }
 
+  const resolvedPools = assignPoolIdsFromExisting(existingPools || [], pools);
+
   const existingById = new Map(
     (existingPools || []).map((pool: { id: number; session_count: number }) => [
       pool.id,
@@ -172,7 +195,9 @@ export async function syncPlanSessionPoolRows(
   );
   const existingIds = new Set(existingById.keys());
   const payloadIds = new Set(
-    pools.map((pool) => pool.id).filter((id): id is number => id != null && id > 0)
+    resolvedPools
+      .map((pool) => pool.id)
+      .filter((id): id is number => id != null && id > 0)
   );
 
   for (const poolId of payloadIds) {
@@ -215,7 +240,7 @@ export async function syncPlanSessionPoolRows(
   const poolIds: number[] = [];
   const createdPoolIds: number[] = [];
 
-  for (const pool of pools) {
+  for (const pool of resolvedPools) {
     const groupIds = normalizeGroupIds(pool.groupIds);
 
     if (pool.id && existingById.has(pool.id)) {
@@ -273,9 +298,9 @@ export async function syncPlanSessionPoolRows(
   let membershipChanged = deletedPoolIds.length > 0 || createdPoolIds.length > 0;
 
   if (!membershipChanged) {
-    for (let i = 0; i < pools.length; i++) {
+    for (let i = 0; i < resolvedPools.length; i++) {
       const poolId = poolIds[i];
-      const newKey = membershipKey(normalizeGroupIds(pools[i].groupIds));
+      const newKey = membershipKey(normalizeGroupIds(resolvedPools[i].groupIds));
       const oldKey = membershipKey(oldMembershipByPool.get(poolId) || []);
       if (newKey !== oldKey) {
         membershipChanged = true;

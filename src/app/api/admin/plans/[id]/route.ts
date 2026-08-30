@@ -84,10 +84,17 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
     }
 
     let shouldSyncSessions = false;
-    let needsReconcile = false;
 
     const rewritingGroups = planGroups !== undefined;
     const rewritingPools = planSessionPools !== undefined;
+
+    const { count: linkedSubscriptionCount } = await supabaseServer()
+      .from('subscriptions')
+      .select('id', { count: 'exact', head: true })
+      .eq('plan_id', id);
+
+    const hasLinkedSubscriptions = (linkedSubscriptionCount ?? 0) > 0;
+    const needsReconcile = rewritingPools && hasLinkedSubscriptions;
 
     let poolSync: Awaited<ReturnType<typeof syncPlanSessionPoolRows>> | null = null;
 
@@ -104,10 +111,6 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
             : 'Failed to update session pools';
         return NextResponse.json({ error: message }, { status: 500 });
       }
-      needsReconcile =
-        poolSync.membershipChanged ||
-        poolSync.deletedPoolIds.length > 0 ||
-        poolSync.createdPoolIds.length > 0;
       shouldSyncSessions = true;
     }
 
@@ -153,13 +156,20 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
     }
 
     if (shouldSyncSessions) {
-      const { error: syncError } = await ensureGroupSessionsForPlanSubscriptions(
-        supabaseServer(),
-        id,
-        { reconcile: needsReconcile }
-      );
+      const { error: syncError, failedSubscriptionId } =
+        await ensureGroupSessionsForPlanSubscriptions(supabaseServer(), id, {
+          reconcile: needsReconcile,
+        });
       if (syncError) {
         console.error('Error syncing subscription sessions after plan update:', syncError);
+        return NextResponse.json(
+          {
+            error: needsReconcile
+              ? `Plan pools updated but session balances failed to rebuild${failedSubscriptionId ? ` (subscription ${failedSubscriptionId})` : ''}. Run reconcile_subscription_sessions in SQL.`
+              : 'Failed to sync subscription sessions after plan update',
+          },
+          { status: 500 }
+        );
       }
     }
 
