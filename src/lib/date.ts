@@ -35,9 +35,8 @@ function diffUtcDays(startKey: string, endKey: string): number {
 }
 
 /**
- * Subscription end is exclusive midnight: end = start + duration.
- * Active while calendar today < end_date (dies at that midnight).
- * 1-day plan: start=D, end=D+1 → valid only on D.
+ * Subscription end is inclusive: end_date is the last valid calendar day.
+ * Expires at midnight after end_date. 1-day: start=D, end=D.
  */
 export function isSubscriptionActiveByEndDate(
   endDate: string | Date | null | undefined,
@@ -46,13 +45,10 @@ export function isSubscriptionActiveByEndDate(
   const endKey = toDateKey(endDate);
   const fromKey = toDateKey(from);
   if (!endKey || !fromKey) return false;
-  return endKey > fromKey;
+  return endKey >= fromKey;
 }
 
-/**
- * Whether a subscription covers a calendar day (course date).
- * Inclusive start, exclusive end — same rule as live eligibility.
- */
+/** Whether a subscription covers a calendar day (course date). */
 export function isSubscriptionValidOnDate(
   startDate: string | Date | null | undefined,
   endDate: string | Date | null | undefined,
@@ -62,10 +58,10 @@ export function isSubscriptionValidOnDate(
   const endKey = toDateKey(endDate);
   const asOfKey = toDateKey(asOf);
   if (!startKey || !endKey || !asOfKey) return false;
-  return startKey <= asOfKey && endKey > asOfKey;
+  return startKey <= asOfKey && endKey >= asOfKey;
 }
 
-/** Sold duration in days (exclusive end − start). */
+/** Sold duration in days (inclusive start through end). */
 export function subscriptionDurationDays(
   startDate: string | Date | null | undefined,
   endDate: string | Date | null | undefined,
@@ -73,10 +69,10 @@ export function subscriptionDurationDays(
   const startKey = toDateKey(startDate);
   const endKey = toDateKey(endDate);
   if (!startKey || !endKey) return 0;
-  return Math.max(0, diffUtcDays(startKey, endKey));
+  return Math.max(0, diffUtcDays(startKey, endKey) + 1);
 }
 
-/** Days left including today; 0 = expired (at/after exclusive end midnight). */
+/** Days left including today; 0 after end_date. */
 export function subscriptionDaysRemaining(
   endDate: string | Date | null | undefined,
   from: Date = new Date(),
@@ -84,15 +80,15 @@ export function subscriptionDaysRemaining(
   const endKey = toDateKey(endDate);
   const fromKey = toDateKey(from);
   if (!endKey || !fromKey) return 0;
-  return Math.max(0, diffUtcDays(fromKey, endKey));
+  return Math.max(0, diffUtcDays(fromKey, endKey) + 1);
 }
 
-/** end = start + durationDays (exclusive midnight). */
+/** end = start + durationDays - 1 (last valid day). */
 export function calculateSubscriptionEndDate(startDate: string, durationDays: number): string {
   const startKey = toDateKey(startDate);
   if (!startKey) throw new Error('Invalid start date');
   const days = Math.max(1, Number(durationDays) || 1);
-  return addUtcDays(startKey, days);
+  return addUtcDays(startKey, days - 1);
 }
 
 /** Display stored start/end as-is (same values as DB / edit form). */

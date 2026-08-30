@@ -4,7 +4,7 @@ type PaymentDrivenStatus = 'pending' | 'active' | 'expired';
 
 /**
  * Resolve status from payments, without overriding cancelled.
- * Past exclusive end midnight → expired (even if fully paid).
+ * Past inclusive end midnight → expired (even if fully paid).
  */
 export function resolvePaymentDrivenStatus(params: {
   currentStatus: string;

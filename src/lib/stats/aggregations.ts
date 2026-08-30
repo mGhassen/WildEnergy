@@ -55,8 +55,7 @@ export function overlapsRange(
 ): boolean {
   if (!startStr || !endStr) return false;
   const start = startOfDay(parseISO(startStr.slice(0, 10)));
-  // Subscription end is exclusive midnight: coverage through end of previous day.
-  const end = endOfDay(addDays(parseISO(endStr.slice(0, 10)), -1));
+  const end = endOfDay(parseISO(endStr.slice(0, 10)));
   return start <= range.to && end >= range.from;
 }
 
@@ -250,9 +249,9 @@ function mergeSubIntervals(subs: SubInterval[]): SubInterval[] {
   return merged;
 }
 
-/** Subscription end is exclusive midnight — coverage through end of previous day. */
+/** Subscription end is inclusive — coverage through end of end_date. */
 function subscriptionCoverageEnd(endDate: string): Date {
-  return endOfDay(addDays(parseISO(endDate.slice(0, 10)), -1));
+  return endOfDay(parseISO(endDate.slice(0, 10)));
 }
 
 function firstSubscriptionStart(

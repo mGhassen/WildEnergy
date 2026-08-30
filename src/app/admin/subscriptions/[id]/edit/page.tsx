@@ -100,10 +100,10 @@ export default function AdminEditSubscriptionPage() {
   }, [subscription, form]);
 
   const handleSubmit = (data: SubscriptionFormData) => {
-    if (new Date(data.endDate) <= new Date(data.startDate)) {
+    if (new Date(data.endDate) < new Date(data.startDate)) {
       toast({
         title: "Error",
-        description: "End date must be after start date",
+        description: "End date must be on or after start date",
         variant: "destructive",
       });
       return;
