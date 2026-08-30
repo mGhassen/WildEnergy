@@ -247,19 +247,48 @@ const getDifficultyColor = (difficulty: string) => {
   }
 };
 
-const getTrainerName = (trainerData: any, courseData: any) => {
-  // If trainerData is a number (old format), use courseData.trainer
-  if (typeof trainerData === 'number') {
-    const trainer = courseData?.trainer;
-    if (!trainer) return 'Unknown Trainer';
-    return `${trainer.member?.first_name || 'Unknown'} ${trainer.member?.last_name || 'Trainer'}`;
-  }
-  
-  // If trainerData is an object (new format), use it directly
+const getTrainerName = (
+  trainerData: any,
+  courseData?: CourseDetails,
+  role?: 'original' | 'current',
+) => {
   if (trainerData && typeof trainerData === 'object') {
-    return `${trainerData.first_name || 'Unknown'} ${trainerData.last_name || 'Trainer'}`;
+    const first =
+      'first_name' in trainerData
+        ? (trainerData as { first_name?: string }).first_name
+        : undefined;
+    const last =
+      'last_name' in trainerData
+        ? (trainerData as { last_name?: string }).last_name
+        : undefined;
+    const member =
+      'member' in trainerData
+        ? (trainerData as { member?: { first_name?: string; last_name?: string } }).member
+        : undefined;
+    const resolvedFirst = first ?? member?.first_name;
+    const resolvedLast = last ?? member?.last_name;
+    if (resolvedFirst || resolvedLast) {
+      return `${resolvedFirst || 'Unknown'} ${resolvedLast || 'Trainer'}`;
+    }
   }
-  
+
+  if (role === 'current' || (!role && typeof trainerData !== 'number' && typeof trainerData !== 'string')) {
+    const trainer = courseData?.trainer;
+    if (trainer?.member) {
+      return `${trainer.member.first_name || 'Unknown'} ${trainer.member.last_name || 'Trainer'}`;
+    }
+  }
+
+  if (typeof trainerData === 'number' || typeof trainerData === 'string') {
+    if (role === 'current') {
+      const trainer = courseData?.trainer;
+      if (trainer?.member) {
+        return `${trainer.member.first_name || 'Unknown'} ${trainer.member.last_name || 'Trainer'}`;
+      }
+    }
+    return 'Unknown Trainer';
+  }
+
   return 'Unknown Trainer';
 };
 
@@ -1118,9 +1147,9 @@ export default function CourseDetailsPage() {
                       <div>
                         <label className="text-sm font-medium text-orange-800">Trainer Changed</label>
                         <div className="text-sm text-orange-700">
-                          <span className="line-through">{getTrainerName(courseData.differences.trainer.original, courseData)}</span>
+                          <span className="line-through">{getTrainerName(courseData.differences.trainer.original, courseData, 'original')}</span>
                           <span className="mx-2">→</span>
-                          <span className="font-medium">{getTrainerName(courseData.differences.trainer.current, courseData)}</span>
+                          <span className="font-medium">{getTrainerName(courseData.differences.trainer.current, courseData, 'current')}</span>
                         </div>
                       </div>
                     </div>

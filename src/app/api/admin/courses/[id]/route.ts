@@ -9,6 +9,10 @@ import {
   courseIsEditedVsSchedule,
   type ScheduleTemplate,
 } from '@/lib/schedule-course-sync';
+import {
+  resolveTrainerProfile,
+  resolveTrainerProfileById,
+} from '@/lib/resolve-trainer-profile';
 
 export async function GET(
   req: NextRequest,
@@ -56,6 +60,7 @@ export async function GET(
         trainer:trainers(
           id,
           account_id,
+          profile_id,
           specialization,
           experience_years,
           bio,
@@ -134,25 +139,10 @@ export async function GET(
       console.error('Check-ins fetch error:', checkinError);
     }
 
-    // Fetch trainer details from user_profiles
-    let trainerDetails = null;
-    if (course.trainer?.account_id) {
-      const { data: trainerData } = await supabaseServer()
-        .from('user_profiles')
-        .select('first_name, last_name, email, phone')
-        .eq('account_id', course.trainer.account_id)
-        .single();
-      
-      if (trainerData) {
-        trainerDetails = {
-          ...course.trainer,
-          first_name: trainerData.first_name,
-          last_name: trainerData.last_name,
-          email: trainerData.email,
-          phone: trainerData.phone
-        };
-      }
-    }
+    const trainerDetails = await resolveTrainerProfile(
+      supabaseServer(),
+      course.trainer,
+    );
 
     // Fetch member details for registrations and checkins
     const registrationMemberIds = registrations?.map(r => r.member_id).filter(Boolean) || [];
@@ -237,47 +227,14 @@ export async function GET(
     
     console.log('Individual Is edited:', isEdited);
 
-    // Fetch trainer details for both original and current trainers if they differ
     let originalTrainerDetails = null;
     let currentTrainerDetails = null;
-    
+
     if (schedule && course.trainer_id !== schedule.trainer_id) {
-      // Fetch original trainer details
-      if (schedule.trainer_id) {
-        const { data: originalTrainer } = await supabaseServer()
-          .from('trainers')
-          .select(`
-            id,
-            account_id,
-            specialization,
-            experience_years,
-            bio,
-            certification,
-            status
-          `)
-          .eq('id', schedule.trainer_id)
-          .single();
-        
-        if (originalTrainer?.account_id) {
-          const { data: originalTrainerUser } = await supabaseServer()
-            .from('user_profiles')
-            .select('first_name, last_name, email, phone')
-            .eq('account_id', originalTrainer.account_id)
-            .single();
-          
-          if (originalTrainerUser) {
-            originalTrainerDetails = {
-              ...originalTrainer,
-              first_name: originalTrainerUser.first_name,
-              last_name: originalTrainerUser.last_name,
-              email: originalTrainerUser.email,
-              phone: originalTrainerUser.phone
-            };
-          }
-        }
-      }
-      
-      // Current trainer details are already fetched above
+      originalTrainerDetails = await resolveTrainerProfileById(
+        supabaseServer(),
+        schedule.trainer_id,
+      );
       currentTrainerDetails = trainerDetails;
     }
 
