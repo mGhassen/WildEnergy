@@ -6,6 +6,8 @@ import {
   alignPreviousOntoCurrent,
   alignPreviousRates,
   buildRatesOverTime,
+  buildMemberCompositionSeries,
+  buildNewMemberRetentionSeries,
   countBy,
   daysUntil,
   inRange,
@@ -227,6 +229,8 @@ function computePeriodMetrics(
       .filter((m: any) => inRange(m.created_at, range))
       .map((m: any) => ({ date: m.created_at, amount: 1 })),
   );
+  const memberComposition = buildMemberCompositionSeries(range, members);
+  const retention = buildNewMemberRetentionSeries(range, members, subscriptions);
   const statusBreakdown = countBy(members, (m: any) => m.status || 'unknown');
   const linked = members.filter((m: any) => m.account_id).length;
   const unlinked = members.length - linked;
@@ -493,6 +497,13 @@ function computePeriodMetrics(
     },
     members: {
       growth: timeSeriesFromMap(range, memberGrowthMap),
+      composition: memberComposition,
+      newMemberRetention: retention.series,
+      retention3Mo: {
+        rate: retention.rate,
+        mature: retention.matureTotal,
+        stuck: retention.stuckTotal,
+      },
       statusBreakdown,
       linkedVsUnlinked: [
         { name: 'Linked', value: linked },
@@ -716,6 +727,14 @@ export async function GET(req: NextRequest) {
       current.members.growth = alignPreviousOntoCurrent(
         current.members.growth,
         previous.members.growth,
+      );
+      current.members.composition = alignPreviousOntoCurrent(
+        current.members.composition,
+        previous.members.composition,
+      );
+      current.members.newMemberRetention = alignPreviousOntoCurrent(
+        current.members.newMemberRetention,
+        previous.members.newMemberRetention,
       );
       current.attendance.volumeOverTime = alignPreviousOntoCurrent(
         current.attendance.volumeOverTime,

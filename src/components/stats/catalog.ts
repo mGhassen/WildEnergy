@@ -359,6 +359,75 @@ export const METRIC_CATALOG: MetricDef[] = [
     },
   },
   {
+    id: "chart.member_composition",
+    object: "Members",
+    label: "Roster composition",
+    description:
+      "How the member roster evolves in the period: existing members (joined before the period) vs new joins accumulated over time.",
+    tabs: ["members"],
+    viz: "timeseries",
+    defaultW: 4,
+    defaultH: 3,
+    resolve: (d) => {
+      const meta = withPreviousLabel(d, d.members.composition, "Roster composition")
+      return {
+        kind: "timeseries",
+        title: meta.title,
+        points: d.members.composition,
+        valueLabel: "Existing (pre-period)",
+        secondaryLabel: "New in period",
+        previousLabel: meta.previousLabel,
+      }
+    },
+  },
+  {
+    id: "chart.new_member_retention",
+    object: "Members",
+    label: "3-month sub retention",
+    description:
+      "New members per bucket vs those who kept a subscription for at least 3 months. Stuck count only includes cohorts old enough to measure (joined 3+ months ago).",
+    tabs: ["members"],
+    viz: "timeseries",
+    defaultW: 4,
+    defaultH: 3,
+    resolve: (d) => {
+      const meta = withPreviousLabel(d, d.members.newMemberRetention, "3-month retention")
+      return {
+        kind: "timeseries",
+        title: meta.title,
+        points: d.members.newMemberRetention,
+        valueLabel: "New members",
+        secondaryLabel: "Stuck 3+ months",
+        previousLabel: meta.previousLabel,
+      }
+    },
+  },
+  {
+    id: "kpi.retention_3mo",
+    object: "Members",
+    label: "3-month stick rate",
+    description:
+      "Share of new members in the period (with 3+ months elapsed since join) who maintained subscription coverage for at least 3 months.",
+    tabs: ["members"],
+    viz: "kpi",
+    defaultW: 2,
+    defaultH: 2,
+    resolve: (d) => {
+      const { rate, mature, stuck } = d.members.retention3Mo
+      return {
+        kind: "kpi",
+        title: "3-month stick rate",
+        value: mature > 0 ? pct(rate) : "—",
+        hint: [
+          mature > 0 ? `${stuck}/${mature} mature new members` : "No mature cohorts yet",
+          "subscription ≥3 months",
+        ]
+          .filter(Boolean)
+          .join(" · "),
+      }
+    },
+  },
+  {
     id: "chart.booking_volume",
     object: "Attendance",
     label: "Booking volume",
@@ -808,7 +877,10 @@ export function defaultBoard(tab: StatsTab): BoardState {
     ],
     members: [
       "kpi.active_members",
+      "kpi.retention_3mo",
       "chart.member_growth",
+      "chart.member_composition",
+      "chart.new_member_retention",
       "chart.member_status",
       "table.top_guests",
       "kpi.credit_wallet",

@@ -73,6 +73,11 @@ export type StatsOverview = {
 
 export type StatsMembers = {
   growth: TimePoint[];
+  /** Pre-period roster vs cumulative new joins in the selected period */
+  composition: TimePoint[];
+  /** New joins per bucket vs those who kept subscription 3+ months (mature cohorts only) */
+  newMemberRetention: TimePoint[];
+  retention3Mo: { rate: number; mature: number; stuck: number };
   statusBreakdown: NamedCount[];
   linkedVsUnlinked: NamedCount[];
   topGuests: Array<{ id: string; name: string; guestCount: number }>;
