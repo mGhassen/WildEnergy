@@ -185,15 +185,15 @@ export async function syncPlanSessionPoolRows(
     return { error: fetchError, ...empty };
   }
 
-  const resolvedPools = assignPoolIdsFromExisting(existingPools || [], pools);
+  type ExistingPlanPool = { id: number; session_count: number };
+  const existingPoolRows = (existingPools || []) as ExistingPlanPool[];
 
-  const existingById = new Map(
-    (existingPools || []).map((pool: { id: number; session_count: number }) => [
-      pool.id,
-      pool,
-    ])
+  const resolvedPools = assignPoolIdsFromExisting(existingPoolRows, pools);
+
+  const existingById = new Map<number, ExistingPlanPool>(
+    existingPoolRows.map((pool) => [pool.id, pool]),
   );
-  const existingIds = new Set(existingById.keys());
+  const existingIds = new Set<number>(existingById.keys());
   const payloadIds = new Set(
     resolvedPools
       .map((pool) => pool.id)

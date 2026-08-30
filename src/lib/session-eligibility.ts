@@ -140,6 +140,20 @@ type PoolSessionRow = {
   pool_id?: number;
   sessions_remaining?: number;
   total_sessions?: number;
+  plan_session_pools?: {
+    id?: number;
+    session_count?: number;
+    is_free?: boolean;
+    plan_session_pool_groups?: Array<{
+      group_id: number;
+      groups?: {
+        id: number;
+        name: string;
+        description?: string;
+        color?: string;
+      } | null;
+    }>;
+  } | null;
 };
 
 /** Match subscription pool balance to a plan pool (handles stale pool_id after plan edits). */
