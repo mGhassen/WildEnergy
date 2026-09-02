@@ -4,10 +4,10 @@
  *
  * Usage (prod):
  *   REMOTE_PROD_SUPABASE_URL=https://xxx.supabase.co \
- *   REMOTE_PROD_SUPABASE_SERVICE_ROLE_KEY=eyJ... \
+ *   REMOTE_PROD_SUPABASE_SECRET_KEY=sb_secret_... \
  *   node scripts/reconcile-all-subscriptions.mjs
  *
- * Or with .env uncommented for prod SUPABASE_SERVICE_ROLE_KEY + NEXT_PUBLIC_SUPABASE_URL.
+ * Or with .env: SUPABASE_SECRET_KEY + NEXT_PUBLIC_SUPABASE_URL.
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -16,11 +16,13 @@ const url =
   process.env.REMOTE_PROD_SUPABASE_URL ||
   process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key =
+  process.env.REMOTE_PROD_SUPABASE_SECRET_KEY ||
   process.env.REMOTE_PROD_SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.SUPABASE_SECRET_KEY ||
   process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!url || !key) {
-  console.error('Missing REMOTE_PROD_SUPABASE_URL / REMOTE_PROD_SUPABASE_SERVICE_ROLE_KEY');
+  console.error('Missing REMOTE_PROD_SUPABASE_URL / REMOTE_PROD_SUPABASE_SECRET_KEY (or SUPABASE_SECRET_KEY)');
   process.exit(1);
 }
 

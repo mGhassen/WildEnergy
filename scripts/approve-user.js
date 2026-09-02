@@ -44,17 +44,21 @@ function getConfig(target) {
   const configs = {
     prod: {
       url: process.env.REMOTE_PROD_SUPABASE_URL,
-      key: process.env.REMOTE_PROD_SUPABASE_SERVICE_ROLE_KEY,
+      key:
+        process.env.REMOTE_PROD_SUPABASE_SECRET_KEY ||
+        process.env.REMOTE_PROD_SUPABASE_SERVICE_ROLE_KEY,
       label: 'remote prod',
     },
     dev: {
       url: process.env.REMOTE_DEV_SUPABASE_URL,
-      key: process.env.REMOTE_DEV_SUPABASE_SERVICE_ROLE_KEY,
+      key:
+        process.env.REMOTE_DEV_SUPABASE_SECRET_KEY ||
+        process.env.REMOTE_DEV_SUPABASE_SERVICE_ROLE_KEY,
       label: 'remote dev',
     },
     local: {
       url: process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL,
-      key: process.env.SUPABASE_SERVICE_ROLE_KEY,
+      key: process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY,
       label: 'local',
     },
   };
@@ -62,7 +66,7 @@ function getConfig(target) {
   const config = configs[target] || configs.local;
 
   if (!config.url || !config.key) {
-    console.error('❌ Missing Supabase URL or service role key for target:', target);
+    console.error('❌ Missing Supabase URL or secret key for target:', target);
     process.exit(1);
   }
 

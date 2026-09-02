@@ -6,39 +6,56 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 let browserClient: SupabaseClient | null = null;
 
-// Server-side Supabase client (for API routes)
-export const createSupabaseServer = () => {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  
-  if (!supabaseUrl || !supabaseServiceRoleKey) {
-    throw new Error('Missing Supabase server environment variables');
+function getSupabaseUrl(): string {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  if (!url) {
+    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL');
   }
-  
-  return createClient(supabaseUrl, supabaseServiceRoleKey, {
+  return url;
+}
+
+/** Browser / RLS key — prefers modern publishable, falls back to legacy anon. */
+export function getSupabasePublishableKey(): string {
+  const key =
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+    process.env.SUPABASE_PUBLISHABLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_ANON_KEY;
+  if (!key) {
+    throw new Error(
+      'Missing NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY (or legacy NEXT_PUBLIC_SUPABASE_ANON_KEY)'
+    );
+  }
+  return key;
+}
+
+/** Server / bypass-RLS key — prefers modern secret, falls back to legacy service_role. */
+export function getSupabaseSecretKey(): string {
+  const key =
+    process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!key) {
+    throw new Error(
+      'Missing SUPABASE_SECRET_KEY (or legacy SUPABASE_SERVICE_ROLE_KEY)'
+    );
+  }
+  return key;
+}
+
+export const createSupabaseServer = () => {
+  return createClient(getSupabaseUrl(), getSupabaseSecretKey(), {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 };
 
-// Client-side Supabase client (for browser) — singleton so PKCE verifier persists
 export const createSupabaseClient = () => {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Missing Supabase client environment variables');
-  }
-  
+  const supabaseUrl = getSupabaseUrl();
+
   if (typeof window === 'undefined') {
-    const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!supabaseServiceRoleKey) {
-      throw new Error('Missing Supabase service role key for server-side operations');
-    }
-    return createClient(supabaseUrl, supabaseServiceRoleKey);
+    return createClient(supabaseUrl, getSupabaseSecretKey());
   }
 
   if (!browserClient) {
-    browserClient = createClient(supabaseUrl, supabaseAnonKey, {
+    browserClient = createClient(supabaseUrl, getSupabasePublishableKey(), {
       auth: {
         flowType: 'pkce',
         detectSessionInUrl: false,
@@ -56,12 +73,7 @@ export const supabaseServer = () => createSupabaseServer();
 export const supabase = () => createSupabaseClient();
 
 export const createSupabaseAdminClient = () => {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !supabaseServiceRoleKey) {
-    throw new Error('Missing Supabase admin environment variables');
-  }
-  return createClient(supabaseUrl, supabaseServiceRoleKey);
+  return createClient(getSupabaseUrl(), getSupabaseSecretKey());
 };
 
 export type AuthUser = {

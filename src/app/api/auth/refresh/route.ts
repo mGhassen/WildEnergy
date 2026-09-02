@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getSupabasePublishableKey } from '@/lib/supabase';
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,12 +10,17 @@ export async function POST(req: NextRequest) {
     }
 
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (!url || !anonKey) {
+    let publishableKey: string;
+    try {
+      publishableKey = getSupabasePublishableKey();
+    } catch {
+      return NextResponse.json({ error: 'Server misconfiguration' }, { status: 500 });
+    }
+    if (!url) {
       return NextResponse.json({ error: 'Server misconfiguration' }, { status: 500 });
     }
 
-    const supabase = createClient(url, anonKey);
+    const supabase = createClient(url, publishableKey);
     const { data, error } = await supabase.auth.refreshSession({
       refresh_token: refreshToken,
     });

@@ -10,30 +10,32 @@ require('dotenv').config();
 
 // Supabase configuration from environment variables
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
-// Service role key for creating users without signup
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const publishableKey =
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+  process.env.SUPABASE_PUBLISHABLE_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  process.env.SUPABASE_ANON_KEY;
+const secretKey =
+  process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-// Validate required environment variables
 if (!supabaseUrl) {
   console.error('❌ Error: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_URL environment variable is required');
   process.exit(1);
 }
 
-if (!anonKey) {
-  console.error('❌ Error: NEXT_PUBLIC_SUPABASE_ANON_KEY or SUPABASE_ANON_KEY environment variable is required');
+if (!publishableKey) {
+  console.error('❌ Error: NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY (or legacy ANON_KEY) is required');
   process.exit(1);
 }
 
-if (!serviceRoleKey) {
-  console.error('❌ Error: SUPABASE_SERVICE_ROLE_KEY environment variable is required to create users without signup');
+if (!secretKey) {
+  console.error('❌ Error: SUPABASE_SECRET_KEY (or legacy SERVICE_ROLE_KEY) is required to create users without signup');
   process.exit(1);
 }
 
 console.log(`🔗 Using Supabase URL: ${supabaseUrl}`);
-const supabase = createClient(supabaseUrl, anonKey);
-// Admin client used only for creating auth users
-const admin = createClient(supabaseUrl, serviceRoleKey);
+const supabase = createClient(supabaseUrl, publishableKey);
+const admin = createClient(supabaseUrl, secretKey);
 
 // WildEnergy test users for new system
 const wildEnergyTestUsers = [

@@ -8,9 +8,10 @@
  *   node scripts/create-admin-user.js --remote prod --email admin@example.com --password secret --first-name Admin --last-name User
  *   node scripts/create-admin-user.js --remote dev --email admin@example.com --password secret --first-name Admin --last-name User
  *
- * --remote prod uses REMOTE_PROD_SUPABASE_URL + REMOTE_PROD_SUPABASE_SERVICE_ROLE_KEY
- * --remote dev  uses REMOTE_DEV_SUPABASE_URL + REMOTE_DEV_SUPABASE_SERVICE_ROLE_KEY
- * default/local uses NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY
+ * --remote prod uses REMOTE_PROD_SUPABASE_URL + REMOTE_PROD_SUPABASE_SECRET_KEY
+ * --remote dev  uses REMOTE_DEV_SUPABASE_URL + REMOTE_DEV_SUPABASE_SECRET_KEY
+ * default/local uses NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SECRET_KEY
+ * (legacy *_SERVICE_ROLE_KEY still accepted)
  */
 
 const { createClient } = require('@supabase/supabase-js');
@@ -47,17 +48,21 @@ function getConfig(target) {
   const configs = {
     prod: {
       url: process.env.REMOTE_PROD_SUPABASE_URL,
-      key: process.env.REMOTE_PROD_SUPABASE_SERVICE_ROLE_KEY,
+      key:
+        process.env.REMOTE_PROD_SUPABASE_SECRET_KEY ||
+        process.env.REMOTE_PROD_SUPABASE_SERVICE_ROLE_KEY,
       label: 'remote prod',
     },
     dev: {
       url: process.env.REMOTE_DEV_SUPABASE_URL,
-      key: process.env.REMOTE_DEV_SUPABASE_SERVICE_ROLE_KEY,
+      key:
+        process.env.REMOTE_DEV_SUPABASE_SECRET_KEY ||
+        process.env.REMOTE_DEV_SUPABASE_SERVICE_ROLE_KEY,
       label: 'remote dev',
     },
     local: {
       url: process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL,
-      key: process.env.SUPABASE_SERVICE_ROLE_KEY,
+      key: process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY,
       label: 'local',
     },
   };
@@ -78,10 +83,10 @@ function getConfig(target) {
   if (!config.key) {
     const envName =
       target === 'prod'
-        ? 'REMOTE_PROD_SUPABASE_SERVICE_ROLE_KEY'
+        ? 'REMOTE_PROD_SUPABASE_SECRET_KEY'
         : target === 'dev'
-          ? 'REMOTE_DEV_SUPABASE_SERVICE_ROLE_KEY'
-          : 'SUPABASE_SERVICE_ROLE_KEY';
+          ? 'REMOTE_DEV_SUPABASE_SECRET_KEY'
+          : 'SUPABASE_SECRET_KEY';
     console.error(`❌ ${envName} is required`);
     process.exit(1);
   }
