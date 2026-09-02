@@ -110,6 +110,9 @@ export async function DELETE(
         subscription_id,
         status,
         course_id,
+        session_source,
+        group_id,
+        pool_id,
         course:courses(
           id,
           current_participants,
@@ -152,6 +155,9 @@ export async function DELETE(
           p_user_id: registration.member_id,
           p_course_id: registration.course_id,
           p_subscription_id: targetSubscriptionId,
+          p_session_source: registration.session_source ?? null,
+          p_group_id: registration.group_id ?? null,
+          p_pool_id: registration.pool_id ?? null,
         }
       );
 
