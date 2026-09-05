@@ -473,20 +473,24 @@ export function SubscriptionDetails({
                             planGroup.groups.category_groups.length > 0 && (
                               <div className="flex flex-wrap gap-1.5">
                                 {planGroup.groups.category_groups.map(
-                                  (categoryGroup: any) => (
-                                    <Badge
-                                      key={categoryGroup.categories.id}
-                                      variant="outline"
-                                      className="text-xs border-0 text-white"
-                                      style={{
-                                        backgroundColor:
-                                          categoryGroup.categories.color,
-                                        color: "white",
-                                      }}
-                                    >
-                                      {categoryGroup.categories.name}
-                                    </Badge>
-                                  ),
+                                  (categoryGroup: any) => {
+                                    const category = categoryGroup.categories;
+                                    if (!category) return null;
+                                    return (
+                                      <Badge
+                                        key={category.id}
+                                        variant="outline"
+                                        className="text-xs border-0 text-white"
+                                        style={{
+                                          backgroundColor:
+                                            category.color || "#6B7280",
+                                          color: "white",
+                                        }}
+                                      >
+                                        {category.name}
+                                      </Badge>
+                                    );
+                                  },
                                 )}
                               </div>
                             )}

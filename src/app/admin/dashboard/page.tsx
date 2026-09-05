@@ -275,7 +275,7 @@ export default function AdminDashboard() {
                         <div className="flex items-center space-x-2">
                           <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
                             <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
-                              {course.class.category.name.charAt(0)}
+                              {(course.class?.category?.name || course.class?.name || "?").charAt(0)}
                             </span>
                           </div>
                           <div>

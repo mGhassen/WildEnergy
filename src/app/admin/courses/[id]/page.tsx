@@ -666,15 +666,28 @@ export default function CourseDetailsPage() {
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Category</label>
                   <div className="flex items-center gap-2">
-                    <div 
-                      className="w-3 h-3 rounded-full" 
-                      style={{ backgroundColor: courseData.class.category.color }}
-                    />
-                    <span className="font-medium">{courseData.class.category.name}</span>
-                    {courseData.class.category.group?.name && (
-                      <Badge variant="outline" className="text-xs">
-                        {courseData.class.category.group.name}
-                      </Badge>
+                    {courseData.class?.category ? (
+                      <>
+                        <div
+                          className="w-3 h-3 rounded-full"
+                          style={{
+                            backgroundColor:
+                              courseData.class.category.color || "#6B7280",
+                          }}
+                        />
+                        <span className="font-medium">
+                          {courseData.class.category.name}
+                        </span>
+                        {courseData.class.category.group?.name && (
+                          <Badge variant="outline" className="text-xs">
+                            {courseData.class.category.group.name}
+                          </Badge>
+                        )}
+                      </>
+                    ) : (
+                      <span className="font-medium text-muted-foreground">
+                        No category
+                      </span>
                     )}
                   </div>
                 </div>
