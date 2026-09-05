@@ -29,6 +29,35 @@ export async function GET(req: NextRequest) {
     // Get query parameters
     const { searchParams } = new URL(req.url);
     const date = searchParams.get('date');
+    const scheduleIdParam = searchParams.get('scheduleId');
+    const scheduleId = scheduleIdParam ? Number(scheduleIdParam) : NaN;
+
+    // Optional schedule scope avoids Supabase max_rows truncating unrelated checkins
+    let registrationIdsFilter: number[] | null = null;
+    if (Number.isFinite(scheduleId)) {
+      const { data: scheduleCourses, error: coursesError } = await supabaseServer()
+        .from('courses')
+        .select('id')
+        .eq('schedule_id', scheduleId);
+      if (coursesError) {
+        return NextResponse.json({ error: 'Failed to fetch checkins' }, { status: 500 });
+      }
+      const courseIds = (scheduleCourses || []).map((c) => c.id);
+      if (courseIds.length === 0) {
+        return NextResponse.json([]);
+      }
+      const { data: scheduleRegs, error: regsError } = await supabaseServer()
+        .from('class_registrations')
+        .select('id')
+        .in('course_id', courseIds);
+      if (regsError) {
+        return NextResponse.json({ error: 'Failed to fetch checkins' }, { status: 500 });
+      }
+      registrationIdsFilter = (scheduleRegs || []).map((r) => r.id);
+      if (registrationIdsFilter.length === 0) {
+        return NextResponse.json([]);
+      }
+    }
 
     // Build the query
     let query = supabaseServer()
@@ -63,6 +92,10 @@ export async function GET(req: NextRequest) {
         member_id
       `)
       .order('checkin_time', { ascending: false });
+
+    if (registrationIdsFilter) {
+      query = query.in('registration_id', registrationIdsFilter);
+    }
 
     // Filter by date if provided
     if (date) {

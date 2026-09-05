@@ -23,7 +23,7 @@ import { useSchedule, useDeleteSchedule } from "@/hooks/useSchedules";
 import { useUpdateScheduleWithCourses } from "@/hooks/useScheduleWithCourses";
 import { useClasses } from "@/hooks/useClasses";
 import { useTrainers } from "@/hooks/useTrainers";
-import { useAdminRegistrations, useAdminCheckins } from "@/hooks/useAdmin";
+import { adminApi } from "@/lib/api/admin";
 import { useCourses, useBulkUpdateCourses, useBulkDeleteCourses } from "@/hooks/useCourse";
 import { 
   ArrowLeft, 
@@ -185,36 +185,27 @@ function normalizeCheckinsForDeleteRules(checkins: any[]): Array<{ registration_
   });
 }
 
-/** Non-cancelled registrations for a course (matches capacity / dashboard semantics). */
-function getCourseActiveRegistrations(courseId: number, registrations: any[]) {
+/** Registrations for a course — same universe as course detail Participants. */
+function getCourseRegistrations(courseId: number, registrations: any[]) {
   const cid = toNumId(courseId);
-  return registrations.filter(
-    (r) => toNumId(r.course_id) === cid && r.status !== "cancelled"
-  );
+  return registrations.filter((r) => toNumId(r.course_id) === cid);
 }
 
 function countCourseRegistered(courseId: number, registrations: any[]): number {
-  return getCourseActiveRegistrations(courseId, registrations).length;
+  return getCourseRegistrations(courseId, registrations).length;
 }
 
+/** Check-in count for a course — same as course detail Statistics check-ins. */
 function countCourseAttended(courseId: number, registrations: any[], checkins: any[]): number {
-  const courseRegs = getCourseActiveRegistrations(courseId, registrations);
+  const courseRegs = getCourseRegistrations(courseId, registrations);
   const regIds = new Set(
     courseRegs.map((r) => toNumId(r.id)).filter((id): id is number => id != null)
   );
   const cid = toNumId(courseId);
-  const checkedInIds = new Set<number>();
-  for (const ch of checkins) {
+  return checkins.filter((ch) => {
     const regId = getCheckinRegistrationId(ch);
-    if (regId == null) continue;
     const checkinCourseId = toNumId(ch.registration?.course?.id);
-    if (regIds.has(regId) || checkinCourseId === cid) {
-      checkedInIds.add(regId);
-    }
-  }
-  return courseRegs.filter((r) => {
-    const id = toNumId(r.id);
-    return r.status === "attended" || (id != null && checkedInIds.has(id));
+    return (regId != null && regIds.has(regId)) || checkinCourseId === cid;
   }).length;
 }
 
@@ -270,9 +261,18 @@ export default function ScheduleDetailsPage() {
   // Fetch related data
   const { data: courses = [] } = useCourses();
 
-  const { data: registrations = [] } = useAdminRegistrations();
+  const scheduleIdNum = Number(scheduleId);
+  const { data: registrations = [] } = useQuery({
+    queryKey: ["admin", "registrations", { scheduleId: scheduleIdNum }],
+    queryFn: () => adminApi.getRegistrations({ scheduleId: scheduleIdNum }),
+    enabled: Number.isFinite(scheduleIdNum),
+  });
 
-  const { data: checkins = [] } = useAdminCheckins();
+  const { data: checkins = [] } = useQuery({
+    queryKey: ["admin", "checkins", { scheduleId: scheduleIdNum }],
+    queryFn: () => adminApi.getCheckins({ scheduleId: scheduleIdNum }),
+    enabled: Number.isFinite(scheduleIdNum),
+  });
 
   // Get schedule-specific data
   const scheduleCourses = courses.filter((course: any) => course.schedule_id?.toString() === scheduleId);

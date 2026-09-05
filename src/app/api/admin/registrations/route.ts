@@ -26,8 +26,29 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
     if (userProfile.is_admin) {
-      // Admin: return all registrations
-      const { data: registrations, error } = await supabaseServer()
+      const { searchParams } = new URL(req.url);
+      const scheduleIdParam = searchParams.get('scheduleId');
+      const scheduleId = scheduleIdParam ? Number(scheduleIdParam) : NaN;
+
+      // Optional schedule scope avoids Supabase max_rows truncating unrelated regs
+      // (schedule detail counts would otherwise undercount).
+      let courseIdsFilter: number[] | null = null;
+      if (Number.isFinite(scheduleId)) {
+        const { data: scheduleCourses, error: coursesError } = await supabaseServer()
+          .from('courses')
+          .select('id')
+          .eq('schedule_id', scheduleId);
+        if (coursesError) {
+          console.error('Admin registrations schedule courses error:', coursesError);
+          return NextResponse.json({ error: 'Failed to fetch registrations' }, { status: 500 });
+        }
+        courseIdsFilter = (scheduleCourses || []).map((c) => c.id);
+        if (courseIdsFilter.length === 0) {
+          return NextResponse.json([]);
+        }
+      }
+
+      let registrationsQuery = supabaseServer()
         .from('class_registrations')
         .select(`
           *,
@@ -41,6 +62,11 @@ export async function GET(req: NextRequest) {
             trainer:trainers(account_id, specialization, experience_years)
           )
         `);
+      if (courseIdsFilter) {
+        registrationsQuery = registrationsQuery.in('course_id', courseIdsFilter);
+      }
+
+      const { data: registrations, error } = await registrationsQuery;
       if (error) {
         console.error('Admin registrations error:', error);
         return NextResponse.json({ error: 'Failed to fetch registrations' }, { status: 500 });

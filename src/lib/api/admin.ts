@@ -46,8 +46,10 @@ export const adminApi = {
     return apiRequest('GET', '/api/admin/trainers');
   },
 
-  async getRegistrations(): Promise<any[]> {
-    return apiRequest('GET', '/api/admin/registrations');
+  async getRegistrations(params?: { scheduleId?: number }): Promise<any[]> {
+    const qs =
+      params?.scheduleId != null ? `?scheduleId=${params.scheduleId}` : '';
+    return apiRequest('GET', `/api/admin/registrations${qs}`);
   },
 
   async getSubscriptions(): Promise<any[]> {
@@ -58,8 +60,12 @@ export const adminApi = {
     return apiRequest('GET', '/api/admin/payments');
   },
 
-  async getCheckins(): Promise<any[]> {
-    return apiRequest('GET', '/api/admin/checkins');
+  async getCheckins(params?: { scheduleId?: number; date?: string }): Promise<any[]> {
+    const search = new URLSearchParams();
+    if (params?.scheduleId != null) search.set('scheduleId', String(params.scheduleId));
+    if (params?.date) search.set('date', params.date);
+    const qs = search.toString() ? `?${search.toString()}` : '';
+    return apiRequest('GET', `/api/admin/checkins${qs}`);
   },
 
   async getDashboardStats(): Promise<any> {
