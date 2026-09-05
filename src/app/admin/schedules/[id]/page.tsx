@@ -161,13 +161,21 @@ function inferBulkStatusFromSelection(selectedIds: number[], allCourses: any[]):
   return "";
 }
 
+function toNumId(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() !== "") {
+    const n = Number(value);
+    if (Number.isFinite(n)) return n;
+  }
+  return undefined;
+}
+
 function getCheckinRegistrationId(checkin: {
-  registrationId?: number;
-  registration_id?: number;
-  registration?: { id?: number };
+  registrationId?: number | string;
+  registration_id?: number | string;
+  registration?: { id?: number | string };
 }): number | undefined {
-  const id = checkin.registrationId ?? checkin.registration_id ?? checkin.registration?.id;
-  return typeof id === "number" ? id : undefined;
+  return toNumId(checkin.registrationId ?? checkin.registration_id ?? checkin.registration?.id);
 }
 
 function normalizeCheckinsForDeleteRules(checkins: any[]): Array<{ registration_id: number }> {
@@ -177,17 +185,37 @@ function normalizeCheckinsForDeleteRules(checkins: any[]): Array<{ registration_
   });
 }
 
-function countCourseAttended(courseId: number, registrations: any[], checkins: any[]): number {
-  const courseRegs = registrations.filter((r) => r.course_id === courseId);
-  const regIds = new Set(courseRegs.map((r) => r.id));
-  const checkedInIds = new Set(
-    checkins
-      .map(getCheckinRegistrationId)
-      .filter((id): id is number => id != null && regIds.has(id))
+/** Non-cancelled registrations for a course (matches capacity / dashboard semantics). */
+function getCourseActiveRegistrations(courseId: number, registrations: any[]) {
+  const cid = toNumId(courseId);
+  return registrations.filter(
+    (r) => toNumId(r.course_id) === cid && r.status !== "cancelled"
   );
-  return courseRegs.filter(
-    (r) => r.status === "attended" || checkedInIds.has(r.id)
-  ).length;
+}
+
+function countCourseRegistered(courseId: number, registrations: any[]): number {
+  return getCourseActiveRegistrations(courseId, registrations).length;
+}
+
+function countCourseAttended(courseId: number, registrations: any[], checkins: any[]): number {
+  const courseRegs = getCourseActiveRegistrations(courseId, registrations);
+  const regIds = new Set(
+    courseRegs.map((r) => toNumId(r.id)).filter((id): id is number => id != null)
+  );
+  const cid = toNumId(courseId);
+  const checkedInIds = new Set<number>();
+  for (const ch of checkins) {
+    const regId = getCheckinRegistrationId(ch);
+    if (regId == null) continue;
+    const checkinCourseId = toNumId(ch.registration?.course?.id);
+    if (regIds.has(regId) || checkinCourseId === cid) {
+      checkedInIds.add(regId);
+    }
+  }
+  return courseRegs.filter((r) => {
+    const id = toNumId(r.id);
+    return r.status === "attended" || (id != null && checkedInIds.has(id));
+  }).length;
 }
 
 export default function ScheduleDetailsPage() {
@@ -1004,13 +1032,10 @@ export default function ScheduleDetailsPage() {
 
                   {/* Course Rows */}
                   {paginatedCourses.map((course: any) => {
-                    // Get course-specific data
-                    const courseRegistrations = registrations.filter((reg: any) => reg.course_id === course.id);
-                    const registeredCount = courseRegistrations.length;
+                    const registeredCount = countCourseRegistered(course.id, registrations);
                     const attendedCount = countCourseAttended(course.id, registrations, checkins);
                     const maxCapacity = course.max_participants || schedule.max_participants || 0;
                     const attendanceRate = registeredCount > 0 ? Math.round((attendedCount / registeredCount) * 100) : 0;
-                    const capacityRate = maxCapacity > 0 ? Math.round((registeredCount / maxCapacity) * 100) : 0;
 
                     return (
                       <div 
