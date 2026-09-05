@@ -23,6 +23,7 @@ import { usePlan } from "@/hooks/usePlans";
 import { formatCurrency } from "@/lib/config";
 import { DashboardSkeleton } from "@/components/skeletons";
 import { totalPlanSessionCount } from "@/lib/session-eligibility";
+import { isFreePlan } from "@/lib/subscription-status";
 
 export default function AdminPlanDetailPage() {
   const params = useParams();
@@ -128,7 +129,19 @@ export default function AdminPlanDetailPage() {
             <CardDescription>Price</CardDescription>
             <CardTitle className="flex items-center gap-2 text-2xl">
               <DollarSign className="w-5 h-5 text-muted-foreground" />
-              {formatCurrency(Number(plan.price))}
+              {isFreePlan(plan) ? (
+                <span className="flex items-center gap-2">
+                  Free
+                  <Badge
+                    variant="outline"
+                    className="text-sm font-normal border-emerald-300 text-emerald-700 dark:text-emerald-400"
+                  >
+                    Free plan
+                  </Badge>
+                </span>
+              ) : (
+                formatCurrency(Number(plan.price))
+              )}
             </CardTitle>
           </CardHeader>
         </Card>

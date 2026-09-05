@@ -31,6 +31,7 @@ const SUBSCRIPTION_DETAIL_SELECT = `
     price,
     duration_days,
     is_active,
+    is_free,
     plan_groups(
       id,
       group_id,

@@ -138,6 +138,7 @@ export const planFormSchema = z
     price: z.number().min(0, "Price must be a positive number"),
     durationDays: z.number().min(1, "Duration must be at least 1 day"),
     isActive: z.boolean(),
+    isFree: z.boolean(),
     planGroups: z.array(
       z.object({
         groupId: z.number().min(1, "Group is required"),
@@ -199,6 +200,7 @@ export const planFormDefaultValues: PlanFormData = {
   price: 0,
   durationDays: 30,
   isActive: true,
+  isFree: false,
   planGroups: [],
   planSessionPools: [],
 };
@@ -262,25 +264,56 @@ export function PlanForm({
           )}
         />
 
+        <FormField
+          control={form.control}
+          name="isFree"
+          render={({ field }) => (
+            <FormItem className="flex flex-row items-center space-x-2 space-y-0 rounded-md border p-3">
+              <FormControl>
+                <Checkbox
+                  checked={field.value}
+                  onCheckedChange={(checked) => {
+                    const isFree = checked === true;
+                    field.onChange(isFree);
+                    if (isFree) {
+                      form.setValue("price", 0);
+                    }
+                  }}
+                />
+              </FormControl>
+              <div className="space-y-0.5">
+                <FormLabel className="text-sm font-medium">Free plan</FormLabel>
+                <p className="text-xs text-muted-foreground">
+                  No payment required. Subscriptions activate immediately.
+                </p>
+              </div>
+            </FormItem>
+          )}
+        />
+
         <div className="grid grid-cols-2 gap-4">
           <FormField
             control={form.control}
             name="price"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Price (TND)</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    {...field}
-                    onChange={(e) => field.onChange(Number(e.target.value))}
-                    placeholder="49.99"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
+            render={({ field }) => {
+              const isFree = form.watch("isFree");
+              return (
+                <FormItem>
+                  <FormLabel>Price (TND)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      {...field}
+                      disabled={isFree}
+                      onChange={(e) => field.onChange(Number(e.target.value))}
+                      placeholder="49.99"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              );
+            }}
           />
 
           <FormField
@@ -494,12 +527,14 @@ export function PlanForm({
 }
 
 export function toApiPlanPayload(data: PlanFormData) {
+  const isFree = Boolean(data.isFree) || Number(data.price) === 0;
   return {
     name: data.name,
     description: data.description,
-    price: Number(data.price),
+    price: isFree ? 0 : Number(data.price),
     duration_days: data.durationDays,
     is_active: data.isActive,
+    is_free: isFree,
     planGroups:
       data.planGroups?.map((group) => ({
         groupId: group.groupId,
@@ -524,6 +559,8 @@ export function planToFormValues(plan: {
   durationDays?: number;
   is_active?: boolean;
   isActive?: boolean;
+  is_free?: boolean;
+  isFree?: boolean;
   plan_groups?: Array<{
     group_id: number;
     session_count: number;
@@ -536,12 +573,18 @@ export function planToFormValues(plan: {
     plan_session_pool_groups?: Array<{ group_id: number }>;
   }>;
 }): PlanFormData {
+  const price = Number(plan.price);
+  const isFree =
+    plan.is_free === true ||
+    plan.isFree === true ||
+    price === 0;
   return {
     name: plan.name,
     description: plan.description ?? "",
-    price: Number(plan.price),
+    price: isFree ? 0 : price,
     durationDays: plan.duration_days ?? plan.durationDays ?? 30,
     isActive: plan.is_active ?? plan.isActive ?? true,
+    isFree,
     planGroups:
       plan.plan_groups?.map((group) => ({
         groupId: group.group_id,

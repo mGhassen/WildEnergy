@@ -19,6 +19,7 @@ import { formatCurrency } from "@/lib/config";
 import { totalPlanSessionCount } from "@/lib/session-eligibility";
 import { useToast } from "@/hooks/use-toast";
 import { FormSkeleton } from "@/components/skeletons";
+import { isFreePlan } from "@/lib/subscription-status";
 
 const subscriptionFormSchema = z.object({
   memberId: z.string().min(1, "Member is required"),
@@ -70,11 +71,17 @@ export default function AdminNewSubscriptionPage() {
     },
   });
 
+  const selectedPlanId = form.watch("planId");
+  const selectedPlan = mappedPlans.find(
+    (plan) => plan.id === parseInt(selectedPlanId || "0"),
+  );
+  const selectedIsFree = isFreePlan(selectedPlan);
+
   const handleSubmit = (data: SubscriptionFormData) => {
-    const selectedPlan = mappedPlans.find(
-      (plan) => plan.id === parseInt(data.planId),
+    const plan = mappedPlans.find(
+      (p) => p.id === parseInt(data.planId),
     );
-    if (!selectedPlan) {
+    if (!plan) {
       toast({
         title: "Error",
         description: "Selected plan not found",
@@ -85,9 +92,10 @@ export default function AdminNewSubscriptionPage() {
 
     const endDateStr = calculateSubscriptionEndDate(
       data.startDate,
-      Number(selectedPlan.duration),
+      Number(plan.duration),
     );
 
+    const free = isFreePlan(plan);
     createSubscriptionMutation.mutate(
       {
         member_id: data.memberId,
@@ -95,7 +103,11 @@ export default function AdminNewSubscriptionPage() {
         start_date: data.startDate,
         end_date: endDateStr,
         notes: data.notes,
-        status: data.status || "pending",
+        status: free
+          ? data.status === "cancelled" || data.status === "expired"
+            ? data.status
+            : "active"
+          : data.status || "pending",
       },
       {
         onSuccess: () => {
@@ -128,25 +140,38 @@ export default function AdminNewSubscriptionPage() {
       <Form {...form}>
         <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
           <div className="bg-muted/50 rounded-lg p-4">
-            <h4 className="font-semibold text-sm mb-2">Payment Information</h4>
-            <div className="text-sm text-muted-foreground space-y-2">
-              <p>
-                Payment information will be managed separately after creating
-                the subscription.
-              </p>
-              <p>
-                You can add payments using the credit card icon in the
-                subscriptions list.
-              </p>
-            </div>
-            <div className="mt-3 pt-3 border-t">
-              <h5 className="font-semibold text-xs mb-1">Payment Workflow:</h5>
-              <ol className="text-xs text-muted-foreground space-y-1">
-                <li>1. Create subscription (this step)</li>
-                <li>2. Add payment via the payment button</li>
-                <li>3. Track payment history in subscription details</li>
-              </ol>
-            </div>
+            <h4 className="font-semibold text-sm mb-2">
+              {selectedIsFree ? "Free plan" : "Payment Information"}
+            </h4>
+            {selectedIsFree ? (
+              <div className="text-sm text-muted-foreground space-y-2">
+                <p>
+                  This plan is free. No payment is required and the subscription
+                  will activate immediately.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="text-sm text-muted-foreground space-y-2">
+                  <p>
+                    Payment information will be managed separately after creating
+                    the subscription.
+                  </p>
+                  <p>
+                    You can add payments using the credit card icon in the
+                    subscriptions list.
+                  </p>
+                </div>
+                <div className="mt-3 pt-3 border-t">
+                  <h5 className="font-semibold text-xs mb-1">Payment Workflow:</h5>
+                  <ol className="text-xs text-muted-foreground space-y-1">
+                    <li>1. Create subscription (this step)</li>
+                    <li>2. Add payment via the payment button</li>
+                    <li>3. Track payment history in subscription details</li>
+                  </ol>
+                </div>
+              </>
+            )}
           </div>
 
           <div className="space-y-4">
@@ -194,6 +219,12 @@ export default function AdminNewSubscriptionPage() {
                     onValueChange={(val) => {
                       field.onChange(val);
                       field.onBlur();
+                      const plan = mappedPlans.find(
+                        (p) => p.id === parseInt(val),
+                      );
+                      if (isFreePlan(plan)) {
+                        form.setValue("status", "active");
+                      }
                     }}
                   >
                     <FormControl>
@@ -208,7 +239,10 @@ export default function AdminNewSubscriptionPage() {
                           <SelectItem key={plan.id} value={plan.id.toString()}>
                             <div className="flex flex-col">
                               <div className="font-medium">
-                                {plan.name} - {formatCurrency(Number(plan.price))}
+                                {plan.name} -{" "}
+                                {isFreePlan(plan)
+                                  ? "Free"
+                                  : formatCurrency(Number(plan.price))}
                               </div>
                               <div className="text-xs text-muted-foreground">
                                 {plan.sessionsIncluded || 0} sessions •{" "}

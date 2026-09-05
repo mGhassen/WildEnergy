@@ -29,6 +29,7 @@ export interface Plan {
   price: number;
   duration_days: number;
   is_active: boolean;
+  is_free?: boolean;
   created_at: string;
   updated_at: string;
   is_popular?: boolean;
@@ -61,6 +62,7 @@ export interface CreatePlanData {
   price: number;
   duration_days: number;
   is_active?: boolean;
+  is_free?: boolean;
   planGroups?: {
     groupId: number;
     sessionCount: number;
@@ -80,6 +82,7 @@ export interface UpdatePlanData {
   price?: number;
   duration_days?: number;
   is_active?: boolean;
+  is_free?: boolean;
   planGroups?: {
     groupId: number;
     sessionCount: number;

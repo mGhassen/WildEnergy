@@ -101,6 +101,7 @@ export const plans = pgTable("plans", {
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
   durationDays: integer("duration_days").notNull(), // in days
   isActive: boolean("is_active").notNull().default(true),
+  isFree: boolean("is_free").notNull().default(false),
 });
 
 // Classes table
@@ -400,7 +401,8 @@ export const insertPlanSchema = z.object({
   price: z.number().min(0, 'Price must be a positive number'),
   durationDays: z.number().min(1, 'Duration must be at least 1 day'),
   maxSessions: z.number().min(1, 'Must allow at least 1 session'),
-  isActive: z.boolean().default(true)
+  isActive: z.boolean().default(true),
+  isFree: z.boolean().default(false),
 });
 
 export const insertClassSchema = z.object({

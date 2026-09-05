@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { applyPaymentCreditEffects } from '@/lib/member-credit';
-import { resolvePaymentDrivenStatus } from '@/lib/subscription-status';
+import {
+  isFreePlan,
+  resolvePaymentDrivenStatus,
+} from '@/lib/subscription-status';
 
 export async function GET(req: NextRequest) {
   try {
@@ -116,7 +119,7 @@ export async function POST(req: NextRequest) {
         .from('subscriptions')
         .select(`
           *,
-          plan:plans(price)
+          plan:plans(price, is_free)
         `)
         .eq('id', payment.subscription_id)
         .single();
@@ -134,6 +137,7 @@ export async function POST(req: NextRequest) {
           console.error('Error fetching payments:', paymentsError);
         } else {
           const planPrice = parseFloat(subscription.plan?.price || '0');
+          const planIsFree = isFreePlan(subscription.plan);
           const totalPaid = (allPayments || []).reduce((sum, p) => sum + parseFloat(p.amount), 0);
           const otherPaidTotal = (allPayments || [])
             .filter((p) => p.id !== payment.id)
@@ -168,6 +172,7 @@ export async function POST(req: NextRequest) {
             endDate: subscription.end_date,
             totalPaid,
             planPrice,
+            isFree: planIsFree,
           });
           
           if (newStatus !== subscription.status) {

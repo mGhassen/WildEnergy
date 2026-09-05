@@ -72,6 +72,7 @@ export const insertPlanSchema = z.object({
   duration_days: z.number().min(1, 'Duration must be at least 1 day'),
   // max_sessions removed - now calculated from plan_groups + plan_session_pools
   is_active: z.boolean(),
+  is_free: z.boolean().optional(),
   planGroups: z.array(z.object({
     groupId: z.number().min(1, 'Group is required'),
     sessionCount: z.number().min(1, 'Session count must be at least 1'),

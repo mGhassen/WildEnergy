@@ -8,7 +8,21 @@ import {
   syncPlanSessionPoolRows,
   validatePlanAllocations,
 } from '@/lib/plan-session-pools';
+import { isFreePlan } from '@/lib/subscription-status';
 
+function normalizePlanPricing(planData: Record<string, any>) {
+  const free = isFreePlan({
+    is_free: planData.is_free,
+    price: planData.price,
+  });
+  if (free) {
+    planData.is_free = true;
+    planData.price = 0;
+  } else if (planData.is_free !== undefined) {
+    planData.is_free = false;
+  }
+  return planData;
+}
 export async function GET(req: NextRequest) {
   try {
     const authHeader = req.headers.get('authorization');
@@ -52,7 +66,8 @@ export async function POST(req: NextRequest) {
     if (!adminCheck?.is_admin) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
-    const { planGroups, planSessionPools, ...planData } = await req.json();
+    const { planGroups, planSessionPools, ...rawPlanData } = await req.json();
+    const planData = normalizePlanPricing(rawPlanData);
 
     const validationError = validatePlanAllocations(planGroups, planSessionPools);
     if (validationError) {
@@ -134,7 +149,8 @@ export async function PUT(req: NextRequest) {
     if (!adminCheck?.is_admin) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
-    const { id, planGroups, planSessionPools, ...updates } = await req.json();
+    const { id, planGroups, planSessionPools, ...rawUpdates } = await req.json();
+    const updates = normalizePlanPricing(rawUpdates);
 
     if (planGroups !== undefined || planSessionPools !== undefined) {
       const validationError = validatePlanAllocations(

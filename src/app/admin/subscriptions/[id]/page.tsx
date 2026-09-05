@@ -24,6 +24,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Payment } from "@/lib/api/payments";
 import { CardSkeleton } from "@/components/skeletons";
+import {
+  getPaymentStatus,
+  getPaymentStatusBadgeVariant,
+  getPaymentStatusLabel,
+  isFreePlan,
+} from "@/lib/subscription-status";
 
 type Member = {
   id: string;
@@ -149,8 +155,16 @@ export default function AdminSubscriptionDetails() {
     .filter((p) => p.payment_status === "paid")
     .reduce((sum, p) => sum + (p.amount || 0), 0);
   const planPrice = Number(subscription?.plan?.price) || 0;
-  const remainingAmount = Math.max(0, planPrice - totalPaid);
-  const isFullyPaid = remainingAmount === 0;
+  const free = isFreePlan(subscription?.plan);
+  const remainingAmount = free ? 0 : Math.max(0, planPrice - totalPaid);
+  const paymentStatus = getPaymentStatus({
+    totalPaid,
+    planPrice,
+    isFree: free,
+  });
+  const isFullyPaid =
+    paymentStatus === "fully_paid" || paymentStatus === "free";
+
 
   const handleEditPayment = (payment: Payment) => {
     router.push(`/admin/payments/${payment.id}/edit?from=${encodeURIComponent(`/admin/subscriptions/${subscriptionId}`)}`);
@@ -381,22 +395,12 @@ export default function AdminSubscriptionDetails() {
                 </div>
                 <div className="flex items-center gap-1">
                   <span className="text-muted-foreground">Plan Price:</span>
-                  <span className="font-semibold">{formatPrice(planPrice)}</span>
+                  <span className="font-semibold">
+                    {free ? "Free" : formatPrice(planPrice)}
+                  </span>
                 </div>
-                <Badge
-                  variant={
-                    isFullyPaid
-                      ? "default"
-                      : remainingAmount > 0
-                        ? "secondary"
-                        : "destructive"
-                  }
-                >
-                  {isFullyPaid
-                    ? "Fully Paid"
-                    : remainingAmount > 0
-                      ? "Partially Paid"
-                      : "Not Paid"}
+                <Badge variant={getPaymentStatusBadgeVariant(paymentStatus)}>
+                  {getPaymentStatusLabel(paymentStatus)}
                 </Badge>
               </div>
             </CardHeader>

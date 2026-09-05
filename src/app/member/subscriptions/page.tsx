@@ -16,11 +16,17 @@ import { useMemberRegistrations } from "@/hooks/useMemberRegistrations";
 import { CardSkeleton, ListSkeleton } from "@/components/skeletons";
 import { Subscription as ApiSubscription } from "@/lib/api/subscriptions";
 import { Payment as ApiPayment } from "@/lib/api/payments";
+import {
+  getPaymentStatus,
+  getPaymentStatusLabel,
+  isFreePlan,
+} from "@/lib/subscription-status";
 
 interface MemberPlan {
   id: number;
   name: string;
   price: string;
+  is_free?: boolean;
   plan_groups?: Array<{
     id: number;
     group_id: number;
@@ -265,9 +271,20 @@ export default function MemberSubscriptions() {
                   .filter(p => p.payment_status === 'paid')
                   .reduce((sum, p) => sum + (p.amount || 0), 0);
                 const planPrice = Number(sub.plan?.price) || 0;
-                const remainingAmount = Math.max(0, planPrice - totalPaid);
-                const isFullyPaid = remainingAmount === 0;
-                const progressPercentage = planPrice > 0 ? (totalPaid / planPrice) * 100 : 0;
+                const free = isFreePlan(sub.plan);
+                const paymentStatus = getPaymentStatus({
+                  totalPaid,
+                  planPrice,
+                  isFree: free,
+                });
+                const remainingAmount = free ? 0 : Math.max(0, planPrice - totalPaid);
+                const isFullyPaid =
+                  paymentStatus === "fully_paid" || paymentStatus === "free";
+                const progressPercentage = free
+                  ? 100
+                  : planPrice > 0
+                    ? (totalPaid / planPrice) * 100
+                    : 0;
 
                 return (
                   <Card 
@@ -298,9 +315,13 @@ export default function MemberSubscriptions() {
                         {/* Payment Progress Bar */}
                         <div className="space-y-2">
                           <div className="flex justify-between text-xs sm:text-sm">
-                            <span className="font-medium">Payment Progress</span>
+                            <span className="font-medium">
+                              {free ? "Payment" : "Payment Progress"}
+                            </span>
                             <span className="text-muted-foreground">
-                              {formatCurrency(totalPaid)} / {formatCurrency(planPrice)}
+                              {free
+                                ? getPaymentStatusLabel(paymentStatus)
+                                : `${formatCurrency(totalPaid)} / ${formatCurrency(planPrice)}`}
                             </span>
                           </div>
                           <div className="w-full bg-muted rounded-full h-2">
@@ -320,11 +341,17 @@ export default function MemberSubscriptions() {
                         {/* Stats Grid */}
                         <div className="grid grid-cols-2 gap-3">
                           <div className="text-center p-3 bg-muted/50 rounded-lg">
-                            <div className="text-lg sm:text-2xl font-bold text-green-600">{formatCurrency(totalPaid)}</div>
-                            <div className="text-xs text-muted-foreground">Payé</div>
+                            <div className="text-lg sm:text-2xl font-bold text-green-600">
+                              {free ? "Free" : formatCurrency(totalPaid)}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {free ? "Plan" : "Payé"}
+                            </div>
                           </div>
                           <div className="text-center p-3 bg-muted/50 rounded-lg">
-                            <div className="text-lg sm:text-2xl font-bold text-orange-600">{formatCurrency(remainingAmount)}</div>
+                            <div className="text-lg sm:text-2xl font-bold text-orange-600">
+                              {free ? "—" : formatCurrency(remainingAmount)}
+                            </div>
                             <div className="text-xs text-muted-foreground">Restant</div>
                           </div>
                           <div className="text-center p-3 bg-muted/50 rounded-lg">

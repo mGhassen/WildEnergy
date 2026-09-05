@@ -29,6 +29,12 @@ import {
   totalPlanSessionCount,
   totalRemainingSessions,
 } from "@/lib/session-eligibility";
+import {
+  getPaymentStatus,
+  getPaymentStatusBadgeVariant,
+  getPaymentStatusLabel,
+  isFreePlan,
+} from "@/lib/subscription-status";
 
 type Member = {
   id: string;
@@ -182,16 +188,17 @@ export default function AdminSubscriptions() {
       const totalPaid = subscriptionPayments
         .filter((p) => p.payment_status === "paid")
         .reduce((sum, p) => sum + (p.amount || 0), 0);
-      const planPrice = subscription.plan?.price || 0;
-      let paymentStatus = "not_paid";
-      if (totalPaid >= planPrice && planPrice > 0) {
-        paymentStatus = "fully_paid";
-      } else if (totalPaid > 0 && totalPaid < planPrice) {
-        paymentStatus = "partially_paid";
-      }
+      const planPrice = Number(subscription.plan?.price) || 0;
+      const paymentStatus = getPaymentStatus({
+        totalPaid,
+        planPrice,
+        isFree: isFreePlan(subscription.plan),
+      });
       const matchesPaymentStatus =
         paymentStatusFilter.length === 0 ||
-        paymentStatusFilter.includes(paymentStatus);
+        paymentStatusFilter.includes(paymentStatus) ||
+        (paymentStatus === "free" &&
+          paymentStatusFilter.includes("fully_paid"));
 
       const subscriptionDate = new Date(subscription.start_date);
       const matchesDateRange =
@@ -498,6 +505,7 @@ export default function AdminSubscriptions() {
                   <label className="text-sm font-medium">Payment Status</label>
                   <div className="space-y-2">
                     {[
+                      { value: "free", label: "Free" },
                       { value: "fully_paid", label: "Fully Paid" },
                       { value: "partially_paid", label: "Partially Paid" },
                       { value: "not_paid", label: "Not Paid" },
@@ -904,25 +912,26 @@ export default function AdminSubscriptions() {
                         const totalPaid = subscriptionPayments
                           .filter((p) => p.payment_status === "paid")
                           .reduce((sum, p) => sum + (p.amount || 0), 0);
-                        const planPrice = subscription.plan?.price || 0;
-                        const remainingAmount = Math.max(0, planPrice - totalPaid);
-
-                        let status = "Not Paid";
-                        let color: "default" | "destructive" | "secondary" | "outline" =
-                          "destructive";
-                        if (totalPaid >= planPrice && planPrice > 0) {
-                          status = "Fully Paid";
-                          color = "default";
-                        } else if (totalPaid > 0 && totalPaid < planPrice) {
-                          status = "Partially Paid";
-                          color = "secondary";
-                        }
+                        const planPrice = Number(subscription.plan?.price) || 0;
+                        const free = isFreePlan(subscription.plan);
+                        const paymentStatus = getPaymentStatus({
+                          totalPaid,
+                          planPrice,
+                          isFree: free,
+                        });
+                        const remainingAmount = free
+                          ? 0
+                          : Math.max(0, planPrice - totalPaid);
 
                         return (
                           <div className="space-y-1">
-                            <Badge variant={color}>{status}</Badge>
+                            <Badge variant={getPaymentStatusBadgeVariant(paymentStatus)}>
+                              {getPaymentStatusLabel(paymentStatus)}
+                            </Badge>
                             <div className="text-xs text-muted-foreground">
-                              {formatCurrency(totalPaid)} / {formatCurrency(planPrice)}
+                              {free
+                                ? "No payment required"
+                                : `${formatCurrency(totalPaid)} / ${formatCurrency(planPrice)}`}
                             </div>
                             {remainingAmount > 0 && (
                               <div className="text-xs text-destructive">
@@ -972,12 +981,25 @@ export default function AdminSubscriptions() {
                               const totalPaid = subscriptionPayments
                                 .filter((p) => p.payment_status === "paid")
                                 .reduce((sum, p) => sum + (p.amount || 0), 0);
-                              const planPrice = subscription.plan?.price || 0;
-                              if (totalPaid >= planPrice) {
+                              const planPrice = Number(subscription.plan?.price) || 0;
+                              const free = isFreePlan(subscription.plan);
+                              const paymentStatus = getPaymentStatus({
+                                totalPaid,
+                                planPrice,
+                                isFree: free,
+                              });
+                              if (
+                                paymentStatus === "free" ||
+                                paymentStatus === "fully_paid"
+                              ) {
                                 return (
                                   <DropdownMenuItem disabled>
                                     <CreditCard className="w-4 h-4 mr-2" />
-                                    <span className="text-green-600">Fully paid</span>
+                                    <span className="text-green-600">
+                                      {paymentStatus === "free"
+                                        ? "Free plan"
+                                        : "Fully paid"}
+                                    </span>
                                   </DropdownMenuItem>
                                 );
                               }
@@ -1033,7 +1055,13 @@ export default function AdminSubscriptions() {
                 const totalPaid = subscriptionPayments
                   .filter((p) => p.payment_status === "paid")
                   .reduce((sum, p) => sum + (p.amount || 0), 0);
-                const planPrice = subscription.plan?.price || 0;
+                const planPrice = Number(subscription.plan?.price) || 0;
+                const free = isFreePlan(subscription.plan);
+                const paymentStatus = getPaymentStatus({
+                  totalPaid,
+                  planPrice,
+                  isFree: free,
+                });
                 const totalDays = subscriptionDurationDays(
                   subscription.start_date,
                   subscription.end_date,
@@ -1113,7 +1141,9 @@ export default function AdminSubscriptions() {
                           <h4 className="font-medium">{subscription.plan?.name}</h4>
                         </button>
                         <p className="text-sm text-muted-foreground">
-                          {formatCurrency(subscription.plan?.price || 0)}
+                          {free
+                            ? "Free plan"
+                            : formatCurrency(subscription.plan?.price || 0)}
                         </p>
                       </div>
 
@@ -1167,7 +1197,9 @@ export default function AdminSubscriptions() {
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">Payment</span>
                           <span className="font-medium">
-                            {formatCurrency(totalPaid)} / {formatCurrency(planPrice)}
+                            {free
+                              ? "Free"
+                              : `${formatCurrency(totalPaid)} / ${formatCurrency(planPrice)}`}
                           </span>
                         </div>
                       </div>
@@ -1177,20 +1209,8 @@ export default function AdminSubscriptions() {
                           <span className="text-sm text-muted-foreground">
                             Payment Status
                           </span>
-                          <Badge
-                            variant={
-                              totalPaid >= planPrice && planPrice > 0
-                                ? "default"
-                                : totalPaid > 0
-                                  ? "secondary"
-                                  : "destructive"
-                            }
-                          >
-                            {totalPaid >= planPrice && planPrice > 0
-                              ? "Fully Paid"
-                              : totalPaid > 0
-                                ? "Partially Paid"
-                                : "Not Paid"}
+                          <Badge variant={getPaymentStatusBadgeVariant(paymentStatus)}>
+                            {getPaymentStatusLabel(paymentStatus)}
                           </Badge>
                         </div>
                       </div>

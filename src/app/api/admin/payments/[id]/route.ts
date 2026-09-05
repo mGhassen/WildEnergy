@@ -4,7 +4,10 @@ import {
   applyPaymentCreditEffects,
   reversePaymentCreditLedger,
 } from '@/lib/member-credit';
-import { resolvePaymentDrivenStatus } from '@/lib/subscription-status';
+import {
+  isFreePlan,
+  resolvePaymentDrivenStatus,
+} from '@/lib/subscription-status';
 
 function extractIdFromUrl(request: NextRequest): string | null {
   const match = request.nextUrl.pathname.match(/\/payments\/(.+?)(\/|$)/);
@@ -16,7 +19,7 @@ async function syncSubscriptionStatus(subscriptionId: number) {
     .from('subscriptions')
     .select(`
       *,
-      plan:plans(price)
+      plan:plans(price, is_free)
     `)
     .eq('id', subscriptionId)
     .single();
@@ -45,6 +48,7 @@ async function syncSubscriptionStatus(subscriptionId: number) {
     endDate: subscription.end_date,
     totalPaid,
     planPrice,
+    isFree: isFreePlan(subscription.plan),
   });
 
   if (newStatus !== subscription.status) {
@@ -266,7 +270,7 @@ export async function PUT(request: NextRequest) {
         .from('subscriptions')
         .select(`
           *,
-          plan:plans(price)
+          plan:plans(price, is_free)
         `)
         .eq('id', payment.subscription_id)
         .single();

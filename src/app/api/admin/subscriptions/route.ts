@@ -6,6 +6,7 @@ import {
   ensureSubscriptionGroupSessions,
   resetSubscriptionGroupSessionsForPlan,
 } from '@/lib/subscription-group-sessions';
+import { isFreePlan } from '@/lib/subscription-status';
 
 export async function GET(req: NextRequest) {
   try {
@@ -51,6 +52,7 @@ export async function GET(req: NextRequest) {
           price,
           duration_days,
           is_active,
+          is_free,
           plan_groups(
             id,
             group_id,
@@ -225,7 +227,24 @@ export async function POST(req: NextRequest) {
       }
       dbData.plan_id = planId;
     }
-    
+
+    const { data: plan, error: planError } = await supabaseServer()
+      .from('plans')
+      .select('id, price, is_free')
+      .eq('id', dbData.plan_id)
+      .single();
+
+    if (planError || !plan) {
+      return NextResponse.json({ error: 'Plan not found' }, { status: 400 });
+    }
+
+    // Free plans activate immediately (no payment workflow)
+    if (isFreePlan(plan)) {
+      const requested = subData.status as string | undefined;
+      if (!requested || requested === 'pending') {
+        dbData.status = 'active';
+      }
+    }
     
     // Validate dates
     const startDate = new Date(dbData.start_date);

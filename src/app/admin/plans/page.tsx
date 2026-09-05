@@ -30,6 +30,7 @@ import { formatCurrency } from "@/lib/config";
 import { usePlans } from "@/hooks/usePlans";
 import { useClientPagination } from "@/hooks/useClientPagination";
 import { ListPagination } from "@/components/list-pagination";
+import { isFreePlan } from "@/lib/subscription-status";
 
 type AdminPlanSort =
   | "default"
@@ -380,13 +381,23 @@ export default function AdminPlans() {
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="text-2xl font-bold text-primary mb-1">
-                          {formatPrice(plan.price)}
+                          {isFreePlan(plan) ? "Free" : formatPrice(plan.price)}
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          per {getDurationText(plan.durationDays).toLowerCase()}
+                          {isFreePlan(plan)
+                            ? "no payment required"
+                            : `per ${getDurationText(plan.durationDays).toLowerCase()}`}
                         </div>
                       </div>
                       <div className="text-right">
+                        {isFreePlan(plan) && (
+                          <Badge
+                            variant="outline"
+                            className="mb-1 border-emerald-300 text-emerald-700 dark:text-emerald-400"
+                          >
+                            Free plan
+                          </Badge>
+                        )}
                         <div className="text-sm font-medium text-foreground">
                           {plan.durationDays} days
                         </div>
@@ -585,10 +596,12 @@ export default function AdminPlans() {
 
                     <div>
                       <div className="text-lg font-bold text-primary">
-                        {formatPrice(plan.price)}
+                        {isFreePlan(plan) ? "Free" : formatPrice(plan.price)}
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        per {getDurationText(plan.durationDays).toLowerCase()}
+                        {isFreePlan(plan)
+                          ? "no payment required"
+                          : `per ${getDurationText(plan.durationDays).toLowerCase()}`}
                       </div>
                     </div>
 

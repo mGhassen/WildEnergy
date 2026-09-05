@@ -14,11 +14,17 @@ import {
   totalRemainingSessions as sumRemainingSessions,
   findPoolSessionForPlan,
 } from "@/lib/session-eligibility";
+import {
+  getPaymentStatus,
+  getPaymentStatusLabel,
+  isFreePlan,
+} from "@/lib/subscription-status";
 
 interface Plan {
   id: number;
   name: string;
   price: string | number;
+  is_free?: boolean;
   plan_groups?: Array<{
     id: number;
     group_id: number;
@@ -150,11 +156,18 @@ export function SubscriptionDetails({
     .reduce((sum, p) => sum + (p.amount || 0), 0);
 
   const planPrice = Number(plan.price) || 0;
-  const remainingAmount = Math.max(0, planPrice - totalPaid);
+  const free = isFreePlan(plan);
+  const remainingAmount = free ? 0 : Math.max(0, planPrice - totalPaid);
+  const paymentStatus = getPaymentStatus({
+    totalPaid,
+    planPrice,
+    isFree: free,
+  });
 
-  const isFullyPaid = remainingAmount === 0;
-  const hasPartialPayment = totalPaid > 0 && !isFullyPaid;
-  const hasNoPayment = totalPaid === 0;
+  const isFullyPaid =
+    paymentStatus === "fully_paid" || paymentStatus === "free";
+  const hasPartialPayment = paymentStatus === "partially_paid";
+  const hasNoPayment = paymentStatus === "not_paid";
 
   const formatPrice = (price: string | number) => {
     const numPrice = typeof price === "string" ? parseFloat(price) : price;
@@ -260,9 +273,11 @@ export function SubscriptionDetails({
                         : "text-muted-foreground"
                   }`}
                 >
-                  {isFullyPaid
-                    ? "Fully paid"
-                    : `${formatPrice(remainingAmount)} remaining`}
+                  {paymentStatus === "free"
+                    ? "Free plan"
+                    : isFullyPaid
+                      ? "Fully paid"
+                      : `${formatPrice(remainingAmount)} remaining`}
                 </p>
               </div>
               <div className="text-center p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800/30">
@@ -592,20 +607,32 @@ export function SubscriptionDetails({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-muted/30 rounded-lg">
               <div className="text-center">
                 <p className="text-sm text-muted-foreground">Total Amount</p>
-                <p className="text-lg font-bold">{formatPrice(planPrice)}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground">Amount Paid</p>
-                <p className="text-lg font-bold text-green-600">
-                  {formatPrice(totalPaid)}
+                <p className="text-lg font-bold">
+                  {free ? "Free" : formatPrice(planPrice)}
                 </p>
               </div>
               <div className="text-center">
-                <p className="text-sm text-muted-foreground">Remaining</p>
+                <p className="text-sm text-muted-foreground">
+                  {free ? "Payment" : "Amount Paid"}
+                </p>
+                <p className="text-lg font-bold text-green-600">
+                  {free ? "Not required" : formatPrice(totalPaid)}
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-sm text-muted-foreground">
+                  {free ? "Status" : "Remaining"}
+                </p>
                 <p
-                  className={`text-lg font-bold ${remainingAmount > 0 ? "text-orange-600" : "text-green-600"}`}
+                  className={`text-lg font-bold ${
+                    free || remainingAmount <= 0
+                      ? "text-green-600"
+                      : "text-orange-600"
+                  }`}
                 >
-                  {formatPrice(remainingAmount)}
+                  {free
+                    ? getPaymentStatusLabel(paymentStatus)
+                    : formatPrice(remainingAmount)}
                 </p>
               </div>
             </div>
