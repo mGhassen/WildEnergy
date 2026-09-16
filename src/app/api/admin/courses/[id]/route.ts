@@ -665,7 +665,7 @@ export async function PUT(
     }
     
     // Use the validated data directly (already in snake_case)
-    const { trainer_id, status, ...rest } = validationResult.data;
+    const { trainer_id, status, notes, ...rest } = validationResult.data;
     const allowedUpdates: Record<string, unknown> = {
       ...rest,
       trainer_id: trainer_id?.trim() ? trainer_id : null,
@@ -673,6 +673,9 @@ export async function PUT(
     };
     if (status !== undefined) {
       allowedUpdates.status = status;
+    }
+    if (notes !== undefined) {
+      allowedUpdates.notes = notes?.trim() ? notes.trim() : null;
     }
 
     const { data: course, error } = await supabaseServer()

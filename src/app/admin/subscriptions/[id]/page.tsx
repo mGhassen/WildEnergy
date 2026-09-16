@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Payment } from "@/lib/api/payments";
 import { CardSkeleton } from "@/components/skeletons";
+import { NotesHoverIcon } from "@/components/notes-hover-icon";
 import {
   getPaymentStatus,
   getPaymentStatusBadgeVariant,
@@ -231,10 +232,14 @@ export default function AdminSubscriptionDetails() {
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back
           </Button>
-          <div>
+          <div className="flex items-center gap-2">
             <h1 className="text-3xl font-bold text-foreground">
               Subscription Details
             </h1>
+            <NotesHoverIcon
+              notes={subscription.notes}
+              ariaLabel="View subscription notes"
+            />
           </div>
         </div>
         <div className="flex items-center gap-2">

@@ -66,7 +66,7 @@ export const SEMANTIC_OBJECTS: SemanticObject[] = [
     table: "subscriptions",
     fields: [
       { id: "id", label: "Subscription ID", type: "number", column: "id" },
-      { id: "status", label: "Status", type: "enum", column: "status", enumValues: ["active", "pending", "expired", "cancelled"] },
+      { id: "status", label: "Status", type: "enum", column: "status", enumValues: ["active", "pending", "expired", "cancelled", "completed"] },
       { id: "start_date", label: "Start date", type: "date", column: "start_date" },
       { id: "end_date", label: "End date", type: "date", column: "end_date", periodDefault: true },
       { id: "created_at", label: "Created at", type: "date", column: "created_at" },

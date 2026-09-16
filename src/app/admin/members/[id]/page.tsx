@@ -199,6 +199,7 @@ const getSubscriptionStatusColor = (status: string) => {
     case 'inactive': return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
     case 'pending': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
     case 'cancelled': return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+    case 'completed': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
     default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
   }
 };
@@ -597,6 +598,7 @@ export default function MemberDetailsPage() {
     if (status === 'expired') return 'Expired';
     if (status === 'pending') return 'Pending';
     if (status === 'cancelled') return 'Cancelled';
+    if (status === 'completed') return 'Completed';
     return status;
   };
 
@@ -1439,6 +1441,7 @@ export default function MemberDetailsPage() {
                       <SelectItem value="pending">Pending</SelectItem>
                       <SelectItem value="expired">Expired</SelectItem>
                       <SelectItem value="cancelled">Cancelled</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
                       <SelectItem value="inactive">Inactive</SelectItem>
                     </SelectContent>
                   </Select>

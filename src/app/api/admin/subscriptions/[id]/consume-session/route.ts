@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { completeSubscriptionIfDepleted } from '@/lib/subscription-session-lifecycle';
 
 export async function POST(
   request: NextRequest,
@@ -99,6 +100,8 @@ export async function POST(
         return NextResponse.json({ error: 'Failed to consume session' }, { status: 500 });
       }
 
+      await completeSubscriptionIfDepleted(subscriptionId);
+
       return NextResponse.json({
         success: true,
         message: 'Session consumed successfully',
@@ -135,6 +138,8 @@ export async function POST(
       console.error('Error consuming session:', updateError);
       return NextResponse.json({ error: 'Failed to consume session' }, { status: 500 });
     }
+
+    await completeSubscriptionIfDepleted(subscriptionId);
 
     return NextResponse.json({
       success: true,

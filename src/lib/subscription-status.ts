@@ -8,6 +8,16 @@ export type SubscriptionPaymentStatus =
   | 'partially_paid'
   | 'not_paid';
 
+export const SUBSCRIPTION_STATUSES = [
+  'pending',
+  'active',
+  'cancelled',
+  'expired',
+  'completed',
+] as const;
+
+export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number];
+
 export function isFreePlan(plan: {
   is_free?: boolean | null;
   isFree?: boolean | null;
@@ -66,7 +76,7 @@ export function getPaymentStatusBadgeVariant(
 }
 
 /**
- * Resolve status from payments, without overriding cancelled.
+ * Resolve status from payments, without overriding cancelled/completed.
  * Past inclusive end midnight → expired (even if fully paid).
  * Free / zero-price plans are treated as paid → active.
  */
@@ -76,9 +86,13 @@ export function resolvePaymentDrivenStatus(params: {
   totalPaid: number;
   planPrice: number;
   isFree?: boolean;
-}): PaymentDrivenStatus | 'cancelled' {
+}): PaymentDrivenStatus | 'cancelled' | 'completed' {
   if (params.currentStatus === 'cancelled') {
     return 'cancelled';
+  }
+
+  if (params.currentStatus === 'completed') {
+    return 'completed';
   }
 
   if (!isSubscriptionActiveByEndDate(params.endDate)) {

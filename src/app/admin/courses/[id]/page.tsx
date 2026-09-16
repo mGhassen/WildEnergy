@@ -73,6 +73,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { NotesHoverIcon } from '@/components/notes-hover-icon';
 
 interface CourseDetails {
   id: number;
@@ -87,6 +88,7 @@ interface CourseDetails {
   status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
   is_active: boolean;
   code?: string;
+  notes?: string | null;
   created_at: string;
   updated_at: string;
   isEdited?: boolean;
@@ -609,7 +611,10 @@ export default function CourseDetailsPage() {
                 {courseData.code || `CRS-${String(courseData.id).padStart(5, '0')}`}
               </span>
             </div>
-            <h1 className="text-3xl font-bold">{courseData.class.name}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-3xl font-bold">{courseData.class.name}</h1>
+              <NotesHoverIcon notes={courseData.notes} ariaLabel="View course notes" />
+            </div>
             <p className="text-muted-foreground">
               {formatDate(courseData.course_date)} • {formatTime(courseData.start_time)} - {formatTime(courseData.end_time)}
             </p>

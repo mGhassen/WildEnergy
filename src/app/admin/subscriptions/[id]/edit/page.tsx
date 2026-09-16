@@ -26,7 +26,7 @@ const subscriptionFormSchema = z.object({
   startDate: z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/, "Invalid date"),
   endDate: z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/, "Invalid date"),
   notes: z.string().optional(),
-  status: z.enum(["active", "pending", "expired", "cancelled"]).optional(),
+  status: z.enum(["active", "pending", "expired", "cancelled", "completed"]).optional(),
 });
 
 type SubscriptionFormData = z.infer<typeof subscriptionFormSchema>;
@@ -324,6 +324,7 @@ export default function AdminEditSubscriptionPage() {
                       <SelectItem value="pending">Pending</SelectItem>
                       <SelectItem value="expired">Expired</SelectItem>
                       <SelectItem value="cancelled">Cancelled</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />

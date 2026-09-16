@@ -41,6 +41,7 @@ export interface Course {
   status: string;
   is_active: boolean;
   code?: string;
+  notes?: string | null;
   created_at: string;
   updated_at: string;
   class?: any;

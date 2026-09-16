@@ -32,6 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Course } from "@/lib/api/courses";
 import { toDateKey } from "@/lib/date";
@@ -64,6 +65,7 @@ export function CourseEditDialog({ course, isOpen, onClose }: CourseEditDialogPr
       start_time: toTimeInputValue(course.start_time),
       end_time: toTimeInputValue(course.end_time),
       max_participants: course.max_participants,
+      notes: course.notes || "",
     },
   });
 
@@ -76,6 +78,7 @@ export function CourseEditDialog({ course, isOpen, onClose }: CourseEditDialogPr
       start_time: toTimeInputValue(course.start_time),
       end_time: toTimeInputValue(course.end_time),
       max_participants: course.max_participants,
+      notes: course.notes || "",
     });
   }, [isOpen, course, form]);
 
@@ -91,6 +94,7 @@ export function CourseEditDialog({ course, isOpen, onClose }: CourseEditDialogPr
           start_time: data.start_time.length === 5 ? `${data.start_time}:00` : data.start_time,
           end_time: data.end_time.length === 5 ? `${data.end_time}:00` : data.end_time,
           max_participants: data.max_participants,
+          notes: data.notes?.trim() ? data.notes.trim() : null,
         },
       });
 
@@ -249,6 +253,24 @@ export function CourseEditDialog({ course, isOpen, onClose }: CourseEditDialogPr
                       min={1}
                       value={field.value}
                       onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 1)}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Notes</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Optional notes..."
+                      value={field.value ?? ""}
+                      onChange={field.onChange}
                     />
                   </FormControl>
                   <FormMessage />

@@ -140,6 +140,8 @@ export default function AdminCourses() {
     scheduleDate: course.course_date,
     repetitionType: 'once',
     isActive: course.is_active,
+    isEdited: course.isEdited,
+    notes: course.notes,
     class: {
       id: course.class?.id || 0,
       name: course.class?.name || 'Unknown Class',

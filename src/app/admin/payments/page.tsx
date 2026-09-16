@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, DollarSign, Filter, Calendar, TrendingUp, CreditCard, Edit, Trash2, MessageSquare } from "lucide-react";
+import { Search, DollarSign, Filter, Calendar, TrendingUp, CreditCard, Edit, Trash2 } from "lucide-react";
 import { getInitials } from "@/lib/auth";
 import { formatDate } from "@/lib/date";
 import { formatCurrency } from "@/lib/config";
@@ -19,7 +19,7 @@ import { useMembers } from "@/hooks/useMembers";
 import { useSubscriptions } from "@/hooks/useSubscriptions";
 import { usePlans } from "@/hooks/usePlans";
 import { TableSkeleton } from "@/components/skeletons";
-import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { NotesHoverIcon } from "@/components/notes-hover-icon";
 
 type Payment = {
   id: number;
@@ -569,22 +569,7 @@ export default function AdminPayments() {
                             <DollarSign className="w-4 h-4 mr-1 text-muted-foreground" />
                             <span className="font-medium">{formatPrice(payment.amount)}</span>
                           </div>
-                          {payment.notes?.trim() && (
-                            <HoverCard openDelay={150} closeDelay={100}>
-                              <HoverCardTrigger asChild>
-                                <button
-                                  type="button"
-                                  className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-                                  aria-label="View payment notes"
-                                >
-                                  <MessageSquare className="h-4 w-4" />
-                                </button>
-                              </HoverCardTrigger>
-                              <HoverCardContent align="start" className="w-72 p-3">
-                                <p className="text-sm whitespace-pre-wrap break-words">{payment.notes}</p>
-                              </HoverCardContent>
-                            </HoverCard>
-                          )}
+                          <NotesHoverIcon notes={payment.notes} ariaLabel="View payment notes" />
                         </div>
                       </TableCell>
                       <TableCell>

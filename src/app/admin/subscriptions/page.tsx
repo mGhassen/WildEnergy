@@ -25,6 +25,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
+import { NotesHoverIcon } from "@/components/notes-hover-icon";
 import {
   totalPlanSessionCount,
   totalRemainingSessions,
@@ -312,6 +313,8 @@ export default function AdminSubscriptions() {
         return "destructive";
       case "cancelled":
         return "secondary";
+      case "completed":
+        return "outline";
       default:
         return "outline";
     }
@@ -327,6 +330,8 @@ export default function AdminSubscriptions() {
         return "Expired";
       case "cancelled":
         return "Cancelled";
+      case "completed":
+        return "Completed";
       default:
         return status;
     }
@@ -480,7 +485,7 @@ export default function AdminSubscriptions() {
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Status</label>
                   <div className="space-y-2">
-                    {["active", "pending", "expired", "cancelled"].map((status) => (
+                    {["active", "pending", "expired", "cancelled", "completed"].map((status) => (
                       <div key={status} className="flex items-center space-x-2">
                         <Checkbox
                           id={`status-${status}`}
@@ -807,21 +812,27 @@ export default function AdminSubscriptions() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const planId =
-                              subscription.plan?.id ?? subscription.plan_id;
-                            if (planId) router.push(`/admin/plans/${planId}`);
-                          }}
-                          className="text-left hover:text-primary transition-colors"
-                        >
-                          <div className="font-medium">{subscription.plan?.name}</div>
-                        </button>
-                        <div className="text-sm text-muted-foreground">
-                          {formatPrice(subscription.plan?.price || 0)}
+                      <div className="flex items-start gap-1">
+                        <div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const planId =
+                                subscription.plan?.id ?? subscription.plan_id;
+                              if (planId) router.push(`/admin/plans/${planId}`);
+                            }}
+                            className="text-left hover:text-primary transition-colors"
+                          >
+                            <div className="font-medium">{subscription.plan?.name}</div>
+                          </button>
+                          <div className="text-sm text-muted-foreground">
+                            {formatPrice(subscription.plan?.price || 0)}
+                          </div>
                         </div>
+                        <NotesHoverIcon
+                          notes={subscription.notes}
+                          ariaLabel="View subscription notes"
+                        />
                       </div>
                     </TableCell>
                     <TableCell>
@@ -1129,17 +1140,23 @@ export default function AdminSubscriptions() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const planId =
-                              subscription.plan?.id ?? subscription.plan_id;
-                            if (planId) router.push(`/admin/plans/${planId}`);
-                          }}
-                          className="text-left hover:text-primary transition-colors"
-                        >
-                          <h4 className="font-medium">{subscription.plan?.name}</h4>
-                        </button>
+                        <div className="flex items-start gap-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const planId =
+                                subscription.plan?.id ?? subscription.plan_id;
+                              if (planId) router.push(`/admin/plans/${planId}`);
+                            }}
+                            className="text-left hover:text-primary transition-colors"
+                          >
+                            <h4 className="font-medium">{subscription.plan?.name}</h4>
+                          </button>
+                          <NotesHoverIcon
+                            notes={subscription.notes}
+                            ariaLabel="View subscription notes"
+                          />
+                        </div>
                         <p className="text-sm text-muted-foreground">
                           {free
                             ? "Free plan"

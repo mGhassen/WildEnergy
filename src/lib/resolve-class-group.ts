@@ -14,10 +14,23 @@ type CategoryGroupRow = {
   groups?: ClassGroupRef | ClassGroupRef[] | null;
 };
 
+function groupsFromCategoryRows(rows: CategoryGroupRow[]): ClassGroupRef[] {
+  const out: ClassGroupRef[] = [];
+  for (const row of rows) {
+    const raw = row.group ?? row.groups;
+    const group = Array.isArray(raw) ? raw[0] : raw;
+    if (!group?.id || !group.name) continue;
+    out.push(group);
+  }
+  return out;
+}
+
 /**
- * Session group for a class = the category_groups entry whose group name
- * matches the class name. No [0] fallback — shared categories (e.g. Pole Dance)
- * must not steal another group's sessions.
+ * Session group for a class via its category:
+ * 1) Prefer category group whose name matches the class name (multi-group categories
+ *    like Pole Dance — never steal another group's sessions via [0]).
+ * 2) Else if the category has exactly one group, use it (e.g. Birthday & Events
+ *    where class names differ from the sole group name).
  */
 export function resolveGroupForClass(cls: {
   name?: string | null;
@@ -25,18 +38,18 @@ export function resolveGroupForClass(cls: {
     category_groups?: CategoryGroupRow[] | null;
   } | null;
 } | null | undefined): ClassGroupRef | null {
-  if (!cls?.name) return null;
-  const target = normalizeClassGroupName(cls.name);
-  const rows = cls.category?.category_groups || [];
+  const groups = groupsFromCategoryRows(cls?.category?.category_groups || []);
+  if (groups.length === 0) return null;
 
-  for (const row of rows) {
-    const raw = row.group ?? row.groups;
-    const group = Array.isArray(raw) ? raw[0] : raw;
-    if (!group?.id || !group.name) continue;
-    if (normalizeClassGroupName(group.name) === target) {
-      return group;
-    }
+  if (cls?.name) {
+    const target = normalizeClassGroupName(cls.name);
+    const matched = groups.find(
+      (g) => normalizeClassGroupName(g.name) === target,
+    );
+    if (matched) return matched;
   }
+
+  if (groups.length === 1) return groups[0];
 
   return null;
 }

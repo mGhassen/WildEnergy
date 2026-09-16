@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { reactivateSubscriptionIfCompleted } from '@/lib/subscription-session-lifecycle';
 
 async function getUserFromToken(token: string) {
   const { data: { user }, error } = await supabaseServer().auth.getUser(token);
@@ -204,6 +205,8 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Failed to update pool session' }, { status: 500 });
       }
 
+      await reactivateSubscriptionIfCompleted(subscriptionId);
+
       await supabaseServer()
         .from('subscriptions')
         .update({ updated_at: new Date().toISOString() })
@@ -322,6 +325,8 @@ export async function POST(req: NextRequest) {
         sessionsRefunded: 0
       }, { status: 400 });
     }
+
+    await reactivateSubscriptionIfCompleted(subscriptionId);
 
     console.log(`Manually refunded ${sessionsRefunded} session(s) to subscription ${subscriptionId}`);
     

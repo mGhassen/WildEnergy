@@ -19,6 +19,7 @@ import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, A
 import { MoreVertical } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { NotesHoverIcon } from '@/components/notes-hover-icon';
 
 interface Schedule {
   id: number;
@@ -30,6 +31,7 @@ interface Schedule {
   parentScheduleId?: number;
   isActive: boolean;
   isEdited?: boolean;
+  notes?: string | null;
   class: {
     id: number;
     name: string;
@@ -493,6 +495,7 @@ export default function ScheduleCalendar({
                     <div className={isMobile ? '' : 'flex-1'}>
                       <div className="flex items-center gap-2">
                         <h3 className={`font-semibold ${isMobile ? 'text-base' : 'text-lg'} ${isPast ? 'text-gray-500' : ''}`}>{schedule.class?.name || 'Unknown Class'}</h3>
+                        <NotesHoverIcon notes={schedule.notes} ariaLabel="View course notes" />
                         {schedule.isEdited && (
                           <Badge variant="outline" className="text-orange-600 border-orange-200 text-xs">
                             <AlertTriangle className="w-3 h-3 mr-1" />
@@ -587,7 +590,10 @@ export default function ScheduleCalendar({
                              : 'bg-primary/10 hover:bg-primary/20'
                          }`}
                          onClick={() => onCourseClick ? onCourseClick(schedule.id) : router.push(`/admin/courses/${schedule.id}`)}>
-                      <div className={`font-medium truncate ${isPast ? 'text-gray-500' : ''}`}>{schedule.class?.name || 'Unknown Class'}</div>
+                      <div className={`font-medium truncate flex items-center gap-1 ${isPast ? 'text-gray-500' : ''}`}>
+                        <span className="truncate">{schedule.class?.name || 'Unknown Class'}</span>
+                        <NotesHoverIcon notes={schedule.notes} ariaLabel="View course notes" className="h-5 w-5" />
+                      </div>
                       <div className={isPast ? 'text-gray-400' : 'text-muted-foreground'}>{formatTime(schedule.startTime)}</div>
                       <div className="flex justify-between mt-1">
                         <span className={isPast ? 'text-gray-400' : ''}>{getAllScheduleRegistrations(schedule.id).length}/{schedule.class?.maxCapacity || 0}</span>
@@ -676,7 +682,10 @@ export default function ScheduleCalendar({
                                  : 'bg-primary/10 hover:bg-primary/20'
                              }`}
                              onClick={() => onCourseClick ? onCourseClick(schedule.id) : router.push(`/admin/courses/${schedule.id}`)}>
-                          <div className={`truncate font-medium ${isPast ? 'text-gray-500' : ''}`}>{schedule.class?.name || 'Unknown Class'}</div>
+                          <div className={`truncate font-medium flex items-center gap-1 ${isPast ? 'text-gray-500' : ''}`}>
+                            <span className="truncate">{schedule.class?.name || 'Unknown Class'}</span>
+                            <NotesHoverIcon notes={schedule.notes} ariaLabel="View course notes" className="h-5 w-5" />
+                          </div>
                           <div className="flex justify-between">
                             <span className={isPast ? 'text-gray-400' : ''}>{formatTime(schedule.startTime)}</span>
                             <span className={isPast ? 'text-gray-400' : ''}>{getAllScheduleRegistrations(schedule.id).length}/{schedule.class?.maxCapacity || 0}</span>

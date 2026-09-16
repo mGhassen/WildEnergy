@@ -464,7 +464,7 @@ export const insertSubscriptionSchema = z.object({
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD'),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD'),
   sessionsRemaining: z.number().min(0).default(0),
-  status: z.enum(['active', 'expired', 'cancelled']).default('active'),
+  status: z.enum(['active', 'expired', 'cancelled', 'pending', 'completed']).default('active'),
   notes: z.string().optional(),
 });
 

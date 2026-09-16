@@ -129,6 +129,7 @@ export const editCourseSchema = z.object({
   end_time: z.string().min(1, 'End time is required'),
   max_participants: z.number().min(1, 'Max participants must be at least 1'),
   status: z.enum(['scheduled', 'in_progress', 'completed', 'cancelled']).optional(),
+  notes: z.string().optional().nullable(),
 }).refine((data) => {
   const start = new Date(`2000-01-01T${data.start_time}`);
   const end = new Date(`2000-01-01T${data.end_time}`);
@@ -157,7 +158,7 @@ export const insertSubscriptionSchema = z.object({
   startDate: z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/, 'Must be YYYY-MM-DD'),
   endDate: z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/, 'Must be YYYY-MM-DD'),
   sessionsRemaining: z.number().min(0).default(0),
-  status: z.enum(['active', 'cancelled', 'pending', 'expired']),
+  status: z.enum(['active', 'cancelled', 'pending', 'expired', 'completed']),
   notes: z.string().optional(),
 });
 

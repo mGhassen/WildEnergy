@@ -156,6 +156,8 @@ export default function MemberSubscriptions() {
         return <Badge variant="destructive">Cancelled</Badge>;
       case 'expired':
         return <Badge variant="outline" className="bg-gray-100 text-gray-800">Expired</Badge>;
+      case 'completed':
+        return <Badge variant="outline" className="bg-blue-100 text-blue-800">Completed</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
     }

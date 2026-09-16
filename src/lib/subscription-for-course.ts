@@ -44,6 +44,7 @@ export function subscriptionsCoveringCourseDate<T extends SubscriptionLike>(
   return (subscriptions || []).filter(
     (s) =>
       s.status !== 'cancelled' &&
+      s.status !== 'completed' &&
       isSubscriptionValidOnDate(s.start_date, s.end_date, courseDate),
   );
 }

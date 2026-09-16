@@ -194,6 +194,11 @@ const getSubscriptionConfig = (status: string) => {
       icon: '🚫', 
       label: 'Cancelled' 
     },
+    completed: {
+      color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+      icon: '✅',
+      label: 'Completed'
+    },
     inactive: { 
       color: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200', 
       icon: '⏸️', 

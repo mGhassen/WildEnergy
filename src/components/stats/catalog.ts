@@ -633,7 +633,7 @@ export const METRIC_CATALOG: MetricDef[] = [
     id: "chart.sub_status",
     object: "Subscriptions",
     label: "Subscription status",
-    description: "How subscriptions are split by lifecycle status right now (active, pending, expired, cancelled).",
+    description: "How subscriptions are split by lifecycle status right now (active, pending, expired, cancelled, completed).",
     tabs: ["overview", "subscriptions"],
     viz: "pie",
     defaultW: 3,
