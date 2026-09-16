@@ -137,6 +137,7 @@ export const planFormSchema = z
     description: z.string().optional(),
     price: z.number().min(0, "Price must be a positive number"),
     durationDays: z.number().min(1, "Duration must be at least 1 day"),
+    maxSeats: z.number().int().min(1, "Max seats must be at least 1"),
     isActive: z.boolean(),
     isFree: z.boolean(),
     planGroups: z.array(
@@ -199,6 +200,7 @@ export const planFormDefaultValues: PlanFormData = {
   description: "",
   price: 0,
   durationDays: 30,
+  maxSeats: 1,
   isActive: true,
   isFree: false,
   planGroups: [],
@@ -382,6 +384,29 @@ export function PlanForm({
           )}
         />
 
+        <FormField
+          control={form.control}
+          name="maxSeats"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Max seats (incl. payer)</FormLabel>
+              <FormControl>
+                <Input
+                  type="number"
+                  min={1}
+                  {...field}
+                  onChange={(e) => field.onChange(Number(e.target.value))}
+                  placeholder="1"
+                />
+              </FormControl>
+              <p className="text-xs text-muted-foreground">
+                1 = single member. 2 = payer +1. Higher = group plan.
+              </p>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
         {/* Dedicated groups UI hidden — planGroups still in form/API for later */}
 
         <div className="space-y-3">
@@ -533,6 +558,7 @@ export function toApiPlanPayload(data: PlanFormData) {
     description: data.description,
     price: isFree ? 0 : Number(data.price),
     duration_days: data.durationDays,
+    max_seats: Math.max(1, Number(data.maxSeats) || 1),
     is_active: data.isActive,
     is_free: isFree,
     planGroups:
@@ -557,6 +583,8 @@ export function planToFormValues(plan: {
   price: number;
   duration_days?: number;
   durationDays?: number;
+  max_seats?: number;
+  maxSeats?: number;
   is_active?: boolean;
   isActive?: boolean;
   is_free?: boolean;
@@ -583,6 +611,7 @@ export function planToFormValues(plan: {
     description: plan.description ?? "",
     price: isFree ? 0 : price,
     durationDays: plan.duration_days ?? plan.durationDays ?? 30,
+    maxSeats: plan.max_seats ?? plan.maxSeats ?? 1,
     isActive: plan.is_active ?? plan.isActive ?? true,
     isFree,
     planGroups:

@@ -102,6 +102,7 @@ export const plans = pgTable("plans", {
   durationDays: integer("duration_days").notNull(), // in days
   isActive: boolean("is_active").notNull().default(true),
   isFree: boolean("is_free").notNull().default(false),
+  maxSeats: integer("max_seats").notNull().default(1),
 });
 
 // Classes table
@@ -177,6 +178,32 @@ export const subscriptions = pgTable("subscriptions", {
   endDate: timestamp("end_date").notNull(),
   status: text("status").notNull().default("active"), // 'active', 'expired', 'cancelled'
   notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const subscriptionSeats = pgTable("subscription_seats", {
+  id: serial("id").primaryKey(),
+  subscriptionId: integer("subscription_id").references(() => subscriptions.id, { onDelete: "cascade" }).notNull(),
+  memberId: uuid("member_id").references(() => members.id, { onDelete: "cascade" }).notNull(),
+  role: text("role").notNull().default("member").$type<"owner" | "member">(),
+  status: text("status").notNull().default("active").$type<"active" | "revoked">(),
+  invitedByMemberId: uuid("invited_by_member_id").references(() => members.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueSubscriptionMember: unique().on(table.subscriptionId, table.memberId),
+}));
+
+export const subscriptionInvites = pgTable("subscription_invites", {
+  id: serial("id").primaryKey(),
+  subscriptionId: integer("subscription_id").references(() => subscriptions.id, { onDelete: "cascade" }).notNull(),
+  email: text("email").notNull(),
+  token: text("token").notNull().unique(),
+  invitedByMemberId: uuid("invited_by_member_id").references(() => members.id, { onDelete: "set null" }),
+  status: text("status").notNull().default("pending").$type<"pending" | "accepted" | "revoked" | "expired">(),
+  expiresAt: timestamp("expires_at").notNull(),
+  acceptedMemberId: uuid("accepted_member_id").references(() => members.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

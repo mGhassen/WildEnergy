@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { resolveAccessibleSubscriptionId } from '@/lib/subscription-seats';
 
 async function getUserFromToken(token: string) {
   const { data: { user }, error } = await supabaseServer().auth.getUser(token);
@@ -163,28 +164,23 @@ export async function POST(req: NextRequest) {
 
     // Check subscriptions for each member
     const subscriptionResults = [];
+    const subscriptionByMember = new Map<string, number>();
     for (const memberId of newMembers) {
-      const { data: activeSubscription, error: subscriptionError } = await supabaseServer()
-        .from('subscriptions')
-        .select('id')
-        .eq('member_id', memberId)
-        .eq('status', 'active')
-        .order('end_date', { ascending: false })
-        .limit(1)
-        .single();
+      const subscriptionId = await resolveAccessibleSubscriptionId(
+        supabaseServer(),
+        memberId,
+        { status: ['active'], courseDate: course.course_date }
+      );
 
-      if (subscriptionError && subscriptionError.code !== 'PGRST116') {
-        console.error('Error checking subscription for member:', memberId, subscriptionError);
-        continue;
-      }
-
-      if (!activeSubscription) {
+      if (!subscriptionId) {
         const member = members.find(m => m.id === memberId);
         subscriptionResults.push({
           memberId,
           memberName: member ? `${member.first_name} ${member.last_name}` : 'Unknown',
           error: 'No active subscription with sessions remaining'
         });
+      } else {
+        subscriptionByMember.set(memberId, subscriptionId);
       }
     }
 
@@ -204,17 +200,8 @@ export async function POST(req: NextRequest) {
 
     for (const memberId of newMembers) {
       try {
-        // Get member's active subscription
-        const { data: activeSubscription } = await supabaseServer()
-          .from('subscriptions')
-          .select('id')
-          .eq('member_id', memberId)
-          .eq('status', 'active')
-          .order('end_date', { ascending: false })
-          .limit(1)
-          .single();
-
-        if (!activeSubscription) {
+        const subscriptionId = subscriptionByMember.get(memberId);
+        if (!subscriptionId) {
           const member = members.find(m => m.id === memberId);
           errors.push({
             memberId,
@@ -230,7 +217,7 @@ export async function POST(req: NextRequest) {
             p_user_id: memberId,
             p_course_id: courseId,
             p_current_participants: course.current_participants + registrationResults.length,
-            p_subscription_id: activeSubscription.id
+            p_subscription_id: subscriptionId
           });
         
         const result: any = rpcResult.data;

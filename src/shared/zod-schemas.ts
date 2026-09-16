@@ -73,6 +73,7 @@ export const insertPlanSchema = z.object({
   // max_sessions removed - now calculated from plan_groups + plan_session_pools
   is_active: z.boolean(),
   is_free: z.boolean().optional(),
+  max_seats: z.number().int().min(1, 'Max seats must be at least 1').optional(),
   planGroups: z.array(z.object({
     groupId: z.number().min(1, 'Group is required'),
     sessionCount: z.number().min(1, 'Session count must be at least 1'),

@@ -341,22 +341,8 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    // Get user's active subscription
-    const { data: activeSubscription, error: subscriptionError } = await supabaseServer()
-      .from('subscriptions')
-      .select('id')
-      .eq('member_id', userProfile.member_id)
-      .eq('status', 'active')
-      .order('end_date', { ascending: false })
-      .limit(1)
-      .single();
-
-    if (subscriptionError && subscriptionError.code !== 'PGRST116') {
-      console.error('Error checking subscription:', subscriptionError);
-      return NextResponse.json({ error: 'Failed to check subscription status' }, { status: 500 });
-    }
-
-    if (!activeSubscription) {
+    const subscriptionId = canRegister.subscription_id;
+    if (!subscriptionId) {
       return NextResponse.json({ error: 'No active subscription found' }, { status: 400 });
     }
 
@@ -366,7 +352,7 @@ export async function POST(req: NextRequest) {
         p_user_id: userProfile.member_id,
         p_course_id: courseId,
         p_current_participants: course.current_participants,
-        p_subscription_id: activeSubscription.id
+        p_subscription_id: subscriptionId
       });
 
     if (procedureError) {

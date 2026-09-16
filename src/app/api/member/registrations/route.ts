@@ -206,22 +206,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Course is at full capacity' }, { status: 400 });
     }
 
-    // Get user's active subscription
-    const { data: activeSubscription, error: subscriptionError } = await supabaseServer()
-      .from('subscriptions')
-      .select('id')
-      .eq('member_id', userProfile.member_id)
-      .eq('status', 'active')
-      .order('end_date', { ascending: false })
-      .limit(1)
-      .single();
+    const { data: canRegister, error: canRegisterError } = await supabaseServer()
+      .rpc('can_register_for_course', {
+        p_user_id: userProfile.member_id,
+        p_course_id: courseId
+      });
 
-    if (subscriptionError && subscriptionError.code !== 'PGRST116') {
-      console.error('Error checking subscription:', subscriptionError);
-      return NextResponse.json({ error: 'Failed to check subscription status' }, { status: 500 });
+    if (canRegisterError) {
+      console.error('Error checking session availability:', canRegisterError);
+      return NextResponse.json({ error: 'Failed to check session availability' }, { status: 500 });
     }
 
-    if (!activeSubscription) {
+    if (!canRegister?.can_register) {
+      return NextResponse.json({
+        error: canRegister?.error || 'Cannot register for this course',
+      }, { status: 400 });
+    }
+
+    const subscriptionId = canRegister.subscription_id;
+    if (!subscriptionId) {
       return NextResponse.json({ error: 'No active subscription found' }, { status: 400 });
     }
 
@@ -231,7 +234,7 @@ export async function POST(req: NextRequest) {
         p_user_id: userProfile.member_id,
         p_course_id: courseId,
         p_current_participants: course.current_participants,
-        p_subscription_id: activeSubscription.id
+        p_subscription_id: subscriptionId
       });
 
     if (procedureError) {

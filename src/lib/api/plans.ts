@@ -30,6 +30,7 @@ export interface Plan {
   duration_days: number;
   is_active: boolean;
   is_free?: boolean;
+  max_seats?: number;
   created_at: string;
   updated_at: string;
   is_popular?: boolean;
@@ -63,6 +64,7 @@ export interface CreatePlanData {
   duration_days: number;
   is_active?: boolean;
   is_free?: boolean;
+  max_seats?: number;
   planGroups?: {
     groupId: number;
     sessionCount: number;
@@ -83,6 +85,7 @@ export interface UpdatePlanData {
   duration_days?: number;
   is_active?: boolean;
   is_free?: boolean;
+  max_seats?: number;
   planGroups?: {
     groupId: number;
     sessionCount: number;

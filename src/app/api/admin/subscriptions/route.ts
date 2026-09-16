@@ -7,6 +7,7 @@ import {
   resetSubscriptionGroupSessionsForPlan,
 } from '@/lib/subscription-group-sessions';
 import { isFreePlan } from '@/lib/subscription-status';
+import { ensureOwnerSeat } from '@/lib/subscription-seats';
 
 export async function GET(req: NextRequest) {
   try {
@@ -53,6 +54,7 @@ export async function GET(req: NextRequest) {
           duration_days,
           is_active,
           is_free,
+          max_seats,
           plan_groups(
             id,
             group_id,
@@ -292,6 +294,12 @@ export async function POST(req: NextRequest) {
       console.error('Error initializing group sessions:', groupSessionsError);
       // Don't fail the subscription creation, just log the error
       // This allows backward compatibility with plans that don't have groups
+    }
+
+    try {
+      await ensureOwnerSeat(supabaseServer(), subscription.id, dbData.member_id);
+    } catch (seatError) {
+      console.error('Error creating owner seat:', seatError);
     }
     
     return NextResponse.json({ success: true, subscription });

@@ -27,9 +27,8 @@ export async function GET(req: NextRequest) {
     if (!userProfile.member_id) {
       return NextResponse.json({ error: 'User is not a member' }, { status: 403 });
     }
-    const { data: subscriptions, error } = await supabaseServer()
-      .from('subscriptions')
-      .select(`
+
+    const subscriptionSelect = `
         *,
         plan:plans(
           *,
@@ -108,13 +107,81 @@ export async function GET(req: NextRequest) {
               )
             )
           )
+        ),
+        subscription_seats(
+          id,
+          member_id,
+          role,
+          status,
+          invited_by_member_id,
+          created_at,
+          members:member_id(
+            id,
+            status,
+            profiles:profile_id(first_name, last_name),
+            accounts:account_id(email)
+          )
+        ),
+        subscription_invites(
+          id,
+          email,
+          status,
+          expires_at,
+          created_at
         )
-      `)
+      `;
+
+    const { data: owned, error } = await supabaseServer()
+      .from('subscriptions')
+      .select(subscriptionSelect)
       .eq('member_id', userProfile.member_id);
+
     if (error) {
       return NextResponse.json({ error: 'Failed to fetch subscriptions' }, { status: 500 });
     }
-    return NextResponse.json(subscriptions);
+
+    const { data: seatRows } = await supabaseServer()
+      .from('subscription_seats')
+      .select('subscription_id, role')
+      .eq('member_id', userProfile.member_id)
+      .eq('status', 'active');
+
+    const ownedIds = new Set((owned || []).map((s: any) => s.id));
+    const seatedSubIds = (seatRows || [])
+      .map((s: any) => s.subscription_id)
+      .filter((id: number) => !ownedIds.has(id));
+
+    let seated: any[] = [];
+    if (seatedSubIds.length > 0) {
+      const { data: seatedSubs, error: seatedError } = await supabaseServer()
+        .from('subscriptions')
+        .select(subscriptionSelect)
+        .in('id', seatedSubIds);
+      if (seatedError) {
+        console.error('Failed to fetch seated subscriptions:', seatedError);
+      } else {
+        seated = seatedSubs || [];
+      }
+    }
+
+    const seatRoleBySub = new Map(
+      (seatRows || []).map((s: any) => [s.subscription_id, s.role])
+    );
+
+    const result = [
+      ...(owned || []).map((s: any) => ({
+        ...s,
+        access: 'owner' as const,
+        seat_role: seatRoleBySub.get(s.id) || 'owner',
+      })),
+      ...seated.map((s: any) => ({
+        ...s,
+        access: 'seat' as const,
+        seat_role: seatRoleBySub.get(s.id) || 'member',
+      })),
+    ];
+
+    return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

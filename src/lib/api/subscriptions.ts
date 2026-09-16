@@ -53,6 +53,8 @@ export interface Subscription {
   payment_reference?: string;
   created_at: string;
   updated_at: string;
+  access?: 'owner' | 'seat';
+  seat_role?: 'owner' | 'member';
   member?: {
     id: string;
     firstName: string;
@@ -65,9 +67,13 @@ export interface Subscription {
     price: number;
     duration_days: number;
     sessions_included: number;
+    max_seats?: number;
+    is_free?: boolean;
   };
   subscription_group_sessions?: SubscriptionGroupSession[];
   subscription_pool_sessions?: SubscriptionPoolSession[];
+  subscription_seats?: any[];
+  subscription_invites?: any[];
   registrations?: SubscriptionRegistration[];
 }
 
@@ -176,7 +182,42 @@ export const subscriptionApi = {
         pool_id: opts.poolId,
       }
     );
-  }
+  },
+
+  async attachSeat(subscriptionId: number, memberId: string): Promise<any> {
+    return apiRequest('POST', `/api/admin/subscriptions/${subscriptionId}/seats`, {
+      memberId,
+    });
+  },
+
+  async revokeSeat(subscriptionId: number, seatId: number): Promise<any> {
+    return apiRequest('DELETE', `/api/admin/subscriptions/${subscriptionId}/seats/${seatId}`);
+  },
+
+  async inviteToSubscription(subscriptionId: number, email: string): Promise<any> {
+    return apiRequest('POST', `/api/admin/subscriptions/${subscriptionId}/invites`, {
+      email,
+    });
+  },
+
+  async revokeInvite(subscriptionId: number, inviteId: number): Promise<any> {
+    return apiRequest('DELETE', `/api/admin/subscriptions/${subscriptionId}/invites/${inviteId}`);
+  },
+
+  async memberInviteToSubscription(
+    subscriptionId: number,
+    data: { memberId?: string; email?: string }
+  ): Promise<any> {
+    return apiRequest('POST', `/api/member/subscriptions/${subscriptionId}/invites`, data);
+  },
+
+  async memberRevokeSeat(subscriptionId: number, seatId: number): Promise<any> {
+    return apiRequest('DELETE', `/api/member/subscriptions/${subscriptionId}/seats/${seatId}`);
+  },
+
+  async memberRevokeInvite(subscriptionId: number, inviteId: number): Promise<any> {
+    return apiRequest('DELETE', `/api/member/subscriptions/${subscriptionId}/invites/${inviteId}`);
+  },
 };
 
 // Subscription utility functions

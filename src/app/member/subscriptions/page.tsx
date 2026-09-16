@@ -139,6 +139,7 @@ export default function MemberSubscriptions() {
 
   // Helper: payments for a subscription
   const getPaymentsForSub = (subId: number) => allPayments.filter(p => p.subscription_id === subId);
+  const isSeatAccess = (sub: any) => sub?.access === 'seat' || sub?.seat_role === 'member';
 
   // Handle opening subscription details
   const navigateToSubscriptionDetails = (subscription: any) => {
@@ -235,13 +236,17 @@ export default function MemberSubscriptions() {
           )}
           {activeSubscriptions.map((sub) => {
             return (
-              <SubscriptionDetails 
-                key={sub.id}
-                subscription={sub as any} 
-                payments={allPayments as any}
-                showTabs={true}
-                isAdmin={false}
-              />
+              <div key={sub.id} className="space-y-2">
+                {isSeatAccess(sub) && (
+                  <Badge variant="outline">Group plan (invited)</Badge>
+                )}
+                <SubscriptionDetails 
+                  subscription={sub as any} 
+                  payments={isSeatAccess(sub) ? [] : (allPayments as any)}
+                  showTabs={true}
+                  isAdmin={false}
+                />
+              </div>
             );
           })}
         </div>
@@ -268,12 +273,13 @@ export default function MemberSubscriptions() {
             {subscriptions
               .sort((a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime())
               .map((sub) => {
-                const subscriptionPayments = getPaymentsForSub(sub.id);
+                const seat = isSeatAccess(sub);
+                const subscriptionPayments = seat ? [] : getPaymentsForSub(sub.id);
                 const totalPaid = subscriptionPayments
                   .filter(p => p.payment_status === 'paid')
                   .reduce((sum, p) => sum + (p.amount || 0), 0);
                 const planPrice = Number(sub.plan?.price) || 0;
-                const free = isFreePlan(sub.plan);
+                const free = isFreePlan(sub.plan) || seat;
                 const paymentStatus = getPaymentStatus({
                   totalPaid,
                   planPrice,
@@ -309,12 +315,14 @@ export default function MemberSubscriptions() {
                             </p>
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
+                            {seat && <Badge variant="outline">Invited</Badge>}
                             {getStatusBadge(sub.status)}
                             <Eye className="w-4 h-4 text-muted-foreground" />
                           </div>
                         </div>
 
                         {/* Payment Progress Bar */}
+                        {!seat && (
                         <div className="space-y-2">
                           <div className="flex justify-between text-xs sm:text-sm">
                             <span className="font-medium">
@@ -339,6 +347,12 @@ export default function MemberSubscriptions() {
                             />
                           </div>
                         </div>
+                        )}
+                        {seat && (
+                          <p className="text-sm text-muted-foreground">
+                            Shared group plan — no payment required on your side.
+                          </p>
+                        )}
 
                         {/* Stats Grid */}
                         <div className="grid grid-cols-2 gap-3">

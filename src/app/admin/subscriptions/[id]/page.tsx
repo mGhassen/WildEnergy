@@ -4,12 +4,13 @@ import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Edit, Trash2, CreditCard, RefreshCw, MoreVertical, CalendarCheck } from "lucide-react";
+import { ArrowLeft, Edit, Trash2, CreditCard, RefreshCw, MoreVertical, CalendarCheck, Users } from "lucide-react";
 import { useSubscriptions, useSubscription } from "@/hooks/useSubscriptions";
 import { usePayments } from "@/hooks/usePayments";
 import { useMembers } from "@/hooks/useMembers";
 import { usePlans } from "@/hooks/usePlans";
 import { SubscriptionDetails } from "@/components/subscription-details";
+import { SubscriptionSeatsPanel } from "@/components/subscription-seats-panel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDate } from "@/lib/date";
 import { formatCurrency } from "@/lib/config";
@@ -328,6 +329,10 @@ export default function AdminSubscriptionDetails() {
       <Tabs defaultValue="details" className="w-full">
         <TabsList className="mb-6">
           <TabsTrigger value="details">Details</TabsTrigger>
+          <TabsTrigger value="seats">
+            <Users className="w-4 h-4 mr-1" />
+            Seats
+          </TabsTrigger>
           <TabsTrigger value="sessions">
             Sessions ({subscriptionRegistrations.length})
           </TabsTrigger>
@@ -345,6 +350,22 @@ export default function AdminSubscriptionDetails() {
               lastName: subscription.member?.lastName,
               email: subscription.member?.email,
             }}
+          />
+        </TabsContent>
+
+        <TabsContent value="seats">
+          <SubscriptionSeatsPanel
+            subscriptionId={subscription.id}
+            maxSeats={Number(
+              (subscription as any).plan?.max_seats ??
+                (subscription as any).plan?.maxSeats ??
+                1,
+            )}
+            seats={(subscription as any).subscription_seats || []}
+            invites={(subscription as any).subscription_invites || []}
+            members={mappedMembers}
+            canManage
+            apiMode="admin"
           />
         </TabsContent>
 

@@ -32,6 +32,7 @@ const SUBSCRIPTION_DETAIL_SELECT = `
     duration_days,
     is_active,
     is_free,
+    max_seats,
     plan_groups(
       id,
       group_id,
@@ -91,6 +92,35 @@ const SUBSCRIPTION_DETAIL_SELECT = `
         )
       )
     )
+  ),
+  subscription_seats(
+    id,
+    member_id,
+    role,
+    status,
+    invited_by_member_id,
+    created_at,
+    members:member_id(
+      id,
+      status,
+      profiles:profile_id(
+        first_name,
+        last_name
+      ),
+      accounts:account_id(
+        email
+      )
+    )
+  ),
+  subscription_invites(
+    id,
+    email,
+    token,
+    invited_by_member_id,
+    status,
+    expires_at,
+    accepted_member_id,
+    created_at
   )
 `;
 
