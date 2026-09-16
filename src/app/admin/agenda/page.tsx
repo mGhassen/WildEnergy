@@ -145,6 +145,9 @@ export default function AdminAgenda() {
       <CalendarProvider 
         users={users} 
         events={events}
+        registrations={registrations}
+        checkins={checkins}
+        enableEventSidebarPreview
         eventMode="navigation"
         eventBasePath="/admin/courses"
       >

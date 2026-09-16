@@ -56,7 +56,7 @@ interface IProps extends HTMLAttributes<HTMLDivElement>, Omit<VariantProps<typeo
 }
 
 export function EventBlock({ event, className }: IProps) {
-  const { badgeVariant, registrations } = useCalendar();
+  const { badgeVariant, registrations, enableEventSidebarPreview, setHoveredEventId } = useCalendar();
   const [selectedQR, setSelectedQR] = useState<string | null>(null);
 
   const start = parseISO(event.startDate);
@@ -107,6 +107,12 @@ export function EventBlock({ event, className }: IProps) {
             className={cn("h-full w-full", calendarWeekEventCardClasses)}
             style={eventSurfaceStyle(event.hexColor)}
             onKeyDown={handleKeyDown}
+            onMouseEnter={() => {
+              if (enableEventSidebarPreview) setHoveredEventId(event.id);
+            }}
+            onMouseLeave={() => {
+              if (enableEventSidebarPreview) setHoveredEventId(null);
+            }}
           >
             <div className="flex items-center gap-1.5 truncate">
               {["mixed", "dot"].includes(badgeVariant) && (

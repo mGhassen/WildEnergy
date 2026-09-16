@@ -1,502 +1,727 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
+import { useMemo, useState, type ComponentType } from "react";
+import {
+  AlertCircle,
+  ArrowRight,
+  Calendar,
+  CheckCircle2,
+  Clock,
+  CreditCard,
+  Dumbbell,
+  LayoutDashboard,
+  QrCode,
+  TrendingUp,
+  UserCheck,
+  Users,
+  Wallet,
+  Zap,
+} from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Users, UserCheck, TrendingUp, Calendar, Clock, ChevronLeft, ChevronRight, AlertCircle, CheckCircle2, ArrowRight } from "lucide-react";
-import { formatDateTime, formatTime, formatDate } from "@/lib/date";
-import { formatTrainerDisplayName } from "@/lib/format-trainer-name";
-import { useState } from "react";
-import { useAdminDashboardStats } from "@/hooks/useAdmin";
-import { useCheckins } from "@/hooks/useCheckins";
-import { useSchedules } from "@/hooks/useSchedules";
-import { useRegistrations } from "@/hooks/useRegistrations";
-import { useAdminDashboardTasks } from "@/hooks/useAdminDashboardTasks";
-import { Sidebar } from "@/components/ui/sidebar";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DashboardSkeleton } from "@/components/skeletons";
+import { useAdminDashboardStats } from "@/hooks/useAdmin";
+import { useAdminDashboardTasks } from "@/hooks/useAdminDashboardTasks";
+import { useCheckins } from "@/hooks/useCheckins";
+import { useCourses } from "@/hooks/useCourse";
+import { formatCurrency } from "@/lib/config";
+import { formatDate, formatDateTime, formatTime, toDateKey } from "@/lib/date";
+import { formatTrainerDisplayName } from "@/lib/format-trainer-name";
+import { cn } from "@/lib/utils";
 
-interface DashboardStats {
-  totalUsers: number;
-  activeUsers: number;
-  totalClasses: number;
-  totalTrainers: number;
+function localTodayKey() {
+  return toDateKey(new Date())!;
 }
 
-interface Checkin {
-  id: string;
-  member: {
-    firstName: string;
-    lastName: string;
-  };
-  checkinTime: string;
-  schedule: {
-    class: {
-      name: string;
-    };
-  };
+function addDaysKey(dateKey: string, days: number) {
+  const d = new Date(`${dateKey}T12:00:00`);
+  d.setDate(d.getDate() + days);
+  return toDateKey(d)!;
 }
 
-interface Schedule {
-  id: string;
-  scheduleDate: string;
-  startTime: string;
-  endTime: string;
-  class: {
-    name: string;
-  };
-  trainer: {
-    firstName: string;
-    lastName: string;
-  };
-  maxParticipants: number;
+function courseFillPct(course: { current_participants?: number; max_participants?: number }) {
+  const max = course.max_participants || 0;
+  if (max <= 0) return 0;
+  return Math.min(100, Math.round(((course.current_participants || 0) / max) * 100));
 }
 
-interface Registration {
-  id: string;
-  scheduleId: string;
-  status: string;
-  schedule: {
-    id: string;
-  };
+function fillTone(pct: number) {
+  if (pct >= 95) return "text-destructive";
+  if (pct >= 75) return "text-amber-600 dark:text-amber-400";
+  return "text-muted-foreground";
 }
 
-export default function AdminDashboard() {
-  const [scheduleViewDate, setScheduleViewDate] = useState(0); // 0 = today, 1 = tomorrow
-  
-  // Always provide queryFn for useQuery
-  const { data: stats, isLoading: statsLoading } = useAdminDashboardStats();
+function courseStatusBadge(status: string) {
+  switch (status) {
+    case "in_progress":
+      return <Badge className="bg-emerald-600 hover:bg-emerald-600">Live</Badge>;
+    case "completed":
+      return <Badge variant="secondary">Done</Badge>;
+    case "cancelled":
+      return <Badge variant="destructive">Cancelled</Badge>;
+    default:
+      return <Badge variant="outline">Scheduled</Badge>;
+  }
+}
+
+function initials(first?: string | null, last?: string | null) {
+  return `${first?.[0] || "?"}${last?.[0] || ""}`.toUpperCase();
+}
+
+function KpiCard({
+  title,
+  value,
+  hint,
+  icon: Icon,
+  href,
+}: {
+  title: string;
+  value: string | number;
+  hint?: string;
+  icon: ComponentType<{ className?: string }>;
+  href?: string;
+}) {
+  const inner = (
+    <Card className={cn(href && "transition-colors hover:border-primary/40 hover:bg-accent/30")}>
+      <CardContent className="flex items-start justify-between gap-3 p-5">
+        <div className="min-w-0 space-y-1">
+          <p className="text-sm text-muted-foreground">{title}</p>
+          <p className="text-2xl font-semibold tracking-tight tabular-nums">{value}</p>
+          {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
+        </div>
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+          <Icon className="h-5 w-5 text-primary" />
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  return href ? <Link href={href}>{inner}</Link> : inner;
+}
+
+function OpsTab() {
+  const [dayOffset, setDayOffset] = useState(0);
   const { data: tasks, isLoading: tasksLoading } = useAdminDashboardTasks();
+  const { data: courses = [], isLoading: coursesLoading } = useCourses();
   const { data: recentCheckins = [] } = useCheckins();
 
-  // Map checkins to ensure member data has camelCase fields
-  const mappedCheckins = Array.isArray(recentCheckins)
-    ? recentCheckins.map((checkin: any) => ({
-        ...checkin,
-        member: checkin.member ? {
-          ...checkin.member,
-          firstName: checkin.member.firstName || checkin.member.first_name || '',
-          lastName: checkin.member.lastName || checkin.member.last_name || '',
-        } : null,
-      }))
-    : [];
+  const targetDate = addDaysKey(localTodayKey(), dayOffset);
 
-  // Get the 5 most recent checkins
-  const recentCheckinsList = mappedCheckins
-    .sort((a: any, b: any) => new Date(b.checkinTime).getTime() - new Date(a.checkinTime).getTime())
-    .slice(0, 5);
+  const dayCourses = useMemo(() => {
+    return (courses as any[])
+      .filter((c) => toDateKey(c.course_date || c.courseDate) === targetDate)
+      .filter((c) => c.status !== "cancelled")
+      .sort((a, b) => String(a.start_time || a.startTime).localeCompare(String(b.start_time || b.startTime)));
+  }, [courses, targetDate]);
 
-  const { data: schedules = [], isLoading: schedulesLoading } = useSchedules();
-  const { data: registrations = [] } = useRegistrations();
+  const nextUp = useMemo(() => {
+    if (dayOffset !== 0) return null;
+    const now = new Date();
+    const upcoming = dayCourses.filter((c) => {
+      const start = new Date(`${toDateKey(c.course_date)}T${c.start_time}`);
+      const end = new Date(`${toDateKey(c.course_date)}T${c.end_time}`);
+      return end.getTime() >= now.getTime() - 15 * 60 * 1000;
+    });
+    return upcoming[0] ?? null;
+  }, [dayCourses, dayOffset]);
 
-  const getScheduleRegistrations = (scheduleId: string) => {
-    return registrations.filter((reg: any) => 
-      reg.course?.schedule_id === scheduleId && reg.status !== "cancelled"
-    );
-  };
+  const recentCheckinsList = useMemo(() => {
+    return (Array.isArray(recentCheckins) ? recentCheckins : [])
+      .slice()
+      .sort(
+        (a: any, b: any) =>
+          new Date(b.checkinTime || b.checkin_time).getTime() -
+          new Date(a.checkinTime || a.checkin_time).getTime(),
+      )
+      .slice(0, 6);
+  }, [recentCheckins]);
 
-  if (statsLoading || schedulesLoading || tasksLoading) {
+  const pendingCount = tasks?.pendingAccounts?.count ?? 0;
+  const checkSoonCount = tasks?.coursesNeedingCheck?.count ?? 0;
+  const actionCount = pendingCount + checkSoonCount;
+
+  if (tasksLoading || coursesLoading) {
     return <DashboardSkeleton />;
   }
 
-  interface StatCard {
-    title: string;
-    value: number;
-    icon: any;
-    description: string;
-    color: string;
-    bgColor: string;
-  }
-
-  const statCards: StatCard[] = [
-    {
-      title: "Total Members",
-      value: stats?.totalUsers || 0,
-      icon: Users,
-      description: "Registered members",
-      color: "text-blue-600",
-      bgColor: "bg-blue-100",
-    },
-    {
-      title: "Active Members",
-      value: stats?.activeUsers || 0,
-      icon: UserCheck,
-      description: "Active members",
-      color: "text-green-600",
-      bgColor: "bg-green-100",
-    },
-    {
-      title: "Total Trainers",
-      value: stats?.totalTrainers || 0,
-      icon: UserCheck,
-      description: "Available trainers",
-      color: "text-yellow-600",
-      bgColor: "bg-yellow-100",
-    },
-    {
-      title: "Total Classes",
-      value: stats?.totalClasses || 0,
-      icon: Calendar,
-      description: "Available classes",
-      color: "text-purple-600",
-      bgColor: "bg-purple-100",
-    },
-  ];
-
   return (
-    <div className="p-6 space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Dashboard</h1>
-          <p className="text-muted-foreground">Overview of your gym management system</p>
-        </div>
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {statCards.map((stat) => {
-            const Icon = stat.icon;
-            return (
-              <Card key={stat.title}>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
-                      <p className="text-3xl font-bold text-foreground">{stat.value}</p>
-                    </div>
-                    <div className={`w-12 h-12 ${stat.bgColor} rounded-lg flex items-center justify-center`}>
-                      <Icon className={`w-6 h-6 ${stat.color}`} />
-                    </div>
-                  </div>
-                  <div className="mt-4 flex items-center">
-                    <TrendingUp className="w-4 h-4 text-green-600 mr-1" />
-                    <span className="text-sm text-muted-foreground">{stat.description}</span>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+    <div className="space-y-6">
+      {/* Pulse strip */}
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Card className="border-dashed">
+          <CardContent className="flex items-center gap-3 p-4">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-orange-500/15">
+              <AlertCircle className="h-4 w-4 text-orange-600" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Needs attention</p>
+              <p className="text-lg font-semibold tabular-nums">{actionCount}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-dashed">
+          <CardContent className="flex items-center gap-3 p-4">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/15">
+              <Calendar className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">
+                {dayOffset === 0 ? "Courses today" : "Courses tomorrow"}
+              </p>
+              <p className="text-lg font-semibold tabular-nums">{dayCourses.length}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-dashed">
+          <CardContent className="flex items-center gap-3 p-4">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-sky-500/15">
+              <Zap className="h-4 w-4 text-sky-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Next up</p>
+              <p className="truncate text-sm font-semibold">
+                {nextUp
+                  ? `${formatTime(nextUp.start_time)} · ${nextUp.class?.name || "Class"}`
+                  : dayOffset === 0
+                    ? "Nothing upcoming"
+                    : "—"}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
-        {/* Task Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Accounts Pending Approval */}
-          <Card className="border-orange-200 bg-orange-50/50 dark:bg-orange-950/20 dark:border-orange-800">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900 rounded-lg flex items-center justify-center">
-                    <AlertCircle className="w-5 h-5 text-orange-600 dark:text-orange-400" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-lg">Accounts to Approve</CardTitle>
-                    <CardDescription>Pending account approvals</CardDescription>
-                  </div>
-                </div>
-                <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-900 dark:text-orange-200 dark:border-orange-700">
-                  {tasks?.pendingAccounts.count || 0}
-                </Badge>
+      {/* Action queue */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card className={cn(pendingCount > 0 && "border-orange-300/60 dark:border-orange-800")}>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 text-orange-600" />
+                <CardTitle className="text-base">Accounts to approve</CardTitle>
               </div>
-            </CardHeader>
-            <CardContent>
-              {(tasks?.pendingAccounts?.count ?? 0) > 0 ? (
-                <div className="space-y-3">
-                  <div className="text-sm text-muted-foreground">
-                    {tasks?.pendingAccounts?.count ?? 0} account{(tasks?.pendingAccounts?.count ?? 0) !== 1 ? 's' : ''} waiting for approval
-                  </div>
-                  <div className="space-y-2 max-h-32 overflow-y-auto">
-                    {(tasks?.pendingAccounts?.accounts ?? []).slice(0, 3).map((account: any) => (
-                      <div key={account.account_id} className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 rounded-lg border">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-8 h-8 bg-orange-100 dark:bg-orange-900 rounded-full flex items-center justify-center">
-                            <span className="text-xs font-medium text-orange-600 dark:text-orange-400">
-                              {account.first_name?.[0] || 'U'}{account.last_name?.[0] || 'A'}
-                            </span>
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium">{account.first_name || 'Unknown'} {account.last_name || 'User'}</p>
-                            <p className="text-xs text-muted-foreground">{account.email}</p>
-                          </div>
+              <Badge variant={pendingCount > 0 ? "default" : "secondary"}>{pendingCount}</Badge>
+            </div>
+            <CardDescription>Pending registrations waiting for admin action</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {pendingCount > 0 ? (
+              <>
+                <div className="max-h-44 space-y-2 overflow-y-auto">
+                  {(tasks?.pendingAccounts?.accounts ?? []).slice(0, 5).map((account: any) => (
+                    <Link
+                      key={account.account_id}
+                      href={`/admin/accounts/${account.account_id}`}
+                      className="flex items-center justify-between gap-3 rounded-lg border bg-card p-2.5 transition-colors hover:bg-accent"
+                    >
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-500/15 text-xs font-medium text-orange-700 dark:text-orange-300">
+                          {initials(account.first_name, account.last_name)}
                         </div>
-                        <Badge variant="outline" className="text-xs">
-                          {formatDate(account.created_at)}
-                        </Badge>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">
+                            {account.first_name || "Unknown"} {account.last_name || ""}
+                          </p>
+                          <p className="truncate text-xs text-muted-foreground">{account.email}</p>
+                        </div>
                       </div>
-                    ))}
-                    {(tasks?.pendingAccounts?.count ?? 0) > 3 && (
-                      <div className="text-xs text-muted-foreground text-center">
-                        +{(tasks?.pendingAccounts?.count ?? 0) - 3} more accounts
-                      </div>
-                    )}
-                  </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-full border-orange-300 text-orange-700 hover:bg-orange-100 dark:border-orange-700 dark:text-orange-300 dark:hover:bg-orange-900"
-                    onClick={() => window.location.href = '/admin/accounts'}
-                  >
-                    View All Accounts
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {formatDate(account.created_at)}
+                      </span>
+                    </Link>
+                  ))}
                 </div>
-              ) : (
-                <div className="text-center py-4">
-                  <CheckCircle2 className="w-8 h-8 text-green-500 mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">No pending approvals</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Courses to Start Checking */}
-          <Card className="border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-800">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
-                    <Clock className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-lg">Courses Starting Soon</CardTitle>
-                    <CardDescription>Courses ready for check-in</CardDescription>
-                  </div>
-                </div>
-                <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900 dark:text-blue-200 dark:border-blue-700">
-                  {tasks?.coursesNeedingCheck.count || 0}
-                </Badge>
+                <Button asChild variant="outline" size="sm" className="w-full">
+                  <Link href="/admin/accounts">
+                    Open accounts
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+              </>
+            ) : (
+              <div className="flex flex-col items-center py-6 text-center">
+                <CheckCircle2 className="mb-2 h-7 w-7 text-emerald-500" />
+                <p className="text-sm text-muted-foreground">Inbox clear</p>
               </div>
-            </CardHeader>
-            <CardContent>
-              {(tasks?.coursesNeedingCheck?.count ?? 0) > 0 ? (
-                <div className="space-y-3">
-                  <div className="text-sm text-muted-foreground">
-                    {tasks?.coursesNeedingCheck?.count ?? 0} course{(tasks?.coursesNeedingCheck?.count ?? 0) !== 1 ? 's' : ''} starting soon
-                  </div>
-                  <div className="space-y-2 max-h-32 overflow-y-auto">
-                    {(tasks?.coursesNeedingCheck?.courses ?? []).slice(0, 3).map((course: any) => (
-                      <div key={course.id} className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 rounded-lg border">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
-                            <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
-                              {(course.class?.category?.name || course.class?.name || "?").charAt(0)}
-                            </span>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className={cn(checkSoonCount > 0 && "border-sky-300/60 dark:border-sky-800")}>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-sky-600" />
+                <CardTitle className="text-base">Check-in window</CardTitle>
+              </div>
+              <Badge variant={checkSoonCount > 0 ? "default" : "secondary"}>{checkSoonCount}</Badge>
+            </div>
+            <CardDescription>Courses starting soon or recently overdue</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {checkSoonCount > 0 ? (
+              <>
+                <div className="max-h-44 space-y-2 overflow-y-auto">
+                  {(tasks?.coursesNeedingCheck?.courses ?? []).slice(0, 5).map((course: any) => (
+                    <Link
+                      key={course.id}
+                      href={`/admin/courses/${course.id}`}
+                      className="flex items-center justify-between gap-3 rounded-lg border bg-card p-2.5 transition-colors hover:bg-accent"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">{course.class?.name}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {formatTrainerDisplayName(course.trainer)}
+                        </p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="text-xs font-medium tabular-nums">{formatTime(course.start_time)}</p>
+                        <p className="text-xs text-muted-foreground tabular-nums">
+                          {course.current_participants}/{course.max_participants}
+                        </p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+                <Button asChild variant="outline" size="sm" className="w-full">
+                  <Link href="/admin/checkins">
+                    Open check-ins
+                    <QrCode className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+              </>
+            ) : (
+              <div className="flex flex-col items-center py-6 text-center">
+                <CheckCircle2 className="mb-2 h-7 w-7 text-emerald-500" />
+                <p className="text-sm text-muted-foreground">No check-ins due right now</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
+        {/* Day schedule */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Calendar className="h-4 w-4" />
+                  {dayOffset === 0 ? "Today’s schedule" : "Tomorrow’s schedule"}
+                </CardTitle>
+                <CardDescription>{formatDate(targetDate)}</CardDescription>
+              </div>
+              <div className="flex items-center gap-1 rounded-lg border p-1">
+                <Button
+                  type="button"
+                  variant={dayOffset === 0 ? "secondary" : "ghost"}
+                  size="sm"
+                  className="h-8 px-3"
+                  onClick={() => setDayOffset(0)}
+                >
+                  Today
+                </Button>
+                <Button
+                  type="button"
+                  variant={dayOffset === 1 ? "secondary" : "ghost"}
+                  size="sm"
+                  className="h-8 px-3"
+                  onClick={() => setDayOffset(1)}
+                >
+                  Tomorrow
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {dayCourses.length > 0 ? (
+              <div className="space-y-2">
+                {dayCourses.map((course: any) => {
+                  const pct = courseFillPct(course);
+                  const categoryName =
+                    course.class?.category?.name ||
+                    (typeof course.class?.category === "string" ? course.class.category : null);
+                  const categoryColor = course.class?.category?.color;
+
+                  return (
+                    <Link
+                      key={course.id}
+                      href={`/admin/courses/${course.id}`}
+                      className="block rounded-xl border p-3 transition-colors hover:bg-accent/50"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 items-start gap-3">
+                          <div
+                            className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-xs font-semibold text-white"
+                            style={{
+                              backgroundColor: categoryColor || "hsl(var(--primary))",
+                            }}
+                          >
+                            {(categoryName || course.class?.name || "?").charAt(0).toUpperCase()}
                           </div>
-                          <div>
-                            <p className="text-sm font-medium">{course.class.name}</p>
-                            <p className="text-xs text-muted-foreground">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h4 className="truncate font-medium">{course.class?.name || "Class"}</h4>
+                              {courseStatusBadge(course.status)}
+                            </div>
+                            <p className="mt-0.5 text-sm text-muted-foreground">
                               {formatTrainerDisplayName(course.trainer)}
+                              {categoryName ? ` · ${categoryName}` : ""}
                             </p>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className="text-xs font-medium">{formatTime(course.start_time)}</p>
-                          <Badge variant="outline" className="text-xs">
-                            {course.current_participants}/{course.max_participants}
-                          </Badge>
+                        <div className="shrink-0 text-right">
+                          <p className="text-sm font-medium tabular-nums">
+                            {formatTime(course.start_time)} – {formatTime(course.end_time)}
+                          </p>
+                          <p className={cn("text-xs tabular-nums", fillTone(pct))}>
+                            {course.current_participants || 0}/{course.max_participants || 0} booked
+                          </p>
                         </div>
                       </div>
-                    ))}
-                    {(tasks?.coursesNeedingCheck?.count ?? 0) > 3 && (
-                      <div className="text-xs text-muted-foreground text-center">
-                        +{(tasks?.coursesNeedingCheck?.count ?? 0) - 3} more courses
-                      </div>
-                    )}
-                  </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-full border-blue-300 text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900"
-                    onClick={() => window.location.href = '/admin/courses'}
-                  >
-                    View All Courses
-                    <ArrowRight className="w-4 h-4 ml-2" />
+                      <Progress value={pct} className="mt-3 h-1.5" />
+                    </Link>
+                  );
+                })}
+                <Button asChild variant="ghost" size="sm" className="mt-1 w-full">
+                  <Link href="/admin/agenda">
+                    Open full agenda
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center py-10 text-center">
+                <Calendar className="mb-3 h-10 w-10 text-muted-foreground/50" />
+                <p className="font-medium">No courses on this day</p>
+                <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                  Generate sessions from schedules or open the agenda to plan the day.
+                </p>
+                <div className="mt-4 flex flex-wrap justify-center gap-2">
+                  <Button asChild size="sm">
+                    <Link href="/admin/agenda">Agenda</Link>
                   </Button>
-                </div>
-              ) : (
-                <div className="text-center py-4">
-                  <CheckCircle2 className="w-8 h-8 text-green-500 mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">No courses starting soon</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Recent Activity */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Recent Check-ins */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Check-ins</CardTitle>
-              <CardDescription>Latest member check-ins</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {recentCheckinsList && recentCheckinsList.length > 0 ? (
-                <div className="space-y-4">
-                  {recentCheckinsList.map((checkin: any) => (
-                    <div key={checkin.id} className="flex items-center space-x-4 p-3 hover:bg-accent rounded-lg">
-                      <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                        <span className="text-sm font-medium text-primary">
-                          {checkin.member?.firstName?.[0]}{checkin.member?.lastName?.[0]}
-                        </span>
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-medium text-foreground">
-                          {checkin.member?.firstName} {checkin.member?.lastName}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {checkin.class?.name} • {formatDateTime(checkin.checkinTime)}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-muted-foreground text-center py-4">No recent check-ins</p>
-              )}
-            </CardContent>
-          </Card>
-          {/* Schedule Slider */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <Calendar className="w-5 h-5" />
-                    {scheduleViewDate === 0 ? "Today's Schedule" : "Tomorrow's Schedule"}
-                  </CardTitle>
-                  <CardDescription>
-                    {scheduleViewDate === 0 
-                      ? formatDate(new Date().toISOString())
-                      : formatDate(new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString())
-                    }
-                  </CardDescription>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setScheduleViewDate(scheduleViewDate === 0 ? 1 : 0)}
-                  >
-                    <ChevronLeft className="w-4 h-4" />
+                  <Button asChild size="sm" variant="outline">
+                    <Link href="/admin/schedules">Schedules</Link>
                   </Button>
                 </div>
               </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Recent check-ins + shortcuts */}
+        <div className="space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base">Recent check-ins</CardTitle>
+                  <CardDescription>Latest attendance activity</CardDescription>
+                </div>
+                <Button asChild variant="ghost" size="sm">
+                  <Link href="/admin/checkins">All</Link>
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
-              {/* TODO: Render today's or tomorrow's schedule here */}
-              {schedulesLoading ? (
-                <div className="space-y-4">
-                  {[...Array(3)].map((_, i) => (
-                    <div key={i} className="animate-pulse">
-                      <div className="h-16 bg-muted rounded-lg"></div>
-                    </div>
-                  ))}
-                </div>
-              ) : (() => {
-                const targetDate = new Date();
-                if (scheduleViewDate === 1) {
-                  targetDate.setDate(targetDate.getDate() + 1);
-                }
-                const targetDateStr = targetDate.toISOString().split('T')[0];
-                
-                const daySchedules = schedules?.filter((schedule: any) => {
-                  const scheduleDate = schedule.scheduleDate?.split('T')[0];
-                  return scheduleDate === targetDateStr;
-                }) || [];
-
-                const getScheduleRegistrations = (scheduleId: number) => {
-                  return registrations?.filter((reg: any) => 
-                    reg.course?.schedule_id === scheduleId && reg.status !== "cancelled"
-                  ) || [];
-                };
-
-                return daySchedules.length > 0 ? (
-                  <div className="space-y-4">
-                    {daySchedules.map((schedule: any) => {
-                      const scheduleRegs = getScheduleRegistrations(schedule.id);
-                      const spotsAvailable = (schedule.class?.maxCapacity || 0) - scheduleRegs.length;
-                      
-                      return (
-                        <div key={schedule.id} className="border border-border rounded-lg p-4">
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="flex items-center gap-3">
-                              <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center">
-                                <span className="text-white text-xs font-medium">
-                                  {schedule.class?.category?.charAt(0).toUpperCase()}
-                                </span>
-                              </div>
-                              <div>
-                                <h4 className="font-semibold">{schedule.class?.name}</h4>
-                                <p className="text-sm text-muted-foreground">
-                                  {schedule.trainer?.firstName} {schedule.trainer?.lastName}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <div className="flex items-center gap-2 mb-1">
-                                <Clock className="w-4 h-4 text-muted-foreground" />
-                                <span className="text-sm font-medium">
-                                  {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}
-                                </span>
-                              </div>
-                              <Badge variant={spotsAvailable > 0 ? "default" : "destructive"}>
-                                {spotsAvailable} / {schedule.class?.maxCapacity || 0} spots available
-                              </Badge>
-                            </div>
-                          </div>
-                          
-                          <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div>
-                              <span className="text-muted-foreground">Registered: </span>
-                              <span className="font-medium">{scheduleRegs.length} members</span>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground">Duration: </span>
-                              <span className="font-medium">{schedule.class?.duration || 0} min</span>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground">Category: </span>
-                              <span className="font-medium">{schedule.class?.category}</span>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground">Status: </span>
-                              <Badge variant={schedule.isActive ? "default" : "secondary"}>
-                                {schedule.isActive ? "Active" : "Inactive"}
-                              </Badge>
-                            </div>
-                          </div>
-
-                          {scheduleRegs.length > 0 && (
-                            <div className="mt-3 pt-3 border-t">
-                              <p className="text-sm font-medium mb-2">Registered Members:</p>
-                              <div className="flex flex-wrap gap-2">
-                                {scheduleRegs.slice(0, 6).map((reg: any) => (
-                                  <Badge key={reg.id} variant="outline" className="text-xs">
-                                    {reg.member?.first_name || 'Unknown'} {reg.member?.last_name || 'Member'}
-                                  </Badge>
-                                ))}
-                                {scheduleRegs.length > 6 && (
-                                  <Badge variant="outline" className="text-xs">
-                                    +{scheduleRegs.length - 6} more
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                          )}
+              {recentCheckinsList.length > 0 ? (
+                <div className="space-y-2">
+                  {recentCheckinsList.map((checkin: any) => {
+                    const first = checkin.member?.firstName || checkin.member?.first_name;
+                    const last = checkin.member?.lastName || checkin.member?.last_name;
+                    const className =
+                      checkin.class?.name ||
+                      checkin.registration?.course?.class?.name ||
+                      "Class";
+                    return (
+                      <div
+                        key={checkin.id}
+                        className="flex items-center gap-3 rounded-lg border px-3 py-2.5"
+                      >
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
+                          {initials(first, last)}
                         </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-                    <p className="text-muted-foreground">
-                      No classes scheduled for {scheduleViewDate === 0 ? "today" : "tomorrow"}
-                    </p>
-                  </div>
-                );
-              })()}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium">
+                            {first} {last}
+                          </p>
+                          <p className="truncate text-xs text-muted-foreground">{className}</p>
+                        </div>
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {formatDateTime(checkin.checkinTime || checkin.checkin_time)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="py-8 text-center text-sm text-muted-foreground">No recent check-ins</p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Quick actions</CardTitle>
+              <CardDescription>Jump into day-to-day work</CardDescription>
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 gap-2">
+              {[
+                { href: "/admin/agenda", label: "Agenda", icon: Calendar },
+                { href: "/admin/checkins", label: "Check-ins", icon: QrCode },
+                { href: "/admin/registrations", label: "Registrations", icon: UserCheck },
+                { href: "/admin/members", label: "Members", icon: Users },
+                { href: "/admin/courses", label: "Courses", icon: Dumbbell },
+                { href: "/admin/subscriptions", label: "Subscriptions", icon: CreditCard },
+              ].map((item) => (
+                <Button
+                  key={item.href}
+                  asChild
+                  variant="outline"
+                  className="h-auto justify-start gap-2 px-3 py-3"
+                >
+                  <Link href={item.href}>
+                    <item.icon className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm">{item.label}</span>
+                  </Link>
+                </Button>
+              ))}
             </CardContent>
           </Card>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function OverviewTab() {
+  const { data: stats, isLoading } = useAdminDashboardStats();
+  const { data: courses = [], isLoading: coursesLoading } = useCourses();
+
+  const weekKeys = useMemo(() => {
+    const start = localTodayKey();
+    return Array.from({ length: 7 }, (_, i) => addDaysKey(start, i));
+  }, []);
+
+  const weekSeries = useMemo(() => {
+    return weekKeys.map((key) => {
+      const dayCourses = (courses as any[]).filter(
+        (c) => toDateKey(c.course_date || c.courseDate) === key && c.status !== "cancelled",
+      );
+      const booked = dayCourses.reduce((s, c) => s + (c.current_participants || 0), 0);
+      const capacity = dayCourses.reduce((s, c) => s + (c.max_participants || 0), 0);
+      return {
+        key,
+        label: formatDate(key),
+        short: new Date(`${key}T12:00:00`).toLocaleDateString(undefined, { weekday: "short" }),
+        count: dayCourses.length,
+        booked,
+        capacity,
+        pct: capacity > 0 ? Math.round((booked / capacity) * 100) : 0,
+      };
+    });
+  }, [courses, weekKeys]);
+
+  const maxWeekCount = Math.max(1, ...weekSeries.map((d) => d.count));
+
+  if (isLoading || coursesLoading) {
+    return <DashboardSkeleton />;
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard
+          title="Members"
+          value={stats?.totalMembers ?? 0}
+          hint={`${stats?.totalUsers ?? 0} accounts`}
+          icon={Users}
+          href="/admin/members"
+        />
+        <KpiCard
+          title="Active subscriptions"
+          value={stats?.activeSubscriptions ?? 0}
+          hint={`${stats?.pendingSubscriptions ?? 0} pending payment`}
+          icon={CreditCard}
+          href="/admin/subscriptions"
+        />
+        <KpiCard
+          title="Revenue (month)"
+          value={formatCurrency(stats?.revenueThisMonth ?? 0)}
+          hint={`${stats?.paymentsThisMonth ?? 0} paid · ${formatCurrency(stats?.totalRevenue ?? 0)} all-time`}
+          icon={Wallet}
+          href="/admin/payments"
+        />
+        <KpiCard
+          title="Check-ins today"
+          value={stats?.checkinsToday ?? 0}
+          hint={`${stats?.totalCheckins ?? 0} all-time`}
+          icon={UserCheck}
+          href="/admin/checkins"
+        />
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard
+          title="Trainers"
+          value={stats?.totalTrainers ?? 0}
+          icon={Dumbbell}
+          href="/admin/trainers"
+        />
+        <KpiCard
+          title="Class templates"
+          value={stats?.totalClasses ?? 0}
+          icon={LayoutDashboard}
+          href="/admin/classes"
+        />
+        <KpiCard
+          title="Courses today"
+          value={stats?.coursesToday ?? 0}
+          hint={`${stats?.bookedSeatsToday ?? 0}/${stats?.capacitySeatsToday ?? 0} seats`}
+          icon={Calendar}
+          href="/admin/agenda"
+        />
+        <KpiCard
+          title="Occupancy today"
+          value={`${stats?.occupancyToday ?? 0}%`}
+          hint="Booked vs capacity"
+          icon={TrendingUp}
+          href="/admin/stats"
+        />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Next 7 days</CardTitle>
+            <CardDescription>Course volume and seat fill</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex h-36 items-end gap-2">
+              {weekSeries.map((day) => (
+                <div key={day.key} className="flex flex-1 flex-col items-center gap-2">
+                  <span className="text-[10px] tabular-nums text-muted-foreground">{day.count}</span>
+                  <div className="flex w-full flex-1 items-end">
+                    <div
+                      className="w-full rounded-t-md bg-primary/80 transition-all"
+                      style={{ height: `${Math.max(8, (day.count / maxWeekCount) * 100)}%` }}
+                      title={`${day.label}: ${day.count} courses`}
+                    />
+                  </div>
+                  <span className="text-[11px] font-medium text-muted-foreground">{day.short}</span>
+                </div>
+              ))}
+            </div>
+            <div className="space-y-2.5 border-t pt-4">
+              {weekSeries.map((day) => (
+                <div key={`${day.key}-fill`} className="grid grid-cols-[4.5rem_1fr_auto] items-center gap-3">
+                  <span className="text-xs text-muted-foreground">{day.short}</span>
+                  <Progress value={day.pct} className="h-1.5" />
+                  <span className="w-16 text-right text-xs tabular-nums text-muted-foreground">
+                    {day.capacity > 0 ? `${day.pct}%` : "—"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Business snapshot</CardTitle>
+            <CardDescription>High-level health at a glance</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="rounded-xl border bg-muted/30 p-4">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Paid revenue</p>
+              <p className="mt-1 text-2xl font-semibold tabular-nums">
+                {formatCurrency(stats?.totalRevenue ?? 0)}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {stats?.totalPayments ?? 0} confirmed payments
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              {[
+                {
+                  label: "Active memberships",
+                  value: stats?.activeSubscriptions ?? 0,
+                  href: "/admin/subscriptions",
+                },
+                {
+                  label: "Awaiting payment",
+                  value: stats?.pendingSubscriptions ?? 0,
+                  href: "/admin/subscriptions",
+                },
+                {
+                  label: "Today occupancy",
+                  value: `${stats?.occupancyToday ?? 0}%`,
+                  href: "/admin/agenda",
+                },
+              ].map((row) => (
+                <Link
+                  key={row.label}
+                  href={row.href}
+                  className="flex items-center justify-between rounded-lg border px-3 py-2.5 transition-colors hover:bg-accent"
+                >
+                  <span className="text-sm text-muted-foreground">{row.label}</span>
+                  <span className="text-sm font-semibold tabular-nums">{row.value}</span>
+                </Link>
+              ))}
+            </div>
+
+            <Button asChild className="w-full">
+              <Link href="/admin/stats">
+                Open analytics
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+export default function AdminDashboard() {
+  return (
+    <div className="space-y-6 p-6">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+          <p className="text-sm text-muted-foreground">
+            Run the floor today, or review the business at a glance.
+          </p>
+        </div>
+        <p className="text-xs text-muted-foreground">{formatDate(localTodayKey())}</p>
+      </div>
+
+      <Tabs defaultValue="ops" className="space-y-6">
+        <TabsList className="h-auto w-full justify-start gap-1 sm:w-auto">
+          <TabsTrigger value="ops" className="gap-2 px-4">
+            <Zap className="h-3.5 w-3.5" />
+            Today
+          </TabsTrigger>
+          <TabsTrigger value="overview" className="gap-2 px-4">
+            <TrendingUp className="h-3.5 w-3.5" />
+            Overview
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="ops" className="mt-0 focus-visible:ring-0">
+          <OpsTab />
+        </TabsContent>
+        <TabsContent value="overview" className="mt-0 focus-visible:ring-0">
+          <OverviewTab />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

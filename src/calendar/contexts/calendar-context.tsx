@@ -23,6 +23,10 @@ interface ICalendarContext {
   events: IEvent[];
   setLocalEvents: Dispatch<SetStateAction<IEvent[]>>;
   registrations: any[];
+  checkins: any[];
+  hoveredEventId: number | null;
+  setHoveredEventId: (eventId: number | null) => void;
+  enableEventSidebarPreview: boolean;
   eventMode?: 'dialog' | 'navigation';
   eventBasePath?: string;
 }
@@ -46,7 +50,9 @@ export function CalendarProvider({
   children, 
   users, 
   events, 
-  registrations = [], 
+  registrations = [],
+  checkins = [],
+  enableEventSidebarPreview = false,
   eventMode = 'dialog', 
   eventBasePath = '/admin/courses' 
 }: { 
@@ -54,12 +60,15 @@ export function CalendarProvider({
   users: IUser[]; 
   events: IEvent[]; 
   registrations?: any[];
+  checkins?: any[];
+  enableEventSidebarPreview?: boolean;
   eventMode?: 'dialog' | 'navigation';
   eventBasePath?: string;
 }) {
   const [badgeVariant, setBadgeVariant] = useState<TBadgeVariant>("colored");
   const [visibleHours, setVisibleHours] = useState<TVisibleHours>(VISIBLE_HOURS);
   const [workingHours, setWorkingHours] = useState<TWorkingHours>(WORKING_HOURS);
+  const [hoveredEventId, setHoveredEventId] = useState<number | null>(null);
   
   // Load hour height from localStorage or use default
   const [hourHeight, setHourHeight] = useState<number>(() => {
@@ -137,6 +146,10 @@ export function CalendarProvider({
         events: localEvents,
         setLocalEvents,
         registrations,
+        checkins,
+        hoveredEventId,
+        setHoveredEventId,
+        enableEventSidebarPreview,
         eventMode,
         eventBasePath,
       }}
