@@ -31,7 +31,6 @@ import {
   X,
   Users,
   Clock,
-  DollarSign,
   Award,
   Link,
   Unlink,
@@ -39,6 +38,7 @@ import {
   XCircle
 } from "lucide-react";
 import { getInitials } from "@/lib/auth";
+import { formatCurrency } from "@/lib/config";
 import { useToast } from "@/hooks/use-toast";
 import { TableSkeleton } from "@/components/skeletons";
 
@@ -344,9 +344,8 @@ export default function AdminTrainers() {
                         </div>
                         {trainer.hourly_rate && (
                           <div className="flex items-center gap-1">
-                            <DollarSign className="w-3 h-3 text-muted-foreground" />
                             <span className="text-xs text-muted-foreground">
-                              ${trainer.hourly_rate}/hr
+                              {formatCurrency(Number(trainer.hourly_rate))}/hr
                             </span>
                           </div>
                         )}

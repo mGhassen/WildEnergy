@@ -16,7 +16,6 @@ import {
   Trash2,
   Clock,
   Users,
-  DollarSign,
   Calendar,
 } from "lucide-react";
 import { usePlan } from "@/hooks/usePlans";
@@ -127,8 +126,7 @@ export default function AdminPlanDetailPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Price</CardDescription>
-            <CardTitle className="flex items-center gap-2 text-2xl">
-              <DollarSign className="w-5 h-5 text-muted-foreground" />
+            <CardTitle className="text-2xl">
               {isFreePlan(plan) ? (
                 <span className="flex items-center gap-2">
                   Free

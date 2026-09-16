@@ -9,6 +9,7 @@ import { CheckCircle, XCircle, Loader2, ArrowLeft, User, Calendar, Clock, Users,
 import { useCheckinInfo, useCheckInRegistration, useCheckOutRegistration } from "@/hooks/useCheckins";
 import { useToast } from "@/hooks/use-toast";
 import { formatDateTime } from "@/lib/date";
+import { formatCurrency } from "@/lib/config";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -468,7 +469,7 @@ export default function CheckinQRPage() {
                           </div>
                           <div>
                             <p><strong className="text-foreground">Total sessions:</strong> {checkinInfo.member.activeSubscription.planSessionCount}</p>
-                            <p><strong className="text-foreground">Price:</strong> {checkinInfo.member.activeSubscription.planPrice ? `$${checkinInfo.member.activeSubscription.planPrice}` : 'N/A'}</p>
+                            <p><strong className="text-foreground">Price:</strong> {checkinInfo.member.activeSubscription.planPrice != null ? formatCurrency(Number(checkinInfo.member.activeSubscription.planPrice)) : 'N/A'}</p>
                             <p><strong className="text-foreground">Valid until:</strong> {checkinInfo.member.activeSubscription.endDate ? formatDateTime(checkinInfo.member.activeSubscription.endDate) : 'N/A'}</p>
                           </div>
                         </div>
@@ -615,7 +616,7 @@ export default function CheckinQRPage() {
                           <p><strong className="text-foreground">Certification:</strong> {checkinInfo.course.trainer.certification}</p>
                         )}
                         {checkinInfo.course?.trainer?.hourly_rate && (
-                          <p><strong className="text-foreground">Rate:</strong> ${checkinInfo.course.trainer.hourly_rate}/hour</p>
+                          <p><strong className="text-foreground">Rate:</strong> {formatCurrency(Number(checkinInfo.course.trainer.hourly_rate))}/hour</p>
                         )}
                       </div>
                     </div>

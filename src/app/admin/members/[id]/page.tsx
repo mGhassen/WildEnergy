@@ -36,7 +36,6 @@ import {
   MapPin,
   Briefcase,
   FileText,
-  DollarSign,
   TrendingUp,
   Users,
   Settings,
@@ -1047,7 +1046,7 @@ export default function MemberDetailsPage() {
         >
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
-              <DollarSign className="w-3.5 h-3.5" />
+              <Wallet className="w-3.5 h-3.5" />
               Payments Summary
             </CardTitle>
           </CardHeader>
@@ -1587,7 +1586,7 @@ export default function MemberDetailsPage() {
             <CardHeader className="space-y-4">
               <div>
                 <CardTitle className="flex items-center gap-2">
-                  <DollarSign className="w-5 h-5" />
+                  <CreditCard className="w-5 h-5" />
                   Payments ({payments.length})
                 </CardTitle>
                 <CardDescription>
@@ -1623,7 +1622,7 @@ export default function MemberDetailsPage() {
             <CardContent>
               {payments.length === 0 ? (
                 <div className="text-center py-8">
-                  <DollarSign className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                  <CreditCard className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground">No payment history found</p>
                 </div>
               ) : filteredPayments.length === 0 ? (

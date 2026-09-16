@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, DollarSign, Filter, Calendar, TrendingUp, CreditCard, Edit, Trash2 } from "lucide-react";
+import { Search, Filter, Calendar, TrendingUp, CreditCard, Edit, Trash2 } from "lucide-react";
 import { getInitials } from "@/lib/auth";
 import { formatDate } from "@/lib/date";
 import { formatCurrency } from "@/lib/config";
@@ -292,7 +292,7 @@ export default function AdminPayments() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <CreditCard className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold flex flex-col items-start">
@@ -565,10 +565,7 @@ export default function AdminPayments() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <div className="flex items-center">
-                            <DollarSign className="w-4 h-4 mr-1 text-muted-foreground" />
-                            <span className="font-medium">{formatPrice(payment.amount)}</span>
-                          </div>
+                          <span className="font-medium">{formatPrice(payment.amount)}</span>
                           <NotesHoverIcon notes={payment.notes} ariaLabel="View payment notes" />
                         </div>
                       </TableCell>

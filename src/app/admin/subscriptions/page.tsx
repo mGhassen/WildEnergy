@@ -14,7 +14,7 @@ import { useMembers } from "@/hooks/useMembers";
 import { usePlans } from "@/hooks/usePlans";
 import { usePayments } from "@/hooks/usePayments";
 import { TableSkeleton } from "@/components/skeletons";
-import { Plus, Search, Edit, Trash2, Eye, CreditCard, MoreVertical, RefreshCw, Filter, SortAsc, SortDesc, Calendar, DollarSign, Users, TrendingUp } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Eye, CreditCard, MoreVertical, RefreshCw, Filter, SortAsc, SortDesc, Calendar, Users, TrendingUp } from "lucide-react";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { getInitials } from "@/lib/auth";
 import { formatSubscriptionPeriod, subscriptionDurationDays, subscriptionDaysRemaining } from "@/lib/date";
@@ -417,7 +417,7 @@ export default function AdminSubscriptions() {
                   {formatCurrency(analytics.totalRevenue)}
                 </p>
               </div>
-              <DollarSign className="h-8 w-8 text-muted-foreground" />
+              <CreditCard className="h-8 w-8 text-muted-foreground" />
             </div>
           </CardContent>
         </Card>

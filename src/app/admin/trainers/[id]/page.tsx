@@ -14,7 +14,6 @@ import {
   Phone, 
   Calendar, 
   Award, 
-  DollarSign, 
   User, 
   Clock,
   MoreVertical,
@@ -26,6 +25,7 @@ import {
   UserPlus,
 } from "lucide-react";
 import { getInitials } from "@/lib/auth";
+import { formatCurrency } from "@/lib/config";
 import { useTrainer, useUnlinkTrainerAccount } from "@/hooks/useTrainers";
 import { useToast } from "@/hooks/use-toast";
 import { DashboardSkeleton } from "@/components/skeletons";
@@ -410,11 +410,12 @@ export default function TrainerDetailsPage() {
                 
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 text-sm">
-                    <DollarSign className="w-4 h-4 text-muted-foreground" />
                     <span className="text-muted-foreground">Hourly Rate:</span>
                   </div>
                   <p className="font-medium text-foreground">
-                    {trainer.hourly_rate ? `$${trainer.hourly_rate}/hour` : 'Not set'}
+                    {trainer.hourly_rate
+                      ? `${formatCurrency(Number(trainer.hourly_rate))}/hour`
+                      : 'Not set'}
                   </p>
                 </div>
                 
