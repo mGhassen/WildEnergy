@@ -27,7 +27,7 @@ function getEventsForDate(events: IEvent[], date: Date) {
 }
 
 function memberStatusBadgeClass(status: string) {
-  if (status === "attended" || status === "checked_in") {
+  if (status === "attended") {
     return "bg-blue-100 text-blue-800 border-blue-200";
   }
   if (status === "absent") {
@@ -36,12 +36,11 @@ function memberStatusBadgeClass(status: string) {
   if (status === "cancelled") {
     return "bg-gray-100 text-gray-600 border-gray-200";
   }
-  return "bg-gray-100 text-gray-800 border-gray-200";
+  return "bg-emerald-100 text-emerald-800 border-emerald-200";
 }
 
 function memberStatusLabel(status: string) {
   if (status === "attended") return "Attended";
-  if (status === "checked_in") return "Checked in";
   if (status === "absent") return "Absent";
   if (status === "cancelled") return "Cancelled";
   if (status === "registered") return "Registered";
@@ -57,7 +56,6 @@ export function CalendarDayView({ singleDayEvents, multiDayEvents }: IProps) {
     workingHours,
     hourHeight,
     registrations,
-    checkins,
     hoveredEventId,
     enableEventSidebarPreview,
   } = useCalendar();
@@ -85,83 +83,34 @@ export function CalendarDayView({ singleDayEvents, multiDayEvents }: IProps) {
     if (!hoveredEvent) return [];
 
     const courseId = Number(hoveredEvent.id);
-    const membersByKey = new Map<string, { id: number | string; name: string; status: string }>();
 
-    const resolveCheckin = (reg: any) =>
-      checkins.find((c: any) => {
-        const registrationId = c.registrationId ?? c.registration_id ?? c.registration?.id;
-        const memberId = c.memberId ?? c.member_id ?? c.member?.id;
-        return (
-          Number(registrationId) === Number(reg.id) ||
-          (memberId != null && String(memberId) === String(reg.member_id)) ||
-          (memberId != null && String(memberId) === String(reg.member?.id ?? reg.member?.member_id))
-        );
-      });
-
-    const memberName = (source: any, fallbackFirst = "Unknown", fallbackLast = "Member") => {
-      const first =
-        source?.first_name ?? source?.firstName ?? fallbackFirst;
-      const last =
-        source?.last_name ?? source?.lastName ?? fallbackLast;
+    const memberName = (source: any) => {
+      const first = source?.first_name ?? source?.firstName ?? "Unknown";
+      const last = source?.last_name ?? source?.lastName ?? "Member";
       return `${first} ${last}`.trim();
     };
 
-    const resolveStatus = (regStatus: string | undefined, hasCheckin: boolean) => {
-      if (regStatus === "attended") return "attended";
-      if (regStatus === "absent") return "absent";
-      if (regStatus === "cancelled") return "cancelled";
-      if (hasCheckin) return "checked_in";
-      return regStatus || "registered";
+    const statusOrder: Record<string, number> = {
+      registered: 0,
+      attended: 1,
+      absent: 2,
+      cancelled: 3,
     };
 
-    for (const reg of registrations) {
-      if (Number(reg.course_id) !== courseId) continue;
-      const checkin = resolveCheckin(reg);
-      membersByKey.set(String(reg.id), {
+    // One row per registration — status is the DB registration status only.
+    return registrations
+      .filter((reg: any) => Number(reg.course_id) === courseId)
+      .map((reg: any) => ({
         id: reg.id,
         name: memberName(reg.member),
-        status: resolveStatus(reg.status, Boolean(checkin)),
-      });
-    }
-
-    // Registrations list can be truncated by API max_rows — still surface checked-in members.
-    for (const checkin of checkins) {
-      const checkinCourseId =
-        checkin.registration?.course?.id ??
-        checkin.registration?.course_id ??
-        checkin.course_id ??
-        checkin.courseId;
-      if (Number(checkinCourseId) !== courseId) continue;
-
-      const registrationId = checkin.registrationId ?? checkin.registration_id ?? checkin.registration?.id;
-      const key = String(registrationId ?? checkin.memberId ?? checkin.member_id ?? checkin.id);
-      if (membersByKey.has(key)) {
-        const existing = membersByKey.get(key)!;
-        if (existing.status === "registered") {
-          existing.status = "checked_in";
-        }
-        continue;
-      }
-
-      membersByKey.set(key, {
-        id: registrationId ?? checkin.id,
-        name: memberName(checkin.member),
-        status: "checked_in",
-      });
-    }
-
-    const statusOrder: Record<string, number> = {
-      checked_in: 0,
-      attended: 1,
-      registered: 2,
-      absent: 3,
-      cancelled: 4,
-    };
-
-    return Array.from(membersByKey.values()).sort(
-      (a, b) => (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99) || a.name.localeCompare(b.name)
-    );
-  }, [hoveredEvent, registrations, checkins]);
+        status: reg.status || "registered",
+      }))
+      .sort(
+        (a, b) =>
+          (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99) ||
+          a.name.localeCompare(b.name)
+      );
+  }, [hoveredEvent, registrations]);
 
   return (
     <div className="flex h-full">
