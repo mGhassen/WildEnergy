@@ -84,31 +84,83 @@ export function CalendarDayView({ singleDayEvents, multiDayEvents }: IProps) {
   const hoveredEventMembers = useMemo(() => {
     if (!hoveredEvent) return [];
 
-    return registrations
-      .filter((reg: any) => reg.course_id === hoveredEvent.id)
-      .map((reg: any) => {
-        const checkin = checkins.find(
-          (c: any) =>
-            c.registration_id === reg.id ||
-            c.member_id === reg.member_id ||
-            c.member?.id === reg.member?.id ||
-            c.member?.id === reg.member_id
+    const courseId = Number(hoveredEvent.id);
+    const membersByKey = new Map<string, { id: number | string; name: string; status: string }>();
+
+    const resolveCheckin = (reg: any) =>
+      checkins.find((c: any) => {
+        const registrationId = c.registrationId ?? c.registration_id ?? c.registration?.id;
+        const memberId = c.memberId ?? c.member_id ?? c.member?.id;
+        return (
+          Number(registrationId) === Number(reg.id) ||
+          (memberId != null && String(memberId) === String(reg.member_id)) ||
+          (memberId != null && String(memberId) === String(reg.member?.id ?? reg.member?.member_id))
         );
-
-        let status = reg.status || "registered";
-        if (checkin && status === "registered") {
-          status = "checked_in";
-        }
-
-        const firstName = reg.member?.first_name || "Unknown";
-        const lastName = reg.member?.last_name || "Member";
-
-        return {
-          id: reg.id,
-          name: `${firstName} ${lastName}`.trim(),
-          status,
-        };
       });
+
+    const memberName = (source: any, fallbackFirst = "Unknown", fallbackLast = "Member") => {
+      const first =
+        source?.first_name ?? source?.firstName ?? fallbackFirst;
+      const last =
+        source?.last_name ?? source?.lastName ?? fallbackLast;
+      return `${first} ${last}`.trim();
+    };
+
+    const resolveStatus = (regStatus: string | undefined, hasCheckin: boolean) => {
+      if (regStatus === "attended") return "attended";
+      if (regStatus === "absent") return "absent";
+      if (regStatus === "cancelled") return "cancelled";
+      if (hasCheckin) return "checked_in";
+      return regStatus || "registered";
+    };
+
+    for (const reg of registrations) {
+      if (Number(reg.course_id) !== courseId) continue;
+      const checkin = resolveCheckin(reg);
+      membersByKey.set(String(reg.id), {
+        id: reg.id,
+        name: memberName(reg.member),
+        status: resolveStatus(reg.status, Boolean(checkin)),
+      });
+    }
+
+    // Registrations list can be truncated by API max_rows — still surface checked-in members.
+    for (const checkin of checkins) {
+      const checkinCourseId =
+        checkin.registration?.course?.id ??
+        checkin.registration?.course_id ??
+        checkin.course_id ??
+        checkin.courseId;
+      if (Number(checkinCourseId) !== courseId) continue;
+
+      const registrationId = checkin.registrationId ?? checkin.registration_id ?? checkin.registration?.id;
+      const key = String(registrationId ?? checkin.memberId ?? checkin.member_id ?? checkin.id);
+      if (membersByKey.has(key)) {
+        const existing = membersByKey.get(key)!;
+        if (existing.status === "registered") {
+          existing.status = "checked_in";
+        }
+        continue;
+      }
+
+      membersByKey.set(key, {
+        id: registrationId ?? checkin.id,
+        name: memberName(checkin.member),
+        status: "checked_in",
+      });
+    }
+
+    const statusOrder: Record<string, number> = {
+      checked_in: 0,
+      attended: 1,
+      registered: 2,
+      absent: 3,
+      cancelled: 4,
+    };
+
+    return Array.from(membersByKey.values()).sort(
+      (a, b) => (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99) || a.name.localeCompare(b.name)
+    );
   }, [hoveredEvent, registrations, checkins]);
 
   return (
