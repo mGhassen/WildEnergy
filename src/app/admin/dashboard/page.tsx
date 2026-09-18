@@ -455,23 +455,32 @@ function OverviewTab() {
             </Button>
           </div>
 
-          <div className="mt-5 flex h-28 items-end gap-1.5 sm:gap-2">
+          <div className="mt-5 flex h-28 gap-1.5 sm:gap-2">
             {byDay.map((day: any) => {
-              const height = Math.max(6, ((day.courses || 0) / maxCourses) * 100);
+              // Bar height = session volume; fill color height = occupancy.
+              // Absolute bottom bars — % height on flex children collapses to 0.
+              const height = day.courses
+                ? Math.max(12, ((day.courses || 0) / maxCourses) * 100)
+                : 0;
               const fill = day.occupancyPct || 0;
               return (
-                <div key={day.date} className="flex flex-1 flex-col items-center gap-1.5">
-                  <div className="flex w-full flex-1 items-end">
-                    <div
-                      className="relative w-full overflow-hidden rounded-t-md bg-muted"
-                      style={{ height: `${height}%` }}
-                      title={`${formatDate(day.date)}: ${day.courses} courses, ${fill}% full`}
-                    >
+                <div
+                  key={day.date}
+                  className="flex h-full min-h-0 flex-1 flex-col items-center gap-1.5"
+                >
+                  <div className="relative min-h-0 w-full flex-1">
+                    {height > 0 && (
                       <div
-                        className="absolute inset-x-0 bottom-0 bg-primary/80"
-                        style={{ height: `${Math.max(fill, day.courses ? 8 : 0)}%` }}
-                      />
-                    </div>
+                        className="absolute inset-x-0 bottom-0 overflow-hidden rounded-t-md bg-muted"
+                        style={{ height: `${height}%` }}
+                        title={`${formatDate(day.date)}: ${day.courses} courses, ${fill}% full`}
+                      >
+                        <div
+                          className="absolute inset-x-0 bottom-0 bg-primary/80"
+                          style={{ height: `${Math.max(fill, 8)}%` }}
+                        />
+                      </div>
+                    )}
                   </div>
                   <span className="text-[10px] font-medium text-muted-foreground">
                     {new Date(`${day.date}T12:00:00`).toLocaleDateString(undefined, {
