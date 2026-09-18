@@ -15,7 +15,6 @@ export type TimePoint = {
   date: string;
   value: number;
   secondary?: number;
-  /** Previous-period value aligned by index when compare is on */
   previous?: number;
 };
 export type RatePoint = {
@@ -56,6 +55,12 @@ export type StatsComparisonKpis = {
   activeSubscriptions: KpiValue;
   expiringSoon: KpiValue;
   depletedActive: KpiValue;
+  creditNet: KpiValue;
+  churnRate: KpiValue;
+  seatUtilization: KpiValue;
+  netRevenue: KpiValue;
+  noShowRate: KpiValue;
+  checkinConversion: KpiValue;
 };
 
 export type StatsOverview = {
@@ -69,19 +74,61 @@ export type StatsOverview = {
   avgFillRate: KpiValue;
   activeSubscriptions: number;
   expiringSoon: number;
+  // extended overview KPIs (flat numbers for catalog)
+  discountTotal: number;
+  discountRate: number;
+  arpu: number;
+  creditNet: number;
+  noShowRate: number;
+  cancelRate: number;
+  checkinConversion: number;
+  churnRate: number;
+  seatUtilization: number;
+  sessionBurnRate: number;
+  freePlanSubs: number;
+  paidPlanSubs: number;
+  multiSeatSubs: number;
+  mrrProxy: number;
+  revenuePerVisit: number;
+  revenuePerCourse: number;
+  registrations: number;
+  checkins: number;
+  attended: number;
+  capacityWaste: number;
 };
 
 export type StatsMembers = {
   growth: TimePoint[];
-  /** Pre-period roster vs cumulative new joins in the selected period */
   composition: TimePoint[];
-  /** New joins per bucket vs those who kept subscription 3+ months (mature cohorts only) */
   newMemberRetention: TimePoint[];
   retention3Mo: { rate: number; mature: number; stuck: number };
   statusBreakdown: NamedCount[];
   linkedVsUnlinked: NamedCount[];
   topGuests: Array<{ id: string; name: string; guestCount: number }>;
   professions: NamedCount[];
+  ageBuckets: NamedCount[];
+  avgAge: number | null;
+  medianAge: number | null;
+  blacklistCount: number;
+  guestTotal: number;
+  inactiveCount: number;
+  suspendedCount: number;
+  returningBookers: number;
+  oneTimeBookers: number;
+  zeroActivityMembers: number;
+  membersWithCredit: number;
+  avgCreditBalance: number;
+  accountStatusMix: NamedCount[];
+  neverLoggedIn: number;
+  staleLogins: number;
+  phoneMissing: number;
+  emailMissing: number;
+  joinsByWeekday: NamedCount[];
+  creditHoldersMix: NamedCount[];
+  newestMembers: Array<{ id: string; name: string; joined: string; status: string }>;
+  dormantActives: Array<{ id: string; name: string; status: string }>;
+  topCreditWallets: Array<{ id: string; name: string; credit: number }>;
+  blacklistRows: Array<{ id: string; name: string }>;
 };
 
 export type StatsFinances = {
@@ -96,6 +143,31 @@ export type StatsFinances = {
   overdueCount: number;
   paidCount: number;
   pendingCount: number;
+  creditIssued: number;
+  creditUsed: number;
+  creditNet: number;
+  creditOverTime: TimePoint[];
+  creditByType: NamedCount[];
+  paymentStatusMix: NamedCount[];
+  failedAmount: number;
+  refundedAmount: number;
+  pendingAmount: number;
+  grossPaid: number;
+  discountRate: number;
+  netRevenue: number;
+  revenueByWeekday: NamedCount[];
+  topPayers: Array<{ id: string; name: string; amount: number }>;
+  avgDaysToPay: number | null;
+  freeVsPaidRevenue: NamedCount[];
+  revenueByPlanDuration: NamedCount[];
+  outstandingAging: NamedCount[];
+  largestDiscounts: Array<{ memberName: string; amount: number; discount: number }>;
+  overduePayments: Array<{ memberName: string; amount: number; dueDate: string; daysLate: number }>;
+  failedPayments: Array<{ memberName: string; amount: number; date: string }>;
+  mrrProxy: number;
+  revenuePerVisit: number;
+  revenuePerCourse: number;
+  partialCreditPays: number;
 };
 
 export type StatsAttendance = {
@@ -113,6 +185,29 @@ export type StatsAttendance = {
     cancelled: number;
     checkins: number;
   };
+  byGroup: NamedCount[];
+  noShowRate: number;
+  cancelRate: number;
+  regStatusMix: NamedCount[];
+  sessionSourceMix: NamedCount[];
+  checkinConversion: number;
+  regsPerActiveMember: number;
+  uniqueBookers: number;
+  uniqueCheckinMembers: number;
+  repeatVisitRate: number;
+  attendanceByWeekday: NamedCount[];
+  attendanceByHour: NamedCount[];
+  avgLeadTimeDays: number | null;
+  sameDayBookingRate: number;
+  advanceBookings7dRate: number;
+  multiClassMembers: number;
+  poolRegs: number;
+  dedicatedRegs: number;
+  guestLikeRegs: number;
+  checkinsWithoutSessionConsumed: number;
+  leadTimeBuckets: NamedCount[];
+  frequentAttendees: Array<{ id: string; name: string; attended: number; checkins: number }>;
+  chronicNoShows: Array<{ id: string; name: string; absent: number }>;
 };
 
 export type StatsProgram = {
@@ -122,6 +217,27 @@ export type StatsProgram = {
   completedCourses: number;
   scheduledCourses: number;
   statusBreakdown: NamedCount[];
+  fillByCategory: NamedCount[];
+  coursesOverTime: TimePoint[];
+  avgCapacity: number;
+  avgSeatsTaken: number;
+  emptyCourses: number;
+  fullCourses: number;
+  underfilledCourses: number;
+  coursesPerDayAvg: number;
+  activeClasses: number;
+  activeCategories: number;
+  avgDurationMinutes: number;
+  weekendCourseShare: number;
+  fillOverTime: TimePoint[];
+  timeOfDayMix: NamedCount[];
+  weekendVsWeekday: NamedCount[];
+  classPopularity: NamedCount[];
+  categoryPopularity: NamedCount[];
+  courseCancelRateTrend: TimePoint[];
+  emptyCourseRows: Array<{ date: string; className: string; trainerName: string; seats: number; capacity: number }>;
+  fullClassRows: Array<{ name: string; fillRate: number; seats: number; capacity: number }>;
+  mostCancelledClasses: Array<{ name: string; cancelled: number; total: number; cancelPct: number }>;
 };
 
 export type StatsSubscriptions = {
@@ -143,6 +259,50 @@ export type StatsSubscriptions = {
     utilization: number;
   }>;
   depletedActive: number;
+  startsInPeriod: number;
+  cancelledInPeriod: number;
+  expiredInPeriod: number;
+  churnRate: number;
+  renewalsProxy: number;
+  avgDaysToExpiry: number | null;
+  expiring7: number;
+  expiring30: number;
+  seatStats: {
+    totalSeats: number;
+    activeSeats: number;
+    ownerSeats: number;
+    memberSeats: number;
+    utilization: number;
+    avgSeatsPerSub: number;
+    openSeats: number;
+  };
+  inviteStats: { pending: number; accepted: number; revoked: number; expired: number };
+  invitesOverTime: TimePoint[];
+  inviteAcceptRate: number;
+  inviteExpiryRisk: number;
+  freePlanCount: number;
+  paidPlanCount: number;
+  multiSeatCount: number;
+  sessionBurnRate: number;
+  firstTimeSubscribers: number;
+  planPriceBands: NamedCount[];
+  durationMix: NamedCount[];
+  freeVsPaidPlans: NamedCount[];
+  expiringBuckets: NamedCount[];
+  startsOverTime: TimePoint[];
+  cancelsOverTime: TimePoint[];
+  seatRoles: NamedCount[];
+  inviteStatusMix: NamedCount[];
+  multiSeatRows: Array<{ planName: string; seatsUsed: number; maxSeats: number; ownerName: string }>;
+  pendingInviteRows: Array<{ email: string; planName: string; expiresAt: string }>;
+  openSeatRows: Array<{ planName: string; open: number; maxSeats: number }>;
+  expiring30List: Array<{
+    id: number;
+    memberName: string;
+    planName: string;
+    endDate: string;
+    daysLeft: number;
+  }>;
 };
 
 export type StatsTrainers = {
@@ -153,7 +313,22 @@ export type StatsTrainers = {
     uniqueAttendees: number;
     attendanceRate: number;
     fillRate: number;
+    cancelledCourses: number;
+    registrations: number;
+    noShows: number;
+    hoursProxy: number;
   }>;
+  activeTrainerCount: number;
+  inactiveTrainerCount: number;
+  avgCoursesPerTrainer: number;
+  avgTrainerFill: number;
+  avgTrainerAttendance: number;
+  avgTrainerHours: number;
+  trainersWithZeroCourses: number;
+  specializationMix: NamedCount[];
+  experienceBands: NamedCount[];
+  cancellationRows: Array<{ name: string; cancelled: number; total: number; cancelPct: number }>;
+  idleTrainers: Array<{ id: string; name: string }>;
 };
 
 export type StatsAcquisition = {
@@ -194,7 +369,6 @@ export type AdminStatsResponse = {
   subscriptions: StatsSubscriptions;
   trainers: StatsTrainers;
   acquisition: StatsAcquisition;
-  /** Present when compare=1 — KPI deltas + previous series are also merged into chart points */
   comparison?: {
     previousFrom: string;
     previousTo: string;

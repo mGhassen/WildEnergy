@@ -6,6 +6,7 @@ import type {
   TimePoint,
 } from "@/lib/api/stats"
 import { formatCurrency } from "@/lib/config"
+import { METRIC_CATALOG_EXTRA } from "@/components/stats/catalog-extra"
 
 export type StatsTab =
   | "overview"
@@ -101,7 +102,7 @@ function fillRateNamed(data: AdminStatsResponse): NamedCount[] {
   }))
 }
 
-export const METRIC_CATALOG: MetricDef[] = [
+export const METRIC_CATALOG_CORE: MetricDef[] = [
   // —— Overview / KPIs ——
   {
     id: "kpi.period_revenue",
@@ -834,6 +835,8 @@ export const METRIC_CATALOG: MetricDef[] = [
   },
 ]
 
+export const METRIC_CATALOG: MetricDef[] = [...METRIC_CATALOG_CORE, ...METRIC_CATALOG_EXTRA]
+
 export function getMetric(id: string): MetricDef | undefined {
   return METRIC_CATALOG.find((m) => m.id === id)
 }
@@ -861,63 +864,84 @@ export const TAB_DEFS: Array<{ id: StatsTab; label: string }> = [
 /** Seed layouts per tab so first visit isn't empty */
 export function defaultBoard(tab: StatsTab): BoardState {
   const seeds: Record<StatsTab, string[]> = {
-    overview: [
-      "kpi.period_revenue",
-      "kpi.avg_ticket",
-      "kpi.outstanding",
-      "kpi.attendance_rate",
-      "kpi.fill_rate",
-      "kpi.active_members",
-      "chart.revenue_trend",
-      "chart.revenue_mix",
-      "chart.attendance_rates",
-      "chart.attendance_breakdown",
-      "table.expiring_subs",
-      "table.session_burn",
-    ],
     members: [
       "kpi.active_members",
+      "kpi.new_members",
       "kpi.retention_3mo",
+      "kpi.avg_age",
       "chart.member_growth",
-      "chart.member_composition",
-      "chart.new_member_retention",
+      "chart.age_buckets",
       "chart.member_status",
+      "chart.professions",
       "table.top_guests",
       "kpi.credit_wallet",
     ],
     finances: [
       "kpi.period_revenue",
+      "kpi.arpu",
       "kpi.avg_ticket",
       "kpi.collection_rate",
+      "kpi.credit_net",
       "kpi.outstanding",
       "chart.revenue_trend",
-      "chart.revenue_mix",
-      "chart.payment_volume",
+      "chart.payment_status",
+      "chart.credit_trend",
       "table.plan_mix",
     ],
     attendance: [
       "kpi.attendance_rate",
+      "kpi.no_show_rate",
+      "kpi.checkin_conversion",
       "chart.attendance_rates",
       "chart.booking_volume",
+      "chart.reg_status_mix",
+      "chart.session_source_mix",
       "chart.attendance_breakdown",
-      "chart.schedule_peaks",
     ],
     program: [
       "kpi.fill_rate",
+      "kpi.capacity_waste",
+      "kpi.empty_courses",
       "chart.fill_by_class",
+      "chart.fill_by_category",
       "chart.course_status",
-      "chart.schedule_peaks",
+      "chart.courses_over_time",
       "table.fill_detail",
     ],
     subscriptions: [
       "kpi.active_subs",
+      "kpi.churn_rate",
+      "kpi.seat_utilization",
       "kpi.depleted_sessions",
       "chart.sub_status",
+      "chart.invite_status",
+      "chart.sub_starts_trend",
       "table.plan_mix",
       "table.session_burn",
       "table.expiring_subs",
     ],
-    trainers: ["table.trainers"],
+    trainers: [
+      "kpi.active_trainers",
+      "kpi.avg_trainer_fill",
+      "chart.trainer_courses",
+      "chart.trainer_fill",
+      "table.trainers",
+    ],
+    overview: [
+      "kpi.period_revenue",
+      "kpi.arpu",
+      "kpi.avg_ticket",
+      "kpi.outstanding",
+      "kpi.attendance_rate",
+      "kpi.fill_rate",
+      "kpi.active_members",
+      "kpi.churn_rate",
+      "kpi.seat_utilization",
+      "chart.revenue_trend",
+      "chart.revenue_mix",
+      "chart.attendance_rates",
+      "table.expiring_subs",
+    ],
   }
 
   const ids = seeds[tab]

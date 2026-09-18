@@ -19,6 +19,7 @@ import {
   type StatsTab,
 } from "@/components/stats/catalog"
 import { CustomStatWizard } from "@/components/stats/custom-stat-wizard"
+import { customSeedsForTab } from "@/components/stats/custom-seeds"
 import type { CustomQuerySpec } from "@/lib/stats/query-spec"
 import { cn } from "@/lib/utils"
 
@@ -44,9 +45,10 @@ export function AddWidgetDialog({
   /** When false, only the dialog is rendered (parent owns the open trigger). */
   trigger?: boolean
 }) {
-  const [mode, setMode] = useState<"templates" | "custom">("templates")
+  const [mode, setMode] = useState<"templates" | "quick" | "custom">("templates")
   const [q, setQ] = useState("")
   const metrics = useMemo(() => metricsForTab(tab), [tab])
+  const seeds = useMemo(() => customSeedsForTab(tab), [tab])
 
   const grouped = useMemo(() => {
     const filtered = metrics.filter((m) => {
@@ -61,6 +63,14 @@ export function AddWidgetDialog({
     }
     return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b))
   }, [metrics, q])
+
+  const filteredSeeds = useMemo(() => {
+    const needle = q.trim().toLowerCase()
+    if (!needle) return seeds
+    return seeds.filter((s) =>
+      `${s.label} ${s.description}`.toLowerCase().includes(needle),
+    )
+  }, [seeds, q])
 
   const close = () => {
     onOpenChange(false)
@@ -91,8 +101,10 @@ export function AddWidgetDialog({
             <DialogTitle>Add a stat widget</DialogTitle>
             <DialogDescription>
               {mode === "templates"
-                ? "Pick a template, or build a custom analytic query."
-                : "Guided builder: objects → joins → filters → measure → viz."}
+                ? "Pick a ready-made metric for this tab."
+                : mode === "quick"
+                  ? "One-click custom queries from the semantic layer."
+                  : "Guided builder: objects → joins → filters → measure → viz."}
             </DialogDescription>
           </DialogHeader>
 
@@ -106,6 +118,16 @@ export function AddWidgetDialog({
               onClick={() => setMode("templates")}
             >
               Templates
+            </button>
+            <button
+              type="button"
+              className={cn(
+                "flex-1 rounded-sm px-3 py-1.5 text-sm font-medium",
+                mode === "quick" ? "bg-background shadow-sm" : "text-muted-foreground",
+              )}
+              onClick={() => setMode("quick")}
+            >
+              Quick
             </button>
             <button
               type="button"
@@ -164,6 +186,45 @@ export function AddWidgetDialog({
                           ))}
                         </div>
                       </div>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
+            </>
+          ) : mode === "quick" ? (
+            <>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  className="pl-8"
+                  placeholder="Search quick queries…"
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                />
+              </div>
+              <ScrollArea className="h-[380px] pr-3">
+                <div className="space-y-1.5">
+                  {filteredSeeds.length === 0 ? (
+                    <p className="py-8 text-center text-sm text-muted-foreground">No quick queries match</p>
+                  ) : (
+                    filteredSeeds.map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        className="flex w-full items-start justify-between gap-3 rounded-md border px-3 py-2 text-left transition-colors hover:bg-accent"
+                        onClick={() => {
+                          onAddCustom(s.query)
+                          close()
+                        }}
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium">{s.label}</p>
+                          <p className="line-clamp-2 text-xs text-muted-foreground">{s.description}</p>
+                        </div>
+                        <Badge variant="outline" className="shrink-0 text-[10px] uppercase">
+                          {s.query.viz}
+                        </Badge>
+                      </button>
                     ))
                   )}
                 </div>

@@ -22,6 +22,7 @@ import {
   timeSeriesFromMap,
   type DateRange,
 } from '@/lib/stats/aggregations';
+import { computeExtended } from '@/lib/stats/compute-extended';
 
 async function requireAdmin(req: NextRequest) {
   const authHeader = req.headers.get('authorization');
@@ -63,6 +64,10 @@ function computePeriodMetrics(
     sgs: any[];
     onboarding: any[];
     accounts: any[];
+    seats: any[];
+    invites: any[];
+    creditEntries: any[];
+    trainersRaw: any[];
     filters: {
       categoryId?: string;
       trainerId?: string;
@@ -86,6 +91,10 @@ function computePeriodMetrics(
     sgs,
     onboarding,
     accounts,
+    seats,
+    invites,
+    creditEntries,
+    trainersRaw,
     filters,
   } = data;
 
@@ -435,39 +444,6 @@ function computePeriodMetrics(
     (s: any) => (remainingBySub.get(s.id) ?? 0) === 0,
   ).length;
 
-  // --- Trainers ---
-  const trainerRows = Array.from(trainersById.entries())
-    .map(([id, t]) => {
-      const tCourses = coursesInPeriod.filter((c: any) => String(c.trainer_id) === id);
-      if (trainerId && id !== trainerId) return null;
-      const tCourseIds = new Set(tCourses.map((c: any) => c.id));
-      const tRegs = regsInRange.filter((r: any) => tCourseIds.has(r.course_id));
-      const tNonCancel = tRegs.filter((r: any) => r.status !== 'cancelled');
-      const tAttended = tNonCancel.filter(
-        (r: any) =>
-          r.status === 'attended' ||
-          checkinsInRange.some((ch: any) => ch.registration_id === r.id),
-      );
-      const uniqueAttendees = new Set(tAttended.map((r: any) => r.member_id)).size;
-      let fill = 0;
-      for (const c of tCourses) {
-        const cap = num(c.max_participants) || 1;
-        const fromRegs = tNonCancel.filter((r: any) => r.course_id === c.id).length;
-        const filled = Math.max(num(c.current_participants), fromRegs);
-        fill += (Math.min(filled, cap) / cap) * 100;
-      }
-      return {
-        id,
-        name: t.name,
-        courses: tCourses.length,
-        uniqueAttendees,
-        attendanceRate: tNonCancel.length ? (tAttended.length / tNonCancel.length) * 100 : 0,
-        fillRate: tCourses.length ? fill / tCourses.length : 0,
-      };
-    })
-    .filter(Boolean)
-    .sort((a: any, b: any) => b.courses - a.courses) as any[];
-
   // --- Acquisition ---
   const discoverySources = countBy(
     onboarding.filter((o: any) => o.discovery_source),
@@ -482,6 +458,44 @@ function computePeriodMetrics(
   ];
   const pendingAccounts = accounts.filter((a: any) => a.status === 'pending').length;
 
+  const ext = computeExtended({
+    range,
+    members,
+    payments,
+    courses,
+    registrations,
+    checkins,
+    subscriptions,
+    seats,
+    invites,
+    creditEntries,
+    accounts,
+    trainersRaw,
+    plansById,
+    classesById,
+    categoriesById,
+    trainersById,
+    groupsById,
+    activeMemberIds,
+    paidRevenue,
+    paidInRange,
+    pendingInPeriod,
+    overduePayments,
+    regsInRange,
+    nonCancelled,
+    checkinsInRange,
+    attendedCount,
+    coursesInPeriod,
+    filteredCourses,
+    completedCourses,
+    cancelledCourses,
+    capacityWaste,
+    activeSubs,
+    filteredSubs,
+    sgs: filteredSgs,
+    fillRateByClass,
+  });
+
   return {
     overview: {
       totalMembers,
@@ -494,6 +508,8 @@ function computePeriodMetrics(
       avgFillRate: kpi(avgFillRate),
       activeSubscriptions: activeSubs.length,
       expiringSoon,
+      ...ext.overviewExt,
+      arpu,
     },
     members: {
       growth: timeSeriesFromMap(range, memberGrowthMap),
@@ -511,6 +527,7 @@ function computePeriodMetrics(
       ],
       topGuests,
       professions,
+      ...ext.membersExt,
     },
     finances: {
       revenueOverTime: timeSeriesFromMap(range, revenueMap),
@@ -524,6 +541,7 @@ function computePeriodMetrics(
       overdueCount: overduePayments.length,
       paidCount,
       pendingCount,
+      ...ext.financesExt,
     },
     attendance: {
       ratesOverTime: buildRatesOverTime(range, regsForRates),
@@ -545,6 +563,7 @@ function computePeriodMetrics(
         cancelled: regsInRange.filter((r: any) => r.status === 'cancelled').length,
         checkins: checkinsInRange.length,
       },
+      ...ext.attendanceExt,
     },
     program: {
       fillRateByClass,
@@ -553,6 +572,7 @@ function computePeriodMetrics(
       completedCourses,
       scheduledCourses,
       statusBreakdown: statusBreakdownCourses,
+      ...ext.programExt,
     },
     subscriptions: {
       statusMix,
@@ -560,8 +580,11 @@ function computePeriodMetrics(
       expiringSoon: expiringSoonList,
       sessionUtilization,
       depletedActive,
+      ...ext.subscriptionsExt,
     },
-    trainers: { rows: trainerRows },
+    trainers: {
+      ...ext.trainersExt,
+    },
     acquisition: {
       discoverySources,
       funnel,
@@ -590,6 +613,7 @@ function computePeriodMetrics(
       expiringSoon,
       depletedActive,
       avgTicket: paidCount > 0 ? paidRevenue / paidCount : 0,
+      ...ext.rawExt,
     },
   };
 }
@@ -635,23 +659,27 @@ export async function GET(req: NextRequest) {
       onboardingRes,
       accountsRes,
       profilesRes,
+      seatsRes,
+      invitesRes,
     ] = await Promise.all([
-      sb.from('members').select('id, account_id, profile_id, status, guest_count, created_at'),
-      sb.from('member_credit_entries').select('member_id, amount'),
+      sb.from('members').select('id, account_id, profile_id, status, guest_count, is_blacklisted, created_at'),
+      sb.from('member_credit_entries').select('member_id, amount, entry_type, entry_date, created_at'),
       sb.from('payments').select('*'),
       sb.from('courses').select('*'),
       sb.from('class_registrations').select('*'),
       sb.from('checkins').select('*'),
       sb.from('subscriptions').select('*'),
-      sb.from('plans').select('id, name, price, is_active'),
-      sb.from('classes').select('id, name, category_id, max_capacity, is_active'),
+      sb.from('plans').select('id, name, price, is_active, is_free, max_seats, duration_days'),
+      sb.from('classes').select('id, name, category_id, max_capacity, duration, is_active'),
       sb.from('categories').select('id, name, is_active'),
-      sb.from('trainers').select('id, account_id, profile_id, status, specialization'),
+      sb.from('trainers').select('id, account_id, profile_id, status, specialization, experience_years, hourly_rate'),
       sb.from('groups').select('id, name, is_active'),
       sb.from('subscription_group_sessions').select('*'),
       sb.from('member_onboarding').select('*'),
-      sb.from('accounts').select('id, status, is_admin, created_at'),
-      sb.from('profiles').select('id, first_name, last_name, profession, date_of_birth'),
+      sb.from('accounts').select('id, status, is_admin, created_at, last_login'),
+      sb.from('profiles').select('id, first_name, last_name, profession, date_of_birth, phone, profile_email'),
+      sb.from('subscription_seats').select('*'),
+      sb.from('subscription_invites').select('id, subscription_id, email, invited_by_member_id, status, expires_at, accepted_member_id, created_at, updated_at'),
     ]);
 
     const creditByMember = new Map<string, number>();
@@ -697,6 +725,10 @@ export async function GET(req: NextRequest) {
       sgs: sgsRes.data || [],
       onboarding: onboardingRes.data || [],
       accounts: accountsRes.data || [],
+      seats: seatsRes.data || [],
+      invites: invitesRes.data || [],
+      creditEntries: creditEntriesRes.data || [],
+      trainersRaw,
       filters,
     };
 
@@ -788,6 +820,12 @@ export async function GET(req: NextRequest) {
             activeSubscriptions: kpi(c.activeSubscriptions, p.activeSubscriptions),
             expiringSoon: kpi(c.expiringSoon, p.expiringSoon),
             depletedActive: kpi(c.depletedActive, p.depletedActive),
+            creditNet: kpi(c.creditNet, p.creditNet),
+            churnRate: kpi(c.churnRate, p.churnRate),
+            seatUtilization: kpi(c.seatUtilization, p.seatUtilization),
+            netRevenue: kpi(c.netRevenue, p.netRevenue),
+            noShowRate: kpi(c.noShowRate, p.noShowRate),
+            checkinConversion: kpi(c.checkinConversion, p.checkinConversion),
           },
         },
       };
