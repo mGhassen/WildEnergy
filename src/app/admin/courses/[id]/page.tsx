@@ -42,20 +42,14 @@ import {
   Plus,
   Search,
   Filter,
-  MoreVertical,
   UserPlus,
   UserMinus,
   CheckSquare,
   Square,
-  QrCode,
-  Check,
-  Eye,
   ChevronUp,
   ChevronDown,
-  X
 } from 'lucide-react';
-import { formatTime, formatDate, formatDateRange, formatDateTime } from '@/lib/date';
-import { formatRegistrationSessionSource } from '@/lib/registration-session-source';
+import { formatTime, formatDate, formatDateRange } from '@/lib/date';
 import { formatTrainerDisplayName } from '@/lib/format-trainer-name';
 import {
   memberCoversCourseOnDate,
@@ -72,8 +66,8 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { NotesHoverIcon } from '@/components/notes-hover-icon';
+import { CourseParticipantsList } from '@/components/admin/course-participants-list';
 
 interface CourseDetails {
   id: number;
@@ -280,9 +274,6 @@ export default function CourseDetailsPage() {
     }
   }, [searchParams, courseId, router]);
 
-  const [participantsPage, setParticipantsPage] = useState(1);
-  const PARTICIPANTS_PER_PAGE = 12;
-
   const { data: course, isLoading, error } = useCourse(parseInt(courseId));
 
   // Fetch all members for management
@@ -486,9 +477,8 @@ export default function CourseDetailsPage() {
     setMemberSubscriptionSelections({});
   };
 
-  // Handle QR button click - navigate to QR check-in page
-  const handleQRClick = (qrCode: string, event: React.MouseEvent) => {
-    event.stopPropagation(); // Prevent the row click from firing
+  const handleQRClick = (qrCode: string, event?: React.MouseEvent) => {
+    event?.stopPropagation();
     if (qrCode) {
       router.push(`/admin/checkins/qr/${encodeURIComponent(qrCode)}`);
     } else {
@@ -532,16 +522,6 @@ export default function CourseDetailsPage() {
   }
 
   const courseData = course as CourseDetails;
-
-  const participantsTotalPages = Math.max(
-    1,
-    Math.ceil(courseData.registrations.length / PARTICIPANTS_PER_PAGE),
-  );
-  const safeParticipantsPage = Math.min(participantsPage, participantsTotalPages);
-  const paginatedRegistrations = courseData.registrations.slice(
-    (safeParticipantsPage - 1) * PARTICIPANTS_PER_PAGE,
-    safeParticipantsPage * PARTICIPANTS_PER_PAGE,
-  );
 
   const courseDeleteBlockReason = assertCourseDeletableWithAutoCancel(
     {
@@ -791,217 +771,17 @@ export default function CourseDetailsPage() {
             </CardContent>
           </Card>
 
-          {/* Participants Section */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="w-5 h-5" />
-                  Participants ({courseData.registrations.length})
-                </CardTitle>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => router.push(`/admin/courses/${courseId}/members`)}
-                >
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  Add Members
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              {courseData.registrations.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground px-6">
-                  <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>No participants registered yet</p>
-                </div>
-              ) : (
-                <>
-                  <div className="space-y-4 p-6">
-                    {paginatedRegistrations.map((registration) => {
-                      const checkin = courseData.checkins.find(
-                        (c) =>
-                          c.registration_id === registration.id ||
-                          c.member?.id === registration.member?.id
-                      );
-                      const sessionLabel =
-                        formatRegistrationSessionSource(registration);
-
-                      return (
-                        <div 
-                          key={registration.id} 
-                          className="flex items-center justify-between gap-4 p-4 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                          onClick={() => {
-                            const memberId = registration.member?.id;
-                            if (memberId) {
-                              router.push(`/admin/members/${memberId}`);
-                            }
-                          }}
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <Avatar>
-                              <AvatarFallback>
-                                {registration.member?.first_name?.[0] || 'U'}{registration.member?.last_name?.[0] || 'M'}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="min-w-0">
-                              <p className="font-medium truncate">
-                                {registration.member?.first_name || 'Unknown'} {registration.member?.last_name || 'Member'}
-                              </p>
-                              <p className="text-sm text-muted-foreground truncate">{registration.member?.email || 'No email'}</p>
-                              <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                                <span className="font-mono">
-                                  REG-{String(registration.id).padStart(5, '0')}
-                                </span>
-                                <span>
-                                  Registered {formatDateTime(registration.registration_date)}
-                                </span>
-                                {registration.subscription_id ? (
-                                  <button
-                                    type="button"
-                                    className="hover:underline text-foreground/80"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      router.push(
-                                        `/admin/subscriptions/${registration.subscription_id}`,
-                                      );
-                                    }}
-                                  >
-                                    Subscription #{registration.subscription_id}
-                                  </button>
-                                ) : (
-                                  <span>Guest</span>
-                                )}
-                                {sessionLabel && <span>{sessionLabel}</span>}
-                                {checkin?.checkin_time && (
-                                  <span>
-                                    Checked in {formatDateTime(checkin.checkin_time)}
-                                  </span>
-                                )}
-                              </div>
-                              {registration.notes && (
-                                <p className="text-xs text-muted-foreground mt-1">{registration.notes}</p>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={(e) => handleQRClick(registration.qr_code, e)}
-                              className="h-8 w-8 p-0"
-                              title="Open QR Check-in Page"
-                            >
-                              <QrCode className="w-4 h-4" />
-                            </Button>
-                            <Badge 
-                              variant="outline" 
-                              className={`text-xs ${
-                                registration.status === 'attended'
-                                  ? 'bg-blue-100 text-blue-800 border-blue-200'
-                                  : registration.status === 'absent'
-                                  ? 'bg-red-100 text-red-800 border-red-200'
-                                  : registration.status === 'cancelled'
-                                  ? 'bg-gray-100 text-gray-600 border-gray-200'
-                                  : 'bg-gray-100 text-gray-800 border-gray-200'
-                              }`}
-                            >
-                              {registration.status === 'attended' ? 'Attended' :
-                               registration.status === 'absent' ? 'Absent' :
-                               registration.status === 'cancelled' ? 'Cancelled' :
-                               registration.status === 'registered' ? 'Registered' :
-                               registration.status}
-                            </Badge>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8"
-                                  aria-label="Open registration actions"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <MoreVertical className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                                <DropdownMenuItem onClick={(e) => handleQRClick(registration.qr_code, e)}>
-                                  <Eye className="mr-2 h-4 w-4" />
-                                  View
-                                </DropdownMenuItem>
-                                {(registration.status === 'registered' || registration.status === 'absent') && (
-                                  <DropdownMenuItem
-                                    disabled={checkInMutation.isPending}
-                                    onClick={() => checkInMutation.mutate(registration.id)}
-                                  >
-                                    <Check className="mr-2 h-4 w-4" />
-                                    Check in
-                                  </DropdownMenuItem>
-                                )}
-                                {registration.status !== 'cancelled' && (
-                                  <DropdownMenuItem
-                                    onClick={() => handleCancelRegistration(registration)}
-                                  >
-                                    <X className="mr-2 h-4 w-4" />
-                                    Cancel
-                                  </DropdownMenuItem>
-                                )}
-                                {registration.status === 'cancelled' && (
-                                  <DropdownMenuItem
-                                    onClick={() => handleRestoreRegistration(registration)}
-                                  >
-                                    <Check className="mr-2 h-4 w-4" />
-                                    Restore
-                                  </DropdownMenuItem>
-                                )}
-                                <DropdownMenuItem
-                                  className="text-destructive focus:text-destructive"
-                                  onClick={() => handleDeleteRegistration(registration)}
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  Delete
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {courseData.registrations.length > PARTICIPANTS_PER_PAGE && (
-                    <div className="flex items-center justify-between px-6 py-3 border-t">
-                      <div className="text-sm text-muted-foreground">
-                        Showing {((safeParticipantsPage - 1) * PARTICIPANTS_PER_PAGE) + 1} to{' '}
-                        {Math.min(safeParticipantsPage * PARTICIPANTS_PER_PAGE, courseData.registrations.length)} of{' '}
-                        {courseData.registrations.length}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setParticipantsPage(safeParticipantsPage - 1)}
-                          disabled={safeParticipantsPage === 1}
-                        >
-                          Previous
-                        </Button>
-                        <span className="text-sm whitespace-nowrap">
-                          Page {safeParticipantsPage} of {participantsTotalPages}
-                        </span>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setParticipantsPage(safeParticipantsPage + 1)}
-                          disabled={safeParticipantsPage === participantsTotalPages}
-                        >
-                          Next
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-            </CardContent>
-          </Card>
+          <CourseParticipantsList
+            registrations={courseData.registrations}
+            checkins={courseData.checkins}
+            checkInPending={checkInMutation.isPending}
+            onAddMembers={() => router.push(`/admin/courses/${courseId}/members`)}
+            onQRClick={handleQRClick}
+            onCheckIn={(registrationId) => checkInMutation.mutate(registrationId)}
+            onCancel={handleCancelRegistration}
+            onRestore={handleRestoreRegistration}
+            onDelete={handleDeleteRegistration}
+          />
 
         </div>
 
