@@ -1,6 +1,7 @@
 import { cva } from "class-variance-authority";
 import { format, differenceInMinutes, parseISO } from "date-fns";
-import { QrCode } from "lucide-react";
+import { ArrowUpRight, QrCode } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { useCalendar } from "@/calendar/contexts/calendar-context";
@@ -56,8 +57,19 @@ interface IProps extends HTMLAttributes<HTMLDivElement>, Omit<VariantProps<typeo
 }
 
 export function EventBlock({ event, className }: IProps) {
-  const { badgeVariant, registrations, enableEventSidebarPreview, setHoveredEventId } = useCalendar();
+  const {
+    badgeVariant,
+    registrations,
+    enableEventSidebarPreview,
+    setHoveredEventId,
+    selectedEventId,
+    setSelectedEventId,
+    eventMode,
+    eventBasePath = "/admin/courses",
+  } = useCalendar();
+  const router = useRouter();
   const [selectedQR, setSelectedQR] = useState<string | null>(null);
+  const isSelected = enableEventSidebarPreview && selectedEventId === event.id;
 
   const start = parseISO(event.startDate);
   const end = parseISO(event.endDate);
@@ -78,13 +90,27 @@ export function EventBlock({ event, className }: IProps) {
       className 
     }), 
     durationInMinutes < 35 && "py-0 justify-center",
-    eventSurfaceClass(event.hexColor, badgeVariant)
+    eventSurfaceClass(event.hexColor, badgeVariant),
+    isSelected && "ring-2 ring-foreground/40 ring-offset-1 ring-offset-background"
   );
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       if (e.currentTarget instanceof HTMLElement) e.currentTarget.click();
+    }
+  };
+
+  const handleSelectClick = (e: React.MouseEvent) => {
+    if (!enableEventSidebarPreview) return;
+    e.stopPropagation();
+    setSelectedEventId(event.id);
+  };
+
+  const handleOpenCourse = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (eventMode === "navigation") {
+      router.push(`${eventBasePath}/${event.id}`);
     }
   };
 
@@ -104,8 +130,9 @@ export function EventBlock({ event, className }: IProps) {
           <div
             role="button"
             tabIndex={0}
-            className={cn("h-full w-full", calendarWeekEventCardClasses)}
+            className={cn("relative h-full w-full", calendarWeekEventCardClasses)}
             style={eventSurfaceStyle(event.hexColor)}
+            onClick={handleSelectClick}
             onKeyDown={handleKeyDown}
             onMouseEnter={() => {
               if (enableEventSidebarPreview) setHoveredEventId(event.id);
@@ -114,7 +141,7 @@ export function EventBlock({ event, className }: IProps) {
               if (enableEventSidebarPreview) setHoveredEventId(null);
             }}
           >
-            <div className="flex items-center gap-1.5 truncate">
+            <div className="flex items-center gap-1.5 truncate pr-5">
               {["mixed", "dot"].includes(badgeVariant) && (
                 <svg width="8" height="8" viewBox="0 0 8 8" className="event-dot shrink-0" style={event.hexColor ? { fill: event.hexColor } : undefined}>
                   <circle cx="4" cy="4" r="4" />
@@ -143,6 +170,18 @@ export function EventBlock({ event, className }: IProps) {
               <p>
                 {format(start, "h:mm a")} - {format(end, "h:mm a")}
               </p>
+            )}
+
+            {enableEventSidebarPreview && eventMode === "navigation" && (
+              <button
+                type="button"
+                onClick={handleOpenCourse}
+                className="absolute right-1 top-1 rounded p-0.5 opacity-70 hover:bg-black/10 hover:opacity-100 dark:hover:bg-white/10"
+                title="Open course"
+                aria-label="Open course"
+              >
+                <ArrowUpRight className="h-3.5 w-3.5" />
+              </button>
             )}
           </div>
         </EventWrapper>

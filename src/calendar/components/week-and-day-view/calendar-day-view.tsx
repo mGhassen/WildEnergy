@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { parseISO, areIntervalsOverlapping, format, isSameDay } from "date-fns";
 
 import { useCalendar } from "@/calendar/contexts/calendar-context";
+import { useCourse } from "@/hooks/useCourse";
 
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Calendar as ShadcnCalendar } from "@/components/ui/calendar";
@@ -55,11 +56,16 @@ export function CalendarDayView({ singleDayEvents, multiDayEvents }: IProps) {
     visibleHours,
     workingHours,
     hourHeight,
-    registrations,
     hoveredEventId,
+    selectedEventId,
+    setSelectedEventId,
     enableEventSidebarPreview,
   } = useCalendar();
   const [hoveredDate, setHoveredDate] = useState<Date | undefined>();
+
+  useEffect(() => {
+    setSelectedEventId(null);
+  }, [selectedDate, setSelectedEventId]);
 
   const { hours, earliestEventHour, latestEventHour } = getVisibleHours(visibleHours, singleDayEvents);
 
@@ -72,17 +78,20 @@ export function CalendarDayView({ singleDayEvents, multiDayEvents }: IProps) {
 
   const groupedEvents = groupEvents(dayEvents);
 
+  const previewEventId = selectedEventId ?? hoveredEventId;
+
   const hoveredEvent = useMemo(() => {
-    if (!enableEventSidebarPreview || hoveredEventId == null) return null;
-    return singleDayEvents.find(event => event.id === hoveredEventId)
-      ?? multiDayEvents.find(event => event.id === hoveredEventId)
+    if (!enableEventSidebarPreview || previewEventId == null) return null;
+    return singleDayEvents.find(event => event.id === previewEventId)
+      ?? multiDayEvents.find(event => event.id === previewEventId)
       ?? null;
-  }, [enableEventSidebarPreview, hoveredEventId, singleDayEvents, multiDayEvents]);
+  }, [enableEventSidebarPreview, previewEventId, singleDayEvents, multiDayEvents]);
+
+  const hoveredCourseId = hoveredEvent?.id ?? 0;
+  const { data: hoveredCourse, isFetching: isFetchingMembers } = useCourse(hoveredCourseId);
 
   const hoveredEventMembers = useMemo(() => {
-    if (!hoveredEvent) return [];
-
-    const courseId = Number(hoveredEvent.id);
+    if (!hoveredEvent || hoveredCourse?.id !== hoveredEvent.id) return [];
 
     const memberName = (source: any) => {
       const first = source?.first_name ?? source?.firstName ?? "Unknown";
@@ -97,9 +106,7 @@ export function CalendarDayView({ singleDayEvents, multiDayEvents }: IProps) {
       cancelled: 3,
     };
 
-    // One row per registration — status is the DB registration status only.
-    return registrations
-      .filter((reg: any) => Number(reg.course_id) === courseId)
+    return (hoveredCourse.registrations ?? [])
       .map((reg: any) => ({
         id: reg.id,
         name: memberName(reg.member),
@@ -110,7 +117,7 @@ export function CalendarDayView({ singleDayEvents, multiDayEvents }: IProps) {
           (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99) ||
           a.name.localeCompare(b.name)
       );
-  }, [hoveredEvent, registrations]);
+  }, [hoveredEvent, hoveredCourse]);
 
   return (
     <div className="flex h-full">
@@ -225,7 +232,11 @@ export function CalendarDayView({ singleDayEvents, multiDayEvents }: IProps) {
 
               <ScrollArea className="flex-1">
                 <div className="flex flex-col gap-2 pr-2">
-                  {hoveredEventMembers.length > 0 ? (
+                  {isFetchingMembers && hoveredCourse?.id !== hoveredEvent.id ? (
+                    <p className="text-center text-sm italic text-muted-foreground py-4">
+                      Loading members…
+                    </p>
+                  ) : hoveredEventMembers.length > 0 ? (
                     hoveredEventMembers.map(member => (
                       <div
                         key={member.id}

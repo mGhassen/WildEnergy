@@ -5,11 +5,9 @@ import { useSearchParams } from 'next/navigation';
 import { useCourses } from '@/hooks/useCourse';
 import { useClasses } from '@/hooks/useClasses';
 import { useTrainers } from '@/hooks/useTrainers';
-import { useAdminRegistrations, useAdminCheckins, useAdminSubscriptions } from '@/hooks/useAdmin';
-import { useMembers } from '@/hooks/useMembers';
 import { CalendarProvider } from '@/calendar/contexts/calendar-context';
 import { ClientContainer } from '@/calendar/components/client-container';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle } from 'lucide-react';
@@ -73,17 +71,11 @@ export default function AdminAgenda() {
   const { data: courses, isLoading: coursesLoading, error: coursesError } = useCourses();
   const { data: classes } = useClasses();
   const { data: trainers } = useTrainers();
-  const { data: registrations = [] } = useAdminRegistrations();
-  const { data: checkins = [] } = useAdminCheckins();
-  const { data: members = [] } = useMembers();
-  const { data: subscriptions = [] } = useAdminSubscriptions();
 
-  // Convert courses to events
   const events = useMemo(() => {
     return convertCoursesToAdminEvents(courses || [], classes || []);
   }, [courses, classes]);
 
-  // Create users from trainers
   const users = useMemo(() => createAdminUsers(trainers || []), [trainers]);
 
   if (coursesLoading) {
@@ -145,8 +137,6 @@ export default function AdminAgenda() {
       <CalendarProvider 
         users={users} 
         events={events}
-        registrations={registrations}
-        checkins={checkins}
         enableEventSidebarPreview
         eventMode="navigation"
         eventBasePath="/admin/courses"

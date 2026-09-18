@@ -26,6 +26,8 @@ interface ICalendarContext {
   checkins: any[];
   hoveredEventId: number | null;
   setHoveredEventId: (eventId: number | null) => void;
+  selectedEventId: number | null;
+  setSelectedEventId: (eventId: number | null) => void;
   enableEventSidebarPreview: boolean;
   eventMode?: 'dialog' | 'navigation';
   eventBasePath?: string;
@@ -69,6 +71,7 @@ export function CalendarProvider({
   const [visibleHours, setVisibleHours] = useState<TVisibleHours>(VISIBLE_HOURS);
   const [workingHours, setWorkingHours] = useState<TWorkingHours>(WORKING_HOURS);
   const [hoveredEventId, setHoveredEventId] = useState<number | null>(null);
+  const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   
   // Load hour height from localStorage or use default
   const [hourHeight, setHourHeight] = useState<number>(() => {
@@ -149,6 +152,8 @@ export function CalendarProvider({
         checkins,
         hoveredEventId,
         setHoveredEventId,
+        selectedEventId,
+        setSelectedEventId,
         enableEventSidebarPreview,
         eventMode,
         eventBasePath,
