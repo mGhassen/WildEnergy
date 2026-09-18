@@ -166,44 +166,54 @@ export default function AdminRegistrations() {
     {
       key: "actions",
       label: "",
-      render: (_: unknown, row: any) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              aria-label="Open registration actions"
-            >
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handleView(row)}>
-              <Eye className="mr-2 h-4 w-4" />
-              View
-            </DropdownMenuItem>
-            {(row.status === "registered" || row.status === "absent") && (
-              <DropdownMenuItem
-                disabled={checkInMutation.isPending}
-                onClick={() => checkInMutation.mutate(row.id)}
+      render: (_: unknown, row: any) => {
+        const canView = row.status !== "cancelled";
+        const canCheckIn =
+          row.status === "registered" || row.status === "absent";
+        const canCancel = row.status !== "cancelled";
+        if (!canView && !canCheckIn && !canCancel) return null;
+
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                aria-label="Open registration actions"
               >
-                <Check className="mr-2 h-4 w-4" />
-                Check in
-              </DropdownMenuItem>
-            )}
-            {row.status !== "cancelled" && (
-              <DropdownMenuItem
-                className="text-destructive focus:text-destructive"
-                onClick={() => handleCancel(row)}
-              >
-                <X className="mr-2 h-4 w-4" />
-                Cancel
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {canView && (
+                <DropdownMenuItem onClick={() => handleView(row)}>
+                  <Eye className="mr-2 h-4 w-4" />
+                  View
+                </DropdownMenuItem>
+              )}
+              {canCheckIn && (
+                <DropdownMenuItem
+                  disabled={checkInMutation.isPending}
+                  onClick={() => checkInMutation.mutate(row.id)}
+                >
+                  <Check className="mr-2 h-4 w-4" />
+                  Check in
+                </DropdownMenuItem>
+              )}
+              {canCancel && (
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={() => handleCancel(row)}
+                >
+                  <X className="mr-2 h-4 w-4" />
+                  Cancel
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+      },
     },
   ];
 

@@ -1861,7 +1861,7 @@ export default function MemberDetailsPage() {
                               View course
                             </DropdownMenuItem>
                           )}
-                          {registration.qr_code && (
+                          {registration.qr_code && registration.status !== 'cancelled' && (
                             <DropdownMenuItem
                               onSelect={() =>
                                 router.push(

@@ -272,6 +272,20 @@ export async function POST(req: NextRequest) {
       }, { status: 404 });
     }
 
+    if (registration.status === 'cancelled') {
+      return NextResponse.json({
+        success: false,
+        message: 'Cannot check in a cancelled registration. Restore it first.',
+      }, { status: 400 });
+    }
+
+    if (registration.status !== 'registered' && registration.status !== 'absent') {
+      return NextResponse.json({
+        success: false,
+        message: `Registration status "${registration.status}" is not valid for check-in`,
+      }, { status: 400 });
+    }
+
     // Check if already checked in
     const { data: existingCheckins } = await supabaseServer()
       .from('checkins')

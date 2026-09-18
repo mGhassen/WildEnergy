@@ -116,6 +116,17 @@ export default function CheckinPerformPage() {
 
   const checkIn = async () => {
     if (!checkinInfo) return;
+    const regStatus = checkinInfo.registration?.status;
+    if (regStatus === 'cancelled') {
+      setStatus('error');
+      setMessage('This registration is cancelled and cannot be checked in.');
+      return;
+    }
+    if (regStatus !== 'registered' && regStatus !== 'absent') {
+      setStatus('error');
+      setMessage(`Registration status "${regStatus}" is not valid for check-in.`);
+      return;
+    }
 
     checkInMutation.mutate(checkinInfo.registration.id, {
       onSuccess: () => {
@@ -125,8 +136,6 @@ export default function CheckinPerformPage() {
           title: "Check-in Successful",
           description: `Welcome ${checkinInfo.member?.first_name || ''} to your class!`,
         });
-        // Refetch check-in info to update UI
-        // The data will be refreshed automatically by React Query
       },
       onError: (error: any) => {
         setStatus('error');
@@ -352,7 +361,10 @@ export default function CheckinPerformPage() {
 
           {/* Action Buttons */}
           <div className="flex gap-3">
-            {status === 'info' && !checkinInfo?.alreadyCheckedIn && (
+            {status === 'info' &&
+              !checkinInfo?.alreadyCheckedIn &&
+              (checkinInfo?.registration?.status === 'registered' ||
+                checkinInfo?.registration?.status === 'absent') && (
               <Button 
                 onClick={checkIn} 
                 disabled={checkInMutation.isPending}
@@ -370,6 +382,11 @@ export default function CheckinPerformPage() {
                   </>
                 )}
               </Button>
+            )}
+            {status === 'info' && checkinInfo?.registration?.status === 'cancelled' && (
+              <div className="flex-1 text-center text-sm text-amber-800 bg-amber-500/15 border border-amber-500/35 p-3 rounded-md">
+                This registration is cancelled. Restore it before checking in.
+              </div>
             )}
             {status === 'info' && checkinInfo?.alreadyCheckedIn && (
               <Button 
