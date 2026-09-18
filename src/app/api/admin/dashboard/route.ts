@@ -17,9 +17,42 @@ function monthBounds(today: string) {
   return { monthStart, prevMonthStart, prevMonthEnd };
 }
 
+/** Mon–Sun calendar week; this week is Mon→today vs same Mon→weekday last week. */
+function calendarWeekBounds(today: string) {
+  const dow = new Date(`${today}T12:00:00Z`).getUTCDay(); // 0=Sun
+  const daysFromMonday = (dow + 6) % 7;
+  const weekStart = addDays(today, -daysFromMonday);
+  const prevWeekStart = addDays(weekStart, -7);
+  const prevSameWeekday = addDays(prevWeekStart, daysFromMonday);
+  return {
+    weekStart,
+    weekEnd: today,
+    prevWeekStart,
+    prevWeekEnd: prevSameWeekday,
+  };
+}
+
 function sumAmounts(rows: { amount?: number | string }[] | null | undefined) {
   return (rows || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
 }
+
+function paymentDateKey(p: { payment_date?: string | null; created_at?: string | null }) {
+  return toDateKey(p.payment_date) || toDateKey(p.created_at);
+}
+
+function inDateKeyRange(key: string | null, start: string, end: string) {
+  return !!key && key >= start && key <= end;
+}
+
+type RiskRow = {
+  id: number;
+  endDate: string;
+  planName: string;
+  memberName: string;
+  memberId: string | null;
+  sessionsRemaining: number;
+  reason: 'ending' | 'sessions' | 'both';
+};
 
 export async function GET(req: NextRequest) {
   try {
@@ -29,7 +62,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
 
-    const { data: { user: adminUser }, error: authError } = await supabaseServer().auth.getUser(token);
+    const {
+      data: { user: adminUser },
+      error: authError,
+    } = await supabaseServer().auth.getUser(token);
     if (authError || !adminUser) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
@@ -45,88 +81,92 @@ export async function GET(req: NextRequest) {
     }
 
     const today = toDateKey(new Date())!;
-    const weekEnd = addDays(today, 6);
-    const attendanceStart = addDays(today, -6);
-    const prevAttendanceStart = addDays(today, -13);
-    const prevAttendanceEnd = addDays(today, -7);
+    const capacityWeekEnd = addDays(today, 6);
     const expireUntil = addDays(today, 7);
     const { monthStart, prevMonthStart, prevMonthEnd } = monthBounds(today);
+    const { weekStart, weekEnd, prevWeekStart, prevWeekEnd } = calendarWeekBounds(today);
+
+    const sb = supabaseServer();
 
     const [
       { count: activeSubscriptions },
       { count: pendingSubscriptions },
-      { count: expiringSoon },
       { count: newMembersThisMonth },
-      { data: monthPayments },
-      { data: prevMonthPayments },
+      { data: paidWithDate },
+      { data: paidNullDate },
       { data: weekCourses },
       { count: checkinsThisWeek },
       { count: checkinsPrevWeek },
-      { data: expiringRows },
+      { data: activeSubsForRisk },
     ] = await Promise.all([
-      supabaseServer()
+      sb
         .from('subscriptions')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'active')
         .gte('end_date', today),
-      supabaseServer()
+      sb
         .from('subscriptions')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'pending'),
-      supabaseServer()
-        .from('subscriptions')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'active')
-        .gte('end_date', today)
-        .lte('end_date', expireUntil),
-      supabaseServer()
+      sb
         .from('members')
         .select('*', { count: 'exact', head: true })
         .gte('created_at', `${monthStart}T00:00:00.000Z`),
-      supabaseServer()
+      sb
         .from('payments')
-        .select('amount')
+        .select('amount, payment_date, created_at')
         .eq('payment_status', 'paid')
-        .gte('created_at', `${monthStart}T00:00:00.000Z`),
-      supabaseServer()
+        .not('payment_date', 'is', null)
+        .gte('payment_date', prevMonthStart)
+        .lte('payment_date', today),
+      sb
         .from('payments')
-        .select('amount')
+        .select('amount, payment_date, created_at')
         .eq('payment_status', 'paid')
+        .is('payment_date', null)
         .gte('created_at', `${prevMonthStart}T00:00:00.000Z`)
-        .lte('created_at', `${prevMonthEnd}T23:59:59.999Z`),
-      supabaseServer()
+        .lte('created_at', `${today}T23:59:59.999Z`),
+      sb
         .from('courses')
         .select('course_date, max_participants, current_participants, status')
         .gte('course_date', today)
-        .lte('course_date', weekEnd)
+        .lte('course_date', capacityWeekEnd)
         .neq('status', 'cancelled'),
-      supabaseServer()
+      sb
         .from('checkins')
         .select('*', { count: 'exact', head: true })
-        .gte('checkin_time', `${attendanceStart}T00:00:00.000Z`)
-        .lte('checkin_time', `${today}T23:59:59.999Z`),
-      supabaseServer()
+        .gte('checkin_time', `${weekStart}T00:00:00.000Z`)
+        .lte('checkin_time', `${weekEnd}T23:59:59.999Z`),
+      sb
         .from('checkins')
         .select('*', { count: 'exact', head: true })
-        .gte('checkin_time', `${prevAttendanceStart}T00:00:00.000Z`)
-        .lte('checkin_time', `${prevAttendanceEnd}T23:59:59.999Z`),
-      supabaseServer()
+        .gte('checkin_time', `${prevWeekStart}T00:00:00.000Z`)
+        .lte('checkin_time', `${prevWeekEnd}T23:59:59.999Z`),
+      sb
         .from('subscriptions')
-        .select(`
+        .select(
+          `
           id,
           end_date,
           members:member_id(
             id,
             profiles:profile_id(first_name, last_name)
           ),
-          plan:plans(name)
-        `)
+          plan:plans(name),
+          subscription_group_sessions(sessions_remaining)
+        `,
+        )
         .eq('status', 'active')
-        .gte('end_date', today)
-        .lte('end_date', expireUntil)
-        .order('end_date', { ascending: true })
-        .limit(6),
+        .gte('end_date', today),
     ]);
+
+    const allPaid = [...(paidWithDate || []), ...(paidNullDate || [])];
+    const monthPayments = allPaid.filter((p) =>
+      inDateKeyRange(paymentDateKey(p), monthStart, today),
+    );
+    const prevMonthPayments = allPaid.filter((p) =>
+      inDateKeyRange(paymentDateKey(p), prevMonthStart, prevMonthEnd),
+    );
 
     const revenueThisMonth = sumAmounts(monthPayments);
     const revenuePrevMonth = sumAmounts(prevMonthPayments);
@@ -163,18 +203,44 @@ export async function GET(req: NextRequest) {
           ? 100
           : 0;
 
-    const expiring = (expiringRows || []).map((row: any) => {
+    const riskRows: RiskRow[] = [];
+    for (const row of activeSubsForRisk || []) {
+      const endKey = toDateKey(row.end_date) || '';
+      const endingSoon = !!endKey && endKey >= today && endKey <= expireUntil;
+      const sgs = Array.isArray(row.subscription_group_sessions)
+        ? row.subscription_group_sessions
+        : [];
+      const sessionsRemaining = sgs.reduce(
+        (sum: number, g: { sessions_remaining?: number | null }) =>
+          sum + (Number(g.sessions_remaining) || 0),
+        0,
+      );
+      // Only session-tracked packs — no SGS rows ⇒ not a "sessions left" risk
+      const lowSessions = sgs.length > 0 && sessionsRemaining <= 1;
+      if (!endingSoon && !lowSessions) continue;
+
       const member = Array.isArray(row.members) ? row.members[0] : row.members;
       const profiles = member?.profiles;
       const profile = Array.isArray(profiles) ? profiles[0] : profiles;
       const plan = Array.isArray(row.plan) ? row.plan[0] : row.plan;
-      return {
+
+      riskRows.push({
         id: row.id,
-        endDate: row.end_date,
+        endDate: endKey,
         planName: plan?.name || 'Plan',
-        memberName: [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Member',
+        memberName:
+          [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Member',
         memberId: member?.id || null,
-      };
+        sessionsRemaining,
+        reason: endingSoon && lowSessions ? 'both' : endingSoon ? 'ending' : 'sessions',
+      });
+    }
+
+    riskRows.sort((a, b) => {
+      if (a.sessionsRemaining !== b.sessionsRemaining) {
+        return a.sessionsRemaining - b.sessionsRemaining;
+      }
+      return a.endDate.localeCompare(b.endDate);
     });
 
     return NextResponse.json({
@@ -183,12 +249,12 @@ export async function GET(req: NextRequest) {
         revenueThisMonth,
         revenuePrevMonth,
         revenueDeltaPct,
-        paymentsThisMonth: monthPayments?.length ?? 0,
+        paymentsThisMonth: monthPayments.length,
       },
       membership: {
         active: activeSubscriptions ?? 0,
         pendingPayment: pendingSubscriptions ?? 0,
-        expiringSoon: expiringSoon ?? 0,
+        expiringSoon: riskRows.length,
         newThisMonth: newMembersThisMonth ?? 0,
       },
       capacity: {
@@ -207,7 +273,7 @@ export async function GET(req: NextRequest) {
         checkinsPrevWeek: checkinsPrev,
         checkinsDeltaPct,
       },
-      expiring,
+      expiring: riskRows.slice(0, 6),
     });
   } catch (error) {
     console.error('Dashboard stats error:', error);

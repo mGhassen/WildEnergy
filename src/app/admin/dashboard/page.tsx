@@ -410,7 +410,7 @@ function OverviewTab() {
           >
             <Users className="mb-3 h-4 w-4 text-muted-foreground" />
             <p className="text-2xl font-semibold tabular-nums">{membership.active ?? 0}</p>
-            <p className="mt-1 text-xs text-muted-foreground">Active plans</p>
+            <p className="mt-1 text-xs text-muted-foreground">Active subscriptions</p>
           </Link>
           <Link
             href="/admin/subscriptions"
@@ -432,7 +432,7 @@ function OverviewTab() {
             <CheckCircle2 className="mb-3 h-4 w-4 text-muted-foreground" />
             <p className="text-2xl font-semibold tabular-nums">{attendance.checkinsThisWeek ?? 0}</p>
             <div className="mt-1 flex items-center gap-1.5">
-              <p className="text-xs text-muted-foreground">Check-ins / 7d</p>
+              <p className="text-xs text-muted-foreground">Check-ins this week</p>
               <Delta value={attendance.checkinsDeltaPct ?? 0} />
             </div>
           </div>
@@ -530,8 +530,8 @@ function OverviewTab() {
             <div>
               <h2 className="text-sm font-semibold">Renewal risk</h2>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                {membership.expiringSoon ?? 0} active plan
-                {(membership.expiringSoon ?? 0) === 1 ? "" : "s"} ending within 7 days
+                {membership.expiringSoon ?? 0} active subscription
+                {(membership.expiringSoon ?? 0) === 1 ? "" : "s"} ending ≤7d or ≤1 session left
               </p>
             </div>
             <Badge
@@ -547,26 +547,38 @@ function OverviewTab() {
 
           {expiring.length > 0 ? (
             <ul className="mt-4 space-y-2">
-              {expiring.map((row: any) => (
-                <li key={row.id}>
-                  <Link
-                    href={
-                      row.memberId
-                        ? `/admin/members/${row.memberId}`
-                        : `/admin/subscriptions/${row.id}`
-                    }
-                    className="flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 transition-colors hover:bg-accent/50"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{row.memberName}</p>
-                      <p className="truncate text-xs text-muted-foreground">{row.planName}</p>
-                    </div>
-                    <span className="shrink-0 text-xs font-medium tabular-nums text-amber-700 dark:text-amber-300">
-                      {formatDate(row.endDate)}
-                    </span>
-                  </Link>
-                </li>
-              ))}
+              {expiring.map((row: any) => {
+                const sessionLabel =
+                  row.sessionsRemaining != null
+                    ? `${row.sessionsRemaining} session${row.sessionsRemaining === 1 ? "" : "s"} left`
+                    : null;
+                const rightLabel =
+                  row.reason === "sessions"
+                    ? sessionLabel
+                    : row.reason === "both"
+                      ? `${formatDate(row.endDate)} · ${sessionLabel}`
+                      : formatDate(row.endDate);
+                return (
+                  <li key={row.id}>
+                    <Link
+                      href={
+                        row.memberId
+                          ? `/admin/members/${row.memberId}`
+                          : `/admin/subscriptions/${row.id}`
+                      }
+                      className="flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 transition-colors hover:bg-accent/50"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">{row.memberName}</p>
+                        <p className="truncate text-xs text-muted-foreground">{row.planName}</p>
+                      </div>
+                      <span className="shrink-0 text-right text-xs font-medium tabular-nums text-amber-700 dark:text-amber-300">
+                        {rightLabel}
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             <div className="mt-8 flex flex-col items-center py-6 text-center">
