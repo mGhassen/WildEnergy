@@ -701,11 +701,16 @@ export async function GET(req: NextRequest) {
     };
 
     const current = computePeriodMetrics(range, payload);
+    const accountStarts = (accountsRes.data || [])
+      .map((a: any) => (a.created_at ? String(a.created_at).slice(0, 10) : null))
+      .filter((d: string | null): d is string => Boolean(d))
+      .sort();
     const options = {
       categories: (categoriesRes.data || []).map((c: any) => ({ id: c.id, name: c.name })),
       trainers: Array.from(trainersById.values()),
       plans: (plansRes.data || []).map((p: any) => ({ id: p.id, name: p.name })),
       groups: (groupsRes.data || []).map((g: any) => ({ id: g.id, name: g.name })),
+      allTimeFrom: accountStarts[0] || format(new Date(), 'yyyy-MM-dd'),
     };
 
     if (compare) {

@@ -181,6 +181,8 @@ export type StatsFilterOptions = {
   trainers: Array<{ id: string; name: string }>;
   plans: Array<{ id: number; name: string }>;
   groups: Array<{ id: number; name: string }>;
+  /** Earliest account created_at (club inception) — used by All time preset */
+  allTimeFrom: string;
 };
 
 export type AdminStatsResponse = {
