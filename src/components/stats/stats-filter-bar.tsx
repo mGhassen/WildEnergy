@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import {
   endOfMonth,
   endOfQuarter,
@@ -122,10 +122,7 @@ function iso(d: Date) {
   return format(d, "yyyy-MM-dd")
 }
 
-function applyPreset(
-  preset: string,
-  allTimeFrom?: string,
-): Pick<StatsFilterState, "from" | "to" | "preset"> {
+function applyPreset(preset: string): Pick<StatsFilterState, "from" | "to" | "preset"> {
   const today = startOfDay(new Date())
   const toToday = iso(today)
 
@@ -193,7 +190,7 @@ function applyPreset(
       }
     }
     case "all":
-      return { from: allTimeFrom || toToday, to: toToday, preset }
+      return { from: "2020-01-01", to: toToday, preset }
     case "custom":
       return { from: iso(subDays(today, 29)), to: toToday, preset: "custom" }
     default:
@@ -280,14 +277,6 @@ export function StatsFilterBar({ value, onChange, options, previousFrom, previou
   const [scopeOpen, setScopeOpen] = useState(false)
   const scopeCount = activeScopeCount(value)
   const presetLabel = PRESETS.find((p) => p.id === value.preset)?.label || "Custom"
-  const allTimeFrom = options?.allTimeFrom
-
-  // Sync All time once club inception date is known (avoids stale 2020 hardcoded URLs)
-  useEffect(() => {
-    if (value.preset !== "all" || !allTimeFrom) return
-    if (value.from === allTimeFrom) return
-    onChange({ ...value, from: allTimeFrom })
-  }, [allTimeFrom, value, onChange])
 
   const chips = useMemo(() => {
     const list: Array<{ key: string; label: string; clear: () => void }> = []
@@ -330,7 +319,7 @@ export function StatsFilterBar({ value, onChange, options, previousFrom, previou
                   className={cn("justify-start", value.preset === p.id && "bg-accent")}
                   onClick={() => {
                     if (p.id === "custom") onChange({ ...value, preset: "custom" })
-                    else onChange({ ...value, ...applyPreset(p.id, allTimeFrom) })
+                    else onChange({ ...value, ...applyPreset(p.id) })
                   }}
                 >
                   {value.preset === p.id ? <Check className="mr-2 h-3.5 w-3.5" /> : <span className="mr-2 w-3.5" />}
