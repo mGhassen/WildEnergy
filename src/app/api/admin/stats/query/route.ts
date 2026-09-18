@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { supabaseServer } from "@/lib/supabase"
 import { queryRequestSchema } from "@/lib/stats/query-spec"
 import { executeCustomQuery } from "@/lib/stats/query-executor"
-import { getEdge, getField } from "@/lib/stats/semantic"
+import { getEdge, getField, isObjectId } from "@/lib/stats/semantic"
 
 async function requireAdmin(req: NextRequest) {
   const authHeader = req.headers.get("authorization")
@@ -54,25 +54,15 @@ function validateAllowlist(query: {
     ...(query.periodField ? [query.periodField] : []),
     ...(query.union?.filters.map((f) => f.field) || []),
   ]
-  const objectIds = [
-    "members",
-    "subscriptions",
-    "payments",
-    "plans",
-    "courses",
-    "registrations",
-    "checkins",
-    "classes",
-    "categories",
-    "trainers",
-  ]
   for (const ref of refs) {
     if (ref.endsWith(".__count")) {
       const obj = ref.slice(0, -".__count".length)
-      if (!objectIds.includes(obj)) return `Invalid count field: ${ref}`
+      if (!isObjectId(obj)) return `Invalid count field: ${ref}`
       continue
     }
-    if (!getField(ref)) return `Unknown field: ${ref}`
+    const field = getField(ref)
+    if (!field) return `Unknown field: ${ref}`
+    if (field.hidden) return `Field not allowed: ${ref}`
   }
   return null
 }

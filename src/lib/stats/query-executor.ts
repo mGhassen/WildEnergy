@@ -31,27 +31,36 @@ import { formatCurrency } from "@/lib/config"
 type RowBag = Record<string, any>
 type JoinedRow = Partial<Record<ObjectId, RowBag | null>>
 
-const TABLE_SELECT: Record<ObjectId, string> = {
-  members: "id, account_id, profile_id, status, guest_count, created_at",
-  subscriptions: "*",
-  payments: "*",
-  plans: "id, name, price, duration_days, is_active",
-  courses: "*",
-  registrations: "*",
-  checkins: "*",
-  classes: "id, name, category_id, duration, max_capacity, is_active",
-  categories: "id, name, is_active",
-  trainers: "id, account_id, profile_id, status, specialization",
+function asDateStr(v: unknown): string | null {
+  if (v == null || v === "") return null
+  const s = String(v)
+  return s.slice(0, 10)
+}
+
+function ageFromDob(dob: unknown, asOf = new Date()): number | null {
+  const d = asDateStr(dob)
+  if (!d) return null
+  const birth = parseISO(d)
+  if (Number.isNaN(birth.getTime())) return null
+  let age = asOf.getFullYear() - birth.getFullYear()
+  const m = asOf.getMonth() - birth.getMonth()
+  if (m < 0 || (m === 0 && asOf.getDate() < birth.getDate())) age--
+  return age >= 0 ? age : null
 }
 
 async function loadTables(
   sb: SupabaseClient,
   needed: ObjectId[],
 ): Promise<Record<ObjectId, RowBag[]>> {
-  const profilesRes = await sb.from("profiles").select("id, first_name, last_name")
+  const needsProfiles =
+    needed.includes("profiles") || needed.includes("members") || needed.includes("trainers")
+  const profilesRes = needsProfiles
+    ? await sb.from("profiles").select("*")
+    : { data: [] as any[] }
   const profilesById = new Map((profilesRes.data || []).map((p: any) => [p.id, p]))
 
-  const creditEntriesRes = needed.includes("members")
+  const needsCredit = needed.includes("members") || needed.includes("credit_entries")
+  const creditEntriesRes = needsCredit
     ? await sb.from("member_credit_entries").select("member_id, amount")
     : { data: [] as any[] }
   const creditByMember = new Map<string, number>()
@@ -64,15 +73,28 @@ async function loadTables(
   await Promise.all(
     needed.map(async (id) => {
       const obj = getObject(id)!
-      const { data } = await sb.from(obj.table).select(TABLE_SELECT[id])
+      const { data } = await sb.from(obj.table).select("*")
       let rows = (data || []) as RowBag[]
-      if (id === "members" || id === "trainers") {
+
+      if (id === "profiles") {
         rows = rows.map((r) => ({
           ...r,
-          ...(id === "members" ? { credit: creditByMember.get(String(r.id)) || 0 } : {}),
-          _name: profileName(profilesById.get(r.profile_id)),
+          _name: profileName(r),
+          _age: ageFromDob(r.date_of_birth),
         }))
       }
+
+      if (id === "members" || id === "trainers") {
+        rows = rows.map((r) => {
+          const profile = profilesById.get(r.profile_id)
+          return {
+            ...r,
+            ...(id === "members" ? { credit: creditByMember.get(String(r.id)) || 0 } : {}),
+            _name: profileName(profile),
+          }
+        })
+      }
+
       out[id] = rows
     }),
   )
@@ -102,7 +124,7 @@ function applyJoins(
   // Apply joins in order; skip if neither side is included yet (caller should order)
   const pending = [...joinIds]
   let guard = 0
-  while (pending.length && guard < 20) {
+  while (pending.length && guard < 64) {
     guard++
     let progress = false
     for (let i = 0; i < pending.length; i++) {
@@ -152,13 +174,17 @@ function readField(row: JoinedRow, ref: string): unknown {
   if (!objRow) return null
   const field = getObject(parsed.object)?.fields.find((f) => f.id === parsed.fieldId)
   if (!field) return null
+  if (field.derived === "age") {
+    if (objRow._age != null) return objRow._age
+    return ageFromDob(objRow.date_of_birth)
+  }
+  if (field.derived === "name") {
+    return objRow._name ?? objRow[field.column] ?? null
+  }
+  if (field.derived === "credit") {
+    return objRow.credit ?? objRow[field.column] ?? 0
+  }
   return objRow[field.column]
-}
-
-function asDateStr(v: unknown): string | null {
-  if (v == null || v === "") return null
-  const s = String(v)
-  return s.slice(0, 10)
 }
 
 function matchFilter(row: JoinedRow, f: FilterClause): boolean {
@@ -300,7 +326,8 @@ function buildBranchRows(
 
 function formatMeasureValue(value: number, measure: MeasureClause): string {
   const field = getField(measure.field)
-  if (field?.column === "amount" || field?.column === "price" || field?.column === "discount" || field?.column === "credit") {
+  const moneyCols = new Set(["amount", "price", "discount", "credit", "balance_after", "hourly_rate"])
+  if (field && moneyCols.has(field.column)) {
     return formatCurrency(value)
   }
   if (measure.agg === "avg") return value.toFixed(1)

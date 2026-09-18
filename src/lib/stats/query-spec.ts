@@ -1,17 +1,7 @@
 import { z } from "zod"
+import { OBJECT_IDS } from "@/lib/stats/semantic"
 
-export const objectIdSchema = z.enum([
-  "members",
-  "subscriptions",
-  "payments",
-  "plans",
-  "courses",
-  "registrations",
-  "checkins",
-  "classes",
-  "categories",
-  "trainers",
-])
+export const objectIdSchema = z.enum(OBJECT_IDS)
 
 export const filterOpSchema = z.enum([
   "eq",

@@ -26,6 +26,7 @@ import {
   edgesFromObjects,
   measurableFields,
   objectsInQuery,
+  visibleFields,
   type ObjectId,
 } from "@/lib/stats/semantic"
 
@@ -88,7 +89,7 @@ export function CustomStatWizard({
   const filterFieldOpts = useMemo(() => {
     return included.flatMap((id) => {
       const obj = SEMANTIC_OBJECTS.find((o) => o.id === id)!
-      return obj.fields.map((f) => ({
+      return visibleFields(obj).map((f) => ({
         ref: `${id}.${f.id}`,
         label: `${obj.label}: ${f.label}`,
         type: f.type,
@@ -205,7 +206,7 @@ export function CustomStatWizard({
                   onClick={() => onBaseChange(o.id)}
                 >
                   <p className="font-medium">{o.label}</p>
-                  <p className="text-[11px] text-muted-foreground">{o.fields.length} fields</p>
+                  <p className="text-[11px] text-muted-foreground">{visibleFields(o).length} fields</p>
                 </button>
               ))}
             </div>
