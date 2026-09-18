@@ -171,6 +171,16 @@ const getStatusConfig = (status: string) => {
   return configs[status as keyof typeof configs] || configs.inactive;
 };
 
+const getSubscriptionBadge = (subscriptions: any[] = []) => {
+  const activeCount = getActiveSubscriptions(subscriptions).length;
+  const status = getCurrentSubscriptionStatus(subscriptions);
+  const config = getSubscriptionConfig(status);
+  if (activeCount > 1) {
+    return { ...config, label: `${config.label} ×${activeCount}` };
+  }
+  return config;
+};
+
 const getSubscriptionConfig = (status: string) => {
   const configs = {
     active: { 
@@ -253,8 +263,14 @@ export default function MembersPage() {
     const active = processedMembers.filter(m => m.member_status === 'active').length;
     const pending = processedMembers.filter(m => m.member_status === 'archived').length;
     const suspended = processedMembers.filter(m => m.member_status === 'suspended').length;
-    const activeSubscriptions = processedMembers.filter(m => getCurrentSubscriptionStatus(m.subscriptions || []) === 'active').length;
-    const expiredSubscriptions = processedMembers.filter(m => getCurrentSubscriptionStatus(m.subscriptions || []) === 'expired').length;
+    const activeSubscriptions = processedMembers.reduce(
+      (sum, m) => sum + getActiveSubscriptions(m.subscriptions || []).length,
+      0
+    );
+    const expiredSubscriptions = processedMembers.reduce(
+      (sum, m) => sum + (m.subscriptions || []).filter((sub: { status?: string }) => sub.status === 'expired').length,
+      0
+    );
     const totalCredit = processedMembers.reduce((sum, m) => sum + (m.credit || 0), 0);
 
     return {
@@ -381,7 +397,7 @@ export default function MembersPage() {
   // Mobile Member Card Component
   const MobileMemberCard = ({ member }: { member: Member }) => {
     const memberStatus = getStatusConfig(member.member_status);
-    const subscriptionStatus = getSubscriptionConfig(getCurrentSubscriptionStatus(member.subscriptions || []));
+    const subscriptionStatus = getSubscriptionBadge(member.subscriptions || []);
     
     return (
       <Card 
@@ -495,7 +511,7 @@ export default function MembersPage() {
             Member Management
           </h1>
           <p className="text-muted-foreground mt-2">
-            Manage {stats.total} members • {stats.active} active • {stats.activeSubscriptions} with active subscriptions
+            Manage {stats.total} members • {stats.active} active • {stats.activeSubscriptions} active subscriptions
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -767,7 +783,7 @@ export default function MembersPage() {
               <TableBody>
                 {paginatedMembers.map((member) => {
                   const memberStatus = getStatusConfig(member.member_status);
-                  const subscriptionStatus = getSubscriptionConfig(getCurrentSubscriptionStatus(member.subscriptions || []));
+                  const subscriptionStatus = getSubscriptionBadge(member.subscriptions || []);
                   
                   return (
                     <TableRow 
@@ -925,7 +941,7 @@ export default function MembersPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {paginatedMembers.map((member) => {
                 const memberStatus = getStatusConfig(member.member_status);
-                const subscriptionStatus = getSubscriptionConfig(getCurrentSubscriptionStatus(member.subscriptions || []));
+                const subscriptionStatus = getSubscriptionBadge(member.subscriptions || []);
                 
                 return (
                   <Card 
