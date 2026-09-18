@@ -137,7 +137,7 @@ function poolGroupPins(registration: CourseParticipantRegistration) {
       name: row.groups?.name,
       color: row.groups?.color,
     }))
-    .filter((g): g is { id: number; name: string; color?: string } => Boolean(g.name));
+    .filter((g): g is { id: number; name: string; color: string | undefined } => Boolean(g.name));
 }
 
 function SessionSourcePins({
