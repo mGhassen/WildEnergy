@@ -238,6 +238,17 @@ export default function CheckinQRPage() {
 
   const checkIn = async () => {
     if (!checkinInfo) return;
+    const regStatus = checkinInfo.registration?.status;
+    if (regStatus === 'cancelled') {
+      setStatus('error');
+      setMessage('This registration is cancelled and cannot be checked in.');
+      return;
+    }
+    if (regStatus !== 'registered' && regStatus !== 'absent') {
+      setStatus('error');
+      setMessage(`Registration status "${regStatus}" is not valid for check-in.`);
+      return;
+    }
 
     setMessage('Processing check-in...');
     checkInMutation.mutate(
@@ -832,7 +843,11 @@ export default function CheckinQRPage() {
 
           {/* Action Buttons */}
           <div className="space-y-3">
-            {status === 'info' && !checkinInfo?.alreadyCheckedIn && (
+            {status === 'info' &&
+              !checkinInfo?.alreadyCheckedIn &&
+              checkinInfo?.registration?.status !== 'cancelled' &&
+              (checkinInfo?.registration?.status === 'registered' ||
+                checkinInfo?.registration?.status === 'absent') && (
               <div className="space-y-2">
               <Button 
                 onClick={checkIn} 
@@ -864,6 +879,12 @@ export default function CheckinQRPage() {
                     Cannot check in: no subscription covering this course date.
                   </div>
                 )}
+              </div>
+            )}
+
+            {status === 'info' && checkinInfo?.registration?.status === 'cancelled' && (
+              <div className="text-center text-sm text-amber-800 bg-amber-500/15 border border-amber-500/35 p-3 rounded-md">
+                This registration is cancelled. Restore it before checking in.
               </div>
             )}
             

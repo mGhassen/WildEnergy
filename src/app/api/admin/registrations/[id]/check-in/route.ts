@@ -43,7 +43,7 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid registration ID' }, { status: 400 });
     }
 
-    // Get the registration details - allow both 'registered' and 'absent' statuses
+    // Get the registration details
     const { data: registration, error: registrationError } = await supabaseServer()
       .from('class_registrations')
       .select(`
@@ -73,11 +73,24 @@ export async function POST(
         )
       `)
       .eq('id', registrationIdNum)
-      .in('status', ['registered', 'absent'])
       .single();
 
     if (registrationError || !registration) {
-      return NextResponse.json({ error: 'Registration not found or not valid for check-in' }, { status: 404 });
+      return NextResponse.json({ error: 'Registration not found' }, { status: 404 });
+    }
+
+    if (registration.status === 'cancelled') {
+      return NextResponse.json(
+        { error: 'Cannot check in a cancelled registration. Restore it first.' },
+        { status: 400 },
+      );
+    }
+
+    if (registration.status !== 'registered' && registration.status !== 'absent') {
+      return NextResponse.json(
+        { error: `Registration status "${registration.status}" is not valid for check-in` },
+        { status: 400 },
+      );
     }
 
     // Check if already checked in

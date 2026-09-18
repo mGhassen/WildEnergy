@@ -6,9 +6,11 @@ import {
   Check,
   CheckCircle2,
   Clock,
+  Layers,
   Mail,
   MoreVertical,
   Phone,
+  Pin,
   QrCode,
   Search,
   Ticket,
@@ -31,10 +33,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { NotesHoverIcon } from "@/components/notes-hover-icon";
 import { formatDateTime } from "@/lib/date";
-import {
-  formatRegistrationSessionSource,
-  parseRegistrationSessionSource,
-} from "@/lib/registration-session-source";
+import { parseRegistrationSessionSource } from "@/lib/registration-session-source";
 import { cn } from "@/lib/utils";
 
 export type CourseParticipantRegistration = {
@@ -114,7 +113,7 @@ function statusBadgeClass(status: string) {
     case "absent":
       return "bg-destructive/10 text-destructive border-destructive/25";
     case "cancelled":
-      return "bg-muted text-muted-foreground border-border";
+      return "bg-amber-500/15 text-amber-800 border-amber-500/35 dark:text-amber-400";
     case "registered":
       return "bg-primary/10 text-primary border-primary/25";
     default:
@@ -128,6 +127,112 @@ function groupColor(registration: CourseParticipantRegistration): string | undef
     (g) => g.groups?.color,
   )?.groups?.color;
   return fromPool;
+}
+
+function poolGroupPins(registration: CourseParticipantRegistration) {
+  const rows = registration.pool?.plan_session_pool_groups ?? [];
+  return rows
+    .map((row) => ({
+      id: row.groups?.id ?? row.group_id,
+      name: row.groups?.name,
+      color: row.groups?.color,
+    }))
+    .filter((g): g is { id: number; name: string; color?: string } => Boolean(g.name));
+}
+
+function SessionSourcePins({
+  registration,
+}: {
+  registration: CourseParticipantRegistration;
+}) {
+  const details = parseRegistrationSessionSource(registration);
+  const consumedColor = groupColor(registration);
+
+  if (!details.source) {
+    return <p className="text-xs text-muted-foreground">No session source</p>;
+  }
+
+  const groupPins =
+    details.source === "pool"
+      ? (() => {
+          const fromPool = poolGroupPins(registration);
+          if (fromPool.length > 0) return fromPool;
+          if (details.consumedGroupName) {
+            return [
+              {
+                id: registration.group_id ?? 0,
+                name: details.consumedGroupName,
+                color: consumedColor,
+              },
+            ];
+          }
+          return [];
+        })()
+      : details.consumedGroupName
+        ? [
+            {
+              id: registration.group_id ?? registration.group?.id ?? 0,
+              name: details.consumedGroupName,
+              color: consumedColor,
+            },
+          ]
+        : [];
+
+  const showUsedMark = details.source === "pool" && groupPins.length > 1;
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span
+        className={cn(
+          "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-medium",
+          details.source === "dedicated"
+            ? "border-primary/25 bg-primary/5 text-primary"
+            : "border-border bg-background text-muted-foreground",
+        )}
+        title={details.source === "dedicated" ? "Dedicated session" : "Pool session"}
+      >
+        {details.source === "dedicated" ? (
+          <Pin className="h-3 w-3" />
+        ) : (
+          <Layers className="h-3 w-3" />
+        )}
+        {details.source === "dedicated" ? "Dedicated" : "Pool"}
+      </span>
+
+      {groupPins.map((g) => {
+        const isConsumed =
+          details.consumedGroupName != null &&
+          g.name === details.consumedGroupName;
+        return (
+          <span
+            key={`${g.id}-${g.name}`}
+            className={cn(
+              "inline-flex max-w-full items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px]",
+              isConsumed && showUsedMark
+                ? "border-foreground/20 bg-foreground/5 text-foreground"
+                : "border-border bg-background text-muted-foreground",
+            )}
+            title={
+              isConsumed && showUsedMark
+                ? `Session taken from ${g.name}`
+                : g.name
+            }
+          >
+            <span
+              className="h-2 w-2 shrink-0 rounded-full"
+              style={{
+                backgroundColor: g.color || consumedColor || "hsl(var(--muted-foreground))",
+              }}
+            />
+            <span className="truncate">{g.name}</span>
+            {isConsumed && showUsedMark ? (
+              <Check className="h-3 w-3 shrink-0 opacity-70" aria-label="used" />
+            ) : null}
+          </span>
+        );
+      })}
+    </div>
+  );
 }
 
 export function CourseParticipantsList({
@@ -162,10 +267,7 @@ export function CourseParticipantsList({
       else if (r.status === "absent") base.absent += 1;
       else if (r.status === "cancelled") base.cancelled += 1;
       if (!r.subscription_id) base.guests += 1;
-      const hasCheckin = checkins.some(
-        (c) =>
-          c.registration_id === r.id || c.member?.id === r.member?.id,
-      );
+      const hasCheckin = checkins.some((c) => c.registration_id === r.id);
       if (hasCheckin) base.checkedIn += 1;
     }
     return base;
@@ -281,15 +383,8 @@ export function CourseParticipantsList({
             <ul className="divide-y border-t">
               {pageItems.map((registration) => {
                 const checkin = checkins.find(
-                  (c) =>
-                    c.registration_id === registration.id ||
-                    c.member?.id === registration.member?.id,
+                  (c) => c.registration_id === registration.id,
                 );
-                const sessionLabel =
-                  formatRegistrationSessionSource(registration);
-                const sessionDetails =
-                  parseRegistrationSessionSource(registration);
-                const color = groupColor(registration);
                 const first = registration.member?.first_name || "Unknown";
                 const last = registration.member?.last_name || "Member";
                 const memberId = registration.member?.id;
@@ -368,15 +463,17 @@ export function CourseParticipantsList({
                         >
                           {statusLabel(registration.status)}
                         </Badge>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 w-8 p-0"
-                          title="Open QR check-in"
-                          onClick={(e) => onQRClick(registration.qr_code, e)}
-                        >
-                          <QrCode className="h-4 w-4" />
-                        </Button>
+                        {registration.status !== "cancelled" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            title="Open QR check-in"
+                            onClick={(e) => onQRClick(registration.qr_code, e)}
+                          >
+                            <QrCode className="h-4 w-4" />
+                          </Button>
+                        )}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
@@ -389,12 +486,14 @@ export function CourseParticipantsList({
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() => onQRClick(registration.qr_code)}
-                            >
-                              <QrCode className="mr-2 h-4 w-4" />
-                              View QR
-                            </DropdownMenuItem>
+                            {registration.status !== "cancelled" && (
+                              <DropdownMenuItem
+                                onClick={() => onQRClick(registration.qr_code)}
+                              >
+                                <QrCode className="mr-2 h-4 w-4" />
+                                View QR
+                              </DropdownMenuItem>
+                            )}
                             {(registration.status === "registered" ||
                               registration.status === "absent") && (
                               <DropdownMenuItem
@@ -455,25 +554,7 @@ export function CourseParticipantsList({
                               Subscription #{registration.subscription_id}
                             </button>
                           )}
-                          {sessionLabel ? (
-                            <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
-                              {color ? (
-                                <span
-                                  className="mt-1 h-2 w-2 shrink-0 rounded-full"
-                                  style={{ backgroundColor: color }}
-                                />
-                              ) : null}
-                              <span>
-                                {sessionLabel}
-                                {sessionDetails.source === "pool" &&
-                                sessionDetails.consumedGroupName
-                                  ? ` · used ${sessionDetails.consumedGroupName}`
-                                  : null}
-                              </span>
-                            </p>
-                          ) : (
-                            <p className="text-xs text-muted-foreground">No session source</p>
-                          )}
+                          <SessionSourcePins registration={registration} />
                         </div>
                       </section>
 
