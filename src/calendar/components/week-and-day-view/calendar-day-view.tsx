@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { parseISO, areIntervalsOverlapping, format, isSameDay } from "date-fns";
 
 import { useCalendar } from "@/calendar/contexts/calendar-context";
@@ -109,6 +110,7 @@ export function CalendarDayView({ singleDayEvents, multiDayEvents }: IProps) {
     return (hoveredCourse.registrations ?? [])
       .map((reg: any) => ({
         id: reg.id,
+        memberId: reg.member?.id ?? reg.member_id ?? null,
         name: memberName(reg.member),
         status: reg.status || "registered",
       }))
@@ -242,13 +244,31 @@ export function CalendarDayView({ singleDayEvents, multiDayEvents }: IProps) {
                         key={member.id}
                         className="flex items-center justify-between gap-2 rounded-md bg-muted px-2 py-1.5"
                       >
-                        <span className="text-xs font-medium truncate">{member.name}</span>
-                        <Badge
-                          variant="outline"
-                          className={cn("text-[10px] shrink-0", memberStatusBadgeClass(member.status))}
+                        {member.memberId ? (
+                          <Link
+                            href={`/admin/members/${member.memberId}`}
+                            className="text-xs font-medium truncate hover:underline"
+                          >
+                            {member.name}
+                          </Link>
+                        ) : (
+                          <span className="text-xs font-medium truncate">{member.name}</span>
+                        )}
+                        <Link
+                          href={`/admin/courses/${hoveredEvent.id}`}
+                          className="shrink-0"
+                          title={`Open registration REG-${String(member.id).padStart(5, "0")}`}
                         >
-                          {memberStatusLabel(member.status)}
-                        </Badge>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "text-[10px] cursor-pointer hover:opacity-80",
+                              memberStatusBadgeClass(member.status)
+                            )}
+                          >
+                            {memberStatusLabel(member.status)}
+                          </Badge>
+                        </Link>
                       </div>
                     ))
                   ) : (
