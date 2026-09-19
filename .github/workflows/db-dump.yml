@@ -18,8 +18,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y postgresql-common
           sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get remove -y postgresql-client postgresql-client-16 || true
           sudo apt-get install -y postgresql-client-17
-          pg_dump --version
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+          /usr/lib/postgresql/17/bin/pg_dump --version
 
       - name: Dump, upload, prune
         env:
@@ -28,6 +30,7 @@ jobs:
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
           BUCKET: wildenergy-dumps
           RETENTION_DAYS: "30"
+          PG_DUMP: /usr/lib/postgresql/17/bin/pg_dump
           # Prod (dwfhzfjcbxrekdxldgis) — session pooler
           DB_HOST: aws-0-eu-west-1.pooler.supabase.com
           DB_USER: postgres.dwfhzfjcbxrekdxldgis

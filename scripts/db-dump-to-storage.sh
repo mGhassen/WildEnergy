@@ -37,8 +37,20 @@ if [[ "${STATUS}" != "200" && "${STATUS}" != "201" ]]; then
   fi
 fi
 
-echo "Dumping database..."
-pg_dump "${DATABASE_URL}" --no-owner --no-acl -f "${FILE}"
+PG_DUMP_BIN="${PG_DUMP:-}"
+if [[ -z "${PG_DUMP_BIN}" ]]; then
+  for candidate in /usr/lib/postgresql/17/bin/pg_dump "$(command -v pg_dump || true)"; do
+    if [[ -x "${candidate}" ]]; then
+      PG_DUMP_BIN="${candidate}"
+      break
+    fi
+  done
+fi
+: "${PG_DUMP_BIN:?pg_dump not found}"
+
+echo "Dumping database with ${PG_DUMP_BIN}..."
+"${PG_DUMP_BIN}" --version
+"${PG_DUMP_BIN}" "${DATABASE_URL}" --no-owner --no-acl -f "${FILE}"
 ls -lh "${FILE}"
 
 echo "Uploading to storage://${BUCKET}/${OBJECT_PATH}..."
