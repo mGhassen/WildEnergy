@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { applyMemberCreditChange, getMemberCreditBalance, getMemberCreditBalancesMap } from '@/lib/member-credit';
+import { expirePastSubscriptions } from '@/lib/expire-subscriptions';
 
 async function verifyAdminAuth(req: NextRequest) {
   const authHeader = req.headers.get('authorization');
@@ -138,7 +139,9 @@ export async function GET(req: NextRequest) {
     if (!adminCheck?.is_admin || !adminCheck?.accessible_portals?.includes('admin')) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
-    
+
+    await expirePastSubscriptions();
+
     // Fetch linked members (subscriptions loaded separately — user_profiles is a view,
     // so nested subscriptions:subscriptions() does not resolve via FK and returns empty)
     const { data: linkedMembers, error: linkedError } = await supabaseServer()

@@ -1,4 +1,5 @@
 import { supabaseServer } from '@/lib/supabase';
+import { isSubscriptionActiveByEndDate } from '@/lib/date';
 
 export async function getSubscriptionSessionsRemainingTotal(
   subscriptionId: number,
@@ -47,17 +48,34 @@ export async function completeSubscriptionIfDepleted(
   }
 }
 
-/** Mark completed → active when remaining sessions are restored. */
+/** Mark completed → active when remaining sessions are restored (or expired if past end). */
 export async function reactivateSubscriptionIfCompleted(
   subscriptionId: number,
 ): Promise<void> {
   const remaining = await getSubscriptionSessionsRemainingTotal(subscriptionId);
   if (remaining <= 0) return;
 
+  const { data: subscription, error: fetchError } = await supabaseServer()
+    .from('subscriptions')
+    .select('id, status, end_date')
+    .eq('id', subscriptionId)
+    .eq('status', 'completed')
+    .maybeSingle();
+
+  if (fetchError) {
+    console.error('Error fetching completed subscription for reactivate:', fetchError);
+    return;
+  }
+  if (!subscription) return;
+
+  const nextStatus = isSubscriptionActiveByEndDate(subscription.end_date)
+    ? 'active'
+    : 'expired';
+
   const { error } = await supabaseServer()
     .from('subscriptions')
     .update({
-      status: 'active',
+      status: nextStatus,
       updated_at: new Date().toISOString(),
     })
     .eq('id', subscriptionId)

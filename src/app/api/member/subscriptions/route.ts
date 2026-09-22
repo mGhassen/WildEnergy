@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { reactivateSubscriptionIfCompleted } from '@/lib/subscription-session-lifecycle';
+import { expirePastSubscriptions } from '@/lib/expire-subscriptions';
 
 async function getUserFromToken(token: string) {
   const { data: { user }, error } = await supabaseServer().auth.getUser(token);
@@ -27,6 +28,8 @@ export async function GET(req: NextRequest) {
     if (!userProfile.member_id) {
       return NextResponse.json({ error: 'User is not a member' }, { status: 403 });
     }
+
+    await expirePastSubscriptions();
 
     const subscriptionSelect = `
         *,

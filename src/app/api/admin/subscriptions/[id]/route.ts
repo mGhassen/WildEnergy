@@ -6,6 +6,7 @@ import {
   ensureSubscriptionGroupSessions,
   resetSubscriptionGroupSessionsForPlan,
 } from '@/lib/subscription-group-sessions';
+import { expirePastSubscriptions } from '@/lib/expire-subscriptions';
 
 function extractIdFromUrl(request: NextRequest): string | null {
   const match = request.nextUrl.pathname.match(/\/subscriptions\/(.+?)(\/|$)/);
@@ -153,6 +154,8 @@ export async function GET(request: NextRequest) {
     if (!Number.isFinite(subscriptionId)) {
       return NextResponse.json({ error: 'Invalid subscription ID' }, { status: 400 });
     }
+
+    await expirePastSubscriptions();
 
     const { data: sub, error } = await supabaseServer()
       .from('subscriptions')

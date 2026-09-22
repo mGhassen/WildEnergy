@@ -8,6 +8,7 @@ import {
 } from '@/lib/subscription-group-sessions';
 import { isFreePlan } from '@/lib/subscription-status';
 import { ensureOwnerSeat } from '@/lib/subscription-seats';
+import { expirePastSubscriptions } from '@/lib/expire-subscriptions';
 
 export async function GET(req: NextRequest) {
   try {
@@ -29,7 +30,9 @@ export async function GET(req: NextRequest) {
     if (!adminCheck?.is_admin || !adminCheck?.accessible_portals?.includes('admin')) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
-    
+
+    await expirePastSubscriptions();
+
     // Fetch all subscriptions with plan data, member data, and group sessions
     // member_id FKs to members(id), not user_profiles
     const { data: subscriptions, error } = await supabaseServer()

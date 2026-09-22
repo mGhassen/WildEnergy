@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { toDateKey } from '@/lib/date';
+import { expirePastSubscriptions } from '@/lib/expire-subscriptions';
 
 function addDays(dateKey: string, days: number): string {
   const d = new Date(`${dateKey}T12:00:00Z`);
@@ -79,6 +80,8 @@ export async function GET(req: NextRequest) {
     if (!adminCheck?.is_admin || !adminCheck?.accessible_portals?.includes('admin')) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
+
+    await expirePastSubscriptions();
 
     const today = toDateKey(new Date())!;
     const capacityWeekEnd = addDays(today, 6);

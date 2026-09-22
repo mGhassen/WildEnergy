@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseServer } from '@/lib/supabase';
+import { expirePastSubscriptions } from '@/lib/expire-subscriptions';
 
 async function expireSubscriptions(req: NextRequest) {
   try {
@@ -13,14 +13,11 @@ async function expireSubscriptions(req: NextRequest) {
     const now = new Date();
     console.log(`[EXPIRE-CRON] Expiring past-end subscriptions at ${now.toISOString()}`);
 
-    const { data, error } = await supabaseServer().rpc('expire_past_subscriptions');
-
-    if (error) {
-      console.error('[EXPIRE-CRON] Error calling expire_past_subscriptions:', error);
+    const updatedCount = await expirePastSubscriptions();
+    if (updatedCount === null) {
       return NextResponse.json({ error: 'Failed to expire subscriptions' }, { status: 500 });
     }
 
-    const updatedCount = typeof data === 'number' ? data : 0;
     console.log(`[EXPIRE-CRON] Marked ${updatedCount} subscription(s) as expired.`);
 
     return NextResponse.json({
