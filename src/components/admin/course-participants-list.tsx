@@ -261,7 +261,7 @@ function SessionPlanLink({
         router.push(`/admin/subscriptions/${registration.subscription_id}`)
       }
       title={
-        plan?.name?.trim()
+        !showPoolHover && plan?.name?.trim()
           ? `Subscription #${registration.subscription_id}`
           : undefined
       }
@@ -280,9 +280,12 @@ function SessionPlanLink({
       <HoverCardTrigger asChild>{planButton}</HoverCardTrigger>
       <HoverCardContent
         align="start"
-        className="w-auto max-w-xs p-3"
+        className="w-auto max-w-xs bg-popover p-3"
         onClick={(e) => e.stopPropagation()}
       >
+        <p className="mb-1 text-[11px] text-muted-foreground">
+          Subscription #{registration.subscription_id}
+        </p>
         <p className="mb-1.5 text-xs font-medium text-popover-foreground">
           Pool covers
         </p>
@@ -463,8 +466,9 @@ export function CourseParticipantsList({
                     key={registration.id}
                     className={cn(
                       "px-4 py-4 transition-colors sm:px-6",
-                      registration.status === "cancelled" && "opacity-70",
-                      "hover:bg-muted/40",
+                      registration.status === "cancelled"
+                        ? "bg-muted/30 text-muted-foreground"
+                        : "hover:bg-muted/40",
                     )}
                   >
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
