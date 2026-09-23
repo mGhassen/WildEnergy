@@ -30,6 +30,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 import { Input } from "@/components/ui/input";
 import { NotesHoverIcon } from "@/components/notes-hover-icon";
 import { formatDateTime } from "@/lib/date";
@@ -129,7 +134,9 @@ function groupColor(registration: CourseParticipantRegistration): string | undef
   return fromPool;
 }
 
-function poolGroupPins(registration: CourseParticipantRegistration) {
+type GroupPin = { id: number; name: string; color: string | undefined };
+
+function poolGroupPins(registration: CourseParticipantRegistration): GroupPin[] {
   const rows = registration.pool?.plan_session_pool_groups ?? [];
   return rows
     .map((row) => ({
@@ -137,23 +144,28 @@ function poolGroupPins(registration: CourseParticipantRegistration) {
       name: row.groups?.name,
       color: row.groups?.color,
     }))
-    .filter((g): g is { id: number; name: string; color: string | undefined } => Boolean(g.name));
+    .filter((g): g is GroupPin => Boolean(g.name));
 }
 
-function SessionSourcePins({
-  registration,
-}: {
-  registration: CourseParticipantRegistration;
-}) {
+function sessionGroupPins(registration: CourseParticipantRegistration): {
+  source: "dedicated" | "pool" | null;
+  consumedGroupName: string | null;
+  groupPins: GroupPin[];
+} {
   const details = parseRegistrationSessionSource(registration);
   const consumedColor = groupColor(registration);
 
-  if (!details.source) {
-    return <p className="text-xs text-muted-foreground">No session source</p>;
+  const source =
+    details.source === "dedicated" || details.source === "pool"
+      ? details.source
+      : null;
+
+  if (!source) {
+    return { source: null, consumedGroupName: null, groupPins: [] };
   }
 
   const groupPins =
-    details.source === "pool"
+    source === "pool"
       ? (() => {
           const fromPool = poolGroupPins(registration);
           if (fromPool.length > 0) return fromPool;
@@ -178,60 +190,147 @@ function SessionSourcePins({
           ]
         : [];
 
-  const showUsedMark = details.source === "pool" && groupPins.length > 1;
+  return {
+    source,
+    consumedGroupName: details.consumedGroupName,
+    groupPins,
+  };
+}
+
+function GroupPinBadge({
+  pin,
+  fallbackColor,
+  marked,
+}: {
+  pin: GroupPin;
+  fallbackColor?: string;
+  marked?: boolean;
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex max-w-full items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px]",
+        marked
+          ? "border-foreground/20 bg-foreground/5 text-foreground"
+          : "border-border bg-background text-muted-foreground",
+      )}
+      title={marked ? `Session taken from ${pin.name}` : pin.name}
+    >
+      <span
+        className="h-2 w-2 shrink-0 rounded-full"
+        style={{
+          backgroundColor:
+            pin.color || fallbackColor || "hsl(var(--muted-foreground))",
+        }}
+      />
+      <span className="truncate">{pin.name}</span>
+      {marked ? (
+        <Check className="h-3 w-3 shrink-0 opacity-70" aria-label="used" />
+      ) : null}
+    </span>
+  );
+}
+
+function SessionSourcePins({
+  registration,
+}: {
+  registration: CourseParticipantRegistration;
+}) {
+  const { source, consumedGroupName, groupPins } =
+    sessionGroupPins(registration);
+  const consumedColor = groupColor(registration);
+
+  if (!source) {
+    return <p className="text-xs text-muted-foreground">No session source</p>;
+  }
+
+  const selectedPin =
+    groupPins.find((g) => g.name === consumedGroupName) ??
+    (groupPins.length === 1 ? groupPins[0] : undefined);
+
+  if (selectedPin) {
+    return (
+      <div className="flex flex-wrap items-center gap-1.5">
+        <GroupPinBadge pin={selectedPin} fallbackColor={consumedColor} />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       <span
         className={cn(
           "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-medium",
-          details.source === "dedicated"
+          source === "dedicated"
             ? "border-primary/25 bg-primary/5 text-primary"
             : "border-border bg-background text-muted-foreground",
         )}
-        title={details.source === "dedicated" ? "Dedicated session" : "Pool session"}
+        title={source === "dedicated" ? "Dedicated session" : "Pool session"}
       >
-        {details.source === "dedicated" ? (
+        {source === "dedicated" ? (
           <Pin className="h-3 w-3" />
         ) : (
           <Layers className="h-3 w-3" />
         )}
-        {details.source === "dedicated" ? "Dedicated" : "Pool"}
+        {source === "dedicated" ? "Dedicated" : "Pool"}
       </span>
-
-      {groupPins.map((g) => {
-        const isConsumed =
-          details.consumedGroupName != null &&
-          g.name === details.consumedGroupName;
-        return (
-          <span
-            key={`${g.id}-${g.name}`}
-            className={cn(
-              "inline-flex max-w-full items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px]",
-              isConsumed && showUsedMark
-                ? "border-foreground/20 bg-foreground/5 text-foreground"
-                : "border-border bg-background text-muted-foreground",
-            )}
-            title={
-              isConsumed && showUsedMark
-                ? `Session taken from ${g.name}`
-                : g.name
-            }
-          >
-            <span
-              className="h-2 w-2 shrink-0 rounded-full"
-              style={{
-                backgroundColor: g.color || consumedColor || "hsl(var(--muted-foreground))",
-              }}
-            />
-            <span className="truncate">{g.name}</span>
-            {isConsumed && showUsedMark ? (
-              <Check className="h-3 w-3 shrink-0 opacity-70" aria-label="used" />
-            ) : null}
-          </span>
-        );
-      })}
     </div>
+  );
+}
+
+function SessionPlanLink({
+  registration,
+}: {
+  registration: CourseParticipantRegistration;
+}) {
+  const router = useRouter();
+  const { source, consumedGroupName, groupPins } =
+    sessionGroupPins(registration);
+  const consumedColor = groupColor(registration);
+  const showPoolHover = source === "pool" && groupPins.length > 1;
+
+  const planButton = (
+    <button
+      type="button"
+      className="inline-flex items-center gap-1.5 text-sm font-medium hover:underline"
+      onClick={() =>
+        router.push(`/admin/subscriptions/${registration.subscription_id}`)
+      }
+    >
+      <Ticket className="h-3.5 w-3.5 text-muted-foreground" />
+      Subscription #{registration.subscription_id}
+    </button>
+  );
+
+  if (!showPoolHover) {
+    return planButton;
+  }
+
+  return (
+    <HoverCard openDelay={150} closeDelay={100}>
+      <HoverCardTrigger asChild>{planButton}</HoverCardTrigger>
+      <HoverCardContent
+        align="start"
+        className="w-auto max-w-xs p-3"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="mb-1.5 text-xs font-medium text-popover-foreground">
+          Pool covers
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {groupPins.map((g) => (
+            <GroupPinBadge
+              key={`${g.id}-${g.name}`}
+              pin={g}
+              fallbackColor={consumedColor}
+              marked={
+                consumedGroupName != null && g.name === consumedGroupName
+              }
+            />
+          ))}
+        </div>
+      </HoverCardContent>
+    </HoverCard>
   );
 }
 
@@ -541,18 +640,7 @@ export function CourseParticipantsList({
                               Guest
                             </p>
                           ) : (
-                            <button
-                              type="button"
-                              className="inline-flex items-center gap-1.5 text-sm font-medium hover:underline"
-                              onClick={() =>
-                                router.push(
-                                  `/admin/subscriptions/${registration.subscription_id}`,
-                                )
-                              }
-                            >
-                              <Ticket className="h-3.5 w-3.5 text-muted-foreground" />
-                              Subscription #{registration.subscription_id}
-                            </button>
+                            <SessionPlanLink registration={registration} />
                           )}
                           <SessionSourcePins registration={registration} />
                         </div>
