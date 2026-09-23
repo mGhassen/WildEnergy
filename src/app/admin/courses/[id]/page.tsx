@@ -188,6 +188,10 @@ interface CourseDetails {
         groups?: { id: number; name: string; color?: string } | null;
       }>;
     } | null;
+    subscription?: {
+      id: number;
+      plan?: { name?: string | null } | null;
+    } | null;
     member: {
       id: string;
       first_name: string;

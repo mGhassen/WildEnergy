@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { syncCourseCurrentParticipants } from '@/lib/course-active-participants';
 
 async function getUserFromToken(token: string) {
   const { data: { user }, error } = await supabaseServer().auth.getUser(token);
@@ -205,25 +206,8 @@ export async function DELETE(
       return NextResponse.json({ error: 'Failed to delete registration' }, { status: 500 });
     }
 
-    // Cancel already decremented participants — don't do it again.
-    if (registration.status !== 'cancelled') {
-      const courseRaw = registration.course as
-        | { id: number; current_participants: number; max_participants: number }
-        | { id: number; current_participants: number; max_participants: number }[]
-        | null;
-      const course = Array.isArray(courseRaw) ? courseRaw[0] : courseRaw;
-      if (course?.id != null) {
-        const newParticipantCount = Math.max(0, (course.current_participants ?? 0) - 1);
-
-        const { error: updateError } = await supabaseServer()
-          .from('courses')
-          .update({ current_participants: newParticipantCount })
-          .eq('id', course.id);
-
-        if (updateError) {
-          console.error('Error updating course participant count:', updateError);
-        }
-      }
+    if (registration.course_id != null) {
+      await syncCourseCurrentParticipants(supabaseServer(), registration.course_id);
     }
 
     let member: { first_name?: string; last_name?: string; email?: string } | null = null;

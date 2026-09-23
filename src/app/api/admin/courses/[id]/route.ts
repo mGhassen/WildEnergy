@@ -13,6 +13,11 @@ import {
   resolveTrainerProfile,
   resolveTrainerProfileById,
 } from '@/lib/resolve-trainer-profile';
+import {
+  ACTIVE_REGISTRATION_STATUSES,
+  countActiveRegistrations,
+  syncCourseCurrentParticipants,
+} from '@/lib/course-active-participants';
 
 export async function GET(
   req: NextRequest,
@@ -116,6 +121,10 @@ export async function GET(
             group_id,
             groups(id, name, color)
           )
+        ),
+        subscription:subscriptions!class_registrations_subscription_id_fkey(
+          id,
+          plan:plans(name)
         )
       `)
       .eq('course_id', course.id);
@@ -183,8 +192,9 @@ export async function GET(
       }
     }
 
-    // Calculate attendance statistics
-    const totalRegistrations = registrations?.length || 0;
+    // Booked seats = non-cancelled regs (registered / attended / absent)
+    const activeParticipants = countActiveRegistrations(registrations);
+    const totalRegistrations = activeParticipants;
     const totalCheckins = checkins?.length || 0;
     const attendanceRate = totalRegistrations > 0 ? Math.round((totalCheckins / totalRegistrations) * 100) : 0;
 
@@ -260,6 +270,7 @@ export async function GET(
     // Return comprehensive course data
     return NextResponse.json({
       ...course,
+      current_participants: activeParticipants,
       class: processedClass,
       trainer: {
         ...(trainerDetails || course.trainer),
@@ -389,13 +400,13 @@ export async function POST(
       console.log(`Admin registration: Course capacity exceeded. Available spots: ${availableSpots}, trying to add: ${memberIds.length}. Proceeding with admin override.`);
     }
 
-    // Check which members are already registered
+    // Check which members already occupy a seat (any non-cancelled status)
     const { data: existingRegistrations } = await supabaseServer()
       .from('class_registrations')
       .select('member_id')
       .eq('course_id', courseId)
       .in('member_id', memberIds)
-      .eq('status', 'registered');
+      .in('status', [...ACTIVE_REGISTRATION_STATUSES]);
 
     const alreadyRegistered = existingRegistrations?.map(r => r.member_id) || [];
     const newMemberIds = memberIds.filter(id => !alreadyRegistered.includes(id));
@@ -417,6 +428,7 @@ export async function POST(
 
         if (isGuestRegistration) {
           // Guest registration - create registration without session deduction
+          // current_participants is synced by DB trigger (or repair migration)
           const { data: registration, error: registrationError } = await supabaseServer()
             .from('class_registrations')
             .insert({
@@ -450,17 +462,7 @@ export async function POST(
             // Don't fail the registration, just log the error
           }
 
-          // Update course participant count for guest registration
-          const { error: updateError } = await supabaseServer()
-            .from('courses')
-            .update({ 
-              current_participants: course.current_participants + registrationResults.length + 1 
-            })
-            .eq('id', courseId);
-
-          if (updateError) {
-            console.error('Failed to update course participant count:', updateError);
-          }
+          await syncCourseCurrentParticipants(supabaseServer(), courseId);
 
           registrationResults.push({
             memberId,
@@ -580,6 +582,10 @@ export async function POST(
           error: 'Registration failed'
         });
       }
+    }
+
+    if (registrationResults.length > 0) {
+      await syncCourseCurrentParticipants(supabaseServer(), courseId);
     }
 
     // Return results

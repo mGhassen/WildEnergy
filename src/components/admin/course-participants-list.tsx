@@ -6,11 +6,9 @@ import {
   Check,
   CheckCircle2,
   Clock,
-  Layers,
   Mail,
   MoreVertical,
   Phone,
-  Pin,
   QrCode,
   Search,
   Ticket,
@@ -58,6 +56,10 @@ export type CourseParticipantRegistration = {
       group_id: number;
       groups?: { id: number; name: string; color?: string } | null;
     }>;
+  } | null;
+  subscription?: {
+    id: number;
+    plan?: { name?: string | null } | null;
   } | null;
   member: {
     id: string;
@@ -231,53 +233,6 @@ function GroupPinBadge({
   );
 }
 
-function SessionSourcePins({
-  registration,
-}: {
-  registration: CourseParticipantRegistration;
-}) {
-  const { source, consumedGroupName, groupPins } =
-    sessionGroupPins(registration);
-  const consumedColor = groupColor(registration);
-
-  if (!source) {
-    return <p className="text-xs text-muted-foreground">No session source</p>;
-  }
-
-  const selectedPin =
-    groupPins.find((g) => g.name === consumedGroupName) ??
-    (groupPins.length === 1 ? groupPins[0] : undefined);
-
-  if (selectedPin) {
-    return (
-      <div className="flex flex-wrap items-center gap-1.5">
-        <GroupPinBadge pin={selectedPin} fallbackColor={consumedColor} />
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <span
-        className={cn(
-          "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-medium",
-          source === "dedicated"
-            ? "border-primary/25 bg-primary/5 text-primary"
-            : "border-border bg-background text-muted-foreground",
-        )}
-        title={source === "dedicated" ? "Dedicated session" : "Pool session"}
-      >
-        {source === "dedicated" ? (
-          <Pin className="h-3 w-3" />
-        ) : (
-          <Layers className="h-3 w-3" />
-        )}
-        {source === "dedicated" ? "Dedicated" : "Pool"}
-      </span>
-    </div>
-  );
-}
-
 function SessionPlanLink({
   registration,
 }: {
@@ -287,7 +242,16 @@ function SessionPlanLink({
   const { source, consumedGroupName, groupPins } =
     sessionGroupPins(registration);
   const consumedColor = groupColor(registration);
-  const showPoolHover = source === "pool" && groupPins.length > 1;
+  const showPoolHover = source === "pool" && groupPins.length > 0;
+
+  const rawSubscription = registration.subscription;
+  const subscription = Array.isArray(rawSubscription)
+    ? rawSubscription[0]
+    : rawSubscription;
+  const rawPlan = subscription?.plan;
+  const plan = Array.isArray(rawPlan) ? rawPlan[0] : rawPlan;
+  const planLabel =
+    plan?.name?.trim() || `Subscription #${registration.subscription_id}`;
 
   const planButton = (
     <button
@@ -296,9 +260,14 @@ function SessionPlanLink({
       onClick={() =>
         router.push(`/admin/subscriptions/${registration.subscription_id}`)
       }
+      title={
+        plan?.name?.trim()
+          ? `Subscription #${registration.subscription_id}`
+          : undefined
+      }
     >
       <Ticket className="h-3.5 w-3.5 text-muted-foreground" />
-      Subscription #{registration.subscription_id}
+      {planLabel}
     </button>
   );
 
@@ -642,7 +611,6 @@ export function CourseParticipantsList({
                           ) : (
                             <SessionPlanLink registration={registration} />
                           )}
-                          <SessionSourcePins registration={registration} />
                         </div>
                       </section>
 

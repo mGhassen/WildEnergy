@@ -9,6 +9,7 @@ import {
   batchResolveTrainerProfiles,
   enrichTrainerWithProfile,
 } from '@/lib/resolve-trainer-profile';
+import { fetchActiveParticipantCountsByCourse } from '@/lib/course-active-participants';
 
 export async function GET(req: NextRequest) {
   try {
@@ -64,37 +65,22 @@ export async function GET(req: NextRequest) {
     }
 
     // Process courses to add comparison data with schedule
+    const sb = supabaseServer();
     const trainerProfiles = await batchResolveTrainerProfiles(
-      supabaseServer(),
+      sb,
       (courses || []).map((course) => course.trainer),
     );
 
+    // Prefer live registration counts — denormalized current_participants can drift
+    const activeCounts = await fetchActiveParticipantCountsByCourse(sb);
+
     const processedCourses = (courses || []).map(course => {
       const schedule = course.schedule;
-      
-      // Debug logging to understand the data structure
-      console.log('Course data:', {
-        id: course.id,
-        trainer_id: course.trainer_id,
-        start_time: course.start_time,
-        end_time: course.end_time,
-        max_participants: course.max_participants
-      });
-      
-      console.log('Schedule data:', schedule ? {
-        id: schedule.id,
-        trainer_id: schedule.trainer_id,
-        start_time: schedule.start_time,
-        end_time: schedule.end_time,
-        max_participants: schedule.max_participants
-      } : 'No schedule');
       
       const isEdited = schedule
         ? courseIsEditedVsSchedule(course, schedule) ||
           courseDateDivergesFromSchedule(course, schedule as ScheduleTemplate)
         : false;
-      
-      console.log('Is edited:', isEdited);
 
       const differences = schedule ? {
         trainer: course.trainer_id !== schedule.trainer_id ? {
@@ -117,6 +103,7 @@ export async function GET(req: NextRequest) {
 
       return {
         ...course,
+        current_participants: activeCounts.get(course.id) ?? 0,
         trainer: enrichTrainerWithProfile(course.trainer, trainerProfiles),
         isEdited,
         differences

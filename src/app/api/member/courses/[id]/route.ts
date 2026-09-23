@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { resolveGroupForClass } from '@/lib/resolve-class-group';
 import { resolveTrainerProfile } from '@/lib/resolve-trainer-profile';
+import { ACTIVE_REGISTRATION_STATUSES } from '@/lib/course-active-participants';
 
 export async function GET(
   req: NextRequest,
@@ -84,6 +85,12 @@ export async function GET(
       course.trainer,
     );
 
+    const { count: activeCount } = await supabaseServer()
+      .from('class_registrations')
+      .select('*', { count: 'exact', head: true })
+      .eq('course_id', courseId)
+      .in('status', [...ACTIVE_REGISTRATION_STATUSES]);
+
     const group = resolveGroupForClass(course.class);
     const transformedCourse = {
       id: course.id,
@@ -111,7 +118,7 @@ export async function GET(
       isActive: course.is_active,
       scheduleId: course.schedule_id,
       max_participants: course.max_participants,
-      current_participants: course.current_participants
+      current_participants: activeCount ?? 0,
     };
 
     return NextResponse.json(transformedCourse);

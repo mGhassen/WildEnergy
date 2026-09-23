@@ -5,6 +5,7 @@ import {
   batchResolveTrainerProfiles,
   enrichTrainerWithProfile,
 } from '@/lib/resolve-trainer-profile';
+import { fetchActiveParticipantCountsByCourse } from '@/lib/course-active-participants';
 
 export async function GET(req: NextRequest) {
   try {
@@ -71,9 +72,15 @@ export async function GET(req: NextRequest) {
 
     console.log('Raw courses from database:', courses?.length);
 
+    const sb = supabaseServer();
     const trainerProfiles = await batchResolveTrainerProfiles(
-      supabaseServer(),
+      sb,
       (courses || []).map((course) => course.trainer),
+    );
+
+    const activeCounts = await fetchActiveParticipantCountsByCourse(
+      sb,
+      (courses || []).map((c) => c.id),
     );
 
     // Transform the data to match the member page expectations
@@ -106,7 +113,7 @@ export async function GET(req: NextRequest) {
         isActive: course.is_active,
         scheduleId: course.schedule_id,
         max_participants: course.max_participants,
-        current_participants: course.current_participants
+        current_participants: activeCounts.get(course.id) ?? 0,
       };
     });
 

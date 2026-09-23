@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { toDateKey } from '@/lib/date';
 import { expirePastSubscriptions } from '@/lib/expire-subscriptions';
+import { fetchActiveParticipantCountsByCourse } from '@/lib/course-active-participants';
 
 function addDays(dateKey: string, days: number): string {
   const d = new Date(`${dateKey}T12:00:00Z`);
@@ -131,7 +132,7 @@ export async function GET(req: NextRequest) {
         .lte('created_at', `${today}T23:59:59.999Z`),
       sb
         .from('courses')
-        .select('course_date, max_participants, current_participants, status')
+        .select('id, course_date, max_participants, current_participants, status')
         .gte('course_date', today)
         .lte('course_date', capacityWeekEnd)
         .neq('status', 'cancelled'),
@@ -184,11 +185,17 @@ export async function GET(req: NextRequest) {
     for (let i = 0; i < 7; i++) {
       byDay[addDays(today, i)] = { booked: 0, capacity: 0, courses: 0 };
     }
-    for (const c of weekCourses || []) {
+    const weekCourseRows = weekCourses || [];
+    const weekActiveCounts = await fetchActiveParticipantCountsByCourse(
+      sb,
+      weekCourseRows.map((c: { id: number }) => c.id),
+    );
+
+    for (const c of weekCourseRows) {
       const key = c.course_date;
       if (!byDay[key]) continue;
       byDay[key].courses += 1;
-      byDay[key].booked += c.current_participants || 0;
+      byDay[key].booked += weekActiveCounts.get(c.id) ?? c.current_participants ?? 0;
       byDay[key].capacity += c.max_participants || 0;
     }
 

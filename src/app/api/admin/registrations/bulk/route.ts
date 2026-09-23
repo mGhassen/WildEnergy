@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { resolveAccessibleSubscriptionId } from '@/lib/subscription-seats';
+import {
+  ACTIVE_REGISTRATION_STATUSES,
+  syncCourseCurrentParticipants,
+} from '@/lib/course-active-participants';
 
 async function getUserFromToken(token: string) {
   const { data: { user }, error } = await supabaseServer().auth.getUser(token);
@@ -85,7 +89,7 @@ export async function POST(req: NextRequest) {
       .select('member_id, status')
       .eq('course_id', courseId)
       .in('member_id', memberIds)
-      .eq('status', 'registered');
+      .in('status', [...ACTIVE_REGISTRATION_STATUSES]);
 
     if (existingError) {
       console.error('Error checking existing registrations:', existingError);
@@ -251,13 +255,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Update course participant count
+    // current_participants is synced by DB trigger; recount as a safety net
     if (registrationResults.length > 0) {
-      const newParticipantCount = currentRegistered + registrationResults.length;
-      await supabaseServer()
-        .from('courses')
-        .update({ current_participants: newParticipantCount })
-        .eq('id', courseId);
+      await syncCourseCurrentParticipants(supabaseServer(), courseId);
     }
 
     return NextResponse.json({
