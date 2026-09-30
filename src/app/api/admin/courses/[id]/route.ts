@@ -18,6 +18,7 @@ import {
   countActiveRegistrations,
   syncCourseCurrentParticipants,
 } from '@/lib/course-active-participants';
+import { syncGroupSeatsForSubscriptions } from '@/lib/subscription-seats';
 
 export async function GET(
   req: NextRequest,
@@ -101,9 +102,7 @@ export async function GET(
     }
 
     // Fetch registrations for this course
-    const { data: registrations, error: regError } = await supabaseServer()
-      .from('class_registrations')
-      .select(`
+    const registrationSelect = `
         id,
         registration_date,
         status,
@@ -126,11 +125,31 @@ export async function GET(
           id,
           plan:plans(name)
         )
-      `)
+      `;
+
+    let { data: registrations, error: regError } = await supabaseServer()
+      .from('class_registrations')
+      .select(registrationSelect)
       .eq('course_id', course.id);
 
     if (regError) {
       console.error('Registrations fetch error:', regError);
+    } else {
+      const added = await syncGroupSeatsForSubscriptions(
+        supabaseServer(),
+        (registrations || []).map((r) => r.subscription_id),
+      );
+      if (added > 0) {
+        const refetch = await supabaseServer()
+          .from('class_registrations')
+          .select(registrationSelect)
+          .eq('course_id', course.id);
+        if (refetch.error) {
+          console.error('Registrations refetch error:', refetch.error);
+        } else {
+          registrations = refetch.data;
+        }
+      }
     }
 
     // Fetch check-ins for this course (through registrations)

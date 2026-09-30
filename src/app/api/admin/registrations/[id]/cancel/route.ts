@@ -75,7 +75,11 @@ export async function POST(
     const isWithin24Hours = now >= cutoffTime;
 
     // Admin always decides refund (default: refund). Members follow 24h rule.
+    // Group-plan seat companions share a session already consumed by the booking.
     let refundSession: boolean | undefined = userProfile.is_admin ? true : undefined;
+    if (registration.consumes_session === false) {
+      refundSession = false;
+    }
     let refundSubscriptionId: number | undefined = undefined;
     if (userProfile.is_admin) {
       try {

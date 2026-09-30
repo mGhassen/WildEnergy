@@ -221,6 +221,7 @@ export const classRegistrations = pgTable("class_registrations", {
   sessionSource: text("session_source"), // 'dedicated' | 'pool' | null (guest/legacy)
   groupId: integer("group_id").references(() => groups.id),
   poolId: integer("pool_id"), // plan_session_pools.id when session_source = pool
+  consumesSession: boolean("consumes_session").notNull().default(true),
 });
 
 // Check-ins table

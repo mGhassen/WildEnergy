@@ -7,6 +7,10 @@ import {
   resetSubscriptionGroupSessionsForPlan,
 } from '@/lib/subscription-group-sessions';
 import { expirePastSubscriptions } from '@/lib/expire-subscriptions';
+import {
+  isGroupSeatCompanionRegistration,
+  syncGroupSeatCourseRegistrations,
+} from '@/lib/subscription-seats';
 
 function extractIdFromUrl(request: NextRequest): string | null {
   const match = request.nextUrl.pathname.match(/\/subscriptions\/(.+?)(\/|$)/);
@@ -183,6 +187,8 @@ export async function GET(request: NextRequest) {
       ? await getMemberCreditBalance(memberRow.id)
       : 0;
 
+    await syncGroupSeatCourseRegistrations(supabaseServer(), subscriptionId);
+
     const { data: registrations, error: regError } = await supabaseServer()
       .from('class_registrations')
       .select(`
@@ -222,7 +228,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       ...rest,
       plan,
-      registrations: registrations || [],
+      registrations: (registrations || []).filter(
+        (r) => !isGroupSeatCompanionRegistration(r.notes),
+      ),
       member: memberRow
         ? {
             member_id: memberRow.id,

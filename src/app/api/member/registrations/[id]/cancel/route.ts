@@ -85,7 +85,7 @@ export async function POST(
         p_user_id: registration.member_id,
         p_is_within_24_hours: isWithin24Hours,
         p_subscription_id: registration.subscription_id,
-        p_force_refund: undefined // Members cannot override refund logic
+        p_force_refund: registration.consumes_session === false ? false : undefined
       });
 
     if (procedureError) {

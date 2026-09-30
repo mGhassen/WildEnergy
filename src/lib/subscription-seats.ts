@@ -5,6 +5,26 @@ export type SeatRole = 'owner' | 'member';
 export type SeatStatus = 'active' | 'revoked';
 export type InviteStatus = 'pending' | 'accepted' | 'revoked' | 'expired';
 
+/** Companion course registration that shares a group-plan booking (no extra session). */
+export const GROUP_SEAT_REGISTRATION_NOTE =
+  'Group seat — shares the subscription session';
+
+/** Set when a seat is revoked so the next assignment can restore the course row. */
+export const GROUP_SEAT_REVOKED_NOTE = 'Seat revoked — session was shared';
+
+/** Set on companions when the booking that consumed the session is cancelled. */
+export const GROUP_BOOKING_CANCELLED_NOTE = 'Cancelled with group booking';
+
+const GROUP_SEAT_COMPANION_NOTES = new Set([
+  GROUP_SEAT_REGISTRATION_NOTE,
+  GROUP_SEAT_REVOKED_NOTE,
+  GROUP_BOOKING_CANCELLED_NOTE,
+]);
+
+export function isGroupSeatCompanionRegistration(notes: string | null | undefined): boolean {
+  return GROUP_SEAT_COMPANION_NOTES.has(notes ?? '');
+}
+
 export async function resolveAccessibleSubscriptionId(
   supabase: SupabaseClient,
   memberId: string,
@@ -228,6 +248,7 @@ export async function attachMemberSeat(
       .select('*')
       .single();
     if (error) return { error: error.message };
+    await syncGroupSeatCourseRegistrations(supabase, opts.subscriptionId);
     return { seat };
   }
 
@@ -244,7 +265,49 @@ export async function attachMemberSeat(
     .single();
 
   if (error) return { error: error.message };
+  await syncGroupSeatCourseRegistrations(supabase, opts.subscriptionId);
   return { seat };
+}
+
+export async function syncGroupSeatCourseRegistrations(
+  supabase: SupabaseClient,
+  subscriptionId: number
+): Promise<number> {
+  const { data, error } = await supabase.rpc('sync_group_seat_course_registrations', {
+    p_subscription_id: subscriptionId,
+  });
+  if (error) {
+    console.error('sync_group_seat_course_registrations:', error.message);
+    return 0;
+  }
+  const count = Number(data);
+  return Number.isFinite(count) ? count : 0;
+}
+
+export async function syncGroupSeatsForSubscriptions(
+  supabase: SupabaseClient,
+  subscriptionIds: Array<number | null | undefined>
+): Promise<number> {
+  const unique = [...new Set(subscriptionIds.filter((id): id is number => typeof id === 'number'))];
+  let inserted = 0;
+  for (const id of unique) {
+    inserted += await syncGroupSeatCourseRegistrations(supabase, id);
+  }
+  return inserted;
+}
+
+export async function dropGroupSeatCourseRegistrations(
+  supabase: SupabaseClient,
+  subscriptionId: number,
+  memberId: string
+): Promise<void> {
+  const { error } = await supabase.rpc('drop_group_seat_course_registrations', {
+    p_subscription_id: subscriptionId,
+    p_member_id: memberId,
+  });
+  if (error) {
+    console.error('drop_group_seat_course_registrations:', error.message);
+  }
 }
 
 export const SEAT_MEMBER_SELECT = `

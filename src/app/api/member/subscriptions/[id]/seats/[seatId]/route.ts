@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { dropGroupSeatCourseRegistrations } from '@/lib/subscription-seats';
 
 async function getMemberProfile(token: string) {
   const { data: { user }, error } = await supabaseServer().auth.getUser(token);
@@ -45,7 +46,7 @@ export async function DELETE(request: NextRequest) {
 
     const { data: seat } = await supabaseServer()
       .from('subscription_seats')
-      .select('id, role')
+      .select('id, role, member_id')
       .eq('id', ids.seatId)
       .eq('subscription_id', ids.subscriptionId)
       .maybeSingle();
@@ -61,6 +62,13 @@ export async function DELETE(request: NextRequest) {
       .eq('id', ids.seatId);
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (seat.member_id) {
+      await dropGroupSeatCourseRegistrations(
+        supabaseServer(),
+        ids.subscriptionId,
+        seat.member_id,
+      );
+    }
     return NextResponse.json({ success: true });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });

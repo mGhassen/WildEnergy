@@ -405,7 +405,8 @@ export function computeExtended(input: ExtendedComputeInput) {
     (r) => groupsById.get(r.group_id)?.name || `Group ${r.group_id}`,
   ).slice(0, 12)
   const regStatusMix = countBy(regsInRange, (r) => r.status || "unknown")
-  const sessionSourceMix = countBy(regsInRange, (r) => r.session_source || "guest/legacy")
+  const sessionConsumingRegs = regsInRange.filter((r) => r.consumes_session !== false)
+  const sessionSourceMix = countBy(sessionConsumingRegs, (r) => r.session_source || "guest/legacy")
   const checkinConversion = attendedCount > 0 ? (checkinCount / attendedCount) * 100 : 0
   const uniqueBookers = new Set(regsInRange.map((r) => String(r.member_id))).size
   const uniqueCheckinMembers = new Set(checkinsInRange.map((c) => String(c.member_id))).size
@@ -458,9 +459,9 @@ export function computeExtended(input: ExtendedComputeInput) {
     value: leadBuckets.get(name) || 0,
   }))
   const multiClassMembers = [...classByMember.values()].filter((s) => s.size >= 2).length
-  const poolRegs = regsInRange.filter((r) => r.session_source === "pool").length
-  const dedicatedRegs = regsInRange.filter((r) => r.session_source === "dedicated").length
-  const guestLikeRegs = regsInRange.filter((r) => !r.session_source).length
+  const poolRegs = sessionConsumingRegs.filter((r) => r.session_source === "pool").length
+  const dedicatedRegs = sessionConsumingRegs.filter((r) => r.session_source === "dedicated").length
+  const guestLikeRegs = sessionConsumingRegs.filter((r) => !r.session_source).length
   const checkinsWithoutSessionConsumed = checkinsInRange.filter((c) => c.session_consumed === false).length
 
   const absentByMember = new Map<string, number>()
