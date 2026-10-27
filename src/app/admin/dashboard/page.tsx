@@ -304,6 +304,7 @@ function OpsTab() {
   const pendingCount = pending?.count ?? 0;
   const birthdays = tasks?.upcomingBirthdays;
   const birthdayCount = birthdays?.count ?? 0;
+  const birthdayPeople = birthdays?.people ?? [];
   const liveCount = dayCourses.filter((c) => c.urgency === "live").length;
   const checkinCount = dayCourses.filter((c) => c.urgency === "checkin").length;
   const booked = dayCourses.reduce((s, c) => s + (c.current_participants || 0), 0);
@@ -348,12 +349,9 @@ function OpsTab() {
                   {birthdayCount}
                 </Badge>
               </div>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                Wick shortens as the day approaches — lit when it’s today
-              </p>
             </div>
           </div>
-          <BirthdayList people={birthdays?.people ?? []} />
+          <BirthdayList people={birthdayPeople} />
         </div>
       )}
 
