@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowDownRight,
@@ -9,6 +9,7 @@ import {
   ArrowUpRight,
   CalendarDays,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
   CircleDot,
   CreditCard,
@@ -87,6 +88,113 @@ function BirthdayCandle({ daysUntil }: { daysUntil: number }) {
           lit ? "bg-amber-800/80" : "bg-muted-foreground/30",
         )}
       />
+    </div>
+  );
+}
+
+type BirthdayPerson = {
+  profileId: string;
+  firstName: string;
+  lastName: string;
+  dateOfBirth: string;
+  daysUntil: number;
+  ageTurning: number;
+  href: string;
+};
+
+function BirthdayList({ people }: { people: BirthdayPerson[] }) {
+  const listRef = useRef<HTMLUListElement>(null);
+  const [canScrollDown, setCanScrollDown] = useState(false);
+  const [canScrollUp, setCanScrollUp] = useState(false);
+
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+
+    const update = () => {
+      const { scrollTop, clientHeight, scrollHeight } = el;
+      setCanScrollUp(scrollTop > 2);
+      setCanScrollDown(scrollTop + clientHeight < scrollHeight - 2);
+    };
+
+    update();
+    el.addEventListener("scroll", update, { passive: true });
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener("scroll", update);
+      ro.disconnect();
+    };
+  }, [people]);
+
+  return (
+    <div className="relative">
+      {canScrollUp && (
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 z-10 h-6 bg-gradient-to-b from-card to-transparent"
+          aria-hidden
+        />
+      )}
+      <ul
+        ref={listRef}
+        className="max-h-[15rem] space-y-1 overflow-y-auto px-3 py-3 sm:px-4"
+      >
+        {people.map((person) => {
+          const name = `${person.firstName} ${person.lastName}`.trim() || "Unknown";
+          const when =
+            person.daysUntil === 0
+              ? "Today"
+              : person.daysUntil === 1
+                ? "Tomorrow"
+                : `in ${person.daysUntil} days`;
+          const lit = person.daysUntil === 0;
+          return (
+            <li key={person.profileId}>
+              <Link
+                href={person.href}
+                className={cn(
+                  "flex items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-accent/50",
+                  lit && "bg-amber-500/10 ring-1 ring-amber-500/25",
+                )}
+              >
+                <BirthdayCandle daysUntil={person.daysUntil} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{name}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {formatBirthdayMd(person.dateOfBirth)}
+                    <span className="text-muted-foreground/60"> · </span>
+                    turning {person.ageTurning}
+                  </p>
+                </div>
+                <span
+                  className={cn(
+                    "shrink-0 text-right text-xs font-medium tabular-nums",
+                    lit
+                      ? "text-amber-600 dark:text-amber-300"
+                      : "text-muted-foreground",
+                  )}
+                >
+                  {when}
+                </span>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+      {canScrollDown && (
+        <>
+          <div
+            className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-12 bg-gradient-to-t from-card via-card/90 to-transparent"
+            aria-hidden
+          />
+          <div className="pointer-events-none absolute inset-x-0 bottom-1.5 z-10 flex justify-center">
+            <span className="inline-flex items-center gap-0.5 rounded-full border bg-background/95 px-2 py-0.5 text-[10px] font-medium text-muted-foreground shadow-sm">
+              <ChevronDown className="h-3 w-3" />
+              scroll for more
+            </span>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -250,49 +358,7 @@ function OpsTab() {
               </p>
             </div>
           </div>
-          <ul className="max-h-[17.5rem] space-y-1 overflow-y-auto px-3 py-3 sm:px-4">
-            {(birthdays?.people ?? []).map((person) => {
-              const name = `${person.firstName} ${person.lastName}`.trim() || "Unknown";
-              const when =
-                person.daysUntil === 0
-                  ? "Today"
-                  : person.daysUntil === 1
-                    ? "Tomorrow"
-                    : `in ${person.daysUntil} days`;
-              const lit = person.daysUntil === 0;
-              return (
-                <li key={person.profileId}>
-                  <Link
-                    href={person.href}
-                    className={cn(
-                      "flex items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-accent/50",
-                      lit && "bg-amber-500/10 ring-1 ring-amber-500/25",
-                    )}
-                  >
-                    <BirthdayCandle daysUntil={person.daysUntil} />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{name}</p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {formatBirthdayMd(person.dateOfBirth)}
-                        <span className="text-muted-foreground/60"> · </span>
-                        turning {person.ageTurning}
-                      </p>
-                    </div>
-                    <span
-                      className={cn(
-                        "shrink-0 text-right text-xs font-medium tabular-nums",
-                        lit
-                          ? "text-amber-600 dark:text-amber-300"
-                          : "text-muted-foreground",
-                      )}
-                    >
-                      {when}
-                    </span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+          <BirthdayList people={birthdays?.people ?? []} />
         </div>
       )}
 
