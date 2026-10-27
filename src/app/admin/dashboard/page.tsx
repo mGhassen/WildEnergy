@@ -7,12 +7,12 @@ import {
   ArrowDownRight,
   ArrowRight,
   ArrowUpRight,
-  Cake,
   CalendarDays,
   CheckCircle2,
   ChevronRight,
   CircleDot,
   CreditCard,
+  Flame,
   Minus,
   UserPlus,
   Users,
@@ -25,7 +25,7 @@ import { DashboardSkeleton } from "@/components/skeletons";
 import { useAdminDashboardStats } from "@/hooks/useAdmin";
 import { useAdminDashboardTasks } from "@/hooks/useAdminDashboardTasks";
 import { useCourses } from "@/hooks/useCourse";
-import { formatCurrency } from "@/lib/config";
+import { DATE_LOCALE, TIMEZONE, formatCurrency } from "@/lib/config";
 import { formatDate, formatTime, toDateKey } from "@/lib/date";
 import { formatTrainerDisplayName } from "@/lib/format-trainer-name";
 import { cn } from "@/lib/utils";
@@ -38,6 +38,56 @@ function addDaysKey(dateKey: string, days: number) {
   const d = new Date(`${dateKey}T12:00:00`);
   d.setDate(d.getDate() + days);
   return toDateKey(d)!;
+}
+
+function formatBirthdayMd(dob: string) {
+  const d = new Date(`${dob.slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString(DATE_LOCALE, {
+    day: "numeric",
+    month: "short",
+    timeZone: TIMEZONE,
+  });
+}
+
+/** Unlit candle: taller wick when further out. Today: lit flame. */
+function BirthdayCandle({ daysUntil }: { daysUntil: number }) {
+  const lit = daysUntil === 0;
+  // 7 days → tall wick; 1 day → short wick
+  const wickPx = lit ? 0 : Math.max(4, 4 + daysUntil * 3);
+
+  return (
+    <div
+      className={cn(
+        "flex h-11 w-8 shrink-0 flex-col items-center justify-end",
+        lit && "rounded-lg bg-amber-500/15",
+      )}
+      aria-hidden
+    >
+      {lit ? (
+        <Flame className="mb-0.5 h-4 w-4 animate-pulse text-amber-500 drop-shadow-[0_0_6px_rgba(245,158,11,0.7)]" />
+      ) : (
+        <div
+          className="mb-0.5 w-px rounded-full bg-muted-foreground/50"
+          style={{ height: wickPx }}
+        />
+      )}
+      <div
+        className={cn(
+          "w-2.5 rounded-sm",
+          lit
+            ? "h-4 bg-gradient-to-b from-amber-300 via-amber-500 to-amber-700 shadow-[0_0_8px_rgba(245,158,11,0.45)]"
+            : "h-3.5 bg-gradient-to-b from-muted-foreground/40 to-muted-foreground/25",
+        )}
+      />
+      <div
+        className={cn(
+          "mt-px h-0.5 w-3.5 rounded-full",
+          lit ? "bg-amber-800/80" : "bg-muted-foreground/30",
+        )}
+      />
+    </div>
+  );
 }
 
 type CourseUrgency = "live" | "checkin" | "soon" | "done" | "full" | "quiet";
@@ -188,18 +238,18 @@ function OpsTab() {
           <div className="flex flex-wrap items-end justify-between gap-3 border-b bg-muted/30 px-4 py-3 sm:px-5">
             <div>
               <div className="flex items-center gap-2">
-                <Cake className="h-4 w-4 text-muted-foreground" />
+                <Flame className="h-4 w-4 text-amber-500" />
                 <h2 className="text-sm font-semibold tracking-tight">Birthdays · next 7 days</h2>
                 <Badge variant="outline" className="font-normal tabular-nums">
                   {birthdayCount}
                 </Badge>
               </div>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                Members, trainers, and accounts with a birthday coming up
+                Wick shortens as the day approaches — lit when it’s today
               </p>
             </div>
           </div>
-          <ul className="divide-y px-4 py-2 sm:px-5">
+          <ul className="max-h-[17.5rem] space-y-1 overflow-y-auto px-3 py-3 sm:px-4">
             {(birthdays?.people ?? []).map((person) => {
               const name = `${person.firstName} ${person.lastName}`.trim() || "Unknown";
               const when =
@@ -208,23 +258,30 @@ function OpsTab() {
                   : person.daysUntil === 1
                     ? "Tomorrow"
                     : `in ${person.daysUntil} days`;
+              const lit = person.daysUntil === 0;
               return (
                 <li key={person.profileId}>
                   <Link
                     href={person.href}
-                    className="flex items-center justify-between gap-3 rounded-xl px-1 py-2.5 transition-colors hover:bg-accent/50 sm:px-2"
+                    className={cn(
+                      "flex items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-accent/50",
+                      lit && "bg-amber-500/10 ring-1 ring-amber-500/25",
+                    )}
                   >
-                    <div className="min-w-0">
+                    <BirthdayCandle daysUntil={person.daysUntil} />
+                    <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">{name}</p>
                       <p className="truncate text-xs text-muted-foreground">
-                        Turning {person.ageTurning}
+                        {formatBirthdayMd(person.dateOfBirth)}
+                        <span className="text-muted-foreground/60"> · </span>
+                        turning {person.ageTurning}
                       </p>
                     </div>
                     <span
                       className={cn(
                         "shrink-0 text-right text-xs font-medium tabular-nums",
-                        person.daysUntil === 0
-                          ? "text-amber-700 dark:text-amber-300"
+                        lit
+                          ? "text-amber-600 dark:text-amber-300"
                           : "text-muted-foreground",
                       )}
                     >
