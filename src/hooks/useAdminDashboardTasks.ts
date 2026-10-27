@@ -34,6 +34,16 @@ interface CourseNeedingCheck {
   };
 }
 
+interface UpcomingBirthday {
+  profileId: string;
+  firstName: string;
+  lastName: string;
+  dateOfBirth: string;
+  daysUntil: number;
+  ageTurning: number;
+  href: string;
+}
+
 interface DashboardTasks {
   pendingAccounts: {
     count: number;
@@ -42,6 +52,10 @@ interface DashboardTasks {
   coursesNeedingCheck: {
     count: number;
     courses: CourseNeedingCheck[];
+  };
+  upcomingBirthdays: {
+    count: number;
+    people: UpcomingBirthday[];
   };
 }
 

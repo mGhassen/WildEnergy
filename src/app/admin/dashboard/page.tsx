@@ -7,6 +7,7 @@ import {
   ArrowDownRight,
   ArrowRight,
   ArrowUpRight,
+  Cake,
   CalendarDays,
   CheckCircle2,
   ChevronRight,
@@ -147,6 +148,8 @@ function OpsTab() {
 
   const pending = tasks?.pendingAccounts;
   const pendingCount = pending?.count ?? 0;
+  const birthdays = tasks?.upcomingBirthdays;
+  const birthdayCount = birthdays?.count ?? 0;
   const liveCount = dayCourses.filter((c) => c.urgency === "live").length;
   const checkinCount = dayCourses.filter((c) => c.urgency === "checkin").length;
   const booked = dayCourses.reduce((s, c) => s + (c.current_participants || 0), 0);
@@ -178,6 +181,61 @@ function OpsTab() {
           </div>
           <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
         </Link>
+      )}
+
+      {birthdayCount > 0 && (
+        <div className="overflow-hidden rounded-2xl border bg-card">
+          <div className="flex flex-wrap items-end justify-between gap-3 border-b bg-muted/30 px-4 py-3 sm:px-5">
+            <div>
+              <div className="flex items-center gap-2">
+                <Cake className="h-4 w-4 text-muted-foreground" />
+                <h2 className="text-sm font-semibold tracking-tight">Birthdays · next 7 days</h2>
+                <Badge variant="outline" className="font-normal tabular-nums">
+                  {birthdayCount}
+                </Badge>
+              </div>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Members, trainers, and accounts with a birthday coming up
+              </p>
+            </div>
+          </div>
+          <ul className="divide-y px-4 py-2 sm:px-5">
+            {(birthdays?.people ?? []).map((person) => {
+              const name = `${person.firstName} ${person.lastName}`.trim() || "Unknown";
+              const when =
+                person.daysUntil === 0
+                  ? "Today"
+                  : person.daysUntil === 1
+                    ? "Tomorrow"
+                    : `in ${person.daysUntil} days`;
+              return (
+                <li key={person.profileId}>
+                  <Link
+                    href={person.href}
+                    className="flex items-center justify-between gap-3 rounded-xl px-1 py-2.5 transition-colors hover:bg-accent/50 sm:px-2"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">{name}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        Turning {person.ageTurning}
+                      </p>
+                    </div>
+                    <span
+                      className={cn(
+                        "shrink-0 text-right text-xs font-medium tabular-nums",
+                        person.daysUntil === 0
+                          ? "text-amber-700 dark:text-amber-300"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      {when}
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       )}
 
       <div className="overflow-hidden rounded-2xl border bg-card">

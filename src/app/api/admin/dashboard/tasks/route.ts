@@ -5,6 +5,32 @@ import {
   enrichTrainerWithProfile,
 } from '@/lib/resolve-trainer-profile';
 
+const BIRTHDAY_WINDOW_DAYS = 7;
+
+function startOfLocalDay(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+/** Next birthday occurrence (today or future), days until, and age turning that day. */
+function nextBirthdayInfo(dateOfBirth: string, asOf: Date) {
+  const dob = new Date(dateOfBirth);
+  if (Number.isNaN(dob.getTime())) return null;
+
+  const today = startOfLocalDay(asOf);
+  const birthMonth = dob.getMonth();
+  const birthDay = dob.getDate();
+
+  let next = new Date(today.getFullYear(), birthMonth, birthDay);
+  if (next < today) {
+    next = new Date(today.getFullYear() + 1, birthMonth, birthDay);
+  }
+
+  const daysUntil = Math.round((next.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  const ageTurning = next.getFullYear() - dob.getFullYear();
+
+  return { daysUntil, ageTurning, dateOfBirth: dateOfBirth.slice(0, 10) };
+}
+
 export async function GET(req: NextRequest) {
   try {
     const authHeader = req.headers.get('authorization');
@@ -29,74 +55,100 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    // Fetch accounts pending approval
-    const { data: pendingAccounts, error: accountsError } = await supabaseServer()
-      .from('accounts')
-      .select(`
-        id,
-        email,
-        created_at,
-        profiles!inner(
-          first_name,
-          last_name
-        )
-      `)
-      .eq('status', 'pending')
-      .order('created_at', { ascending: false });
+    const sb = supabaseServer();
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    const [
+      { data: pendingAccounts, error: accountsError },
+      { data: upcomingCourses, error: coursesError },
+      { data: profilesWithDob, error: profilesError },
+      { data: membersRows, error: membersError },
+      { data: trainersRows, error: trainersError },
+    ] = await Promise.all([
+      sb
+        .from('accounts')
+        .select(`
+          id,
+          email,
+          created_at,
+          profiles!inner(
+            first_name,
+            last_name
+          )
+        `)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false }),
+      sb
+        .from('courses')
+        .select(`
+          id,
+          course_date,
+          start_time,
+          end_time,
+          status,
+          max_participants,
+          current_participants,
+          class:classes(
+            id,
+            name,
+            category:categories(name, color)
+          ),
+          trainer:trainers(
+            id,
+            account_id,
+            profile_id,
+            specialization,
+            experience_years,
+            bio,
+            certification,
+            status
+          )
+        `)
+        .in('status', ['scheduled'])
+        .gte('course_date', today)
+        .lte('course_date', tomorrow)
+        .order('course_date', { ascending: true })
+        .order('start_time', { ascending: true }),
+      sb
+        .from('profiles')
+        .select('id, first_name, last_name, date_of_birth')
+        .not('date_of_birth', 'is', null),
+      sb.from('members').select('id, profile_id'),
+      sb.from('trainers').select('id, profile_id'),
+    ]);
 
     if (accountsError) {
       console.error('Error fetching pending accounts:', accountsError);
       return NextResponse.json({ error: 'Failed to fetch pending accounts' }, { status: 500 });
     }
 
-    // Fetch courses that need to start checking (scheduled courses starting soon)
-    const now = new Date();
-    const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000); // 1 hour from now
-    const today = now.toISOString().split('T')[0];
-    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
-    const { data: upcomingCourses, error: coursesError } = await supabaseServer()
-      .from('courses')
-      .select(`
-        id,
-        course_date,
-        start_time,
-        end_time,
-        status,
-        max_participants,
-        current_participants,
-        class:classes(
-          id,
-          name,
-          category:categories(name, color)
-        ),
-        trainer:trainers(
-          id,
-          account_id,
-          profile_id,
-          specialization,
-          experience_years,
-          bio,
-          certification,
-          status
-        )
-      `)
-      .in('status', ['scheduled'])
-      .gte('course_date', today)
-      .lte('course_date', tomorrow)
-      .order('course_date', { ascending: true })
-      .order('start_time', { ascending: true });
-
     if (coursesError) {
       console.error('Error fetching upcoming courses:', coursesError);
       return NextResponse.json({ error: 'Failed to fetch upcoming courses' }, { status: 500 });
+    }
+
+    if (profilesError) {
+      console.error('Error fetching profiles for birthdays:', profilesError);
+      return NextResponse.json({ error: 'Failed to fetch upcoming birthdays' }, { status: 500 });
+    }
+
+    if (membersError) {
+      console.error('Error fetching members for birthdays:', membersError);
+      return NextResponse.json({ error: 'Failed to fetch upcoming birthdays' }, { status: 500 });
+    }
+
+    if (trainersError) {
+      console.error('Error fetching trainers for birthdays:', trainersError);
+      return NextResponse.json({ error: 'Failed to fetch upcoming birthdays' }, { status: 500 });
     }
 
     const normalizeTrainer = (trainer: unknown) =>
       Array.isArray(trainer) ? trainer[0] : trainer;
 
     const trainerProfiles = await batchResolveTrainerProfiles(
-      supabaseServer(),
+      sb,
       (upcomingCourses || []).map((course) => normalizeTrainer(course.trainer)),
     );
 
@@ -124,6 +176,46 @@ export async function GET(req: NextRequest) {
       created_at: account.created_at
     }));
 
+    const memberByProfile = new Map<string, string>();
+    for (const m of membersRows || []) {
+      if (m.profile_id) memberByProfile.set(m.profile_id, m.id);
+    }
+    const trainerByProfile = new Map<string, string>();
+    for (const t of trainersRows || []) {
+      if (t.profile_id) trainerByProfile.set(t.profile_id, t.id);
+    }
+
+    const upcomingBirthdays = (profilesWithDob || [])
+      .map((profile) => {
+        const info = nextBirthdayInfo(profile.date_of_birth, now);
+        if (!info || info.daysUntil < 0 || info.daysUntil > BIRTHDAY_WINDOW_DAYS) return null;
+
+        const memberId = memberByProfile.get(profile.id);
+        const trainerId = trainerByProfile.get(profile.id);
+        const href = memberId
+          ? `/admin/members/${memberId}`
+          : trainerId
+            ? `/admin/trainers/${trainerId}`
+            : `/admin/accounts/${profile.id}`;
+
+        return {
+          profileId: profile.id,
+          firstName: profile.first_name || '',
+          lastName: profile.last_name || '',
+          dateOfBirth: info.dateOfBirth,
+          daysUntil: info.daysUntil,
+          ageTurning: info.ageTurning,
+          href,
+        };
+      })
+      .filter((p): p is NonNullable<typeof p> => p !== null)
+      .sort((a, b) => {
+        if (a.daysUntil !== b.daysUntil) return a.daysUntil - b.daysUntil;
+        const nameA = `${a.firstName} ${a.lastName}`.trim().toLowerCase();
+        const nameB = `${b.firstName} ${b.lastName}`.trim().toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
+
     return NextResponse.json({
       pendingAccounts: {
         count: flattenedPendingAccounts.length,
@@ -132,7 +224,11 @@ export async function GET(req: NextRequest) {
       coursesNeedingCheck: {
         count: coursesNeedingCheck.length,
         courses: coursesNeedingCheck
-      }
+      },
+      upcomingBirthdays: {
+        count: upcomingBirthdays.length,
+        people: upcomingBirthdays,
+      },
     });
 
   } catch (error: any) {
