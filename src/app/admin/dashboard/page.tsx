@@ -46,6 +46,7 @@ function formatBirthdayMd(dob: string) {
   return d.toLocaleDateString(DATE_LOCALE, {
     day: "numeric",
     month: "short",
+    year: "numeric",
     timeZone: TIMEZONE,
   });
 }
