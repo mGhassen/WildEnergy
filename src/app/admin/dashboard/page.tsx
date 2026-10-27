@@ -131,13 +131,14 @@ function BirthdayList({ people }: { people: BirthdayPerson[] }) {
     <div className="relative">
       {canScrollUp && (
         <div
-          className="pointer-events-none absolute inset-x-0 top-0 z-10 h-6 bg-gradient-to-b from-card to-transparent"
+          className="pointer-events-none absolute inset-x-0 top-0 z-10 h-5 bg-gradient-to-b from-card to-transparent"
           aria-hidden
         />
       )}
+      {/* ~4 rows: each ~3.5rem + gaps/padding */}
       <ul
         ref={listRef}
-        className="max-h-[15rem] space-y-1 overflow-y-auto px-3 py-3 sm:px-4"
+        className="max-h-[16.5rem] space-y-1 overflow-y-auto px-3 py-2 sm:px-4"
       >
         {people.map((person) => {
           const name = `${person.firstName} ${person.lastName}`.trim() || "Unknown";
@@ -182,18 +183,12 @@ function BirthdayList({ people }: { people: BirthdayPerson[] }) {
         })}
       </ul>
       {canScrollDown && (
-        <>
-          <div
-            className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-12 bg-gradient-to-t from-card via-card/90 to-transparent"
-            aria-hidden
-          />
-          <div className="pointer-events-none absolute inset-x-0 bottom-1.5 z-10 flex justify-center">
-            <span className="inline-flex items-center gap-0.5 rounded-full border bg-background/95 px-2 py-0.5 text-[10px] font-medium text-muted-foreground shadow-sm">
-              <ChevronDown className="h-3 w-3" />
-              scroll for more
-            </span>
-          </div>
-        </>
+        <div className="pointer-events-none absolute inset-x-0 bottom-2 z-10 flex justify-center">
+          <span className="inline-flex items-center gap-0.5 rounded-full border bg-background/90 px-2 py-0.5 text-[10px] font-medium text-muted-foreground shadow-md backdrop-blur-sm">
+            <ChevronDown className="h-3 w-3" />
+            more
+          </span>
+        </div>
       )}
     </div>
   );
