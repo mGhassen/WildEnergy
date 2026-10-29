@@ -11,24 +11,31 @@ function startOfLocalDay(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
-/** Next birthday occurrence (today or future), days until, and age turning that day. */
-function nextBirthdayInfo(dateOfBirth: string, asOf: Date) {
+/** Birthday in ±window days (past or upcoming), daysUntil (neg = past), age on that day. */
+function birthdayWindowInfo(dateOfBirth: string, asOf: Date) {
   const dob = new Date(dateOfBirth);
   if (Number.isNaN(dob.getTime())) return null;
 
   const today = startOfLocalDay(asOf);
   const birthMonth = dob.getMonth();
   const birthDay = dob.getDate();
+  const y = today.getFullYear();
 
-  let next = new Date(today.getFullYear(), birthMonth, birthDay);
-  if (next < today) {
-    next = new Date(today.getFullYear() + 1, birthMonth, birthDay);
+  let best: { daysUntil: number; ageTurning: number } | null = null;
+  for (const year of [y - 1, y, y + 1]) {
+    const occurrence = new Date(year, birthMonth, birthDay);
+    const daysUntil = Math.round(
+      (occurrence.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+    );
+    if (daysUntil < -BIRTHDAY_WINDOW_DAYS || daysUntil > BIRTHDAY_WINDOW_DAYS) continue;
+    const ageTurning = year - dob.getFullYear();
+    if (!best || Math.abs(daysUntil) < Math.abs(best.daysUntil)) {
+      best = { daysUntil, ageTurning };
+    }
   }
 
-  const daysUntil = Math.round((next.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-  const ageTurning = next.getFullYear() - dob.getFullYear();
-
-  return { daysUntil, ageTurning, dateOfBirth: dateOfBirth.slice(0, 10) };
+  if (!best) return null;
+  return { ...best, dateOfBirth: dateOfBirth.slice(0, 10) };
 }
 
 export async function GET(req: NextRequest) {
@@ -187,8 +194,8 @@ export async function GET(req: NextRequest) {
 
     const upcomingBirthdays = (profilesWithDob || [])
       .map((profile) => {
-        const info = nextBirthdayInfo(profile.date_of_birth, now);
-        if (!info || info.daysUntil < 0 || info.daysUntil > BIRTHDAY_WINDOW_DAYS) return null;
+        const info = birthdayWindowInfo(profile.date_of_birth, now);
+        if (!info) return null;
 
         const memberId = memberByProfile.get(profile.id);
         const trainerId = trainerByProfile.get(profile.id);
@@ -210,6 +217,7 @@ export async function GET(req: NextRequest) {
       })
       .filter((p): p is NonNullable<typeof p> => p !== null)
       .sort((a, b) => {
+        // Past first (most recent), then today, then upcoming
         if (a.daysUntil !== b.daysUntil) return a.daysUntil - b.daysUntil;
         const nameA = `${a.firstName} ${a.lastName}`.trim().toLowerCase();
         const nameB = `${b.firstName} ${b.lastName}`.trim().toLowerCase();

@@ -52,22 +52,25 @@ function formatBirthdayMd(dob: string) {
   });
 }
 
-/** Unlit candle: taller wick when further out. Today: lit flame. */
+/** Past: snuffed. Today: lit. Upcoming: taller wick when further out. */
 function BirthdayCandle({ daysUntil }: { daysUntil: number }) {
   const lit = daysUntil === 0;
-  // 7 days → tall wick; 1 day → short wick
-  const wickPx = lit ? 0 : Math.max(4, 4 + daysUntil * 3);
+  const past = daysUntil < 0;
+  const wickPx = lit || past ? 0 : Math.max(4, 4 + daysUntil * 3);
 
   return (
     <div
       className={cn(
         "flex h-11 w-8 shrink-0 flex-col items-center justify-end",
         lit && "rounded-lg bg-amber-500/15",
+        past && "opacity-55",
       )}
       aria-hidden
     >
       {lit ? (
         <Flame className="mb-0.5 h-4 w-4 animate-pulse text-amber-500 drop-shadow-[0_0_6px_rgba(245,158,11,0.7)]" />
+      ) : past ? (
+        <div className="mb-0.5 h-1.5 w-1.5 rounded-full bg-muted-foreground/35" />
       ) : (
         <div
           className="mb-0.5 w-px rounded-full bg-muted-foreground/50"
@@ -79,7 +82,9 @@ function BirthdayCandle({ daysUntil }: { daysUntil: number }) {
           "w-2.5 rounded-sm",
           lit
             ? "h-4 bg-gradient-to-b from-amber-300 via-amber-500 to-amber-700 shadow-[0_0_8px_rgba(245,158,11,0.45)]"
-            : "h-3.5 bg-gradient-to-b from-muted-foreground/40 to-muted-foreground/25",
+            : past
+              ? "h-3 bg-gradient-to-b from-muted-foreground/25 to-muted-foreground/15"
+              : "h-3.5 bg-gradient-to-b from-muted-foreground/40 to-muted-foreground/25",
         )}
       />
       <div
@@ -90,6 +95,14 @@ function BirthdayCandle({ daysUntil }: { daysUntil: number }) {
       />
     </div>
   );
+}
+
+function birthdayWhenLabel(daysUntil: number) {
+  if (daysUntil === 0) return "Today";
+  if (daysUntil === 1) return "Tomorrow";
+  if (daysUntil === -1) return "Yesterday";
+  if (daysUntil < 0) return `${Math.abs(daysUntil)} days ago`;
+  return `in ${daysUntil} days`;
 }
 
 type BirthdayPerson = {
@@ -142,13 +155,9 @@ function BirthdayList({ people }: { people: BirthdayPerson[] }) {
       >
         {people.map((person) => {
           const name = `${person.firstName} ${person.lastName}`.trim() || "Unknown";
-          const when =
-            person.daysUntil === 0
-              ? "Today"
-              : person.daysUntil === 1
-                ? "Tomorrow"
-                : `in ${person.daysUntil} days`;
+          const when = birthdayWhenLabel(person.daysUntil);
           const lit = person.daysUntil === 0;
+          const past = person.daysUntil < 0;
           return (
             <li key={person.profileId}>
               <Link
@@ -156,6 +165,7 @@ function BirthdayList({ people }: { people: BirthdayPerson[] }) {
                 className={cn(
                   "flex items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-accent/50",
                   lit && "bg-amber-500/10 ring-1 ring-amber-500/25",
+                  past && "opacity-80",
                 )}
               >
                 <BirthdayCandle daysUntil={person.daysUntil} />
@@ -164,7 +174,7 @@ function BirthdayList({ people }: { people: BirthdayPerson[] }) {
                   <p className="truncate text-xs text-muted-foreground">
                     {formatBirthdayMd(person.dateOfBirth)}
                     <span className="text-muted-foreground/60"> · </span>
-                    turning {person.ageTurning}
+                    {past ? "turned" : "turning"} {person.ageTurning}
                   </p>
                 </div>
                 <span
@@ -344,7 +354,7 @@ function OpsTab() {
             <div>
               <div className="flex items-center gap-2">
                 <Flame className="h-4 w-4 text-amber-500" />
-                <h2 className="text-sm font-semibold tracking-tight">Birthdays · next 7 days</h2>
+                <h2 className="text-sm font-semibold tracking-tight">Birthdays · ±7 days</h2>
                 <Badge variant="outline" className="font-normal tabular-nums">
                   {birthdayCount}
                 </Badge>
