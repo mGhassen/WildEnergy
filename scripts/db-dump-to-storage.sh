@@ -116,7 +116,7 @@ print(f"Deleting {len(to_delete)} object(s)")
 if not to_delete:
     raise SystemExit(0)
 
-body = json.dumps(to_delete).encode()
+body = json.dumps({"prefixes": to_delete}).encode()
 req = urllib.request.Request(
     f"{url}/storage/v1/object/{bucket}",
     data=body,
