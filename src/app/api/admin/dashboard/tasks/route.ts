@@ -217,8 +217,13 @@ export async function GET(req: NextRequest) {
       })
       .filter((p): p is NonNullable<typeof p> => p !== null)
       .sort((a, b) => {
-        // Past first (most recent), then today, then upcoming
-        if (a.daysUntil !== b.daysUntil) return a.daysUntil - b.daysUntil;
+        // Today + upcoming first, then past (most recent past first)
+        const bucket = (d: number) => (d < 0 ? 1 : 0);
+        const ba = bucket(a.daysUntil);
+        const bb = bucket(b.daysUntil);
+        if (ba !== bb) return ba - bb;
+        if (ba === 1) return b.daysUntil - a.daysUntil; // -1 before -7
+        if (a.daysUntil !== b.daysUntil) return a.daysUntil - b.daysUntil; // 0, 1, 2…
         const nameA = `${a.firstName} ${a.lastName}`.trim().toLowerCase();
         const nameB = `${b.firstName} ${b.lastName}`.trim().toLowerCase();
         return nameA.localeCompare(nameB);
