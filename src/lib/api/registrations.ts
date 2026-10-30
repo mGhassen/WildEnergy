@@ -1,6 +1,5 @@
 import { apiRequest } from '@/lib/queryClient';
 
-
 export interface Registration {
   id: number;
   user_id: string;
